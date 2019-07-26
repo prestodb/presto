@@ -613,6 +613,7 @@ public final class HttpRemoteTask
         Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
+                session.getIdentity().getExtraCredentials(),
                 fragment,
                 sources,
                 outputBuffers.get(),

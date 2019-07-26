@@ -41,6 +41,7 @@ public final class PrestoHeaders
     public static final String PRESTO_CLIENT_TAGS = "X-Presto-Client-Tags";
     public static final String PRESTO_CLIENT_CAPABILITIES = "X-Presto-Client-Capabilities";
     public static final String PRESTO_RESOURCE_ESTIMATE = "X-Presto-Resource-Estimate";
+    public static final String PRESTO_EXTRA_CREDENTIAL = "X-Presto-Extra-Credential";
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";
     public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";

@@ -33,6 +33,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public final class SessionRepresentation
@@ -271,11 +272,16 @@ public final class SessionRepresentation
 
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
+        return toSession(sessionPropertyManager, emptyMap());
+    }
+
+    public Session toSession(SessionPropertyManager sessionPropertyManager, Map<String, String> extraCredentials)
+    {
         return new Session(
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                new Identity(user, principal.map(BasicPrincipal::new), roles),
+                new Identity(user, principal.map(BasicPrincipal::new), roles, extraCredentials),
                 source,
                 catalog,
                 schema,
