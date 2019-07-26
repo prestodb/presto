@@ -91,6 +91,9 @@ public class SourcePartitionedScheduler
     private final PlanNodeId partitionedNode;
     private final boolean groupedExecution;
 
+    // TODO: Add LIFESPAN_ADDED into SourcePartitionedScheduler#State and remove this boolean
+    private boolean lifespanAdded;
+
     private final Map<Lifespan, ScheduleGroup> scheduleGroups = new HashMap<>();
     private State state = State.INITIALIZED;
 
@@ -179,6 +182,7 @@ public class SourcePartitionedScheduler
     public synchronized void startLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle)
     {
         checkState(state == State.INITIALIZED || state == State.SPLITS_ADDED);
+        lifespanAdded = true;
         scheduleGroups.put(lifespan, new ScheduleGroup(partitionHandle));
         whenFinishedOrNewLifespanAdded.set(null);
         whenFinishedOrNewLifespanAdded = SettableFuture.create();
@@ -188,6 +192,7 @@ public class SourcePartitionedScheduler
     public synchronized void rewindLifespan(Lifespan lifespan, ConnectorPartitionHandle partitionHandle)
     {
         checkState(state == State.INITIALIZED || state == State.SPLITS_ADDED, "Current state %s is not rewindable", state);
+        checkState(lifespanAdded, "Cannot rewind lifespan without any lifespan added before");
         scheduleGroups.remove(lifespan);
         splitSource.rewind(partitionHandle);
     }
@@ -315,7 +320,7 @@ public class SourcePartitionedScheduler
         // we can no longer claim schedule is complete after all splits are scheduled.
         // Splits schedule can only be considered as finished when all lifespan executions are done
         // (by calling `notifyAllLifespansFinishedExecution`)
-        if ((state == State.NO_MORE_SPLITS || state == State.FINISHED) || (!groupedExecution && scheduleGroups.isEmpty() && splitSource.isFinished())) {
+        if ((state == State.NO_MORE_SPLITS || state == State.FINISHED) || (!groupedExecution && lifespanAdded && scheduleGroups.isEmpty() && splitSource.isFinished())) {
             switch (state) {
                 case INITIALIZED:
                     // We have not scheduled a single split so far.
