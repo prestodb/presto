@@ -1430,13 +1430,6 @@ public class TestExpressionInterpreter
         optimize("CAST(null AS ROW(a VARCHAR, b BIGINT)).a");
     }
 
-    @Test
-    public void testRowSubscript()
-    {
-        assertOptimizedEquals("ROW (1, 'a', true)[3]", "true");
-        assertOptimizedEquals("ROW (1, 'a', ROW (2, 'b', ROW (3, 'c')))[3][3][2]", "'c'");
-    }
-
     @Test(expectedExceptions = PrestoException.class)
     public void testArraySubscriptConstantNegativeIndex()
     {
