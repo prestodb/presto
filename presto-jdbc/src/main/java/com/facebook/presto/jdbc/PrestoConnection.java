@@ -695,6 +695,7 @@ public class PrestoConnection
                 ImmutableMap.copyOf(allProperties),
                 ImmutableMap.copyOf(preparedStatements),
                 ImmutableMap.copyOf(roles),
+                ImmutableMap.of(),
                 transactionId.get(),
                 timeout);
 

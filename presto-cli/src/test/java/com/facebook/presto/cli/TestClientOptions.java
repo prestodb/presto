@@ -99,6 +99,16 @@ public class TestClientOptions
     }
 
     @Test
+    public void testExtraCredentials()
+    {
+        Console console = singleCommand(Console.class).parse("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.bar=bar");
+        ClientOptions options = console.clientOptions;
+        assertEquals(options.extraCredentials, ImmutableList.of(
+                new ClientOptions.ClientExtraCredential("test.token.foo", "foo"),
+                new ClientOptions.ClientExtraCredential("test.token.bar", "bar")));
+    }
+
+    @Test
     public void testSessionProperties()
     {
         Console console = singleCommand(Console.class).parse("--session", "system=system-value", "--session", "catalog.name=catalog-property");
@@ -143,5 +153,13 @@ public class TestClientOptions
     public void testEqualSignNoAllowedInPropertyCatalog()
     {
         new ClientSessionProperty(Optional.of("cat=alog"), "name", "value");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Multiple entries with same key: test.token.foo=bar and test.token.foo=foo")
+    public void testDuplicateExtraCredentialKey()
+    {
+        Console console = singleCommand(Console.class).parse("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.foo=bar");
+        ClientOptions options = console.clientOptions;
+        options.toClientSession();
     }
 }
