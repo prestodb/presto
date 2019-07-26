@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.integration;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -33,6 +34,7 @@ import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -197,19 +199,10 @@ public class TestRaptorIntegrationSmokeTest
     @Test
     public void testShardingByTemporalDateColumnBucketed()
     {
-        // Make sure we have at least 2 different orderdate.
-        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
+        String tableName = "test_shard_temporal_date_bucketed";
+        prepareTemporalShardedAndBucketedTable(tableName);
 
-        assertUpdate("CREATE TABLE test_shard_temporal_date_bucketed " +
-                        "WITH (temporal_column = 'orderdate', bucket_count = 10, bucketed_on = ARRAY ['orderkey']) AS " +
-                        "SELECT orderdate, orderkey " +
-                        "FROM orders " +
-                        "WHERE orderdate < date '1992-02-08'",
-                "SELECT count(*) " +
-                        "FROM orders " +
-                        "WHERE orderdate < date '1992-02-08'");
-
-        MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM test_shard_temporal_date_bucketed");
+        MaterializedResult results = computeActual("SELECT orderdate, \"$shard_uuid\" FROM " + tableName);
 
         // Each shard will only contain data of one date.
         SetMultimap<String, LocalDate> shardDateMap = HashMultimap.create();
@@ -222,8 +215,81 @@ public class TestRaptorIntegrationSmokeTest
         }
 
         // Make sure we have all the rows
-        assertQuery("SELECT orderdate, orderkey FROM test_shard_temporal_date_bucketed",
+        assertQuery("SELECT orderdate, orderkey FROM " + tableName,
                 "SELECT orderdate, orderkey FROM orders WHERE orderdate < date '1992-02-08'");
+    }
+
+    @Test
+    public void testColocatedJoin()
+    {
+        String tableName = "test_colocated_join";
+        prepareTemporalShardedAndBucketedTable(tableName);
+
+        Session colocated = Session.builder(getSession())
+                .setSystemProperty(COLOCATED_JOIN, "true")
+                .build();
+
+        assertQuery(
+                colocated,
+                format("SELECT t1.orderkey " +
+                                "FROM %s t1 JOIN %s t2 " +
+                                "ON t1.orderkey = t2.orderkey",
+                tableName,
+                tableName),
+                "SELECT t1.orderkey FROM " +
+                        "(SELECT * FROM orders WHERE orderdate < date '1992-02-08') t1 " +
+                        "JOIN " +
+                        "(SELECT * FROM orders WHERE orderdate < date '1992-02-08') t2 " +
+                        "   ON t1.orderkey = t2.orderkey");
+
+        // empty probe side
+        assertQuery(
+                colocated,
+                format("SELECT t1.orderkey " +
+                                "FROM " +
+                                "(SELECT * FROM %s WHERE orderdate < date '1970-01-01') t1 " +
+                                "JOIN %s t2 " +
+                                "   ON t1.orderkey = t2.orderkey",
+                        tableName,
+                        tableName),
+                "SELECT t1.orderkey FROM " +
+                        "(SELECT * FROM orders WHERE orderdate < date '1970-01-01') t1 " +
+                        "JOIN " +
+                        "(SELECT * FROM orders WHERE orderdate < date '1992-02-08') t2 " +
+                        "   ON t1.orderkey = t2.orderkey");
+
+        // empty build side
+        assertQuery(
+                colocated,
+                format("SELECT t1.orderkey " +
+                                "FROM " +
+                                "%s t1 JOIN " +
+                                "(SELECT * FROM %s WHERE orderdate < date '1970-01-01') t2 " +
+                                "   ON t1.orderkey = t2.orderkey",
+                        tableName,
+                        tableName),
+                "SELECT t1.orderkey FROM " +
+                        "(SELECT * FROM orders WHERE orderdate < date '1992-02-08') t1 " +
+                        "JOIN " +
+                        "(SELECT * FROM orders WHERE orderdate < date '1970-01-01') t2 " +
+                        "   ON t1.orderkey = t2.orderkey");
+    }
+
+    private void prepareTemporalShardedAndBucketedTable(String tableName)
+    {
+        // Make sure we have at least 2 different orderdate.
+        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
+
+        assertUpdate(
+                format("CREATE TABLE %s " +
+                                "WITH (temporal_column = 'orderdate', bucket_count = 10, bucketed_on = ARRAY ['orderkey']) AS " +
+                                "SELECT orderdate, orderkey " +
+                                "FROM orders " +
+                                "WHERE orderdate < date '1992-02-08'",
+                        tableName),
+                "SELECT count(*) " +
+                        "FROM orders " +
+                        "WHERE orderdate < date '1992-02-08'");
     }
 
     @Test
