@@ -279,7 +279,7 @@ public class BaseJdbcClient
     public void createTable(ConnectorTableMetadata tableMetadata)
     {
         try {
-            createTable(tableMetadata, tableMetadata.getTable().getTableName());
+            createTable(tableMetadata, null, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -287,28 +287,28 @@ public class BaseJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return beginWriteTable(tableMetadata);
+        return beginWriteTable(session, tableMetadata);
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return beginWriteTable(tableMetadata);
+        return beginWriteTable(session, tableMetadata);
     }
 
-    private JdbcOutputTableHandle beginWriteTable(ConnectorTableMetadata tableMetadata)
+    private JdbcOutputTableHandle beginWriteTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         try {
-            return createTable(tableMetadata, generateTemporaryTableName());
+            return createTable(tableMetadata, session, generateTemporaryTableName());
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
     }
 
-    protected JdbcOutputTableHandle createTable(ConnectorTableMetadata tableMetadata, String tableName)
+    protected JdbcOutputTableHandle createTable(ConnectorTableMetadata tableMetadata, ConnectorSession session, String tableName)
             throws SQLException
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
