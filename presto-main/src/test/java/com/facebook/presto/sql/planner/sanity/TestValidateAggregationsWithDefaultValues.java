@@ -23,7 +23,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -54,7 +53,6 @@ public class TestValidateAggregationsWithDefaultValues
 
     private Metadata metadata;
     private PlanBuilder builder;
-    private Symbol symbol;
     private VariableReferenceExpression variable;
     private TableScanNode tableScanNode;
 
@@ -71,8 +69,7 @@ public class TestValidateAggregationsWithDefaultValues
                 TestingTransactionHandle.create(),
                 Optional.of(new TpchTableLayoutHandle(nationTpchTableHandle, TupleDomain.all())));
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        symbol = builder.symbol("nationkey");
-        variable = builder.variable(symbol);
+        variable = builder.variable("nationkey");
         tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(variable), ImmutableMap.of(variable, nationkeyColumnHandle));
     }
 

@@ -44,7 +44,7 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable(p.symbol("sp")), PlanBuilder.expression("spatial_partitioning(geometry, 10)"), ImmutableList.of(GEOMETRY))
+                                .addAggregation(p.variable("sp"), PlanBuilder.expression("spatial_partitioning(geometry, 10)"), ImmutableList.of(GEOMETRY))
                                 .source(p.values(p.variable("geometry")))))
                 .doesNotFire();
     }
@@ -56,7 +56,7 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable(p.symbol("sp")), PlanBuilder.expression("spatial_partitioning(geometry)"), ImmutableList.of(GEOMETRY))
+                                .addAggregation(p.variable("sp"), PlanBuilder.expression("spatial_partitioning(geometry)"), ImmutableList.of(GEOMETRY))
                                 .source(p.values(p.variable("geometry")))))
                 .matches(
                         aggregation(
@@ -70,7 +70,7 @@ public class TestRewriteSpatialPartitioningAggregation
                 .on(p -> p.aggregation(a ->
                         a.globalGrouping()
                                 .step(AggregationNode.Step.FINAL)
-                                .addAggregation(p.variable(p.symbol("sp")), PlanBuilder.expression("spatial_partitioning(ST_Envelope(geometry))"), ImmutableList.of(GEOMETRY))
+                                .addAggregation(p.variable("sp"), PlanBuilder.expression("spatial_partitioning(ST_Envelope(geometry))"), ImmutableList.of(GEOMETRY))
                                 .source(p.values(p.variable("geometry")))))
                 .matches(
                         aggregation(

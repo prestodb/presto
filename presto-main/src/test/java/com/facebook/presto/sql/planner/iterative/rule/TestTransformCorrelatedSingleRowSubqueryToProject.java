@@ -50,14 +50,14 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p ->
                         p.lateral(
-                                ImmutableList.of(p.variable(p.symbol("l_nationkey"))),
+                                ImmutableList.of(p.variable("l_nationkey")),
                                 p.tableScan(new TableHandle(
                                                 new ConnectorId("local"),
                                                 new TpchTableHandle("nation", TINY_SCALE_FACTOR),
                                                 TestingTransactionHandle.create(),
                                                 Optional.empty()),
-                                        ImmutableList.of(p.variable(p.symbol("l_nationkey"))),
-                                        ImmutableMap.of(p.variable(p.symbol("l_nationkey")), new TpchColumnHandle("nationkey",
+                                        ImmutableList.of(p.variable("l_nationkey")),
+                                        ImmutableMap.of(p.variable("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(
                                         assignment(p.variable("l_expr2"), expression("l_nationkey + 1")),
@@ -77,7 +77,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
         tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p ->
                         p.lateral(
-                                ImmutableList.of(p.variable(p.symbol("a"))),
+                                ImmutableList.of(p.variable("a")),
                                 p.values(p.variable("a")),
                                 p.values(p.variable("a"))))
                 .doesNotFire();

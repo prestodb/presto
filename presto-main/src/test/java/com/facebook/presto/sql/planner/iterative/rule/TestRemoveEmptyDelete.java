@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -26,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.iterative.rule.test.RuleTester.CONNECTOR_ID;
 
 public class TestRemoveEmptyDelete
@@ -45,7 +45,7 @@ public class TestRemoveEmptyDelete
                                         Optional.empty()),
                                 ImmutableList.of(),
                                 ImmutableMap.of()),
-                        p.variable(p.symbol("a", BigintType.BIGINT))))
+                        p.variable("a", BIGINT)))
                 .doesNotFire();
     }
 
@@ -56,7 +56,7 @@ public class TestRemoveEmptyDelete
                 .on(p -> p.tableDelete(
                         new SchemaTableName("sch", "tab"),
                         p.values(),
-                        p.variable(p.symbol("a", BigintType.BIGINT))))
+                        p.variable("a", BIGINT)))
                 .matches(
                         PlanMatchPattern.values(ImmutableMap.of("a", 0)));
     }

@@ -61,7 +61,7 @@ public class TestRowNumberStatsRule
         // grouping on a key with 0 nulls fraction with max rows per partition limit
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.variable(pb.symbol("x", BIGINT))),
+                        ImmutableList.of(pb.variable("x", BIGINT)),
                         Optional.of(1),
                         pb.variable("z", BIGINT),
                         pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT))))
@@ -81,7 +81,7 @@ public class TestRowNumberStatsRule
         // grouping on a key with non zero nulls fraction
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.variable(pb.symbol("y", BIGINT))),
+                        ImmutableList.of(pb.variable("y", BIGINT)),
                         Optional.empty(),
                         pb.variable("z", BIGINT),
                         pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT))))

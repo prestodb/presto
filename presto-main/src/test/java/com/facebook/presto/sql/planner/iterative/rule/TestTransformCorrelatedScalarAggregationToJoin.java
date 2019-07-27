@@ -46,7 +46,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.variable(p.symbol("corr"))),
+                        ImmutableList.of(p.variable("corr")),
                         p.values(p.variable("corr")),
                         p.values(p.variable("a"))))
                 .doesNotFire();
@@ -68,11 +68,11 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.variable(p.symbol("corr"))),
+                        ImmutableList.of(p.variable("corr")),
                         p.values(p.variable("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.variable("a"), p.variable("b")))
-                                .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.variable("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                 .singleGroupingSet(p.variable("b")))))
                 .doesNotFire();
     }
@@ -82,11 +82,11 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionManager()))
                 .on(p -> p.lateral(
-                        ImmutableList.of(p.variable(p.symbol("corr"))),
+                        ImmutableList.of(p.variable("corr")),
                         p.values(p.variable("corr")),
                         p.aggregation(ab -> ab
                                 .source(p.values(p.variable("a"), p.variable("b")))
-                                .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.variable("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                 .globalGrouping())))
                 .matches(
                         project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
@@ -109,7 +109,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                         p.project(assignment(p.variable("expr"), p.expression("sum + 1")),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.variable("a"), p.variable("b")))
-                                        .addAggregation(p.variable(p.symbol("sum")), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                        .addAggregation(p.variable("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                         .globalGrouping()))))
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),

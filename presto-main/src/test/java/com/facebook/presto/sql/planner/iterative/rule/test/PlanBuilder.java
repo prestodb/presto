@@ -40,7 +40,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingConnectorIndexHandle;
 import com.facebook.presto.sql.planner.TestingConnectorTransactionHandle;
 import com.facebook.presto.sql.planner.TestingWriterTarget;
@@ -114,7 +113,7 @@ public class PlanBuilder
 {
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
-    private final Map<String, Type> symbols = new HashMap<>();
+    private final Map<String, Type> variables = new HashMap<>();
 
     public PlanBuilder(PlanNodeIdAllocator idAllocator, Metadata metadata)
     {
@@ -718,12 +717,7 @@ public class PlanBuilder
 
     public VariableReferenceExpression variable(String name)
     {
-        return variable(symbol(name, BIGINT));
-    }
-
-    public VariableReferenceExpression variable(Symbol symbol)
-    {
-        return new VariableReferenceExpression(symbol.getName(), symbols.get(symbol.getName()));
+        return variable(name, BIGINT);
     }
 
     public VariableReferenceExpression variable(VariableReferenceExpression variable)
@@ -733,27 +727,15 @@ public class PlanBuilder
 
     public VariableReferenceExpression variable(String name, Type type)
     {
-        Symbol s = symbol(name, type);
-        return new VariableReferenceExpression(s.getName(), type);
-    }
-
-    public Symbol symbol(String name)
-    {
-        return symbol(name, BIGINT);
-    }
-
-    public Symbol symbol(String name, Type type)
-    {
-        Type old = symbols.put(name, type);
+        Type old = variables.put(name, type);
         if (old != null && !old.equals(type)) {
-            throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old));
+            throw new IllegalArgumentException(format("Variable '%s' already registered with type '%s'", name, old));
         }
 
         if (old == null) {
-            symbols.put(name, type);
+            variables.put(name, type);
         }
-
-        return new Symbol(name);
+        return new VariableReferenceExpression(name, type);
     }
 
     public WindowNode window(WindowNode.Specification specification, Map<VariableReferenceExpression, WindowNode.Function> functions, PlanNode source)
@@ -832,6 +814,6 @@ public class PlanBuilder
 
     public TypeProvider getTypes()
     {
-        return TypeProvider.viewOf(symbols);
+        return TypeProvider.viewOf(variables);
     }
 }
