@@ -224,7 +224,6 @@ class QueryPlanner
 
         // create table scan
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
-        List<Symbol> outputSymbols = outputVariables.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableList());
         PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputVariables, columns.build(), TupleDomain.all(), TupleDomain.all());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
         RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputVariables);
@@ -244,7 +243,6 @@ class QueryPlanner
                 variableAllocator.newVariable("partialrows", BIGINT),
                 variableAllocator.newVariable("fragment", VARBINARY));
 
-        List<Symbol> deleteNodeOutputSymbols = deleteNodeOutputVariables.stream().map(variable -> new Symbol(variable.getName())).collect(toImmutableList());
         return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable()), rowId, deleteNodeOutputVariables);
     }
 
@@ -298,7 +296,7 @@ class QueryPlanner
     {
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
 
-        // Make field->symbol mapping from underlying relation plan available for translations
+        // Make field->variable mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
         translations.setFieldMappings(relationPlan.getFieldMappings());
 
@@ -410,7 +408,7 @@ class QueryPlanner
                 analysis.getParameters());
     }
 
-    private PlanBuilder explicitCoercionSymbols(PlanBuilder subPlan, List<VariableReferenceExpression> alreadyCoerced, Iterable<? extends Expression> uncoerced)
+    private PlanBuilder explicitCoercionVariables(PlanBuilder subPlan, List<VariableReferenceExpression> alreadyCoerced, Iterable<? extends Expression> uncoerced)
     {
         TranslationMap translations = subPlan.copyTranslations();
 
@@ -802,10 +800,10 @@ class QueryPlanner
                 rewritten = ((Cast) rewritten).getExpression();
             }
 
-            // If refers to existing symbol, don't create another PlanNode
+            // If refers to existing variable, don't create another PlanNode
             if (rewritten instanceof SymbolReference) {
                 if (needCoercion) {
-                    subPlan = explicitCoercionSymbols(subPlan, subPlan.getRoot().getOutputVariables(), ImmutableList.of(windowFunction));
+                    subPlan = explicitCoercionVariables(subPlan, subPlan.getRoot().getOutputVariables(), ImmutableList.of(windowFunction));
                 }
 
                 continue;
@@ -850,7 +848,7 @@ class QueryPlanner
                     analysis.getParameters());
 
             if (needCoercion) {
-                subPlan = explicitCoercionSymbols(subPlan, subPlan.getRoot().getOutputVariables(), ImmutableList.of(windowFunction));
+                subPlan = explicitCoercionVariables(subPlan, subPlan.getRoot().getOutputVariables(), ImmutableList.of(windowFunction));
             }
         }
 
