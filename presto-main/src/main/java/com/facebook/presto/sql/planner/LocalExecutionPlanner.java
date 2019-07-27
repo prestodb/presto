@@ -378,7 +378,7 @@ public class LocalExecutionPlanner
                     taskExchangeClientManager);
         }
 
-        // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
+        // We can convert the variables directly into channels, because the root must be a sink and therefore the layout is fixed
         List<Integer> partitionChannels;
         List<Optional<ConstantExpression>> partitionConstants;
         List<Type> partitionChannelTypes;
@@ -832,7 +832,7 @@ public class LocalExecutionPlanner
             List<VariableReferenceExpression> orderByVariables = node.getOrderingScheme().getOrderBy();
             List<Integer> sortChannels = getChannelsForVariables(orderByVariables, source.getLayout());
             List<SortOrder> sortOrder = orderByVariables.stream()
-                    .map(symbol -> node.getOrderingScheme().getOrdering(symbol))
+                    .map(variable -> node.getOrderingScheme().getOrdering(variable))
                     .collect(toImmutableList());
 
             ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
@@ -1204,7 +1204,7 @@ public class LocalExecutionPlanner
             }
             Map<VariableReferenceExpression, Integer> outputMappings = outputMappingsBuilder.build();
 
-            // compiler uses inputs instead of symbols, so rewrite the expressions first
+            // compiler uses inputs instead of variables, so rewrite the expressions first
             List<RowExpression> projections = outputVariables.stream()
                     .map(assignments::get)
                     .map(expression -> bindChannels(expression, sourceLayout))
@@ -1322,7 +1322,7 @@ public class LocalExecutionPlanner
             List<Integer> replicateChannels = getChannelsForVariables(node.getReplicateVariables(), source.getLayout());
             List<Integer> unnestChannels = getChannelsForVariables(unnestVariables, source.getLayout());
 
-            // Source channels are always laid out first, followed by the unnested symbols
+            // Source channels are always laid out first, followed by the unnested variables
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
             int channel = 0;
             for (VariableReferenceExpression variable : node.getReplicateVariables()) {
@@ -1375,12 +1375,12 @@ public class LocalExecutionPlanner
             SetMultimap<VariableReferenceExpression, Integer> indexLookupToProbeInput = indexSourceContext.getIndexLookupToProbeInput();
             checkState(indexLookupToProbeInput.keySet().equals(node.getLookupVariables()));
 
-            // Finalize the symbol lookup layout for the index source
+            // Finalize the variable lookup layout for the index source
             List<VariableReferenceExpression> lookupVariableSchema = ImmutableList.copyOf(node.getLookupVariables());
 
             // Identify how to remap the probe key Input to match the source index lookup layout
             ImmutableList.Builder<Integer> remappedProbeKeyChannelsBuilder = ImmutableList.builder();
-            // Identify overlapping fields that can produce the same lookup symbol.
+            // Identify overlapping fields that can produce the same lookup variable.
             // We will filter incoming keys to ensure that overlapping fields will have the same value.
             ImmutableList.Builder<Set<Integer>> overlappingFieldSetsBuilder = ImmutableList.builder();
             for (VariableReferenceExpression lookupVariable : node.getLookupVariables()) {
@@ -1414,26 +1414,26 @@ public class LocalExecutionPlanner
         }
 
         /**
-         * This method creates a mapping from each index source lookup symbol (directly applied to the index)
+         * This method creates a mapping from each index source lookup variable (directly applied to the index)
          * to the corresponding probe key Input
          */
-        private SetMultimap<VariableReferenceExpression, Integer> mapIndexSourceLookupSymbolToProbeKeyInput(IndexJoinNode node, Map<VariableReferenceExpression, Integer> probeKeyLayout)
+        private SetMultimap<VariableReferenceExpression, Integer> mapIndexSourceLookupVariableToProbeKeyInput(IndexJoinNode node, Map<VariableReferenceExpression, Integer> probeKeyLayout)
         {
             Set<VariableReferenceExpression> indexJoinVariables = node.getCriteria().stream()
                     .map(IndexJoinNode.EquiJoinClause::getIndex)
                     .collect(toImmutableSet());
 
-            // Trace the index join symbols to the index source lookup symbols
-            // Map: Index join symbol => Index source lookup symbol
+            // Trace the index join variables to the index source lookup variables
+            // Map: Index join variable => Index source lookup variable
             Map<VariableReferenceExpression, VariableReferenceExpression> indexKeyTrace = IndexJoinOptimizer.IndexKeyTracer.trace(node.getIndexSource(), indexJoinVariables);
 
-            // Map the index join symbols to the probe key Input
+            // Map the index join variables to the probe key Input
             Multimap<VariableReferenceExpression, Integer> indexToProbeKeyInput = HashMultimap.create();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 indexToProbeKeyInput.put(clause.getIndex(), probeKeyLayout.get(clause.getProbe()));
             }
 
-            // Create the mapping from index source look up symbol to probe key Input
+            // Create the mapping from index source look up variable to probe key Input
             ImmutableSetMultimap.Builder<VariableReferenceExpression, Integer> builder = ImmutableSetMultimap.builder();
             for (Map.Entry<VariableReferenceExpression, VariableReferenceExpression> entry : indexKeyTrace.entrySet()) {
                 VariableReferenceExpression indexJoinVariable = entry.getKey();
@@ -1457,15 +1457,15 @@ public class LocalExecutionPlanner
             OptionalInt probeHashChannel = node.getProbeHashVariable().map(variableChannelGetter(probeSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
 
-            // The probe key channels will be handed to the index according to probeSymbol order
+            // The probe key channels will be handed to the index according to probeVariable order
             Map<VariableReferenceExpression, Integer> probeKeyLayout = new HashMap<>();
             for (int i = 0; i < probeVariables.size(); i++) {
-                // Duplicate symbols can appear and we only need to take take one of the Inputs
+                // Duplicate variables can appear and we only need to take take one of the Inputs
                 probeKeyLayout.put(probeVariables.get(i), i);
             }
 
             // Plan the index source side
-            SetMultimap<VariableReferenceExpression, Integer> indexLookupToProbeInput = mapIndexSourceLookupSymbolToProbeKeyInput(node, probeKeyLayout);
+            SetMultimap<VariableReferenceExpression, Integer> indexLookupToProbeInput = mapIndexSourceLookupVariableToProbeKeyInput(node, probeKeyLayout);
             LocalExecutionPlanContext indexContext = context.createIndexSourceSubContext(new IndexSourceContext(indexLookupToProbeInput));
             PhysicalOperation indexSource = node.getIndexSource().accept(this, indexContext);
             List<Integer> indexOutputChannels = getChannelsForVariables(indexVariables, indexSource.getLayout());
@@ -2118,7 +2118,7 @@ public class LocalExecutionPlanner
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
-            // Source channels are always laid out first, followed by the boolean output symbol
+            // Source channels are always laid out first, followed by the boolean output variable
             Map<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.<VariableReferenceExpression, Integer>builder()
                     .putAll(probeSource.getLayout())
                     .put(node.getSemiJoinOutput(), probeSource.getLayout().size())
@@ -2630,14 +2630,14 @@ public class LocalExecutionPlanner
                 Optional<DataSize> maxPartialAggregationMemorySize,
                 boolean useSystemMemory)
         {
-            List<VariableReferenceExpression> aggregationOutputSymbols = new ArrayList<>();
+            List<VariableReferenceExpression> aggregationOutputVariables = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 
                 accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, context.getTypes()));
-                aggregationOutputSymbols.add(variable);
+                aggregationOutputVariables.add(variable);
             }
 
             // add group-by key fields each in a separate channel
@@ -2657,7 +2657,7 @@ public class LocalExecutionPlanner
             }
 
             // aggregations go in following channels
-            for (VariableReferenceExpression variable : aggregationOutputSymbols) {
+            for (VariableReferenceExpression variable : aggregationOutputVariables) {
                 outputMappings.put(variable, channel);
                 channel++;
             }
@@ -2753,15 +2753,6 @@ public class LocalExecutionPlanner
         return new PageChannelSelector(channels);
     }
 
-    private static List<Integer> getChannelsForSymbols(List<Symbol> symbols, Map<Symbol, Integer> layout)
-    {
-        ImmutableList.Builder<Integer> builder = ImmutableList.builder();
-        for (Symbol symbol : symbols) {
-            builder.add(layout.get(symbol));
-        }
-        return builder.build();
-    }
-
     private static List<Integer> getChannelsForVariables(Collection<VariableReferenceExpression> variables, Map<VariableReferenceExpression, Integer> layout)
     {
         ImmutableList.Builder<Integer> builder = ImmutableList.builder();
@@ -2781,7 +2772,7 @@ public class LocalExecutionPlanner
     }
 
     /**
-     * Encapsulates an physical operator plus the mapping of logical symbols to channel/field
+     * Encapsulates an physical operator plus the mapping of logical variables to channel/field
      */
     private static class PhysicalOperation
     {
@@ -2829,7 +2820,7 @@ public class LocalExecutionPlanner
             int channelCount = layout.values().stream().mapToInt(Integer::intValue).max().orElse(-1) + 1;
             checkArgument(
                     layout.size() == channelCount && ImmutableSet.copyOf(layout.values()).containsAll(ContiguousSet.create(closedOpen(0, channelCount), integers())),
-                    "Layout does not have a symbol for every output channel: %s", layout);
+                    "Layout does not have a variable for every output channel: %s", layout);
             Map<Integer, VariableReferenceExpression> channelLayout = ImmutableBiMap.copyOf(layout).inverse();
 
             return range(0, channelCount)
