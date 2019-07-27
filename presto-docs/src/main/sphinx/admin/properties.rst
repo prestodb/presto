@@ -116,6 +116,19 @@ Memory Management Properties
     This is the amount of memory set aside as headroom/buffer in the JVM heap
     for allocations that are not tracked by Presto.
 
+``query.low-memory-killer.policy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``none``
+
+    The policy used for selecting the query to kill when the cluster is out of memory (OOM).
+    This property can have one of the following values: ``none``, ``total-reservation``,
+    or ``total-reservation-on-blocked-nodes``. ``none`` disables the cluster OOM killer.
+    The value of ``total-reservation`` configures a policy that kills the query with the largest
+    memory reservation across the cluster. The value of ``total-reservation-on-blocked-nodes``
+    configures a policy that kills the query using the most memory on the workers that are out of memory (blocked).
+
 .. _tuning-spilling:
 
 Spilling Properties
