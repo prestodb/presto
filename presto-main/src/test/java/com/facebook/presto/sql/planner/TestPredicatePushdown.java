@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -429,7 +430,7 @@ public class TestPredicatePushdown
         tester.assertThat(new PredicatePushDown(tester.getMetadata(), tester.getSqlParser()))
                 .on(p ->
                         p.join(INNER,
-                                p.filter(new ComparisonExpression(EQUAL, p.symbol("a1").toSymbolReference(), new LongLiteral("1")),
+                                p.filter(new ComparisonExpression(EQUAL, new SymbolReference("a1"), new LongLiteral("1")),
                                         p.values(p.variable("a1"))),
                                 p.values(p.variable("b1")),
                                 ImmutableList.of(new EquiJoinClause(p.variable("a1"), p.variable("b1"))),

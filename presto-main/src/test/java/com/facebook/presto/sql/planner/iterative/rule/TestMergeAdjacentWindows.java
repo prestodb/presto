@@ -81,7 +81,7 @@ public class TestMergeAdjacentWindows
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
-                                ImmutableMap.of(p.variable(p.symbol("avg_1")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
+                                ImmutableMap.of(p.variable("avg_1"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                 p.values(p.variable("a"))))
                 .doesNotFire();
     }
@@ -93,10 +93,10 @@ public class TestMergeAdjacentWindows
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
-                                ImmutableMap.of(p.variable(p.symbol("avg_1")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
+                                ImmutableMap.of(p.variable("avg_1"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                 p.window(
                                         newWindowNodeSpecification(p, "b"),
-                                        ImmutableMap.of(p.variable(p.symbol("sum_1")), newWindowNodeFunction("sum", SUM_FUNCTION_HANDLE, "b")),
+                                        ImmutableMap.of(p.variable("sum_1"), newWindowNodeFunction("sum", SUM_FUNCTION_HANDLE, "b")),
                                         p.values(p.variable("b")))))
                 .doesNotFire();
     }
@@ -108,12 +108,12 @@ public class TestMergeAdjacentWindows
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
-                                ImmutableMap.of(p.variable(p.symbol("avg_2")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
+                                ImmutableMap.of(p.variable("avg_2"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                 p.filter(
                                         expression("a > 5"),
                                         p.window(
                                                 newWindowNodeSpecification(p, "a"),
-                                                ImmutableMap.of(p.variable(p.symbol("avg_1")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
+                                                ImmutableMap.of(p.variable("avg_1"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                                 p.values(p.variable("a"))))))
                 .doesNotFire();
     }
@@ -125,10 +125,10 @@ public class TestMergeAdjacentWindows
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
-                                ImmutableMap.of(p.variable(p.symbol("avg_1")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "avg_2")),
+                                ImmutableMap.of(p.variable("avg_1"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "avg_2")),
                                 p.window(
                                         newWindowNodeSpecification(p, "a"),
-                                        ImmutableMap.of(p.variable(p.symbol("avg_2")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
+                                        ImmutableMap.of(p.variable("avg_2"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                         p.values(p.variable("a")))))
                 .doesNotFire();
     }
@@ -140,10 +140,10 @@ public class TestMergeAdjacentWindows
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
-                                ImmutableMap.of(p.variable(p.symbol("avg_1")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "avg_2")),
+                                ImmutableMap.of(p.variable("avg_1"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "avg_2")),
                                 p.window(
                                         newWindowNodeSpecification(p, "b"),
-                                        ImmutableMap.of(p.variable(p.symbol("avg_2")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
+                                        ImmutableMap.of(p.variable("avg_2"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                         p.values(p.variable("a"), p.variable("b")))))
                 .doesNotFire();
     }
@@ -155,10 +155,10 @@ public class TestMergeAdjacentWindows
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
-                                ImmutableMap.of(p.variable(p.symbol("avg_1")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
+                                ImmutableMap.of(p.variable("avg_1"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                 p.window(
                                         newWindowNodeSpecification(p, "a"),
-                                        ImmutableMap.of(p.variable(p.symbol("sum_1")), newWindowNodeFunction("sum", SUM_FUNCTION_HANDLE, "a")),
+                                        ImmutableMap.of(p.variable("sum_1"), newWindowNodeFunction("sum", SUM_FUNCTION_HANDLE, "a")),
                                         p.values(p.variable("a")))))
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
@@ -180,7 +180,7 @@ public class TestMergeAdjacentWindows
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
-                                ImmutableMap.of(p.variable(p.symbol("lagOutput")), newWindowNodeFunction("lag", LAG_FUNCTION_HANDLE, "a", "one")),
+                                ImmutableMap.of(p.variable("lagOutput"), newWindowNodeFunction("lag", LAG_FUNCTION_HANDLE, "a", "one")),
                                 p.project(
                                         Assignments.builder()
                                                 .put(p.variable("one"), castToRowExpression("CAST(1 AS bigint)"))
@@ -190,7 +190,7 @@ public class TestMergeAdjacentWindows
                                                 identityAssignmentsAsSymbolReferences(p.variable("a"), p.variable("avgOutput"), p.variable("unused")),
                                                 p.window(
                                                         newWindowNodeSpecification(p, "a"),
-                                                        ImmutableMap.of(p.variable(p.symbol("avgOutput")), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
+                                                        ImmutableMap.of(p.variable("avgOutput"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                                         p.values(p.variable("a"), p.variable("unused")))))))
                 .matches(
                         strictProject(
@@ -217,7 +217,7 @@ public class TestMergeAdjacentWindows
 
     private static WindowNode.Specification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName)
     {
-        return new WindowNode.Specification(ImmutableList.of(planBuilder.variable(planBuilder.symbol(symbolName, BIGINT))), Optional.empty());
+        return new WindowNode.Specification(ImmutableList.of(planBuilder.variable(symbolName, BIGINT)), Optional.empty());
     }
 
     private WindowNode.Function newWindowNodeFunction(String name, FunctionHandle functionHandle, String... symbols)

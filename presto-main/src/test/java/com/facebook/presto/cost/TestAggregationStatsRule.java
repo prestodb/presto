@@ -89,9 +89,9 @@ public class TestAggregationStatsRule
     {
         return tester().assertStatsFor(pb -> pb
                 .aggregation(ab -> ab
-                        .addAggregation(pb.variable(pb.symbol("sum", BIGINT)), expression("sum(x)"), ImmutableList.of(BIGINT))
-                        .addAggregation(pb.variable(pb.symbol("count", BIGINT)), expression("count()"), ImmutableList.of())
-                        .addAggregation(pb.variable(pb.symbol("count_on_x", BIGINT)), expression("count(x)"), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.variable("sum", BIGINT), expression("sum(x)"), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.variable("count", BIGINT), expression("count()"), ImmutableList.of())
+                        .addAggregation(pb.variable("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
                         .singleGroupingSet(pb.variable("y", BIGINT), pb.variable("z", BIGINT))
                         .source(pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT), pb.variable("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
@@ -138,7 +138,7 @@ public class TestAggregationStatsRule
     {
         tester().assertStatsFor(pb -> pb
                 .aggregation(ab -> ab
-                        .addAggregation(pb.variable(pb.symbol("count_on_x", BIGINT)), expression("count(x)"), ImmutableList.of(BIGINT))
+                        .addAggregation(pb.variable("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
                         .singleGroupingSet(pb.variable("y", BIGINT), pb.variable("z", BIGINT))
                         .source(pb.values(pb.variable("x", BIGINT), pb.variable("y", BIGINT), pb.variable("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()

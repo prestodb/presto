@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -63,23 +62,18 @@ public class TestPruneOrderByInAggregation
 
     private AggregationNode buildAggregation(PlanBuilder planBuilder)
     {
-        VariableReferenceExpression avg = planBuilder.variable(planBuilder.symbol("avg"));
-        VariableReferenceExpression arrayAgg = planBuilder.variable(planBuilder.symbol("array_agg"));
-        Symbol input = planBuilder.symbol("input");
-        Symbol key = planBuilder.symbol("key");
-        Symbol keyHash = planBuilder.symbol("keyHash");
-        Symbol mask = planBuilder.symbol("mask");
-        List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask);
-        List<VariableReferenceExpression> sourceVariables = ImmutableList.of(
-                planBuilder.variable(input),
-                planBuilder.variable(key),
-                planBuilder.variable(keyHash),
-                planBuilder.variable(mask));
+        VariableReferenceExpression avg = planBuilder.variable("avg");
+        VariableReferenceExpression arrayAgg = planBuilder.variable("array_agg");
+        VariableReferenceExpression input = planBuilder.variable("input");
+        VariableReferenceExpression key = planBuilder.variable("key");
+        VariableReferenceExpression keyHash = planBuilder.variable("keyHash");
+        VariableReferenceExpression mask = planBuilder.variable("mask");
+        List<VariableReferenceExpression> sourceVariables = ImmutableList.of(input, key, keyHash, mask);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
-                .singleGroupingSet(planBuilder.variable(key))
-                .addAggregation(avg, planBuilder.expression("avg(input order by input)"), ImmutableList.of(BIGINT), planBuilder.variable(mask))
-                .addAggregation(arrayAgg, planBuilder.expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), planBuilder.variable(mask))
-                .hashVariable(planBuilder.variable(keyHash))
+                .singleGroupingSet(key)
+                .addAggregation(avg, planBuilder.expression("avg(input order by input)"), ImmutableList.of(BIGINT), mask)
+                .addAggregation(arrayAgg, planBuilder.expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), mask)
+                .hashVariable(keyHash)
                 .source(planBuilder.values(sourceVariables, ImmutableList.of())));
     }
 }

@@ -41,7 +41,7 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.variable(p.symbol("output1")), expression("count(input1)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable("output1"), expression("count(input1)"), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
                                         p.variable("input1"),
@@ -55,8 +55,8 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.variable(p.symbol("output1")), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.variable(p.symbol("output2")), expression("count(DISTINCT input2)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable("output2"), expression("count(DISTINCT input2)"), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
                                         p.variable("input1"),
@@ -70,8 +70,8 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.variable(p.symbol("output1")), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.variable(p.symbol("output2")), expression("count(input2)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable("output2"), expression("count(input2)"), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
                                         p.variable("input1"),
@@ -85,7 +85,7 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.variable(p.symbol("output")), expression("count(DISTINCT input1) filter (where input2 > 0)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable("output"), expression("count(DISTINCT input1) filter (where input2 > 0)"), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
                                         p.variable("input1"),
@@ -99,7 +99,7 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.variable(p.symbol("output")), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable("output"), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(p.variable("input")))))
                 .matches(
@@ -126,8 +126,8 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.variable(p.symbol("output1")), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
-                        .addAggregation(p.variable(p.symbol("output2")), expression("sum(DISTINCT input)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable("output1"), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
+                        .addAggregation(p.variable("output2"), expression("sum(DISTINCT input)"), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(p.variable("input")))))
                 .matches(
@@ -155,8 +155,8 @@ public class TestSingleDistinctAggregationToGroupBy
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.variable(p.symbol("output1")), expression("corr(DISTINCT x, y)"), ImmutableList.of(REAL, REAL))
-                        .addAggregation(p.variable(p.symbol("output2")), expression("corr(DISTINCT y, x)"), ImmutableList.of(REAL, REAL))
+                        .addAggregation(p.variable("output1"), expression("corr(DISTINCT x, y)"), ImmutableList.of(REAL, REAL))
+                        .addAggregation(p.variable("output2"), expression("corr(DISTINCT y, x)"), ImmutableList.of(REAL, REAL))
                         .source(
                                 p.values(p.variable("x"), p.variable("y")))))
                 .matches(

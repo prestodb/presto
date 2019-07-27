@@ -39,7 +39,7 @@ public class TestTransformUncorrelatedLateralToJoin
     {
         tester()
                 .assertThat(new TransformUncorrelatedLateralToJoin())
-                .on(p -> p.lateral(ImmutableList.of(p.variable(p.symbol("x"))), p.values(p.variable("x")), p.values()))
+                .on(p -> p.lateral(ImmutableList.of(p.variable("x")), p.values(p.variable("x")), p.values()))
                 .doesNotFire();
     }
 }

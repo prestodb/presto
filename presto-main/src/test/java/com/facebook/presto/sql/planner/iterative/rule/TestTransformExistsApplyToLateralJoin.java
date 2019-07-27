@@ -45,7 +45,7 @@ public class TestTransformExistsApplyToLateralJoin
         tester().assertThat(new TransformExistsApplyToLateralNode(tester().getMetadata().getFunctionManager()))
                 .on(p ->
                         p.lateral(
-                                ImmutableList.of(p.variable(p.symbol("a"))),
+                                ImmutableList.of(p.variable("a")),
                                 p.values(p.variable("a")),
                                 p.values(p.variable("a"))))
                 .doesNotFire();

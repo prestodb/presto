@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -67,29 +66,26 @@ public class TestPruneAggregationSourceColumns
     public void testAllInputsReferenced()
     {
         tester().assertThat(new PruneAggregationSourceColumns())
-                .on(p -> buildAggregation(p, symbol -> !symbol.getName().equals("unused")))
+                .on(p -> buildAggregation(p, variable -> !variable.getName().equals("unused")))
                 .doesNotFire();
     }
 
-    private AggregationNode buildAggregation(PlanBuilder planBuilder, Predicate<Symbol> sourceSymbolFilter)
+    private AggregationNode buildAggregation(PlanBuilder planBuilder, Predicate<VariableReferenceExpression> sourceVariableFilter)
     {
-        VariableReferenceExpression avg = planBuilder.variable(planBuilder.symbol("avg"));
-        Symbol input = planBuilder.symbol("input");
-        Symbol key = planBuilder.symbol("key");
-        Symbol keyHash = planBuilder.symbol("keyHash");
-        Symbol mask = planBuilder.symbol("mask");
-        Symbol unused = planBuilder.symbol("unused");
-        List<Symbol> filteredSourceSymboles = ImmutableList.of(input, key, keyHash, mask, unused).stream()
-                .filter(sourceSymbolFilter)
-                .collect(toImmutableList());
-        List<VariableReferenceExpression> filteredSourceVariables = filteredSourceSymboles.stream()
-                .map(planBuilder::variable)
+        VariableReferenceExpression avg = planBuilder.variable("avg");
+        VariableReferenceExpression input = planBuilder.variable("input");
+        VariableReferenceExpression key = planBuilder.variable("key");
+        VariableReferenceExpression keyHash = planBuilder.variable("keyHash");
+        VariableReferenceExpression mask = planBuilder.variable("mask");
+        VariableReferenceExpression unused = planBuilder.variable("unused");
+        List<VariableReferenceExpression> filteredSourceVariables = ImmutableList.of(input, key, keyHash, mask, unused).stream()
+                .filter(sourceVariableFilter)
                 .collect(toImmutableList());
 
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
-                .singleGroupingSet(planBuilder.variable(key))
-                .addAggregation(avg, planBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), planBuilder.variable(mask))
-                .hashVariable(planBuilder.variable(keyHash))
+                .singleGroupingSet(key)
+                .addAggregation(avg, planBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), mask)
+                .hashVariable(keyHash)
                 .source(
                         planBuilder.values(
                                 filteredSourceVariables,

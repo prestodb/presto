@@ -48,8 +48,8 @@ public class TestOutputNodeStats
 
         tester().assertStatsFor(pb -> pb
                 .output(outputBuilder -> {
-                    VariableReferenceExpression a = pb.variable(pb.symbol("a", BIGINT));
-                    VariableReferenceExpression b = pb.variable(pb.symbol("b", DOUBLE));
+                    VariableReferenceExpression a = pb.variable("a", BIGINT);
+                    VariableReferenceExpression b = pb.variable("b", DOUBLE);
                     outputBuilder
                             .source(pb.values(a, b))
                             .column(a, "a1")
