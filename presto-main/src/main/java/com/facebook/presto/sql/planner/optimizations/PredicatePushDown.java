@@ -32,7 +32,6 @@ import com.facebook.presto.sql.planner.ExpressionVariableInliner;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -948,11 +947,11 @@ public class PredicatePushDown
 
         private boolean canConvertOuterToInner(List<VariableReferenceExpression> innerVariablesForOuterJoin, Expression inheritedPredicate)
         {
-            Set<Symbol> innerSymbols = innerVariablesForOuterJoin.stream().map(VariableReferenceExpression::getName).map(Symbol::new).collect(toImmutableSet());
+            Set<VariableReferenceExpression> innerVariables = ImmutableSet.copyOf(innerVariablesForOuterJoin);
             for (Expression conjunct : extractConjuncts(inheritedPredicate)) {
                 if (ExpressionDeterminismEvaluator.isDeterministic(conjunct)) {
                     // Ignore a conjunct for this test if we can not deterministically get responses from it
-                    Object response = nullInputEvaluator(innerSymbols, conjunct);
+                    Object response = nullInputEvaluator(innerVariables, conjunct);
                     if (response == null || response instanceof NullLiteral || Boolean.FALSE.equals(response)) {
                         // If there is a single conjunct that returns FALSE or NULL given all NULL inputs for the inner side symbols of an outer join
                         // then this conjunct removes all effects of the outer join, and effectively turns this into an equivalent of an inner join.
@@ -987,8 +986,11 @@ public class PredicatePushDown
         /**
          * Evaluates an expression's response to binding the specified input symbols to NULL
          */
-        private Object nullInputEvaluator(final Collection<Symbol> nullSymbols, Expression expression)
+        private Object nullInputEvaluator(final Collection<VariableReferenceExpression> nullVariables, Expression expression)
         {
+            Set<String> nullVariableNames = nullVariables.stream()
+                    .map(VariableReferenceExpression::getName)
+                    .collect(toImmutableSet());
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                     session,
                     metadata,
@@ -998,7 +1000,7 @@ public class PredicatePushDown
                     emptyList(), /* parameters have already been replaced */
                     WarningCollector.NOOP);
             return ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes)
-                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
+                    .optimize(symbol -> nullVariableNames.contains(symbol.getName()) ? null : symbol.toSymbolReference());
         }
 
         private Predicate<Expression> joinEqualityExpression(final Collection<VariableReferenceExpression> leftVariables)
