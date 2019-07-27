@@ -169,7 +169,7 @@ public class JdbcMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(tableMetadata);
+        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
         setRollback(() -> jdbcClient.rollbackCreateTable(handle));
         return handle;
     }
@@ -207,7 +207,7 @@ public class JdbcMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(getTableMetadata(session, tableHandle));
+        JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, getTableMetadata(session, tableHandle));
         setRollback(() -> jdbcClient.rollbackCreateTable(handle));
         return handle;
     }

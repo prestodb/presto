@@ -189,7 +189,7 @@ public class MySqlClient
     public void createTable(ConnectorTableMetadata tableMetadata)
     {
         try {
-            createTable(tableMetadata, tableMetadata.getTable().getTableName());
+            createTable(tableMetadata, null, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
             if (SQL_STATE_ER_TABLE_EXISTS_ERROR.equals(e.getSQLState())) {

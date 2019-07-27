@@ -84,7 +84,7 @@ public class PostgreSqlClient
     public void createTable(ConnectorTableMetadata tableMetadata)
     {
         try {
-            createTable(tableMetadata, tableMetadata.getTable().getTableName());
+            createTable(tableMetadata, null, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
             if (DUPLICATE_TABLE_SQLSTATE.equals(e.getSQLState())) {
