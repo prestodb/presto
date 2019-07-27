@@ -17,7 +17,6 @@ import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 
 import java.util.List;
@@ -137,27 +136,5 @@ public class NodeRepresentation
     public List<PlanCostEstimate> getEstimatedCost()
     {
         return estimatedCost;
-    }
-
-    public static class OutputSymbol
-    {
-        private final Symbol symbol;
-        private final String type;
-
-        public OutputSymbol(Symbol symbol, String type)
-        {
-            this.symbol = symbol;
-            this.type = type;
-        }
-
-        public Symbol getSymbol()
-        {
-            return symbol;
-        }
-
-        public String getType()
-        {
-            return type;
-        }
     }
 }
