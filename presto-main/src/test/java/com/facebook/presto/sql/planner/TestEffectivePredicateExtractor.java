@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
@@ -98,13 +99,6 @@ public class TestEffectivePredicateExtractor
             TestingTransactionHandle.create(),
             Optional.of(TestingHandle.INSTANCE));
 
-    private static final Symbol A = new Symbol("a");
-    private static final Symbol B = new Symbol("b");
-    private static final Symbol C = new Symbol("c");
-    private static final Symbol D = new Symbol("d");
-    private static final Symbol E = new Symbol("e");
-    private static final Symbol F = new Symbol("f");
-    private static final Symbol G = new Symbol("g");
     private static final VariableReferenceExpression AV = new VariableReferenceExpression("a", BIGINT);
     private static final VariableReferenceExpression BV = new VariableReferenceExpression("b", BIGINT);
     private static final VariableReferenceExpression CV = new VariableReferenceExpression("c", BIGINT);
@@ -112,13 +106,13 @@ public class TestEffectivePredicateExtractor
     private static final VariableReferenceExpression EV = new VariableReferenceExpression("e", BIGINT);
     private static final VariableReferenceExpression FV = new VariableReferenceExpression("f", BIGINT);
     private static final VariableReferenceExpression GV = new VariableReferenceExpression("g", BIGINT);
-    private static final Expression AE = A.toSymbolReference();
-    private static final Expression BE = B.toSymbolReference();
-    private static final Expression CE = C.toSymbolReference();
-    private static final Expression DE = D.toSymbolReference();
-    private static final Expression EE = E.toSymbolReference();
-    private static final Expression FE = F.toSymbolReference();
-    private static final Expression GE = G.toSymbolReference();
+    private static final Expression AE = new SymbolReference(AV.getName());
+    private static final Expression BE = new SymbolReference(BV.getName());
+    private static final Expression CE = new SymbolReference(CV.getName());
+    private static final Expression DE = new SymbolReference(DV.getName());
+    private static final Expression EE = new SymbolReference(EV.getName());
+    private static final Expression FE = new SymbolReference(FV.getName());
+    private static final Expression GE = new SymbolReference(GV.getName());
 
     private static final TypeProvider types = TypeProvider.fromVariables(ImmutableList.of(AV, BV, CV, DV, EV, FV, GV));
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
@@ -178,7 +172,7 @@ public class TestEffectivePredicateExtractor
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
-        // Rewrite in terms of group by symbols
+        // Rewrite in terms of group by variables
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(
                         lessThan(AE, bigintLiteral(10)),
@@ -233,7 +227,7 @@ public class TestEffectivePredicateExtractor
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
-        // Rewrite in terms of project output symbols
+        // Rewrite in terms of project output variables
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(
                         lessThan(DE, bigintLiteral(10)),
@@ -449,7 +443,7 @@ public class TestEffectivePredicateExtractor
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
-        // All predicates having output symbol should be carried through
+        // All predicates having output variable should be carried through
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(lessThan(BE, AE),
                         lessThan(CE, bigintLiteral(10)),
@@ -471,7 +465,7 @@ public class TestEffectivePredicateExtractor
 
         FilterNode left = filter(leftScan, equals(AE, bigintLiteral(10)));
 
-        // predicates on "a" column should be propagated to output symbols via join equi conditions
+        // predicates on "a" column should be propagated to output variables via join equi conditions
         PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.INNER,
                 left,
@@ -559,7 +553,7 @@ public class TestEffectivePredicateExtractor
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
-        // All right side symbols having output symbols should be checked against NULL
+        // All right side variables having output variables should be checked against NULL
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(lessThan(BE, AE),
                         lessThan(CE, bigintLiteral(10)),
@@ -648,7 +642,7 @@ public class TestEffectivePredicateExtractor
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
-        // All left side symbols should be checked against NULL
+        // All left side variables should be checked against NULL
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(or(lessThan(BE, AE), and(isNull(BE), isNull(AE))),
                         or(lessThan(CE, bigintLiteral(10)), isNull(CE)),
@@ -791,7 +785,7 @@ public class TestEffectivePredicateExtractor
         Set<Expression> rewrittenSet = new HashSet<>();
         for (Expression expression : EqualityInference.nonInferrableConjuncts(predicate)) {
             Expression rewritten = inference.rewriteExpression(expression, Predicates.alwaysTrue(), types);
-            Preconditions.checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
+            Preconditions.checkState(rewritten != null, "Rewrite with full variable scope should always be possible");
             rewrittenSet.add(rewritten);
         }
         rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(Predicates.alwaysTrue(), types).getScopeEqualities());
