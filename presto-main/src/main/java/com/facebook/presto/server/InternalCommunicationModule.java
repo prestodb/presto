@@ -40,6 +40,13 @@ public class InternalCommunicationModule
         configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
             config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
+            config.setTrustStorePath(internalCommunicationConfig.getTrustStorePath());
+            if (internalCommunicationConfig.getIncludedCipherSuites().isPresent()) {
+                config.setHttpsIncludedCipherSuites(internalCommunicationConfig.getIncludedCipherSuites().get());
+            }
+            if (internalCommunicationConfig.getExcludeCipherSuites().isPresent()) {
+                config.setHttpsExcludedCipherSuites(internalCommunicationConfig.getExcludeCipherSuites().get());
+            }
         });
 
         install(installModuleIf(InternalCommunicationConfig.class, InternalCommunicationConfig::isKerberosEnabled, kerberosInternalCommunicationModule()));
