@@ -53,7 +53,6 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
@@ -90,8 +89,6 @@ public final class TaskTestUtils
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
 
     public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
-
-    public static final Symbol SYMBOL = new Symbol("column");
 
     public static final VariableReferenceExpression VARIABLE = new VariableReferenceExpression("column", BIGINT);
 
