@@ -18,8 +18,8 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -88,7 +88,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     @Test(dataProvider = "toRowExpression")
     public void testFilterPositiveSemiJoin(boolean toRowExpression)
     {
-        getStatsCalculatorAssertion(new Symbol("sjo").toSymbolReference(), toRowExpression)
+        getStatsCalculatorAssertion(new SymbolReference("sjo"), toRowExpression)
                 .withSourceStats(LEFT_SOURCE_ID, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
                         .addVariableStatistics(new VariableReferenceExpression("a", BIGINT), aStats)
