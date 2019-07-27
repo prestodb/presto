@@ -243,7 +243,7 @@ class RelationPlanner
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
-        // NOTE: symbols must be in the same order as the outputDescriptor
+        // NOTE: variables must be in the same order as the outputDescriptor
         List<VariableReferenceExpression> outputs = ImmutableList.<VariableReferenceExpression>builder()
                 .addAll(leftPlan.getFieldMappings())
                 .addAll(rightPlan.getFieldMappings())
@@ -296,7 +296,7 @@ class RelationPlanner
                         joinConditionComparisonOperators.add(comparisonOperator.flip());
                     }
                     else {
-                        // the case when we mix symbols from both left and right join side on either side of condition.
+                        // the case when we mix variables from both left and right join side on either side of condition.
                         complexJoinExpressions.add(conjunct);
                     }
                 }
@@ -379,7 +379,7 @@ class RelationPlanner
         }
 
         if (node.getType() == INNER) {
-            // rewrite all the other conditions using output symbols from left + right plan node.
+            // rewrite all the other conditions using output variables from left + right plan node.
             PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root, analysis.getParameters());
             rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, node);
 
@@ -560,7 +560,7 @@ class RelationPlanner
     private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
     {
         RelationType unnestOutputDescriptor = analysis.getOutputDescriptor(node);
-        // Create symbols for the result of unnesting
+        // Create variables for the result of unnesting
         ImmutableList.Builder<VariableReferenceExpression> unnestedVariablesBuilder = ImmutableList.builder();
         for (Field field : unnestOutputDescriptor.getVisibleFields()) {
             VariableReferenceExpression variable = variableAllocator.newVariable(field);
@@ -600,7 +600,7 @@ class RelationPlanner
             }
         }
         Optional<VariableReferenceExpression> ordinalityVariable = node.isWithOrdinality() ? Optional.of(unnestedVariablesIterator.next()) : Optional.empty();
-        checkState(!unnestedVariablesIterator.hasNext(), "Not all output symbols were matched with input symbols");
+        checkState(!unnestedVariablesIterator.hasNext(), "Not all output variables were matched with input variables");
 
         UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestVariables.build(), ordinalityVariable);
         return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputVariables());
@@ -700,7 +700,7 @@ class RelationPlanner
             }
         }
         Optional<VariableReferenceExpression> ordinalityVariable = node.isWithOrdinality() ? Optional.of(unnestedVariablesIterator.next()) : Optional.empty();
-        checkState(!unnestedVariablesIterator.hasNext(), "Not all output symbols were matched with input symbols");
+        checkState(!unnestedVariablesIterator.hasNext(), "Not all output variables were matched with input variables");
         ValuesNode valuesNode = new ValuesNode(
                 idAllocator.getNextId(),
                 argumentVariables.build(), ImmutableList.of(values.build()));
@@ -732,16 +732,15 @@ class RelationPlanner
         Assignments.Builder assignments = Assignments.builder();
         for (int i = 0; i < targetColumnTypes.length; i++) {
             VariableReferenceExpression inputVariable = oldVariables.get(i);
-            Symbol inputSymbol = new Symbol(inputVariable.getName());
             Type outputType = targetColumnTypes[i];
             if (!outputType.equals(inputVariable.getType())) {
-                Expression cast = new Cast(inputSymbol.toSymbolReference(), outputType.getTypeSignature().toString());
+                Expression cast = new Cast(new SymbolReference(inputVariable.getName()), outputType.getTypeSignature().toString());
                 VariableReferenceExpression outputVariable = variableAllocator.newVariable(cast, outputType);
                 assignments.put(outputVariable, castToRowExpression(cast));
                 newVariables.add(outputVariable);
             }
             else {
-                SymbolReference symbolReference = inputSymbol.toSymbolReference();
+                SymbolReference symbolReference = new SymbolReference(inputVariable.getName());
                 VariableReferenceExpression outputVariable = variableAllocator.newVariable(symbolReference, outputType);
                 assignments.put(outputVariable, castToRowExpression(symbolReference));
                 newVariables.add(outputVariable);
@@ -809,7 +808,7 @@ class RelationPlanner
         for (RelationPlan relationPlan : subPlans) {
             List<VariableReferenceExpression> childOutputVariables = relationPlan.getFieldMappings();
             if (outputs == null) {
-                // Use the first Relation to derive output symbol names
+                // Use the first Relation to derive output variable names
                 RelationType descriptor = relationPlan.getDescriptor();
                 ImmutableList.Builder<VariableReferenceExpression> outputVariableBuilder = ImmutableList.builder();
                 for (Field field : descriptor.getVisibleFields()) {
@@ -843,7 +842,7 @@ class RelationPlanner
     {
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
 
-        // Make field->symbol mapping from underlying relation plan available for translations
+        // Make field->variable mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the underlying tuple directly
         translations.setFieldMappings(relationPlan.getFieldMappings());
 
