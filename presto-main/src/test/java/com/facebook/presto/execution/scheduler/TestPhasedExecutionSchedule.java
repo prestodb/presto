@@ -25,7 +25,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -187,7 +186,6 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
     {
-        Symbol symbol = new Symbol("column");
         VariableReferenceExpression variable = new VariableReferenceExpression("column", BIGINT);
         PlanNode tableScan = new TableScanNode(
                 new PlanNodeId(name),
@@ -244,7 +242,6 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createTableScanPlanFragment(String name)
     {
-        Symbol symbol = new Symbol("column");
         VariableReferenceExpression variable = new VariableReferenceExpression("column", BIGINT);
         PlanNode planNode = new TableScanNode(
                 new PlanNodeId(name),
