@@ -787,6 +787,7 @@ public abstract class AbstractTestHiveClient
                 listeningDecorator(executor),
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
+                new HiveZeroRowFileCreator(hdfsEnvironment, listeningDecorator(executor)),
                 TEST_SERVER_VERSION);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
