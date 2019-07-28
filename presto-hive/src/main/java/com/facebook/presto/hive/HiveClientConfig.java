@@ -69,6 +69,7 @@ public class HiveClientConfig
     private boolean recursiveDirWalkerEnabled;
 
     private int maxConcurrentFileRenames = 20;
+    private int maxConcurrentZeroRowFileCreations = 20;
 
     private boolean allowCorruptWritesForTesting;
 
@@ -251,6 +252,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxConcurrentFileRenames(int maxConcurrentFileRenames)
     {
         this.maxConcurrentFileRenames = maxConcurrentFileRenames;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentZeroRowFileCreations()
+    {
+        return maxConcurrentZeroRowFileCreations;
+    }
+
+    @Config("hive.max-concurrent-zero-row-file-creations")
+    public HiveClientConfig setMaxConcurrentZeroRowFileCreations(int maxConcurrentZeroRowFileCreations)
+    {
+        this.maxConcurrentZeroRowFileCreations = maxConcurrentZeroRowFileCreations;
         return this;
     }
 

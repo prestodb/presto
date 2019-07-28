@@ -100,6 +100,7 @@ public class HiveClientModule
         binder.bind(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(new TypeLiteral<Supplier<TransactionalMetadata>>() {}).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(StagingFileCommitter.class).to(HiveStagingFileCommitter.class).in(Scopes.SINGLETON);
+        binder.bind(ZeroRowFileCreator.class).to(HiveZeroRowFileCreator.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generatedNameOf(HiveSplitManager.class, connectorId));
@@ -161,6 +162,18 @@ public class HiveClientModule
                         new BoundedExecutor(
                                 newCachedThreadPool(daemonThreadsNamed("hive-rename-" + hiveClientId + "-%s")),
                                 hiveClientConfig.getMaxConcurrentFileRenames())));
+    }
+
+    @ForZeroRowFileCreator
+    @Singleton
+    @Provides
+    public ListeningExecutorService createZeroRowFileCreatorExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
+    {
+        return listeningDecorator(
+                new ExecutorServiceAdapter(
+                        new BoundedExecutor(
+                                newCachedThreadPool(daemonThreadsNamed("hive-create-zero-row-file-" + hiveClientId + "-%s")),
+                                hiveClientConfig.getMaxConcurrentZeroRowFileCreations())));
     }
 
     @Singleton

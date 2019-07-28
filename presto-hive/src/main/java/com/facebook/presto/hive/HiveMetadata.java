@@ -101,8 +101,6 @@ import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
-import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
@@ -143,7 +141,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValues;
 import static com.facebook.presto.hive.HiveSessionProperties.getCompressionCodec;
@@ -186,7 +183,6 @@ import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveUtil.verifyPartitionTypeSupported;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
-import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.HiveWriterFactory.getFileExtension;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
@@ -204,7 +200,6 @@ import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORM
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
-import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
 import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.util.Statistics.createComputedStatisticsToPartitionMap;
 import static com.facebook.presto.hive.util.Statistics.createEmptyPartitionStatistics;
@@ -270,6 +265,7 @@ public class HiveMetadata
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final StagingFileCommitter stagingFileCommitter;
+    private final ZeroRowFileCreator zeroRowFileCreator;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -288,7 +284,8 @@ public class HiveMetadata
             TypeTranslator typeTranslator,
             String prestoVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
-            StagingFileCommitter stagingFileCommitter)
+            StagingFileCommitter stagingFileCommitter,
+            ZeroRowFileCreator zeroRowFileCreator)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -308,6 +305,7 @@ public class HiveMetadata
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
+        this.zeroRowFileCreator = requireNonNull(zeroRowFileCreator, "zeroRowFileCreator is null");
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -1149,17 +1147,19 @@ public class HiveMetadata
 
         if (handle.getBucketProperty().isPresent()) {
             ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, table, partitionUpdates);
-            // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
+            // replace partitionUpdates before creating the zero-row files so that those files will be cleaned up if we end up rollback
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
+            HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
-                createEmptyFile(
+                zeroRowFileCreator.createFiles(
                         session,
+                        hdfsContext,
                         partitionUpdate.getWritePath(),
-                        table,
-                        partition,
                         getTargetFileNames(partitionUpdate.getFileWriteInfos()),
-                        handle.getCompressionCodec());
+                        getStorageFormat(partition, table),
+                        handle.getCompressionCodec(),
+                        getSchema(partition, table));
             }
         }
 
@@ -1208,6 +1208,16 @@ public class HiveMetadata
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
                         .collect(Collectors.toList())));
+    }
+
+    private Properties getSchema(Optional<Partition> partition, Table table)
+    {
+        return partition.isPresent() ? getHiveSchema(partition.get(), table) : getHiveSchema(table);
+    }
+
+    private StorageFormat getStorageFormat(Optional<Partition> partition, Table table)
+    {
+        return partition.isPresent() ? partition.get().getStorage().getStorageFormat() : table.getStorage().getStorageFormat();
     }
 
     private ImmutableList<PartitionUpdate> computePartitionUpdatesForMissingBuckets(
@@ -1290,48 +1300,6 @@ public class HiveMetadata
         return missingFileNames;
     }
 
-    private void createEmptyFile(
-            ConnectorSession session,
-            Path path,
-            Table table,
-            Optional<Partition> partition,
-            List<String> fileNames,
-            HiveCompressionCodec compressionCodec)
-    {
-        HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
-        JobConf conf = configureCompression(hdfsEnvironment.getConfiguration(hdfsContext, path), compressionCodec);
-
-        Properties schema;
-        StorageFormat format;
-        if (partition.isPresent()) {
-            schema = getHiveSchema(partition.get(), table);
-            format = partition.get().getStorage().getStorageFormat();
-        }
-        else {
-            schema = getHiveSchema(table);
-            format = table.getStorage().getStorageFormat();
-        }
-
-        for (String fileName : fileNames) {
-            writeEmptyFile(session, new Path(path, fileName), conf, schema, format.getSerDe(), format.getOutputFormat());
-        }
-    }
-
-    private static void writeEmptyFile(ConnectorSession session, Path target, JobConf conf, Properties properties, String serDe, String outputFormatName)
-    {
-        // Some serializers such as Avro set a property in the schema.
-        initializeSerializer(conf, properties, serDe);
-
-        // The code below is not a try with resources because RecordWriter is not Closeable.
-        FileSinkOperator.RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(target, conf, properties, outputFormatName, session);
-        try {
-            recordWriter.close(false);
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error write empty file to Hive", e);
-        }
-    }
-
     @Override
     public HiveInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -1403,17 +1371,19 @@ public class HiveMetadata
 
         if (handle.getBucketProperty().isPresent()) {
             ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, table.get(), partitionUpdates);
-            // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
+            // replace partitionUpdates before creating the zero-row files so that those files will be cleaned up if we end up rollback
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
+            HdfsContext hdfsContext = new HdfsContext(session, table.get().getDatabaseName(), table.get().getTableName());
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table.get(), partitionUpdate));
-                createEmptyFile(
+                zeroRowFileCreator.createFiles(
                         session,
+                        hdfsContext,
                         partitionUpdate.getWritePath(),
-                        table.get(),
-                        partition,
                         getTargetFileNames(partitionUpdate.getFileWriteInfos()),
-                        handle.getCompressionCodec());
+                        getStorageFormat(partition, table.get()),
+                        handle.getCompressionCodec(),
+                        getSchema(partition, table.get()));
             }
         }
 
