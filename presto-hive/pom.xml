@@ -317,6 +317,23 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- At the time of writing this org.glassfish.jersey.core:jersey-common
+             and org.eclipse.jetty:jetty-server were only used in HiveQueryRunner
+             when setting log levels. They were triggering undeclared dependecy
+             warnings. If they are still only used there it should be safe
+             to upgrade them if the version needs to change. -->
+        <dependency>
+            <groupId>org.glassfish.jersey.core</groupId>
+            <artifactId>jersey-common</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-server</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- for benchmark -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
