@@ -29,7 +29,7 @@ env:
     - KUDU_TESTS=true
 
 sudo: required
-dist: trusty
+dist: bionic
 
 cache:
   yarn: true
