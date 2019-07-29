@@ -79,16 +79,6 @@ public final class Partitioning
         return arguments;
     }
 
-    public Set<Symbol> getColumns()
-    {
-        return arguments.stream()
-                .filter(ArgumentBinding::isVariable)
-                .map(ArgumentBinding::getVariableReference)
-                .map(VariableReferenceExpression::getName)
-                .map(Symbol::new)
-                .collect(toImmutableSet());
-    }
-
     public Set<VariableReferenceExpression> getVariableReferences()
     {
         return arguments.stream()
@@ -194,7 +184,7 @@ public final class Partitioning
             else {
                 // variable == constant
                 // Normally, this would be a false condition, but if we happen to have an external
-                // mapping from the symbol to a constant value and that constant value matches the
+                // mapping from the variable to a constant value and that constant value matches the
                 // right value, then we are co-partitioned.
                 Optional<ConstantExpression> leftConstant = leftConstantMapping.apply(leftArgument.getVariableReference());
                 return leftConstant.isPresent() && leftConstant.get().equals(rightArgument.getConstant());
@@ -331,12 +321,6 @@ public final class Partitioning
             return (VariableReferenceExpression) rowExpression;
         }
 
-        public Symbol getColumn()
-        {
-            verify(rowExpression instanceof VariableReferenceExpression, "Expect the rowExpression to be a VariableReferenceExpression");
-            return new Symbol(getVariableReference().getName());
-        }
-
         public ConstantExpression getConstant()
         {
             verify(rowExpression instanceof ConstantExpression, "Expect the rowExpression to be a ConstantExpression");
@@ -363,8 +347,8 @@ public final class Partitioning
                 return newColumn;
             }
 
-            // As a last resort, check for a constant mapping for the symbol
-            // Note: this MUST be last because we want to favor the symbol representation
+            // As a last resort, check for a constant mapping for the variable
+            // Note: this MUST be last because we want to favor the variable representation
             // as it makes further optimizations possible.
             return constants.apply((VariableReferenceExpression) rowExpression)
                     .map(ArgumentBinding::new);
