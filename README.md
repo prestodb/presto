@@ -100,3 +100,29 @@ To simplify iteration, you can also run in `watch` mode, which automatically re-
     yarn --cwd presto-main/src/main/resources/webapp/src run watch
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
+
+## Release Notes
+
+When authoring a pull request, the PR description should include relevant release notes.
+
+The release notes should be placed at the bottom of PR description. The format of the section will be:
+
+```
+== RELEASE NOTES ==
+
+General Changes
+* ...
+* ...
+
+Hive Changes
+* ...
+* ...
+```
+
+Long line items can be wrapped without leading asterisk (*). White-spacing and capitalization are flexible.
+
+If the pull request does not have a user-facing impact and thus a release note is not required. Place the following line at the bottom of the PR description:
+
+```
+== NO RELEASE NOTE ==
+```
