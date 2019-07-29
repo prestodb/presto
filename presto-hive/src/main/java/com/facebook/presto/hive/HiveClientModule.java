@@ -159,7 +159,7 @@ public class HiveClientModule
         return listeningDecorator(
                 new ExecutorServiceAdapter(
                         new BoundedExecutor(
-                                newCachedThreadPool(daemonThreadsNamed("hive-" + hiveClientId + "-%s")),
+                                newCachedThreadPool(daemonThreadsNamed("hive-rename-" + hiveClientId + "-%s")),
                                 hiveClientConfig.getMaxConcurrentFileRenames())));
     }
 
