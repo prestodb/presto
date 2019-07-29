@@ -29,7 +29,8 @@ public class TestSqlEnvironmentConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SqlEnvironmentConfig.class)
-                .setPath(null));
+                .setPath(null)
+                .setForcedSessionTimeZone(null));
     }
 
     @Test
@@ -37,10 +38,12 @@ public class TestSqlEnvironmentConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("sql.path", "a.b, c.d")
+                .put("sql.forced-session-time-zone", "UTC")
                 .build();
 
         SqlEnvironmentConfig expected = new SqlEnvironmentConfig()
-                .setPath("a.b, c.d");
+                .setPath("a.b, c.d")
+                .setForcedSessionTimeZone("UTC");
 
         assertFullMapping(properties, expected);
     }

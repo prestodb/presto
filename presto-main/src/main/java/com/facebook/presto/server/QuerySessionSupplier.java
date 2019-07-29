@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.transaction.TransactionManager;
@@ -42,6 +43,7 @@ public class QuerySessionSupplier
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
     private final Optional<String> path;
+    private final Optional<TimeZoneKey> forcedSessionTimeZone;
 
     @Inject
     public QuerySessionSupplier(
@@ -53,7 +55,9 @@ public class QuerySessionSupplier
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        requireNonNull(config, "config is null");
         this.path = requireNonNull(config.getPath(), "path is null");
+        this.forcedSessionTimeZone = requireNonNull(config.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
     }
 
     @Override
@@ -81,7 +85,10 @@ public class QuerySessionSupplier
             sessionBuilder.setPath(new SqlPath(Optional.of(context.getPath())));
         }
 
-        if (context.getTimeZoneId() != null) {
+        if (forcedSessionTimeZone.isPresent()) {
+            sessionBuilder.setTimeZoneKey(forcedSessionTimeZone.get());
+        }
+        else if (context.getTimeZoneId() != null) {
             sessionBuilder.setTimeZoneKey(getTimeZoneKey(context.getTimeZoneId()));
         }
 
