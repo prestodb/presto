@@ -64,7 +64,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@Test(singleThreaded = true, enabled = false)
 public class TestHiveRecoverableGroupedExecution
 {
     private static final Set<StageState> SPLIT_SCHEDULING_STARTED_STATES = ImmutableSet.of(StageState.SCHEDULING_SPLITS, StageState.SCHEDULED, StageState.RUNNING, StageState.FINISHED);
@@ -101,7 +101,7 @@ public class TestHiveRecoverableGroupedExecution
         executor.shutdownNow();
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testCreateBucketedTable()
             throws Exception
     {
@@ -139,7 +139,7 @@ public class TestHiveRecoverableGroupedExecution
                         "DROP TABLE IF EXISTS test_failure"));
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testInsertBucketedTable()
             throws Exception
     {
@@ -181,7 +181,7 @@ public class TestHiveRecoverableGroupedExecution
                         "DROP TABLE IF EXISTS test_failure"));
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testCreateUnbucketedTableWithGroupedExecution()
             throws Exception
     {
@@ -219,7 +219,7 @@ public class TestHiveRecoverableGroupedExecution
                         "DROP TABLE IF EXISTS test_failure"));
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testInsertUnbucketedTableWithGroupedExecution()
             throws Exception
     {
@@ -261,7 +261,7 @@ public class TestHiveRecoverableGroupedExecution
                         "DROP TABLE IF EXISTS test_failure"));
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testScanFilterProjectionOnlyQueryOnUnbucketedTable()
             throws Exception
     {
