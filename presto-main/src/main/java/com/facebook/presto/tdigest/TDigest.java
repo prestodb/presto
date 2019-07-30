@@ -42,6 +42,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.AbstractCollection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -59,8 +60,10 @@ import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
+import static java.lang.Double.isNaN;
 import static java.lang.Math.ceil;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.System.arraycopy;
@@ -102,36 +105,34 @@ public class TDigest
 
     private final double publicCompression;
     private final double compression;
+    private final int maxCentroidCount;
+    private final int maxBufferSize;
 
     // points to the first unused centroid
     private int activeCentroids;
-
     private double totalWeight;
-
-    private final double[] weight;
-
-    private final double[] mean;
-
-    private double unmergedWeight;
+    private double[] weight;
+    private double[] mean;
 
     // this is the index of the next temporary centroid
     // this is a more Java-like convention than activeCentroids uses
     private int tempUsed;
-    private final double[] tempWeight;
-    private final double[] tempMean;
+    private double unmergedWeight;
+    private double[] tempWeight;
+    private double[] tempMean;
 
     // array used for sorting the temp centroids
     // to avoid allocations during operation
-    private final int[] order;
+    private int[] order;
 
     private TDigest(double compression)
     {
         // ensure compression >= 10
-        // default size = 2 * ceil(compression)
-        // default bufferSize = 5 * size
-        // ensure size > 2 * compression + weightLimitFudge
-        // ensure bufferSize > 2 * size
-
+        // default maxCentroidCount = 2 * ceil(compression)
+        // default maxBufferSize = 5 * maxCentroidCount
+        // ensure maxCentroidCount > 2 * compression + weightLimitFudge
+        // ensure maxBufferSize > 2 * maxCentroidCount
+        checkArgument(!isNaN(compression));
         checkArgument(compression <= MAX_COMPRESSION_FACTOR, "Compression factor cannot exceed %s", MAX_COMPRESSION_FACTOR);
         this.publicCompression = max(compression, 10);
         // publicCompression is how many centroids the user asked for
@@ -139,14 +140,14 @@ public class TDigest
         this.compression = 2 * publicCompression;
 
         // having a big buffer is good for speed
-        int bufferSize = 5 * (int) ceil(this.publicCompression + sizeFudge);
-        int size = (int) ceil(this.compression + sizeFudge);
+        maxBufferSize = 5 * (int) ceil(this.publicCompression + sizeFudge);
+        maxCentroidCount = (int) ceil(this.compression + sizeFudge);
 
-        weight = new double[size];
-        mean = new double[size];
-        tempWeight = new double[bufferSize];
-        tempMean = new double[bufferSize];
-        order = new int[bufferSize];
+        weight = new double[1];
+        mean = new double[1];
+        tempWeight = new double[1];
+        tempMean = new double[1];
+        order = new int[1];
 
         activeCentroids = 0;
     }
@@ -175,6 +176,8 @@ public class TDigest
             r.setMinMax(min, max);
             r.totalWeight = sliceInput.readDouble();
             r.activeCentroids = sliceInput.readInt();
+            r.weight = new double[r.activeCentroids];
+            r.mean = new double[r.activeCentroids];
             sliceInput.readBytes(wrappedDoubleArray(r.weight), r.activeCentroids * SIZE_OF_DOUBLE);
             sliceInput.readBytes(wrappedDoubleArray(r.mean), r.activeCentroids * SIZE_OF_DOUBLE);
             sliceInput.close();
@@ -192,12 +195,19 @@ public class TDigest
 
     public void add(double x, long w)
     {
-        checkArgument(!Double.isNaN(x), "Cannot add NaN to t-digest");
+        checkArgument(!isNaN(x), "Cannot add NaN to t-digest");
         checkArgument(w > 0L, "weight must be > 0");
 
-        if (tempUsed >= tempWeight.length - activeCentroids - 1) {
+        if (tempWeight.length == tempUsed) {
+            tempWeight = Arrays.copyOf(tempWeight, min(tempWeight.length * 2, maxBufferSize));
+            tempMean = Arrays.copyOf(tempMean, min(tempMean.length * 2, maxBufferSize));
+            order = Arrays.copyOf(order, min(order.length * 2, maxBufferSize));
+        }
+
+        if (tempUsed >= maxBufferSize - activeCentroids - 1) {
             mergeNewValues();
         }
+
         int where = tempUsed++;
         tempWeight[where] = w;
         tempMean[where] = x;
@@ -238,6 +248,12 @@ public class TDigest
         }
 
         if (force || unmergedWeight > 0) {
+            // ensure buffer is big enough to hold current centroids and incoming values
+            if (activeCentroids + tempUsed >= tempWeight.length) {
+                tempWeight = Arrays.copyOf(tempWeight, min(max(tempWeight.length * 2, activeCentroids + tempUsed + 1), maxBufferSize));
+                tempMean = Arrays.copyOf(tempMean, min(max(tempMean.length * 2, activeCentroids + tempUsed + 1), maxBufferSize));
+                order = Arrays.copyOf(order, min(max(order.length * 2, activeCentroids + tempUsed + 1), maxBufferSize));
+            }
             // note that we run the merge in reverse every other merge to avoid left-to-right bias in merging
             merge(tempMean, tempWeight, tempUsed, order, unmergedWeight, mergeCount % 2 == 1, compression);
             mergeCount++;
@@ -283,7 +299,7 @@ public class TDigest
 
             double q0 = weightSoFar / totalWeight;
             double q2 = (weightSoFar + proposedWeight) / totalWeight;
-            addThis = proposedWeight <= totalWeight * Math.min(maxSize(q0, normalizer), maxSize(q2, normalizer));
+            addThis = proposedWeight <= totalWeight * min(maxSize(q0, normalizer), maxSize(q2, normalizer));
 
             if (addThis) {
                 // next point can be merged into existing centroid
@@ -296,12 +312,20 @@ public class TDigest
                 weightSoFar += weight[activeCentroids];
 
                 activeCentroids++;
+                if (mean.length == activeCentroids) {
+                    mean = Arrays.copyOf(mean, min(mean.length * 2, maxCentroidCount));
+                    weight = Arrays.copyOf(weight, min(weight.length * 2, maxCentroidCount));
+                }
                 mean[activeCentroids] = incomingMean[ix];
                 weight[activeCentroids] = incomingWeight[ix];
                 incomingWeight[ix] = 0;
             }
         }
         activeCentroids++;
+        if (mean.length == activeCentroids) {
+            mean = Arrays.copyOf(mean, min(mean.length * 2, maxCentroidCount));
+            weight = Arrays.copyOf(weight, min(weight.length * 2, maxCentroidCount));
+        }
 
         // sanity check
         double sum = 0;
@@ -316,7 +340,7 @@ public class TDigest
         }
 
         if (totalWeight > 0) {
-            min = Math.min(min, mean[0]);
+            min = min(min, mean[0]);
             max = max(max, mean[activeCentroids - 1]);
         }
     }
