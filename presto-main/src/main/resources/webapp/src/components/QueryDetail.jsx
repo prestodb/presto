@@ -189,24 +189,29 @@ class TaskList extends React.Component {
                 ]}
                    defaultSort={{column: 'id', direction: 'asc'}}>
                 <Thead>
-                <Th column="id">ID</Th>
-                <Th column="host">Host</Th>
-                <Th column="state">State</Th>
-                <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
-                                                 title="Pending splits"/></Th>
-                <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
-                                                 title="Running splits"/></Th>
-                <Th column="splitsBlocked"><span className="glyphicon glyphicon-bookmark" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
-                                                 title="Blocked splits"/></Th>
-                <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
-                                              title="Completed splits"/></Th>
-                <Th column="rows">Rows</Th>
-                <Th column="rowsSec">Rows/s</Th>
-                <Th column="bytes">Bytes</Th>
-                <Th column="bytesSec">Bytes/s</Th>
-                <Th column="elapsedTime">Elapsed</Th>
-                <Th column="cpuTime">CPU Time</Th>
-                <Th column="bufferedBytes">Buffered</Th>
+                    <Th column="id">ID</Th>
+                    <Th column="host">Host</Th>
+                    <Th column="state">State</Th>
+                    <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}
+                                                     data-toggle="tooltip" data-placement="top"
+                                                     title="Pending splits"/></Th>
+                    <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}
+                                                     data-toggle="tooltip" data-placement="top"
+                                                     title="Running splits"/></Th>
+                    <Th column="splitsBlocked"><span className="glyphicon glyphicon-bookmark"
+                                                     style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip"
+                                                     data-placement="top"
+                                                     title="Blocked splits"/></Th>
+                    <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}
+                                                  data-toggle="tooltip" data-placement="top"
+                                                  title="Completed splits"/></Th>
+                    <Th column="rows">Rows</Th>
+                    <Th column="rowsSec">Rows/s</Th>
+                    <Th column="bytes">Bytes</Th>
+                    <Th column="bytesSec">Bytes/s</Th>
+                    <Th column="elapsedTime">Elapsed</Th>
+                    <Th column="cpuTime">CPU Time</Th>
+                    <Th column="bufferedBytes">Buffered</Th>
                 </Thead>
                 {renderedTasks}
             </Table>
@@ -248,7 +253,8 @@ class StageSummary extends React.Component {
         super(props);
         this.state = {
             expanded: false,
-            lastRender: null
+            lastRender: null,
+            taskFilter: TASK_FILTER.ALL
         };
     }
 
@@ -332,6 +338,59 @@ class StageSummary extends React.Component {
                 lastRender: renderTimestamp
             });
         }
+    }
+
+    renderTaskList() {
+        let tasks = this.state.expanded ? this.props.stage.tasks : [];
+        tasks = tasks.filter(task => this.state.taskFilter.predicate(task.taskStatus.state), this);
+        return (<TaskList tasks={tasks}/>);
+    }
+
+    renderTaskFilterListItem(taskFilter) {
+        return (
+            <li><a href="#" className={this.state.taskFilter === taskFilter ? "selected" : ""}
+                   onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilter.text}</a></li>
+        );
+    }
+
+    handleTaskFilterClick(filter, event) {
+        this.setState({
+            taskFilter: filter
+        });
+        event.preventDefault();
+    }
+
+    renderTaskFilter() {
+        return (<div className="row">
+            <div className="col-xs-6">
+                <h3>Tasks</h3>
+            </div>
+            <div className="col-xs-6">
+                <table className="header-inline-links">
+                    <tbody>
+                    <tr>
+                        <td>
+                            <div className="input-group-btn text-right">
+                                <button type="button" className="btn btn-default dropdown-toggle pull-right text-right"
+                                        data-toggle="dropdown" aria-haspopup="true"
+                                        aria-expanded="false">
+                                    Show: {this.state.taskFilter.text} <span className="caret"/>
+                                </button>
+                                <ul className="dropdown-menu">
+                                    {this.renderTaskFilterListItem(TASK_FILTER.ALL)}
+                                    {this.renderTaskFilterListItem(TASK_FILTER.PLANNED)}
+                                    {this.renderTaskFilterListItem(TASK_FILTER.RUNNING)}
+                                    {this.renderTaskFilterListItem(TASK_FILTER.FINISHED)}
+                                    {this.renderTaskFilterListItem(TASK_FILTER.FAILED)}
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>);
+
     }
 
     render() {
@@ -562,6 +621,16 @@ class StageSummary extends React.Component {
                                 </table>
                             </td>
                         </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                {this.renderTaskFilter()}
+                            </td>
+                        </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                {this.renderTaskList()}
+                            </td>
+                        </tr>
                         </tbody>
                     </table>
                 </td>
@@ -618,10 +687,6 @@ const SMALL_SPARKLINE_PROPERTIES = {
 };
 
 const TASK_FILTER = {
-    NONE: {
-        text: "None",
-        predicate: function () { return false }
-    },
     ALL: {
         text: "All",
         predicate: function () { return true }
@@ -651,7 +716,6 @@ export class QueryDetail extends React.Component {
         this.state = {
             query: null,
             lastSnapshotStages: null,
-            lastSnapshotTasks: null,
 
             lastScheduledTime: 0,
             lastCpuTime: 0,
@@ -672,9 +736,6 @@ export class QueryDetail extends React.Component {
             lastRender: null,
 
             stageRefresh: true,
-            taskRefresh: true,
-
-            taskFilter: TASK_FILTER.NONE,
         };
 
         this.refreshLoop = this.refreshLoop.bind(this);
@@ -744,10 +805,6 @@ export class QueryDetail extends React.Component {
             if (this.state.stageRefresh) {
                 lastSnapshotStages = query.outputStage;
             }
-            let lastSnapshotTasks = this.state.lastSnapshotTasks;
-            if (this.state.taskRefresh) {
-                lastSnapshotTasks = query.outputStage;
-            }
 
             let lastRefresh = this.state.lastRefresh;
             const lastScheduledTime = this.state.lastScheduledTime;
@@ -760,7 +817,6 @@ export class QueryDetail extends React.Component {
             this.setState({
                 query: query,
                 lastSnapshotStage: lastSnapshotStages,
-                lastSnapshotTasks: lastSnapshotTasks,
 
                 lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
                 lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
@@ -807,29 +863,6 @@ export class QueryDetail extends React.Component {
             });
     }
 
-    handleTaskRefreshClick() {
-        if (this.state.taskRefresh) {
-            this.setState({
-                taskRefresh: false,
-                lastSnapshotTasks: this.state.query.outputStage,
-            });
-        }
-        else {
-            this.setState({
-                taskRefresh: true,
-            });
-        }
-    }
-
-    renderTaskRefreshButton() {
-        if (this.state.taskRefresh) {
-            return <button className="btn btn-info live-button" onClick={this.handleTaskRefreshClick.bind(this)}>Auto-Refresh: On</button>
-        }
-        else {
-            return <button className="btn btn-info live-button" onClick={this.handleTaskRefreshClick.bind(this)}>Auto-Refresh: Off</button>
-        }
-    }
-
     handleStageRefreshClick() {
         if (this.state.stageRefresh) {
             this.setState({
@@ -851,27 +884,6 @@ export class QueryDetail extends React.Component {
         else {
             return <button className="btn btn-info live-button" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: Off</button>
         }
-    }
-
-    renderTaskFilterListItem(taskFilter) {
-        return (
-            <li><a href="#" className={this.state.taskFilter === taskFilter ? "selected" : ""} onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilter.text}</a></li>
-        );
-    }
-
-    handleTaskFilterClick(filter, event) {
-        this.setState({
-            taskFilter: filter
-        });
-        event.preventDefault();
-    }
-
-    getTasksFromStage(stage) {
-        if (stage === undefined || !stage.hasOwnProperty('subStages') || !stage.hasOwnProperty('tasks')) {
-            return []
-        }
-
-        return [].concat.apply(stage.tasks, stage.subStages.map(this.getTasksFromStage, this));
     }
 
     componentDidMount() {
@@ -904,57 +916,6 @@ export class QueryDetail extends React.Component {
 
         $('[data-toggle="tooltip"]').tooltip();
         new Clipboard('.copy-button');
-    }
-
-    renderTasks() {
-        if (this.state.lastSnapshotTasks === null) {
-            return;
-        }
-
-        let tasks = [];
-        if (this.state.taskFilter !== TASK_FILTER.NONE) {
-            tasks = this.getTasksFromStage(this.state.lastSnapshotTasks).filter(task => this.state.taskFilter.predicate(task.taskStatus.state), this);
-        }
-
-        return (
-            <div>
-                <div className="row">
-                    <div className="col-xs-6">
-                        <h3>Tasks</h3>
-                    </div>
-                    <div className="col-xs-6">
-                        <table className="header-inline-links">
-                            <tbody>
-                            <tr>
-                                <td>
-                                    <div className="input-group-btn text-right">
-                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
-                                                aria-expanded="false">
-                                            Show: {this.state.taskFilter.text} <span className="caret"/>
-                                        </button>
-                                        <ul className="dropdown-menu">
-                                            {this.renderTaskFilterListItem(TASK_FILTER.NONE)}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.ALL)}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.PLANNED)}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.RUNNING)}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.FINISHED)}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.FAILED)}
-                                        </ul>
-                                    </div>
-                                </td>
-                                <td>&nbsp;&nbsp;{this.renderTaskRefreshButton()}</td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div className="row">
-                    <div className="col-xs-12">
-                        <TaskList key={this.state.query.queryId} tasks={tasks}/>
-                    </div>
-                </div>
-            </div>
-        );
     }
 
     renderStages() {
@@ -1530,7 +1491,6 @@ export class QueryDetail extends React.Component {
                     </div>
                 </div>
                 {this.renderStages()}
-                {this.renderTasks()}
             </div>
         );
     }
