@@ -14,14 +14,17 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Point;
+import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
+import com.facebook.presto.geospatial.serde.GeometrySerde;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -30,6 +33,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
+import static com.facebook.presto.plugin.geospatial.GeoFunctions.stCentroid;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -44,6 +48,17 @@ import static org.testng.Assert.assertEquals;
 public class TestGeoFunctions
         extends AbstractTestFunctions
 {
+    private static String makeKdbTreeJson()
+    {
+        ImmutableList.Builder<Rectangle> rectangles = ImmutableList.builder();
+        for (double x = 0; x < 10; x += 1) {
+            for (double y = 0; y < 5; y += 1) {
+                rectangles.add(new Rectangle(x, y, x + 1, y + 2));
+            }
+        }
+        return KdbTreeUtils.toJson(buildKdbTree(10, new Rectangle(0, 0, 9, 4), rectangles.build()));
+    }
+
     @BeforeClass
     protected void registerFunctions()
     {
@@ -85,17 +100,6 @@ public class TestGeoFunctions
         assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", 0.2, ImmutableList.of(3));
         assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", 1.2, ImmutableList.of(2, 3, 4));
         assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (2 6, 3 7)", 1.2, ImmutableList.of());
-    }
-
-    private static String makeKdbTreeJson()
-    {
-        ImmutableList.Builder<Rectangle> rectangles = ImmutableList.builder();
-        for (double x = 0; x < 10; x += 1) {
-            for (double y = 0; y < 5; y += 1) {
-                rectangles.add(new Rectangle(x, y, x + 1, y + 2));
-            }
-        }
-        return KdbTreeUtils.toJson(buildKdbTree(10, new Rectangle(0, 0, 9, 4), rectangles.build()));
     }
 
     private void assertSpatialPartitions(String kdbTreeJson, String wkt, List<Integer> expectedPartitions)
@@ -212,9 +216,28 @@ public class TestGeoFunctions
         assertInvalidFunction("ST_Centroid(ST_GeometryFromText('MULTIPOLYGON (((4.903234300000006 52.08474289999999, 4.903234265193165 52.084742934806826, 4.903234299999999 52.08474289999999, 4.903234300000006 52.08474289999999)))'))", "Cannot compute centroid: .* Use ST_IsValid to confirm that input geometry is valid or compute centroid for a bounding box using ST_Envelope.");
     }
 
+    @Test
+    public void testSTCentroidNumericStability()
+    {
+        String wkt1 = "MULTIPOLYGON (((153.492818 -28.13729, 153.492821 -28.137291, 153.492816 -28.137289, 153.492818 -28.13729)))";
+        assertApproximateCentroid(wkt1, new Point(153.49282, -28.13729), 1e-5);
+
+        String wkt2 = "MULTIPOLYGON (((153.112475 -28.360526, 153.1124759 -28.360527, 153.1124759 -28.360526, 153.112475 -28.360526)))";
+        assertApproximateCentroid(wkt2, new Point(153.112475, -28.360526), 1e-5);
+    }
+
     private void assertCentroid(String wkt, Point centroid)
     {
         assertFunction(format("ST_AsText(ST_Centroid(ST_GeometryFromText('%s')))", wkt), VARCHAR, new OGCPoint(centroid, null).asText());
+    }
+
+    private void assertApproximateCentroid(String wkt, Point centroid, double epsilon)
+    {
+        OGCGeometry geometry = OGCGeometry.fromText(wkt);
+        Slice inputSlice = GeometrySerde.serialize(geometry);
+        OGCPoint calculatedCentroid = (OGCPoint) GeometrySerde.deserialize(stCentroid(inputSlice));
+        assertEquals(calculatedCentroid.X(), centroid.getX(), epsilon);
+        assertEquals(calculatedCentroid.Y(), centroid.getY(), epsilon);
     }
 
     @Test
@@ -1084,8 +1107,8 @@ public class TestGeoFunctions
                 format(
                         "ST_MultiPoint(array[%s])",
                         Arrays.stream(pointWkts)
-                            .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
-                            .collect(Collectors.joining(","))),
+                                .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
+                                .collect(Collectors.joining(","))),
                 GEOMETRY,
                 expectedWkt);
     }
@@ -1096,8 +1119,8 @@ public class TestGeoFunctions
                 format(
                         "ST_MultiPoint(array[%s])",
                         Arrays.stream(pointWkts)
-                            .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
-                            .collect(Collectors.joining(","))),
+                                .map(wkt -> wkt == null ? "null" : format("ST_GeometryFromText('%s')", wkt))
+                                .collect(Collectors.joining(","))),
                 INVALID_FUNCTION_ARGUMENT,
                 format("Invalid input to ST_MultiPoint: %s", errorMessage));
     }

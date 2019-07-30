@@ -34,6 +34,7 @@ import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
+import com.facebook.presto.geospatial.GeometryUtils;
 import com.facebook.presto.geospatial.KdbTree;
 import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.geospatial.serde.GeometrySerde;
@@ -104,6 +105,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.PI;
+import static java.lang.Math.abs;
 import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
@@ -1452,6 +1454,15 @@ public final class GeoFunctions
             xSum += (current.getX() + next.getX()) * ladder;
             ySum += (current.getY() + next.getY()) * ladder;
             signedArea += ladder / 2;
+        }
+        if (abs(signedArea) < Double.MIN_NORMAL) {
+            // We can't trust the calculation, so default to bounding box.
+            // We've already handled the empty case, so the Envelope is non-null.
+            OGCGeometry ogcGeom = OGCGeometry.createFromEsriGeometry(polygon, null);
+            Envelope bounds = GeometryUtils.getEnvelope(ogcGeom);
+            return new Point(
+                    (bounds.getXMax() + bounds.getXMin()) / 2,
+                    (bounds.getYMax() + bounds.getYMin()) / 2);
         }
         return new Point(xSum / (signedArea * 6), ySum / (signedArea * 6));
     }
