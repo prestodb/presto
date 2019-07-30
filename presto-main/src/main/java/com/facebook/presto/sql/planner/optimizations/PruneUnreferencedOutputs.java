@@ -689,8 +689,7 @@ public class PruneUnreferencedOutputs
                     node.getColumns(),
                     node.getColumnNames(),
                     node.getPartitioningScheme(),
-                    node.getStatisticsAggregation(),
-                    node.getStatisticsAggregationDescriptor());
+                    node.getStatisticsAggregation());
         }
 
         @Override

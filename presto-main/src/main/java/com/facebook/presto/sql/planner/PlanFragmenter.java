@@ -737,7 +737,6 @@ public class PlanFragmenter
                                                     Optional.empty(),
                                                     false,
                                                     Optional.empty())),
-                                            Optional.empty(),
                                             Optional.empty()))),
                     insertHandle,
                     variableAllocator.newVariable("rows", BIGINT),
