@@ -430,8 +430,7 @@ public class TranslateExpressions
                         node.getColumns(),
                         node.getColumnNames(),
                         node.getPartitioningScheme(),
-                        rewrittenStatisticsAggregation,
-                        node.getStatisticsAggregationDescriptor()));
+                        rewrittenStatisticsAggregation));
             }
             return Result.empty();
         }

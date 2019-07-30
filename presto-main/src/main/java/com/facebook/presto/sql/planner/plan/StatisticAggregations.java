@@ -63,13 +63,11 @@ public class StatisticAggregations
     {
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> partialAggregation = ImmutableMap.builder();
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> finalAggregation = ImmutableMap.builder();
-        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
             VariableReferenceExpression partialVariable = variableAllocator.newVariable(functionManager.getFunctionMetadata(functionHandle).getName(), function.getIntermediateType());
-            mappings.put(entry.getKey(), partialVariable);
             partialAggregation.put(partialVariable, new Aggregation(
                     new CallExpression(
                             originalAggregation.getCall().getDisplayName(),
@@ -92,24 +90,20 @@ public class StatisticAggregations
                             false,
                             Optional.empty()));
         }
-        groupingVariables.forEach(symbol -> mappings.put(symbol, symbol));
         return new Parts(
                 new StatisticAggregations(partialAggregation.build(), groupingVariables),
-                new StatisticAggregations(finalAggregation.build(), groupingVariables),
-                mappings.build());
+                new StatisticAggregations(finalAggregation.build(), groupingVariables));
     }
 
     public static class Parts
     {
         private final StatisticAggregations partialAggregation;
         private final StatisticAggregations finalAggregation;
-        private final Map<VariableReferenceExpression, VariableReferenceExpression> mappings;
 
-        public Parts(StatisticAggregations partialAggregation, StatisticAggregations finalAggregation, Map<VariableReferenceExpression, VariableReferenceExpression> mappings)
+        public Parts(StatisticAggregations partialAggregation, StatisticAggregations finalAggregation)
         {
             this.partialAggregation = requireNonNull(partialAggregation, "partialAggregation is null");
             this.finalAggregation = requireNonNull(finalAggregation, "finalAggregation is null");
-            this.mappings = ImmutableMap.copyOf(requireNonNull(mappings, "mappings is null"));
         }
 
         public StatisticAggregations getPartialAggregation()
@@ -120,11 +114,6 @@ public class StatisticAggregations
         public StatisticAggregations getFinalAggregation()
         {
             return finalAggregation;
-        }
-
-        public Map<VariableReferenceExpression, VariableReferenceExpression> getMappings()
-        {
-            return mappings;
         }
     }
 }

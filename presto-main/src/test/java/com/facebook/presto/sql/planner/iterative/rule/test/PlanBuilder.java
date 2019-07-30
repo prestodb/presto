@@ -757,7 +757,6 @@ public class PlanBuilder
                 columns,
                 columnNames,
                 Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
     }
 
