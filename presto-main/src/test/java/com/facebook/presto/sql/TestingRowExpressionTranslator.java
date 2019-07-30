@@ -52,24 +52,17 @@ public class TestingRowExpressionTranslator
 
     public RowExpression translateAndOptimize(Expression expression)
     {
-        return translateAndOptimize(expression, getExpressionTypes(expression, TypeProvider.empty()));
+        return translateAndOptimize(expression, TypeProvider.empty());
     }
 
     public RowExpression translateAndOptimize(Expression expression, TypeProvider typeProvider)
     {
-        return translateAndOptimize(expression, getExpressionTypes(expression, typeProvider));
+        return SqlToRowExpressionTranslator.translate(expression, typeProvider, metadata, ImmutableMap.of(), TEST_SESSION, true);
     }
 
     public RowExpression translate(Expression expression, TypeProvider typeProvider)
     {
-        return SqlToRowExpressionTranslator.translate(
-                expression,
-                getExpressionTypes(expression, typeProvider),
-                ImmutableMap.of(),
-                metadata.getFunctionManager(),
-                metadata.getTypeManager(),
-                TEST_SESSION,
-                false);
+        return SqlToRowExpressionTranslator.translate(expression, typeProvider, metadata, ImmutableMap.of(), TEST_SESSION, false);
     }
 
     public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)

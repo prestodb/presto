@@ -15,7 +15,6 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -32,14 +31,11 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
-import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -56,8 +52,6 @@ import io.airlift.stats.cardinality.HyperLogLog;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
@@ -83,7 +77,6 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.lang.Float.floatToIntBits;
-import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -265,21 +258,6 @@ public class TestRowExpressionSerde
 
     private RowExpression translate(Expression expression, boolean optimize)
     {
-        return SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, optimize);
-    }
-
-    private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
-    {
-        ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionManager(),
-                metadata.getTypeManager(),
-                TEST_SESSION,
-                TypeProvider.empty(),
-                emptyList(),
-                node -> new IllegalStateException("Unexpected node: %s" + node),
-                WarningCollector.NOOP,
-                false);
-        expressionAnalyzer.analyze(expression, Scope.create());
-        return expressionAnalyzer.getExpressionTypes();
+        return SqlToRowExpressionTranslator.translate(expression, TypeProvider.empty(), metadata, ImmutableMap.of(), TEST_SESSION, optimize);
     }
 }

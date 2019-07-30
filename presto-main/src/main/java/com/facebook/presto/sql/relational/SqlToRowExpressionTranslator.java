@@ -14,7 +14,9 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -29,6 +31,11 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DesugarTryExpressionRewriter;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -116,6 +123,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -141,6 +149,34 @@ public final class SqlToRowExpressionTranslator
 {
     private SqlToRowExpressionTranslator() {}
 
+    /**
+     * Use this method in tests only where desugaring does not happen implicitly.
+     */
+    public static RowExpression translate(
+            Expression expression,
+            TypeProvider typeProvider,
+            Metadata metadata,
+            Map<VariableReferenceExpression, Integer> inputLayout,
+            Session session,
+            boolean optimize)
+    {
+        Expression desugaredExpression = DesugarTryExpressionRewriter.rewrite(expression);
+        PlanVariableAllocator lambdaVariableAllocator = new PlanVariableAllocator(typeProvider.allVariables());
+        desugaredExpression = LambdaCaptureDesugaringRewriter.rewrite(desugaredExpression, lambdaVariableAllocator);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+                session,
+                metadata,
+                new SqlParser(),
+                lambdaVariableAllocator.getTypes(),
+                desugaredExpression,
+                ImmutableList.of(),
+                WarningCollector.NOOP);
+        return translate(desugaredExpression, expressionTypes, inputLayout, metadata.getFunctionManager(), metadata.getTypeManager(), session, optimize);
+    }
+
+    /**
+     * Use this method only when we can safely assume expression is already desugared.
+     */
     public static RowExpression translate(
             Expression expression,
             Map<NodeRef<Expression>, Type> types,

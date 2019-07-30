@@ -14,7 +14,6 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -32,7 +31,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -67,12 +65,10 @@ import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpre
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
-import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
@@ -605,9 +601,7 @@ public class BenchmarkDecimalOperators
         private RowExpression rowExpression(String value)
         {
             Expression expression = createExpression(value, metadata, TypeProvider.copyOf(symbolTypes));
-
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, metadata, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
-            return SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, true);
+            return SqlToRowExpressionTranslator.translate(expression, TypeProvider.copyOf(symbolTypes), metadata, sourceLayout, TEST_SESSION, true);
         }
 
         private Object generateRandomValue(Type type)

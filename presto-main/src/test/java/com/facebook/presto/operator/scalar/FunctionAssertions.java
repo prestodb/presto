@@ -60,6 +60,7 @@ import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -125,7 +126,6 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpress
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -608,15 +608,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projectionExpression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                session,
-                metadata,
-                SQL_PARSER,
-                SYMBOL_TYPES,
-                projectionExpression,
-                ImmutableList.of(),
-                WarningCollector.NOOP);
-        return toRowExpression(projectionExpression, expressionTypes, INPUT_MAPPING);
+        return SqlToRowExpressionTranslator.translate(projectionExpression, SYMBOL_TYPES, metadata, INPUT_MAPPING, session, false);
     }
 
     private Object selectSingleValue(OperatorFactory operatorFactory, Type type, Session session)
@@ -951,11 +943,6 @@ public final class FunctionAssertions
             }
             throw new RuntimeException("Error compiling filter " + filter + ": " + e.getMessage(), e);
         }
-    }
-
-    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<VariableReferenceExpression, Integer> layout)
-    {
-        return translate(projection, expressionTypes, layout, metadata.getFunctionManager(), metadata.getTypeManager(), session, false);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)
