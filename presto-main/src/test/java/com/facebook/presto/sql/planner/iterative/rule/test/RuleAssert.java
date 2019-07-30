@@ -40,6 +40,8 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
+import com.facebook.presto.sql.planner.iterative.rule.DesugarTryExpression;
 import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
@@ -207,8 +209,15 @@ public class RuleAssert
 
     private PlanNode translateExpressions(PlanNode node, TypeProvider typeProvider)
     {
+        IterativeOptimizer desugaringOptimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculator,
+                new ImmutableSet.Builder<Rule<?>>()
+                        .addAll(new DesugarLambdaExpression().rules())
+                        .addAll(new DesugarTryExpression().rules())
+                        .build());
+        PlanNode desugared = desugaringOptimizer.optimize(node, session, typeProvider, new PlanVariableAllocator(typeProvider.allVariables()), idAllocator, WarningCollector.NOOP);
+
         IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculator, new TranslateExpressions(metadata, new SqlParser()).rules());
-        return optimizer.optimize(node, session, typeProvider, new PlanVariableAllocator(typeProvider.allVariables()), idAllocator, WarningCollector.NOOP);
+        return optimizer.optimize(desugared, session, typeProvider, new PlanVariableAllocator(typeProvider.allVariables()), idAllocator, WarningCollector.NOOP);
     }
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, PlanVariableAllocator variableAllocator, Memo memo, Lookup lookup, Session session)

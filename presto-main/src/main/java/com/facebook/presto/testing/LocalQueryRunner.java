@@ -141,6 +141,9 @@ import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.rule.DesugarLambdaExpression;
+import com.facebook.presto.sql.planner.iterative.rule.DesugarTryExpression;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
@@ -913,6 +916,15 @@ public class LocalQueryRunner
         return searchFrom(node)
                 .where(TableScanNode.class::isInstance)
                 .findAll();
+    }
+
+    public PlanOptimizer desugarExpressions()
+    {
+        return new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculator,
+                new ImmutableSet.Builder<Rule<?>>()
+                        .addAll(new DesugarLambdaExpression().rules())
+                        .addAll(new DesugarTryExpression().rules())
+                        .build());
     }
 
     public PlanOptimizer translateExpressions()

@@ -138,6 +138,7 @@ public class BasePlanTest
                     sql,
                     ImmutableList.<PlanOptimizer>builder()
                             .addAll(optimizers)
+                            .add(queryRunner.desugarExpressions())
                             .add(queryRunner.translateExpressions()).build(), // To avoid assert plan failure not printing out plan (#12885)
                     stage,
                     WarningCollector.NOOP);
@@ -166,6 +167,7 @@ public class BasePlanTest
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                queryRunner.desugarExpressions(),
                 queryRunner.translateExpressions()); // To avoid assert plan failure not printing out plan (#12885)
 
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
