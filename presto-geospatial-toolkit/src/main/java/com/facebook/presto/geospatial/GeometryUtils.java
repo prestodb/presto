@@ -96,6 +96,26 @@ public final class GeometryUtils
         }
     }
 
+    public static org.locationtech.jts.geom.Envelope getJtsEnvelope(OGCGeometry ogcGeometry, double radius)
+    {
+        Envelope esriEnvelope = getEnvelope(ogcGeometry);
+
+        if (esriEnvelope.isEmpty()) {
+            return new org.locationtech.jts.geom.Envelope();
+        }
+
+        return new org.locationtech.jts.geom.Envelope(
+                esriEnvelope.getXMin() - radius,
+                esriEnvelope.getXMax() + radius,
+                esriEnvelope.getYMin() - radius,
+                esriEnvelope.getYMax() + radius);
+    }
+
+    public static org.locationtech.jts.geom.Envelope getJtsEnvelope(OGCGeometry ogcGeometry)
+    {
+        return getJtsEnvelope(ogcGeometry, 0.0);
+    }
+
     public static boolean disjoint(Envelope envelope, OGCGeometry ogcGeometry)
     {
         GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();

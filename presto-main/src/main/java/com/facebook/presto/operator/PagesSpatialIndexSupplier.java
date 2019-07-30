@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.geospatial.GeometryUtils.getJtsEnvelope;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
 import static com.facebook.presto.operator.PagesSpatialIndex.EMPTY_INDEX;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
@@ -136,19 +137,11 @@ public class PagesSpatialIndexSupplier
                 partition = toIntExact(INTEGER.getLong(partitionBlock, blockPosition));
             }
 
-            rtree.insert(getEnvelope(ogcGeometry, radius), new GeometryWithPosition(ogcGeometry, partition, position));
+            rtree.insert(getJtsEnvelope(ogcGeometry, radius), new GeometryWithPosition(ogcGeometry, partition, position));
         }
 
         rtree.build();
         return rtree;
-    }
-
-    private static Envelope getEnvelope(OGCGeometry ogcGeometry, double radius)
-    {
-        com.esri.core.geometry.Envelope envelope = new com.esri.core.geometry.Envelope();
-        ogcGeometry.getEsriGeometry().queryEnvelope(envelope);
-
-        return new Envelope(envelope.getXMin() - radius, envelope.getXMax() + radius, envelope.getYMin() - radius, envelope.getYMax() + radius);
     }
 
     private static void accelerateGeometry(OGCGeometry ogcGeometry, Operator relateOperator)
