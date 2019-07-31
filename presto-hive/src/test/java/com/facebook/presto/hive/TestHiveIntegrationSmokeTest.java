@@ -2886,29 +2886,6 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testVirtualBucketing()
-    {
-        try {
-            assertUpdate(
-                    "CREATE TABLE test_virtual_bucket AS\n" +
-                            "SELECT orderkey key, comment value FROM orders",
-                    15000);
-            Session virtualBucketEnabled = Session.builder(getSession())
-                    .setCatalogSessionProperty(catalog, "virtual_bucket_count", "2")
-                    .build();
-            @Language("SQL") String groupedByPath =
-                    "SELECT COUNT(DISTINCT(\"$path\")) FROM test_virtual_bucket";
-            @Language("SQL") String expectedGroupByPath = "SELECT 4";
-
-            assertQuery(getSession(), groupedByPath, expectedGroupByPath, assertRemoteExchangesCount(2));
-            assertQuery(virtualBucketEnabled, groupedByPath, expectedGroupByPath, assertRemoteExchangesCount(1));
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS test_virtual_bucket");
-        }
-    }
-
-    @Test
     public void testGroupedExecution()
     {
         testGroupedExecution(getSession());
@@ -3454,6 +3431,11 @@ public class TestHiveIntegrationSmokeTest
 
     private Consumer<Plan> assertRemoteExchangesCount(int expectedRemoteExchangesCount)
     {
+        return assertRemoteExchangesCount(expectedRemoteExchangesCount, getSession(), (DistributedQueryRunner) getQueryRunner());
+    }
+
+    public static Consumer<Plan> assertRemoteExchangesCount(int expectedRemoteExchangesCount, Session session, DistributedQueryRunner queryRunner)
+    {
         return plan ->
         {
             int actualRemoteExchangesCount = searchFrom(plan.getRoot())
@@ -3461,8 +3443,7 @@ public class TestHiveIntegrationSmokeTest
                     .findAll()
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
-                Session session = getSession();
-                Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+                Metadata metadata = queryRunner.getCoordinator().getMetadata();
                 String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), StatsAndCosts.empty(), session, 0);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
