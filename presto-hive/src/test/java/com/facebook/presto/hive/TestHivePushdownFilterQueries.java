@@ -31,6 +31,8 @@ public class TestHivePushdownFilterQueries
 {
     private static final String WITH_LINEITEM_EX = "WITH lineitem_ex AS (" +
             "SELECT linenumber, orderkey, " +
+            "   CASE WHEN linenumber % 4 = 0 THEN NULL ELSE CAST(day(shipdate) AS TINYINT) END AS ship_day, " +
+            "   CASE WHEN linenumber % 6 = 0 THEN NULL ELSE CAST(month(shipdate) AS TINYINT) END AS ship_month, " +
             "   CASE WHEN linenumber % 7 = 0 THEN null ELSE shipmode = 'AIR' END AS ship_by_air, " +
             "   CASE WHEN linenumber % 5 = 0 THEN null ELSE returnflag = 'R' END AS is_returned " +
             "FROM lineitem)";
@@ -50,11 +52,13 @@ public class TestHivePushdownFilterQueries
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, ship_by_air, is_returned) AS " +
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, ship_by_air, is_returned, ship_day, ship_month) AS " +
                         "SELECT linenumber, " +
                         "   orderkey, " +
                         "   IF (linenumber % 7 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
-                        "   IF (linenumber % 5 = 0, null, returnflag = 'R') AS is_returned " +
+                        "   IF (linenumber % 5 = 0, null, returnflag = 'R') AS is_returned, " +
+                        "   IF (linenumber % 4 = 0, null, CAST(day(shipdate) AS TINYINT)) AS ship_day, " +
+                        "   IF (linenumber % 6 = 0, null, CAST(month(shipdate) AS TINYINT)) AS ship_month " +
                         "FROM lineitem");
 
         return queryRunner;
@@ -82,6 +86,32 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT COUNT(*) FROM lineitem_ex WHERE ship_by_air is null");
 
         assertQueryUsingH2Cte("SELECT COUNT(*) FROM lineitem_ex WHERE ship_by_air is not null AND is_returned = true");
+    }
+
+    @Test
+    public void testBytes()
+    {
+        // Single tinyint column
+        assertQueryUsingH2Cte("SELECT ship_day FROM lineitem_ex");
+
+        assertQueryUsingH2Cte("SELECT ship_day FROM lineitem_ex WHERE ship_day < 15");
+
+        assertQueryUsingH2Cte("SELECT count(*) FROM lineitem_ex WHERE ship_day > 15");
+
+        assertQueryUsingH2Cte("SELECT count(*) FROM lineitem_ex WHERE ship_day is null");
+
+        // Two tinyint columns
+        assertQueryUsingH2Cte("SELECT ship_day, ship_month FROM lineitem_ex");
+
+        assertQueryUsingH2Cte("SELECT ship_day, ship_month FROM lineitem_ex WHERE ship_month = 1");
+
+        assertQueryUsingH2Cte("SELECT ship_day, ship_month FROM lineitem_ex WHERE ship_day = 1 AND ship_month = 1");
+
+        assertQueryUsingH2Cte("SELECT COUNT(*) FROM lineitem_ex WHERE ship_month is null");
+
+        assertQueryUsingH2Cte("SELECT COUNT(*) FROM lineitem_ex WHERE ship_day is not null AND ship_month = 1");
+
+        assertQueryUsingH2Cte("SELECT ship_day, ship_month FROM lineitem_ex WHERE ship_day > 15 AND ship_month < 5 AND (ship_day + ship_month) < 20");
     }
 
     @Test
