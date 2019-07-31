@@ -714,7 +714,7 @@ public class OrcTester
                         return false;
                     }
                 }
-                else if (type == BIGINT || type == INTEGER || type == SMALLINT) {
+                else if (type == TINYINT || type == BIGINT || type == INTEGER || type == SMALLINT) {
                     if (!filter.testLong(((Number) value).longValue())) {
                         return false;
                     }

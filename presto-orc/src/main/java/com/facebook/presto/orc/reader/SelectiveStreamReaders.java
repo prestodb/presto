@@ -42,7 +42,8 @@ public final class SelectiveStreamReaders
                 checkArgument(requiredSubfields.isEmpty(), "Boolean stream reader doesn't support subfields");
                 return new BooleanSelectiveStreamReader(streamDescriptor, filter, outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             case BYTE:
-                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
+                checkArgument(requiredSubfields.isEmpty(), "Byte stream reader doesn't support subfields");
+                return new ByteSelectiveStreamReader(streamDescriptor, filter, outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             case SHORT:
             case INT:
             case LONG:

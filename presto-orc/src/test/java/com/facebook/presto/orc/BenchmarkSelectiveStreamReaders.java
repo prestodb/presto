@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -185,6 +186,7 @@ public class BenchmarkSelectiveStreamReaders
                 "integer",
                 "bigint",
                 "smallint",
+                "tinyint",
                 "date"
         })
         private String typeSignature;
@@ -210,14 +212,15 @@ public class BenchmarkSelectiveStreamReaders
         @SuppressWarnings("unused")
         @Param({
                 "boolean",
-
                 "integer",
                 "bigint",
                 "smallint",
+                "tinyint",
                 "date"
         })
         private String typeSignature;
 
+        @SuppressWarnings("unused")
         @Param({"true", "false"})
         private boolean withNulls;
 
@@ -243,7 +246,7 @@ public class BenchmarkSelectiveStreamReaders
                 return Optional.of(BooleanValue.of(true, true));
             }
 
-            if (type == BIGINT || type == INTEGER || type == SMALLINT || type == DATE) {
+            if (type == TINYINT || type == BIGINT || type == INTEGER || type == SMALLINT || type == DATE) {
                 return Optional.of(BigintRange.of(0, Long.MAX_VALUE, true));
             }
 
@@ -275,6 +278,10 @@ public class BenchmarkSelectiveStreamReaders
 
             if (getType() == SMALLINT) {
                 return (short) random.nextInt();
+            }
+
+            if (getType() == TINYINT) {
+                return (byte) random.nextInt();
             }
 
             if (getType() == DATE) {
