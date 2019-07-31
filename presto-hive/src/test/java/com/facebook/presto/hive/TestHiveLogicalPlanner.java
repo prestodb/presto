@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,6 +53,7 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteExchangesCount;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
@@ -70,6 +72,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -498,6 +502,28 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of("a", toSubfields("a[1]")));
 
         assertUpdate("DROP TABLE test_pushdown_filter_and_subscripts");
+    }
+
+    @Test
+    public void testVirtualBucketing()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_virtual_bucket(a bigint, b bigint)");
+            Session virtualBucketEnabled = Session.builder(getSession())
+                    .setCatalogSessionProperty(HIVE_CATALOG, "virtual_bucket_count", "2")
+                    .build();
+
+            assertPlan(
+                    virtualBucketEnabled,
+                    "SELECT COUNT(DISTINCT(\"$path\")) FROM test_virtual_bucket",
+                    anyTree(
+                            exchange(REMOTE_STREAMING, GATHER, anyTree(
+                                    tableScan("test_virtual_bucket", ImmutableMap.of())))),
+                    assertRemoteExchangesCount(1, getSession(), (DistributedQueryRunner) getQueryRunner()));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_virtual_bucket");
+        }
     }
 
     private static Set<Subfield> toSubfields(String... subfieldPaths)
