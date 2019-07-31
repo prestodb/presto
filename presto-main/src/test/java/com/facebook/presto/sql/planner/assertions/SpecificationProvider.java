@@ -14,8 +14,9 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -54,14 +55,13 @@ public class SpecificationProvider
         Optional<OrderingScheme> orderingScheme = Optional.empty();
         if (!orderBy.isEmpty()) {
             orderingScheme = Optional.of(new OrderingScheme(
-                    orderBy
-                            .stream()
-                            .map(alias -> new VariableReferenceExpression(alias.toSymbol(aliases).getName(), UNKNOWN))
-                            .collect(toImmutableList()),
                     orderings
                             .entrySet()
                             .stream()
-                            .collect(toImmutableMap(entry -> new VariableReferenceExpression(entry.getKey().toSymbol(aliases).getName(), UNKNOWN), Map.Entry::getValue))));
+                            .map(entry -> new Ordering(
+                                    new VariableReferenceExpression(entry.getKey().toSymbol(aliases).getName(), UNKNOWN),
+                                    entry.getValue()))
+                            .collect(toImmutableList())));
         }
 
         return new WindowNode.Specification(
@@ -91,15 +91,15 @@ public class SpecificationProvider
     {
         return actual.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())
                 .equals(expected.getPartitionBy().stream().map(VariableReferenceExpression::getName).collect(toImmutableList())) &&
-                actual.getOrderingScheme().map(orderingScheme -> orderingScheme.getOrderBy().stream()
+                actual.getOrderingScheme().map(orderingScheme -> orderingScheme.getOrderByVariables().stream()
                         .map(VariableReferenceExpression::getName)
                         .collect(toImmutableSet())
-                        .equals(expected.getOrderingScheme().get().getOrderBy().stream()
+                        .equals(expected.getOrderingScheme().get().getOrderByVariables().stream()
                                 .map(VariableReferenceExpression::getName)
                                 .collect(toImmutableSet())) &&
-                        orderingScheme.getOrderings().entrySet().stream()
+                        orderingScheme.getOrderingsMap().entrySet().stream()
                                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue))
-                                .equals(expected.getOrderingScheme().get().getOrderings().entrySet().stream()
+                                .equals(expected.getOrderingScheme().get().getOrderingsMap().entrySet().stream()
                                         .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue))))
                         .orElse(true);
     }

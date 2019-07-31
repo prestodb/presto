@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -94,7 +95,7 @@ public class ExpressionExtractor
                         aggregation.getArguments().forEach(context::add);
                         aggregation.getFilter().ifPresent(context::add);
                         aggregation.getOrderBy()
-                                .map(OrderingScheme::getOrderBy)
+                                .map(OrderingScheme::getOrderByVariables)
                                 .orElse(ImmutableList.of())
                                 .forEach(context::add);
                     });
