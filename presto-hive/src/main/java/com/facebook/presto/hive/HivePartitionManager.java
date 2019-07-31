@@ -184,7 +184,7 @@ public class HivePartitionManager
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
         TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
-        return new HivePartitionResult(partitionColumns, partitions, effectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
+        return new HivePartitionResult(partitionColumns, partitions, compactEffectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
     }
 
     private List<HivePartition> getPartitionsAsList(Iterator<HivePartition> partitionsIterator)
