@@ -90,6 +90,7 @@ public class HivePartitionManager
     private final boolean assumeCanonicalPartitionKeys;
     private final TypeManager typeManager;
     private final int maxPartitionsPerScan;
+    private final int domainCompactionThreshold;
 
     @Inject
     public HivePartitionManager(
@@ -100,19 +101,23 @@ public class HivePartitionManager
                 typeManager,
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
-                hiveClientConfig.getMaxPartitionsPerScan());
+                hiveClientConfig.getMaxPartitionsPerScan(),
+                hiveClientConfig.getDomainCompactionThreshold());
     }
 
     public HivePartitionManager(
             TypeManager typeManager,
             DateTimeZone timeZone,
             boolean assumeCanonicalPartitionKeys,
-            int maxPartitionsPerScan)
+            int maxPartitionsPerScan,
+            int domainCompactionThreshold)
     {
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxPartitionsPerScan = maxPartitionsPerScan;
+        checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     public Iterable<HivePartition> getPartitionsIterator(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
@@ -163,11 +168,13 @@ public class HivePartitionManager
             return new HivePartitionResult(partitionColumns, partitions, TupleDomain.none(), TupleDomain.none(), TupleDomain.none(), hiveBucketHandle, Optional.empty());
         }
 
+        TupleDomain<ColumnHandle> compactEffectivePredicate = effectivePredicate.compact(domainCompactionThreshold);
+
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
                     partitionColumns,
                     partitions,
-                    effectivePredicate,
+                    compactEffectivePredicate,
                     effectivePredicate,
                     TupleDomain.none(),
                     hiveBucketHandle,
