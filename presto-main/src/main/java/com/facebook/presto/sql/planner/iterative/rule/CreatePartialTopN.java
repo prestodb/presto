@@ -15,14 +15,14 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.TopNNode;
 
+import static com.facebook.presto.spi.plan.TopNNode.Step.FINAL;
+import static com.facebook.presto.spi.plan.TopNNode.Step.PARTIAL;
+import static com.facebook.presto.spi.plan.TopNNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.Patterns.TopN.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.topN;
-import static com.facebook.presto.sql.planner.plan.TopNNode.Step.FINAL;
-import static com.facebook.presto.sql.planner.plan.TopNNode.Step.PARTIAL;
-import static com.facebook.presto.sql.planner.plan.TopNNode.Step.SINGLE;
 
 public class CreatePartialTopN
         implements Rule<TopNNode>

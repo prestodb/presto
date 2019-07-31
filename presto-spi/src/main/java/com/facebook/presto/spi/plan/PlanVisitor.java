@@ -34,4 +34,14 @@ public abstract class PlanVisitor<R, C>
     {
         return visitPlan(node, context);
     }
+
+    public R visitLimit(LimitNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTopN(TopNNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }

@@ -56,7 +56,7 @@ public class AggregationNodeUtils
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
         aggregation.getArguments().forEach(argument -> builder.addAll(extractAll(argument, types)));
         aggregation.getFilter().ifPresent(filter -> builder.addAll(extractAll(filter, types)));
-        aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderBy()));
+        aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderByVariables()));
         return builder.build();
     }
 

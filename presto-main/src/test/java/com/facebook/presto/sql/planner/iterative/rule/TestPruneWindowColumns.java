@@ -15,9 +15,10 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -213,8 +214,7 @@ public class TestPruneWindowColumns
                         new WindowNode.Specification(
                                 ImmutableList.of(partitionKey),
                                 Optional.of(new OrderingScheme(
-                                        ImmutableList.of(orderKey),
-                                        ImmutableMap.of(orderKey, SortOrder.ASC_NULLS_FIRST)))),
+                                        ImmutableList.of(new Ordering(orderKey, SortOrder.ASC_NULLS_FIRST))))),
                         ImmutableMap.of(
                                 output1,
                                 new WindowNode.Function(

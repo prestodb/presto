@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
-import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

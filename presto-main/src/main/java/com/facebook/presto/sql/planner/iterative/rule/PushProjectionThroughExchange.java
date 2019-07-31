@@ -117,7 +117,7 @@ public class PushProjectionThroughExchange
 
             if (exchange.getOrderingScheme().isPresent()) {
                 // need to retain ordering columns for the exchange
-                exchange.getOrderingScheme().get().getOrderBy().stream()
+                exchange.getOrderingScheme().get().getOrderByVariables().stream()
                         // do not project the same symbol twice as ExchangeNode verifies that source input symbols match partitioning scheme outputLayout
                         .filter(variable -> !partitioningColumns.contains(variable))
                         .map(outputToInputMap::get)
@@ -144,7 +144,7 @@ public class PushProjectionThroughExchange
         partitioningColumns.forEach(outputBuilder::add);
         exchange.getPartitioningScheme().getHashColumn().ifPresent(outputBuilder::add);
         if (exchange.getOrderingScheme().isPresent()) {
-            exchange.getOrderingScheme().get().getOrderBy().stream()
+            exchange.getOrderingScheme().get().getOrderByVariables().stream()
                     .filter(variable -> !partitioningColumns.contains(variable))
                     .forEach(outputBuilder::add);
         }

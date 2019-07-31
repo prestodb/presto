@@ -14,21 +14,23 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.forEachPair;
 
 public class PlannerUtils
 {
@@ -64,10 +66,19 @@ public class PlannerUtils
 
     public static OrderingScheme toOrderingScheme(List<VariableReferenceExpression> orderingSymbols, List<SortOrder> sortOrders)
     {
-        Map<VariableReferenceExpression, SortOrder> orderings = new LinkedHashMap<>();
+        ImmutableList.Builder<Ordering> builder = ImmutableList.builder();
+
         // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
-        Streams.forEachPair(orderingSymbols.stream(), sortOrders.stream(), orderings::putIfAbsent);
-        return new OrderingScheme(ImmutableList.copyOf(orderings.keySet()), orderings);
+        Set<VariableReferenceExpression> keysSeen = new HashSet<>();
+
+        forEachPair(orderingSymbols.stream(), sortOrders.stream(), (variable, sortOrder) -> {
+            if (!keysSeen.contains(variable)) {
+                keysSeen.add(variable);
+                builder.add(new Ordering(variable, sortOrder));
+            }
+        });
+
+        return new OrderingScheme(builder.build());
     }
 
     public static VariableReferenceExpression toVariableReference(Expression expression, TypeProvider types)

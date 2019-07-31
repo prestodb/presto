@@ -20,6 +20,8 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -30,7 +32,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.TestingWriterTarget;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -59,6 +60,7 @@ import java.util.Optional;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestVerifyNoOriginalExpression
         extends BasePlanTest
@@ -164,9 +166,7 @@ public class TestVerifyNoOriginalExpression
         ImmutableList<VariableReferenceExpression> groupingKeys = ImmutableList.of(VARIABLE_REFERENCE_EXPRESSION);
         int groupingSetCount = 1;
         ImmutableMap<VariableReferenceExpression, SortOrder> orderings = ImmutableMap.of(VARIABLE_REFERENCE_EXPRESSION, SortOrder.ASC_NULLS_FIRST);
-        OrderingScheme orderingScheme = new OrderingScheme(
-                groupingKeys,
-                orderings);
+        OrderingScheme orderingScheme = new OrderingScheme(groupingKeys.stream().map(variable -> new Ordering(variable, orderings.get(variable))).collect(toImmutableList()));
         ImmutableMap<VariableReferenceExpression, AggregationNode.Aggregation> aggregations = ImmutableMap.of(
                 VARIABLE_REFERENCE_EXPRESSION,
                 new AggregationNode.Aggregation(
