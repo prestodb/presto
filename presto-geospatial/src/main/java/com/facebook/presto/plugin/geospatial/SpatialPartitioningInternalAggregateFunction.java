@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.geospatial;
 import com.esri.core.geometry.Envelope;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.CombineFunction;
@@ -33,6 +34,7 @@ import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
@@ -88,8 +90,7 @@ public class SpatialPartitioningInternalAggregateFunction
     public static void output(SpatialPartitioningState state, BlockBuilder out)
     {
         if (state.getCount() == 0) {
-            out.appendNull();
-            return;
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "No rows supplied to spatial partition.");
         }
 
         List<Rectangle> samples = state.getSamples();
