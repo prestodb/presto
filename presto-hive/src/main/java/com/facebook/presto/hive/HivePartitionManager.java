@@ -86,6 +86,7 @@ public class HivePartitionManager
     private final DateTimeZone timeZone;
     private final boolean assumeCanonicalPartitionKeys;
     private final TypeManager typeManager;
+    private final int domainCompactionThreshold;
 
     @Inject
     public HivePartitionManager(
@@ -95,17 +96,21 @@ public class HivePartitionManager
         this(
                 typeManager,
                 hiveClientConfig.getDateTimeZone(),
-                hiveClientConfig.isAssumeCanonicalPartitionKeys());
+                hiveClientConfig.isAssumeCanonicalPartitionKeys(),
+                hiveClientConfig.getDomainCompactionThreshold());
     }
 
     public HivePartitionManager(
             TypeManager typeManager,
             DateTimeZone timeZone,
-            boolean assumeCanonicalPartitionKeys)
+            boolean assumeCanonicalPartitionKeys,
+            int domainCompactionThreshold)
     {
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, ConnectorSession session)
@@ -128,12 +133,13 @@ public class HivePartitionManager
         }
 
         Optional<HiveBucketFilter> bucketFilter = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketFilter(table, effectivePredicate);
+        TupleDomain<ColumnHandle> compactEffectivePredicate = effectivePredicate.compact(domainCompactionThreshold);
 
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
                     partitionColumns,
                     ImmutableList.of(new HivePartition(tableName)),
-                    effectivePredicate,
+                    compactEffectivePredicate,
                     effectivePredicate,
                     TupleDomain.none(),
                     hiveBucketHandle,
@@ -156,7 +162,7 @@ public class HivePartitionManager
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
         TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
-        return new HivePartitionResult(partitionColumns, partitionsIterable, effectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
+        return new HivePartitionResult(partitionColumns, partitionsIterable, compactEffectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
     }
 
     public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, List<List<String>> partitionValuesList, ConnectorSession session)
