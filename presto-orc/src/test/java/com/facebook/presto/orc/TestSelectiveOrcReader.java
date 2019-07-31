@@ -42,10 +42,12 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Lists.reverse;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -79,6 +81,53 @@ public class TestSelectiveOrcReader
                         newArrayList(limit(cycle(ImmutableList.of(true, false, false)), 30_000)),
                         newArrayList(limit(cycle(ImmutableList.of(true, true, false)), 30_000))),
                 filters);
+    }
+
+    @Test
+    public void testByteDirect()
+            throws Exception
+    {
+        List<Byte> byteValues = ImmutableList.of(1, 3, 5, 7, 11, 13, 17)
+                .stream()
+                .map(Integer::byteValue)
+                .collect(toList());
+        List<Map<Integer, TupleDomainFilter>> filters = ImmutableList.of(
+                ImmutableMap.of(0, TupleDomainFilter.BytesValues.of(new byte[][] {{1}, {17}}, false)),
+                ImmutableMap.of(0, TupleDomainFilter.IS_NULL));
+        tester.testRoundTrip(TINYINT, byteValues, ImmutableList.of(ImmutableMap.of(0, TupleDomainFilter.BytesValues.of(new byte[][] {{1}, {17}}, false))));
+        tester.testRoundTripTypes(ImmutableList.of(TINYINT, TINYINT), ImmutableList.of(byteValues, reverse(byteValues)), filters);
+    }
+
+    @Test
+    public void testByteDirectRepeat()
+            throws Exception
+    {
+        List<Byte> byteValues = ImmutableList.of(1, 3, 5, 7, 11, 13, 17)
+                .stream()
+                .map(Integer::byteValue)
+                .collect(toList());
+        tester.testRoundTrip(
+                TINYINT,
+                newArrayList(limit(repeatEach(4, cycle(byteValues)), 30_000)),
+                ImmutableList.of(ImmutableMap.of(0, TupleDomainFilter.BytesRange.of(new byte[] {1}, true, new byte[] {14}, true, true))));
+    }
+
+    @Test
+    public void testBytePatchedBase()
+            throws Exception
+    {
+        List<Byte> byteValues = newArrayList(
+                limit(cycle(concat(
+                        intsBetween(0, 18),
+                        intsBetween(0, 18),
+                        ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000))), 30_000))
+                .stream()
+                .map(Integer::byteValue)
+                .collect(toList());
+        tester.testRoundTrip(
+                TINYINT,
+                byteValues,
+                ImmutableList.of(ImmutableMap.of(0, TupleDomainFilter.BytesRange.of(new byte[] {4}, true, new byte[] {14}, true, true))));
     }
 
     @Test

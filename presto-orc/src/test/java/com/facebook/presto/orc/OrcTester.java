@@ -724,6 +724,11 @@ public class OrcTester
                         return false;
                     }
                 }
+                else if (type == TINYINT) {
+                    if (!filter.testBytes(new byte[] {(byte) value}, 0, 1)) {
+                        return false;
+                    }
+                }
                 else {
                     fail("Unsupported type: " + type);
                 }
