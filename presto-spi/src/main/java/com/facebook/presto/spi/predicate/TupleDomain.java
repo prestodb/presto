@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collector;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -67,7 +68,7 @@ public final class TupleDomain<T>
             if (containsNoneDomain(map)) {
                 return Optional.empty();
             }
-            return Optional.of(Collections.unmodifiableMap(normalizeAndCopy(map)));
+            return Optional.of(unmodifiableMap(normalizeAndCopy(map)));
         });
     }
 
