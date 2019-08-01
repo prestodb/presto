@@ -18,6 +18,7 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -44,9 +45,9 @@ public class SqlServerClient
     }
 
     @Override
-    protected void renameTable(String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
+    protected void renameTable(JdbcIdentity identity, String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
     {
-        try (Connection connection = connectionFactory.openConnection()) {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
             String sql = format(
                     "sp_rename %s, %s",
                     singleQuote(catalogName, oldTable.getSchemaName(), oldTable.getTableName()),
@@ -59,9 +60,9 @@ public class SqlServerClient
     }
 
     @Override
-    public void renameColumn(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        try (Connection connection = connectionFactory.openConnection()) {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
             String sql = format(
                     "sp_rename %s, %s, 'COLUMN'",
                     singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),

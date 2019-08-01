@@ -17,6 +17,7 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import org.postgresql.Driver;
@@ -50,10 +51,10 @@ public class RedshiftClient
     }
 
     @Override
-    protected void renameTable(String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
+    protected void renameTable(JdbcIdentity identity, String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
     {
         // Redshift does not allow qualifying the target of a rename
-        try (Connection connection = connectionFactory.openConnection()) {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
             String sql = format(
                     "ALTER TABLE %s RENAME TO %s",
                     quoted(catalogName, oldTable.getSchemaName(), oldTable.getTableName()),

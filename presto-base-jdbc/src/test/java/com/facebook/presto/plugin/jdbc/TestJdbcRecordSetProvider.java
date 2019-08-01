@@ -47,6 +47,8 @@ import static org.testng.Assert.assertNotNull;
 @Test
 public class TestJdbcRecordSetProvider
 {
+    private static final JdbcIdentity IDENTITY = new JdbcIdentity("user", ImmutableMap.of());
+
     private TestingDatabase database;
     private JdbcClient jdbcClient;
     private JdbcSplit split;
@@ -64,7 +66,7 @@ public class TestJdbcRecordSetProvider
         jdbcClient = database.getJdbcClient();
         split = database.getSplit("example", "numbers");
 
-        table = jdbcClient.getTableHandle(new SchemaTableName("example", "numbers"));
+        table = jdbcClient.getTableHandle(IDENTITY, new SchemaTableName("example", "numbers"));
 
         Map<String, JdbcColumnHandle> columns = database.getColumnHandles("example", "numbers");
         textColumn = columns.get("text");
@@ -179,7 +181,7 @@ public class TestJdbcRecordSetProvider
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
     {
         JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, domain);
-        ConnectorSplitSource splits = jdbcClient.getSplits(layoutHandle);
+        ConnectorSplitSource splits = jdbcClient.getSplits(IDENTITY, layoutHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();

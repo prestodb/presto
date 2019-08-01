@@ -17,6 +17,8 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -81,10 +83,10 @@ public class PostgreSqlClient
     }
 
     @Override
-    public void createTable(ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         try {
-            createTable(tableMetadata, null, tableMetadata.getTable().getTableName());
+            createTable(tableMetadata, session, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
             if (DUPLICATE_TABLE_SQLSTATE.equals(e.getSQLState())) {
@@ -95,10 +97,10 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected void renameTable(String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
+    protected void renameTable(JdbcIdentity identity, String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
     {
         // PostgreSQL does not allow qualifying the target of a rename
-        try (Connection connection = connectionFactory.openConnection()) {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
             String sql = format(
                     "ALTER TABLE %s RENAME TO %s",
                     quoted(catalogName, oldTable.getSchemaName(), oldTable.getTableName()),
