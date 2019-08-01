@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 

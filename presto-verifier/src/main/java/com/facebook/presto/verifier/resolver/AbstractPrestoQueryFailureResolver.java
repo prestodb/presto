@@ -15,8 +15,9 @@ package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
-import com.facebook.presto.verifier.framework.QueryOrigin;
+import com.facebook.presto.verifier.framework.QueryStage;
 
 import java.util.Optional;
 
@@ -26,25 +27,25 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractPrestoQueryFailureResolver
         implements FailureResolver
 {
-    private QueryOrigin expectedQueryOrigin;
+    private QueryStage expectedQueryStage;
 
-    public AbstractPrestoQueryFailureResolver(QueryOrigin expectedQueryOrigin)
+    public AbstractPrestoQueryFailureResolver(QueryStage expectedQueryStage)
     {
-        this.expectedQueryOrigin = requireNonNull(expectedQueryOrigin, "expectedQueryOrigin is null");
+        this.expectedQueryStage = requireNonNull(expectedQueryStage, "expectedQueryOrigin is null");
     }
 
-    public abstract Optional<String> resolveTestQueryFailure(ErrorCodeSupplier errorCode, QueryStats controlQueryStats, QueryStats testQueryStats);
+    public abstract Optional<String> resolveTestQueryFailure(ErrorCodeSupplier errorCode, QueryStats controlQueryStats, QueryStats testQueryStats, Optional<QueryBundle> test);
 
     @Override
-    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException)
+    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
-        if (!queryException.getQueryOrigin().equals(expectedQueryOrigin) ||
+        if (queryException.getQueryStage() != expectedQueryStage ||
                 queryException.getType() != PRESTO ||
                 !queryException.getPrestoErrorCode().isPresent() ||
                 !queryException.getQueryStats().isPresent()) {
             return Optional.empty();
         }
 
-        return resolveTestQueryFailure(queryException.getPrestoErrorCode().get(), controlQueryStats, queryException.getQueryStats().get());
+        return resolveTestQueryFailure(queryException.getPrestoErrorCode().get(), controlQueryStats, queryException.getQueryStats().get(), test);
     }
 }

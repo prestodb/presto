@@ -15,6 +15,7 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.ShardManager;
+import com.facebook.presto.spi.type.TypeManager;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
@@ -28,20 +29,23 @@ public class RaptorMetadataFactory
     private final String connectorId;
     private final IDBI dbi;
     private final ShardManager shardManager;
+    private final TypeManager typeManager;
 
     @Inject
     public RaptorMetadataFactory(
             RaptorConnectorId connectorId,
             @ForMetadata IDBI dbi,
-            ShardManager shardManager)
+            ShardManager shardManager,
+            TypeManager typeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public RaptorMetadata create(LongConsumer beginDeleteForTableId)
     {
-        return new RaptorMetadata(connectorId, dbi, shardManager, beginDeleteForTableId);
+        return new RaptorMetadata(connectorId, dbi, shardManager, typeManager, beginDeleteForTableId);
     }
 }

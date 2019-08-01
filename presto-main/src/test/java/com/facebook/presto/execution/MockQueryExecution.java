@@ -122,6 +122,7 @@ public class MockQueryExecution
                         9,
                         10,
                         11,
+                        11,
 
                         12,
                         13,
@@ -158,7 +159,6 @@ public class MockQueryExecution
                         new DataSize(33, BYTE),
                         ImmutableList.of(),
                         ImmutableList.of()),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -262,6 +262,12 @@ public class MockQueryExecution
     public BasicQueryInfo getBasicQueryInfo()
     {
         return new BasicQueryInfo(getQueryInfo());
+    }
+
+    @Override
+    public int getRunningTaskCount()
+    {
+        return getQueryInfo().getQueryStats().getRunningTasks();
     }
 
     @Override

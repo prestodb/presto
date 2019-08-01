@@ -62,10 +62,21 @@ public class TupleDomainFilterUtils
     public static TupleDomainFilter toFilter(Domain domain)
     {
         ValueSet values = domain.getValues();
+        boolean nullAllowed = domain.isNullAllowed();
+
+        if (values.isAll()) {
+            checkArgument(!nullAllowed, "Unexpected allways-true filter");
+            return IS_NOT_NULL;
+        }
+
+        if (values.isNone()) {
+            checkArgument(nullAllowed, "Unexpected allways-false filter");
+            return IS_NULL;
+        }
+
         checkArgument(values instanceof SortedRangeSet, "Unexpected domain type: " + values.getClass().getSimpleName());
 
         List<Range> ranges = ((SortedRangeSet) values).getOrderedRanges();
-        boolean nullAllowed = domain.isNullAllowed();
 
         if (ranges.isEmpty() && nullAllowed) {
             return IS_NULL;
@@ -197,6 +208,12 @@ public class TupleDomainFilterUtils
         Marker high = range.getHigh();
         double lowerDouble = low.isLowerUnbounded() ? Double.MIN_VALUE : (double) low.getValue();
         double upperDouble = high.isUpperUnbounded() ? Double.MAX_VALUE : (double) high.getValue();
+        if (!low.isLowerUnbounded() && Double.isNaN(lowerDouble)) {
+            return ALWAYS_FALSE;
+        }
+        if (!high.isUpperUnbounded() && Double.isNaN(upperDouble)) {
+            return ALWAYS_FALSE;
+        }
         return DoubleRange.of(
                 lowerDouble,
                 low.isLowerUnbounded(),
@@ -213,6 +230,12 @@ public class TupleDomainFilterUtils
         Marker high = range.getHigh();
         float lowerFloat = low.isLowerUnbounded() ? Float.MIN_VALUE : intBitsToFloat(toIntExact((long) low.getValue()));
         float upperFloat = high.isUpperUnbounded() ? Float.MAX_VALUE : intBitsToFloat(toIntExact((long) high.getValue()));
+        if (!low.isLowerUnbounded() && Float.isNaN(lowerFloat)) {
+            return ALWAYS_FALSE;
+        }
+        if (!high.isUpperUnbounded() && Float.isNaN(upperFloat)) {
+            return ALWAYS_FALSE;
+        }
         return FloatRange.of(
                 lowerFloat,
                 low.isLowerUnbounded(),

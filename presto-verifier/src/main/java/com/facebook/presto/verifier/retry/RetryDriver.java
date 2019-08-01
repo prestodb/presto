@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.verifier.retry;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.verifier.framework.QueryException;
-import com.facebook.presto.verifier.framework.VerificationContext;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.pow;
@@ -28,7 +29,7 @@ import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class RetryDriver
+public class RetryDriver<E extends RuntimeException>
 {
     private static final Logger log = Logger.get(RetryDriver.class);
 
@@ -36,28 +37,40 @@ public class RetryDriver
     private final Duration minBackoffDelay;
     private final Duration maxBackoffDelay;
     private final double scaleFactor;
-    private final Predicate<QueryException> retryPredicate;
+    private final Predicate<E> retryPredicate;
+    private final Class<E> exceptionClass;
+    private final Consumer<E> exceptionCallback;
 
     public RetryDriver(
             RetryConfig config,
-            Predicate<QueryException> retryPredicate)
+            Predicate<E> retryPredicate,
+            Class<E> exceptionClass,
+            Consumer<E> exceptionCallback)
     {
         this.maxAttempts = config.getMaxAttempts();
         this.minBackoffDelay = requireNonNull(config.getMinBackoffDelay(), "minBackoffDelay is null");
         this.maxBackoffDelay = requireNonNull(config.getMaxBackoffDelay(), "maxBackoffDelay is null");
         this.scaleFactor = config.getScaleFactor();
         this.retryPredicate = requireNonNull(retryPredicate, "retryPredicate is null");
+        this.exceptionClass = requireNonNull(exceptionClass, "exceptionClass is null");
+        this.exceptionCallback = requireNonNull(exceptionCallback, "exceptionCallback is null");
     }
 
-    public <V> V run(String callableName, VerificationContext context, RetryOperation<V> operation)
+    @SuppressWarnings("unchecked")
+    public <V> V run(String callableName, RetryOperation<V> operation)
     {
         int attempt = 1;
         while (true) {
             try {
                 return operation.run();
             }
-            catch (QueryException qe) {
-                context.recordFailure(qe);
+            catch (Exception e) {
+                if (!exceptionClass.isInstance(e)) {
+                    throwIfUnchecked(e);
+                    throw new RuntimeException(e);
+                }
+                E qe = (E) e;
+                exceptionCallback.accept(qe);
                 if (attempt >= maxAttempts || !retryPredicate.test(qe)) {
                     throw qe;
                 }
@@ -66,13 +79,11 @@ public class RetryDriver
                 int delayMillis = (int) min(minBackoffDelay.toMillis() * pow(scaleFactor, attempt - 1), maxBackoffDelay.toMillis());
                 int jitterMillis = ThreadLocalRandom.current().nextInt(max(1, (int) (delayMillis * 0.1)));
                 log.debug(
-                        "Failed on executing %s(%s, %s) with attempt %d. Retry after %sms. Cause: %s",
+                        "Failed on executing %s with attempt %d. Retry after %sms. Cause: %s",
                         callableName,
-                        qe.getQueryOrigin().getCluster(),
-                        qe.getQueryOrigin().getStage(),
                         attempt - 1,
                         delayMillis,
-                        qe.getErrorCode());
+                        qe.getMessage());
 
                 try {
                     MILLISECONDS.sleep(delayMillis + jitterMillis);

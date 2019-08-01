@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift.server;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
 import com.facebook.presto.connector.thrift.api.PrestoThriftColumnMetadata;
 import com.facebook.presto.connector.thrift.api.PrestoThriftId;
@@ -37,7 +38,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.json.JsonCodec;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchEntity;
 import io.airlift.tpch.TpchTable;
@@ -50,6 +50,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromBlock;
 import static com.facebook.presto.connector.thrift.server.SplitInfo.normalSplit;
 import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -58,8 +60,6 @@ import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.Math.min;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;

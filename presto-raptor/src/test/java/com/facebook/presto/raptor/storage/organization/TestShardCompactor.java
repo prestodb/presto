@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage.organization;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
@@ -47,6 +48,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -61,7 +63,6 @@ import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -72,7 +73,7 @@ public class TestShardCompactor
 {
     private static final int MAX_SHARD_ROWS = 1000;
     private static final PagesIndexPageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true, false);
 
     private File temporary;
     private IDBI dbi;
@@ -106,7 +107,7 @@ public class TestShardCompactor
     public void testShardCompactor(boolean useOptimizedOrcWriter)
             throws Exception
     {
-        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS, useOptimizedOrcWriter);
+        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE, DATE, TIMESTAMP);
 
@@ -133,7 +134,7 @@ public class TestShardCompactor
     public void testShardCompactorSorted(boolean useOptimizedOrcWriter)
             throws Exception
     {
-        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS, useOptimizedOrcWriter);
+        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DATE, TIMESTAMP, DOUBLE);
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Long> sortColumnIds = ImmutableList.of(1L, 2L, 3L, 5L, 7L);
@@ -263,7 +264,7 @@ public class TestShardCompactor
 
     private ConnectorPageSource getPageSource(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, UUID uuid)
     {
-        return storageManager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES);
+        return storageManager.getPageSource(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, uuid, OptionalInt.empty(), columnIds, columnTypes, TupleDomain.all(), READER_ATTRIBUTES);
     }
 
     private static List<ShardInfo> createSortedShards(StorageManager storageManager, List<Long> columnIds, List<Type> columnTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, int shardCount)
@@ -307,7 +308,7 @@ public class TestShardCompactor
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
     {
         long transactionId = 1;
-        return manager.createStoragePageSink(transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
+        return manager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
     }
 
     private static List<Page> createPages(List<Type> columnTypes)

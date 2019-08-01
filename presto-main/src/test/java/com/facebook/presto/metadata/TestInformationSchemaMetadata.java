@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.client.ClientCapabilities;
 import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.connector.informationSchema.InformationSchemaColumnHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
@@ -40,7 +40,6 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -53,8 +52,6 @@ import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Arrays.stream;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -173,9 +170,6 @@ public class TestInformationSchemaMetadata
         return testSessionBuilder()
                 .setCatalog("test_catalog")
                 .setSchema("information_schema")
-                .setClientCapabilities(stream(ClientCapabilities.values())
-                        .map(ClientCapabilities::toString)
-                        .collect(toImmutableSet()))
                 .setTransactionId(transactionId)
                 .build()
                 .toConnectorSession();

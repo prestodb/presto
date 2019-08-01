@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.google.common.collect.ImmutableMap;
 
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.transformValues;
 import static java.util.Objects.requireNonNull;
@@ -43,8 +45,20 @@ public class ConnectorPlanOptimizerManager
                 "ConnectorPlanOptimizerProvider for connector '%s' is already registered", connectorId);
     }
 
-    public Map<ConnectorId, Set<ConnectorPlanOptimizer>> getOptimizers()
+    public Map<ConnectorId, Set<ConnectorPlanOptimizer>> getOptimizers(PlanPhase phase)
     {
-        return ImmutableMap.copyOf(transformValues(planOptimizerProviders, ConnectorPlanOptimizerProvider::getConnectorPlanOptimizers));
+        switch (phase) {
+            case LOGICAL:
+                return ImmutableMap.copyOf(transformValues(planOptimizerProviders, ConnectorPlanOptimizerProvider::getLogicalPlanOptimizers));
+            case PHYSICAL:
+                return ImmutableMap.copyOf(transformValues(planOptimizerProviders, ConnectorPlanOptimizerProvider::getPhysicalPlanOptimizers));
+            default:
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unknown plan phase " + phase);
+        }
+    }
+
+    public enum PlanPhase
+    {
+        LOGICAL, PHYSICAL
     }
 }

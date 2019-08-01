@@ -13,11 +13,18 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.hive.BucketAdaptation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
+import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
+import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.SubfieldExtractor;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.FilterFunction;
 import com.facebook.presto.orc.OrcDataSource;
@@ -25,28 +32,36 @@ import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcSelectiveRecordReader;
+import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainFilterUtils;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
+import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.relation.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.Predicate;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.units.DataSize;
@@ -55,6 +70,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -62,17 +78,27 @@ import javax.inject.Inject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
+import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
+import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
@@ -81,19 +107,16 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockS
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
-import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.binaryExpression;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.extractConjuncts;
-import static com.facebook.presto.spi.relation.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -105,26 +128,63 @@ public class OrcSelectivePageSourceFactory
         implements HiveSelectivePageSourceFactory
 {
     private final TypeManager typeManager;
+    private final StandardFunctionResolution functionResolution;
     private final RowExpressionService rowExpressionService;
     private final boolean useOrcColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
+    private final OrcFileTailSource orcFileTailSource;
+    private final StripeMetadataSource stripeMetadataSource;
+    private final FileOpener fileOpener;
 
     @Inject
-    public OrcSelectivePageSourceFactory(TypeManager typeManager, RowExpressionService rowExpressionService, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public OrcSelectivePageSourceFactory(
+            TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
+            HiveClientConfig config,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
+            FileOpener fileOpener)
     {
-        this(typeManager, rowExpressionService, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, stats, config.getDomainCompactionThreshold());
+        this(
+                typeManager,
+                functionResolution,
+                rowExpressionService,
+                requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(),
+                hdfsEnvironment,
+                stats,
+                config.getDomainCompactionThreshold(),
+                orcFileTailSource,
+                stripeMetadataSource,
+                fileOpener);
     }
 
-    public OrcSelectivePageSourceFactory(TypeManager typeManager, RowExpressionService rowExpressionService, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, int domainCompactionThreshold)
+    public OrcSelectivePageSourceFactory(
+            TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
+            boolean useOrcColumnNames,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            int domainCompactionThreshold,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
+            FileOpener fileOpener)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.useOrcColumnNames = useOrcColumnNames;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
+        this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailCache is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
+        this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
     }
 
     @Override
@@ -135,15 +195,18 @@ public class OrcSelectivePageSourceFactory
             long start,
             long length,
             long fileSize,
-            Properties schema,
+            Storage storage,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
+            Map<Integer, HiveCoercer> coercers,
+            Optional<BucketAdaptation> bucketAdaptation,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            Optional<byte[]> extraFileInfo)
     {
-        if (!isDeserializerClass(schema, OrcSerde.class)) {
+        if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
         }
 
@@ -163,16 +226,23 @@ public class OrcSelectivePageSourceFactory
                 fileSize,
                 columns,
                 prefilledValues,
+                coercers,
+                bucketAdaptation,
                 outputColumns,
                 domainPredicate,
                 remainingPredicate,
                 useOrcColumnNames,
                 hiveStorageTimeZone,
                 typeManager,
+                functionResolution,
                 rowExpressionService,
                 isOrcBloomFiltersEnabled(session),
                 stats,
-                domainCompactionThreshold));
+                domainCompactionThreshold,
+                orcFileTailSource,
+                stripeMetadataSource,
+                extraFileInfo,
+                fileOpener));
     }
 
     public static OrcSelectivePageSource createOrcPageSource(
@@ -186,16 +256,23 @@ public class OrcSelectivePageSourceFactory
             long fileSize,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
+            Map<Integer, HiveCoercer> coercers,
+            Optional<BucketAdaptation> bucketAdaptation,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
             boolean useOrcColumnNames,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             boolean orcBloomFiltersEnabled,
             FileFormatDataSourceStats stats,
-            int domainCompactionThreshold)
+            int domainCompactionThreshold,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
+            Optional<byte[]> extraFileInfo,
+            FileOpener fileOpener)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
@@ -204,12 +281,13 @@ public class OrcSelectivePageSourceFactory
         DataSize streamBufferSize = getOrcStreamBufferSize(session);
         DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
         DataSize maxReadBlockSize = getOrcMaxReadBlockSize(session);
+        OrcReaderOptions orcReaderOptions = new OrcReaderOptions(maxMergeDistance, tinyStripeThreshold, maxReadBlockSize, isOrcZstdJniDecompressionEnabled(session));
         boolean lazyReadSmallRanges = getOrcLazyReadSmallRanges(session);
 
         OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            FSDataInputStream inputStream = fileSystem.open(path);
+            FSDataInputStream inputStream = fileOpener.open(fileSystem, path, extraFileInfo);
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,
@@ -230,7 +308,7 @@ public class OrcSelectivePageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, maxBufferSize, tinyStripeThreshold, maxReadBlockSize);
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, orcReaderOptions);
 
             checkArgument(!domainPredicate.isNone(), "Unexpected NONE domain");
 
@@ -242,12 +320,15 @@ public class OrcSelectivePageSourceFactory
             Map<Integer, String> columnNames = physicalColumns.stream()
                     .collect(toImmutableMap(HiveColumnHandle::getHiveColumnIndex, HiveColumnHandle::getName));
 
-            OrcPredicate orcPredicate = toOrcPredicate(domainPredicate, physicalColumns, typeManager, domainCompactionThreshold, orcBloomFiltersEnabled);
+            Map<Integer, HiveCoercer> mappedCoercers = coercers.entrySet().stream().collect(toImmutableMap(entry -> indexMapping.get(entry.getKey()), Map.Entry::getValue));
 
-            Map<Integer, TupleDomainFilter> tupleDomainFilters = toTupleDomainFilters(domainPredicate, ImmutableBiMap.copyOf(columnNames).inverse());
+            OrcPredicate orcPredicate = toOrcPredicate(domainPredicate, physicalColumns, mappedCoercers, typeManager, domainCompactionThreshold, orcBloomFiltersEnabled);
 
-            Map<Integer, List<Subfield>> requiredSubfields = physicalColumns.stream()
-                    .collect(toImmutableMap(HiveColumnHandle::getHiveColumnIndex, HiveColumnHandle::getRequiredSubfields));
+            Map<String, Integer> columnIndices = ImmutableBiMap.copyOf(columnNames).inverse();
+            Map<Integer, Map<Subfield, TupleDomainFilter>> tupleDomainFilters = toTupleDomainFilters(domainPredicate, columnIndices, mappedCoercers);
+
+            List<Integer> outputIndices = outputColumns.stream().map(indexMapping::get).collect(toImmutableList());
+            Map<Integer, List<Subfield>> requiredSubfields = collectRequiredSubfields(physicalColumns, outputIndices, tupleDomainFilters, remainingPredicate, columnIndices, functionResolution, rowExpressionService, session);
 
             Map<Integer, Type> columnTypes = physicalColumns.stream()
                     .collect(toImmutableMap(HiveColumnHandle::getHiveColumnIndex, column -> typeManager.getType(column.getTypeSignature())));
@@ -261,21 +342,33 @@ public class OrcSelectivePageSourceFactory
                     .boxed()
                     .collect(toImmutableBiMap(i -> physicalColumns.get(i).getHiveColumnIndex(), Function.identity()));
 
+            // use column types from the current table schema; these types might be different from this partition's schema
             Map<VariableReferenceExpression, InputReferenceExpression> variableToInput = columnNames.keySet().stream()
                     .collect(toImmutableMap(
-                            hiveColumnIndex -> new VariableReferenceExpression(columnNames.get(hiveColumnIndex), columnTypes.get(hiveColumnIndex)),
-                            hiveColumnIndex -> new InputReferenceExpression(inputs.get(hiveColumnIndex), columnTypes.get(hiveColumnIndex))));
+                            hiveColumnIndex -> new VariableReferenceExpression(columnNames.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex)),
+                            hiveColumnIndex -> new InputReferenceExpression(inputs.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex))));
 
-            List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
+            Optional<BucketAdapter> bucketAdapter = bucketAdaptation.map(adaptation -> new BucketAdapter(
+                    Arrays.stream(adaptation.getBucketColumnIndices())
+                            .map(indexMapping::get)
+                            .map(inputs::get)
+                            .toArray(),
+                    adaptation.getBucketColumnHiveTypes(),
+                    adaptation.getTableBucketCount(),
+                    adaptation.getPartitionBucketCount(),
+                    adaptation.getBucketToKeep()));
+
+            List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), bucketAdapter, session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
 
             OrcSelectiveRecordReader recordReader = reader.createSelectiveRecordReader(
                     columnTypes,
-                    outputColumns.stream().map(indexMapping::get).collect(toImmutableList()),
+                    outputIndices,
                     tupleDomainFilters,
                     filterFunctions,
                     inputs.inverse(),
                     requiredSubfields,
                     typedPrefilledValues,
+                    Maps.transformValues(mappedCoercers, Function.class::cast),
                     orcPredicate,
                     start,
                     length,
@@ -307,17 +400,163 @@ public class OrcSelectivePageSourceFactory
         }
     }
 
-    private static Map<Integer, TupleDomainFilter> toTupleDomainFilters(TupleDomain<Subfield> domainPredicate, Map<String, Integer> columnIndices)
+    private static Type getColumnTypeFromTableSchema(Map<Integer, HiveCoercer> coercers, Map<Integer, Type> columnTypes, int hiveColumnIndex)
     {
-        // TODO Add support for filters on subfields
-        checkArgument(domainPredicate.getDomains().get().keySet().stream()
-                .allMatch(OrcSelectivePageSourceFactory::isEntireColumn), "Filters on subfields are not supported yet");
+        return coercers.containsKey(hiveColumnIndex) ? coercers.get(hiveColumnIndex).getToType() : columnTypes.get(hiveColumnIndex);
+    }
 
-        return Maps.transformValues(
-                domainPredicate.transform(subfield -> isEntireColumn(subfield) ? columnIndices.get(subfield.getRootName()) : null)
-                        .getDomains()
-                        .get(),
-                TupleDomainFilterUtils::toFilter);
+    private static Map<Integer, List<Subfield>> collectRequiredSubfields(List<HiveColumnHandle> physicalColumns, List<Integer> outputColumns, Map<Integer, Map<Subfield, TupleDomainFilter>> tupleDomainFilters, RowExpression remainingPredicate, Map<String, Integer> columnIndices, StandardFunctionResolution functionResolution, RowExpressionService rowExpressionService, ConnectorSession session)
+    {
+        /**
+         * The logic is:
+         *
+         * - columns projected fully are not modified;
+         * - columns projected partially are updated to include subfields used in the filters or
+         *      to be read in full if entire column is used in a filter
+         * - columns used for filtering only are updated to prune subfields if filters don't use full column
+         */
+
+        Map<Integer, Set<Subfield>> outputSubfields = new HashMap<>();
+        physicalColumns.stream()
+                .filter(column -> outputColumns.contains(column.getHiveColumnIndex()))
+                .forEach(column -> outputSubfields.put(column.getHiveColumnIndex(), new HashSet<>(column.getRequiredSubfields())));
+
+        Map<Integer, Set<Subfield>> predicateSubfields = new HashMap<>();
+        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session);
+        remainingPredicate.accept(
+                new RequiredSubfieldsExtractor(subfieldExtractor),
+                subfield -> predicateSubfields.computeIfAbsent(columnIndices.get(subfield.getRootName()), v -> new HashSet<>()).add(subfield));
+
+        for (Map.Entry<Integer, Map<Subfield, TupleDomainFilter>> entry : tupleDomainFilters.entrySet()) {
+            predicateSubfields.computeIfAbsent(entry.getKey(), v -> new HashSet<>()).addAll(entry.getValue().keySet());
+        }
+
+        Map<Integer, List<Subfield>> allSubfields = new HashMap<>();
+        for (Map.Entry<Integer, Set<Subfield>> entry : outputSubfields.entrySet()) {
+            int columnIndex = entry.getKey();
+            if (entry.getValue().isEmpty()) {
+                // entire column is projected out
+                continue;
+            }
+
+            if (!predicateSubfields.containsKey(columnIndex)) {
+                // column is not used in filters
+                allSubfields.put(columnIndex, ImmutableList.copyOf(entry.getValue()));
+                continue;
+            }
+
+            List<Subfield> prunedSubfields = pruneSubfields(ImmutableSet.<Subfield>builder()
+                    .addAll(entry.getValue())
+                    .addAll(predicateSubfields.get(columnIndex)).build());
+
+            if (prunedSubfields.size() == 1 && isEntireColumn(prunedSubfields.get(0))) {
+                // entire column is used in a filter
+                continue;
+            }
+
+            allSubfields.put(columnIndex, prunedSubfields);
+        }
+
+        for (Map.Entry<Integer, Set<Subfield>> entry : predicateSubfields.entrySet()) {
+            int columnIndex = entry.getKey();
+            if (outputSubfields.containsKey(columnIndex)) {
+                // this column has been already processed (in the previous loop)
+                continue;
+            }
+
+            List<Subfield> prunedSubfields = pruneSubfields(entry.getValue());
+            if (prunedSubfields.size() == 1 && isEntireColumn(prunedSubfields.get(0))) {
+                // entire column is used in a filter
+                continue;
+            }
+
+            allSubfields.put(columnIndex, prunedSubfields);
+        }
+
+        return allSubfields;
+    }
+
+    // Prunes subfields: if one subfield is a prefix of another subfield, keeps the shortest one.
+    // Example: {a.b.c, a.b} -> {a.b}
+    private static List<Subfield> pruneSubfields(Set<Subfield> subfields)
+    {
+        verify(!subfields.isEmpty());
+
+        return subfields.stream()
+                .filter(subfield -> !prefixExists(subfield, subfields))
+                .collect(toImmutableList());
+    }
+
+    private static boolean prefixExists(Subfield subfield, Collection<Subfield> subfields)
+    {
+        return subfields.stream().anyMatch(path -> path.isPrefix(subfield));
+    }
+
+    private static final class RequiredSubfieldsExtractor
+            extends DefaultRowExpressionTraversalVisitor<Consumer<Subfield>>
+    {
+        private final SubfieldExtractor subfieldExtractor;
+
+        public RequiredSubfieldsExtractor(SubfieldExtractor subfieldExtractor)
+        {
+            this.subfieldExtractor = requireNonNull(subfieldExtractor, "subfieldExtractor is null");
+        }
+
+        @Override
+        public Void visitCall(CallExpression call, Consumer<Subfield> context)
+        {
+            Optional<Subfield> subfield = subfieldExtractor.extract(call);
+            if (subfield.isPresent()) {
+                context.accept(subfield.get());
+                return null;
+            }
+
+            call.getArguments().forEach(argument -> argument.accept(this, context));
+            return null;
+        }
+
+        @Override
+        public Void visitSpecialForm(SpecialFormExpression specialForm, Consumer<Subfield> context)
+        {
+            Optional<Subfield> subfield = subfieldExtractor.extract(specialForm);
+            if (subfield.isPresent()) {
+                context.accept(subfield.get());
+                return null;
+            }
+
+            specialForm.getArguments().forEach(argument -> argument.accept(this, context));
+            return null;
+        }
+
+        @Override
+        public Void visitVariableReference(VariableReferenceExpression reference, Consumer<Subfield> context)
+        {
+            Optional<Subfield> subfield = subfieldExtractor.extract(reference);
+            if (subfield.isPresent()) {
+                context.accept(subfield.get());
+                return null;
+            }
+
+            return null;
+        }
+    }
+
+    private static Map<Integer, Map<Subfield, TupleDomainFilter>> toTupleDomainFilters(TupleDomain<Subfield> domainPredicate, Map<String, Integer> columnIndices, Map<Integer, HiveCoercer> coercers)
+    {
+        Map<Subfield, TupleDomainFilter> filtersBySubfield = Maps.transformValues(domainPredicate.getDomains().get(), TupleDomainFilterUtils::toFilter);
+
+        Map<Integer, Map<Subfield, TupleDomainFilter>> filtersByColumn = new HashMap<>();
+        for (Map.Entry<Subfield, TupleDomainFilter> entry : filtersBySubfield.entrySet()) {
+            Subfield subfield = entry.getKey();
+            int columnIndex = columnIndices.get(subfield.getRootName());
+            TupleDomainFilter filter = entry.getValue();
+            if (coercers.containsKey(columnIndex)) {
+                filter = coercers.get(columnIndex).toCoercingFilter(filter, subfield);
+            }
+            filtersByColumn.computeIfAbsent(columnIndex, k -> new HashMap<>()).put(subfield, filter);
+        }
+
+        return ImmutableMap.copyOf(filtersByColumn);
     }
 
     private static boolean isEntireColumn(Subfield subfield)
@@ -325,7 +564,7 @@ public class OrcSelectivePageSourceFactory
         return subfield.getPath().isEmpty();
     }
 
-    private static OrcPredicate toOrcPredicate(TupleDomain<Subfield> domainPredicate, List<HiveColumnHandle> physicalColumns, TypeManager typeManager, int domainCompactionThreshold, boolean orcBloomFiltersEnabled)
+    private static OrcPredicate toOrcPredicate(TupleDomain<Subfield> domainPredicate, List<HiveColumnHandle> physicalColumns, Map<Integer, HiveCoercer> coercers, TypeManager typeManager, int domainCompactionThreshold, boolean orcBloomFiltersEnabled)
     {
         ImmutableList.Builder<TupleDomainOrcPredicate.ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
         for (HiveColumnHandle column : physicalColumns) {
@@ -336,7 +575,10 @@ public class OrcSelectivePageSourceFactory
         }
 
         Map<String, HiveColumnHandle> columnsByName = uniqueIndex(physicalColumns, HiveColumnHandle::getName);
-        TupleDomain<HiveColumnHandle> entireColumnDomains = domainPredicate.transform(subfield -> isEntireColumn(subfield) ? columnsByName.get(subfield.getRootName()) : null);
+        TupleDomain<HiveColumnHandle> entireColumnDomains = domainPredicate
+                .transform(subfield -> isEntireColumn(subfield) ? columnsByName.get(subfield.getRootName()) : null)
+                // filter out columns with coercions to avoid type mismatch errors between column stats in the file and values domain
+                .transform(column -> coercers.containsKey(column.getHiveColumnIndex()) ? null : column);
         return new TupleDomainOrcPredicate<>(entireColumnDomains, columnReferences.build(), orcBloomFiltersEnabled, Optional.of(domainCompactionThreshold));
     }
 
@@ -344,15 +586,21 @@ public class OrcSelectivePageSourceFactory
      * Split filter expression into groups of conjuncts that depend on the same set of inputs,
      * then compile each group into FilterFunction.
      */
-    private static List<FilterFunction> toFilterFunctions(RowExpression filter, ConnectorSession session, DeterminismEvaluator determinismEvaluator, PredicateCompiler predicateCompiler)
+    private static List<FilterFunction> toFilterFunctions(RowExpression filter, Optional<BucketAdapter> bucketAdapter, ConnectorSession session, DeterminismEvaluator determinismEvaluator, PredicateCompiler predicateCompiler)
     {
+        ImmutableList.Builder<FilterFunction> filterFunctions = ImmutableList.builder();
+
+        bucketAdapter.map(predicate -> new FilterFunction(session, true, predicate))
+                .ifPresent(filterFunctions::add);
+
         if (TRUE_CONSTANT.equals(filter)) {
-            return ImmutableList.of();
+            return filterFunctions.build();
         }
 
         List<RowExpression> conjuncts = extractConjuncts(filter);
         if (conjuncts.size() == 1) {
-            return ImmutableList.of(new FilterFunction(session, determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(filter).get()));
+            filterFunctions.add(new FilterFunction(session, determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
+            return filterFunctions.build();
         }
 
         // Use LinkedHashMap to preserve user-specified order of conjuncts. This will be the initial order in which filters are applied.
@@ -361,10 +609,12 @@ public class OrcSelectivePageSourceFactory
             inputsToConjuncts.computeIfAbsent(extractInputs(conjunct), k -> new ArrayList<>()).add(conjunct);
         }
 
-        return inputsToConjuncts.values().stream()
+        inputsToConjuncts.values().stream()
                 .map(expressions -> binaryExpression(AND, expressions))
-                .map(predicate -> new FilterFunction(session, determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(predicate).get()))
-                .collect(toImmutableList());
+                .map(predicate -> new FilterFunction(session, determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), predicate).get()))
+                .forEach(filterFunctions::add);
+
+        return filterFunctions.build();
     }
 
     private static Set<Integer> extractInputs(RowExpression expression)
@@ -388,5 +638,45 @@ public class OrcSelectivePageSourceFactory
     private static String splitError(Throwable t, Path path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
+    }
+
+    private static class BucketAdapter
+            implements Predicate
+    {
+        public final int[] bucketColumns;
+        public final int bucketToKeep;
+        public final int tableBucketCount;
+        public final int partitionBucketCount; // for sanity check only
+        private final List<TypeInfo> typeInfoList;
+
+        public BucketAdapter(int[] bucketColumnIndices, List<HiveType> bucketColumnHiveTypes, int tableBucketCount, int partitionBucketCount, int bucketToKeep)
+        {
+            this.bucketColumns = requireNonNull(bucketColumnIndices, "bucketColumnIndices is null");
+            this.bucketToKeep = bucketToKeep;
+            this.typeInfoList = requireNonNull(bucketColumnHiveTypes, "bucketColumnHiveTypes is null").stream()
+                    .map(HiveType::getTypeInfo)
+                    .collect(toImmutableList());
+            this.tableBucketCount = tableBucketCount;
+            this.partitionBucketCount = partitionBucketCount;
+        }
+
+        @Override
+        public int[] getInputChannels()
+        {
+            return bucketColumns;
+        }
+
+        @Override
+        public boolean evaluate(ConnectorSession session, Page page, int position)
+        {
+            int bucket = getHiveBucket(tableBucketCount, typeInfoList, page, position);
+            if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
+                throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
+                        "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",
+                        bucket, bucketToKeep % partitionBucketCount, partitionBucketCount));
+            }
+
+            return bucket == bucketToKeep;
+        }
     }
 }

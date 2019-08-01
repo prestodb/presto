@@ -71,7 +71,7 @@ public class TestMLQueries
         for (ParametricType parametricType : plugin.getParametricTypes()) {
             localQueryRunner.getTypeManager().addParametricType(parametricType);
         }
-        localQueryRunner.getMetadata().addFunctions(extractFunctions(new MLPlugin().getFunctions()));
+        localQueryRunner.getMetadata().registerBuiltInFunctions(extractFunctions(new MLPlugin().getFunctions()));
 
         return localQueryRunner;
     }

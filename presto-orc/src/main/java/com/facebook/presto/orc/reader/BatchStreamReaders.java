@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 public final class BatchStreamReaders
@@ -22,42 +25,41 @@ public final class BatchStreamReaders
     {
     }
 
-    public static BatchStreamReader createStreamReader(
-            StreamDescriptor streamDescriptor,
-            DateTimeZone hiveStorageTimeZone)
+    public static BatchStreamReader createStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
-        switch (streamDescriptor.getStreamType()) {
+        switch (streamDescriptor.getOrcTypeKind()) {
             case BOOLEAN:
-                return new BooleanBatchStreamReader(streamDescriptor);
+                return new BooleanBatchStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(BatchStreamReaders.class.getSimpleName()));
             case BYTE:
-                return new ByteBatchStreamReader(streamDescriptor);
+                return new ByteBatchStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(BatchStreamReaders.class.getSimpleName()));
             case SHORT:
             case INT:
             case LONG:
             case DATE:
-                return new LongBatchStreamReader(streamDescriptor);
+                return new LongBatchStreamReader(type, streamDescriptor, systemMemoryContext);
             case FLOAT:
-                return new FloatBatchStreamReader(streamDescriptor);
+                return new FloatBatchStreamReader(type, streamDescriptor);
             case DOUBLE:
-                return new DoubleBatchStreamReader(streamDescriptor);
+                return new DoubleBatchStreamReader(type, streamDescriptor);
             case BINARY:
             case STRING:
             case VARCHAR:
             case CHAR:
-                return new SliceBatchStreamReader(streamDescriptor);
+                return new SliceBatchStreamReader(type, streamDescriptor, systemMemoryContext);
             case TIMESTAMP:
-                return new TimestampBatchStreamReader(streamDescriptor, hiveStorageTimeZone);
+                return new TimestampBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone);
             case LIST:
-                return new ListBatchStreamReader(streamDescriptor, hiveStorageTimeZone);
+                return new ListBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             case STRUCT:
-                return new StructBatchStreamReader(streamDescriptor, hiveStorageTimeZone);
+                return new StructBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             case MAP:
-                return new MapBatchStreamReader(streamDescriptor, hiveStorageTimeZone);
+                return new MapBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             case DECIMAL:
-                return new DecimalBatchStreamReader(streamDescriptor);
+                return new DecimalBatchStreamReader(type, streamDescriptor);
             case UNION:
             default:
-                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
+                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getOrcTypeKind());
         }
     }
 }

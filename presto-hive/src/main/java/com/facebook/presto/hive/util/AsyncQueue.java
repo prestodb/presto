@@ -39,7 +39,7 @@ public class AsyncQueue<T>
     private final int targetQueueSize;
 
     @GuardedBy("this")
-    private final Queue<T> elements;
+    private Queue<T> elements;
     // This future is completed when the queue transitions from full to not. But it will be replaced by a new instance of future immediately.
     @GuardedBy("this")
     private SettableFuture<?> notFullSignal = SettableFuture.create();
@@ -84,6 +84,8 @@ public class AsyncQueue<T>
     {
         if (finishing && borrowerCount == 0) {
             if (elements.size() == 0) {
+                // Reset elements queue after finishing to avoid holding on to the full sized empty array inside
+                elements = new ArrayDeque<>(0);
                 completeAsync(executor, notEmptySignal);
                 notEmptySignal = SettableFuture.create();
             }

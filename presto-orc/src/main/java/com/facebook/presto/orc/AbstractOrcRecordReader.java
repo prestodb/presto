@@ -131,7 +131,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize)
+            int initialBatchSize,
+            StripeMetadataSource stripeMetadataSource)
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -224,7 +225,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 predicate,
                 hiveWriterVersion,
                 metadataReader,
-                writeValidation);
+                writeValidation,
+                stripeMetadataSource);
 
         this.streamReaders = requireNonNull(streamReaders, "streamReaders is null");
         for (int columnId = 0; columnId < root.getFieldCount(); columnId++) {
@@ -346,6 +348,11 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     {
         try (Closer closer = Closer.create()) {
             closer.register(orcDataSource);
+            for (StreamReader column : streamReaders) {
+                if (column != null) {
+                    closer.register(column::close);
+                }
+            }
         }
 
         if (writeChecksumBuilder.isPresent()) {
@@ -602,7 +609,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             nestedStreams.add(createStreamDescriptor(parentStreamName, "key", type.getFieldTypeIndex(0), types, dataSource));
             nestedStreams.add(createStreamDescriptor(parentStreamName, "value", type.getFieldTypeIndex(1), types, dataSource));
         }
-        return new StreamDescriptor(parentStreamName, typeId, fieldName, type.getOrcTypeKind(), dataSource, nestedStreams.build());
+        return new StreamDescriptor(parentStreamName, typeId, fieldName, type, dataSource, nestedStreams.build());
     }
 
     protected boolean shouldValidateWritePageChecksum()

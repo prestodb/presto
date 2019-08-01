@@ -15,12 +15,17 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
+import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
+import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
+import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -35,9 +40,9 @@ import java.util.OptionalLong;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
-import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -69,7 +74,7 @@ public class TestShardRecovery
         File backupDirectory = new File(temporary, "backup");
         backupStore = new FileBackupStore(backupDirectory);
         backupStore.start();
-        storageService = new FileStorageService(directory);
+        storageService = new LocalFileStorageService(new LocalOrcDataEnvironment(), directory.toURI());
         storageService.start();
 
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
@@ -95,7 +100,7 @@ public class TestShardRecovery
             throws Exception
     {
         UUID shardUuid = UUID.randomUUID();
-        File file = storageService.getStorageFile(shardUuid);
+        File file = new File(storageService.getStorageFile(shardUuid).toString());
         File tempFile = createTempFile("tmp", null, temporary);
 
         Files.write("test data", tempFile, UTF_8);
@@ -129,8 +134,8 @@ public class TestShardRecovery
         assertTrue(Files.equal(tempFile, backupFile));
 
         // write corrupt storage file with wrong length
-        File storageFile = storageService.getStorageFile(shardUuid);
-        storageService.createParents(storageFile);
+        File storageFile = new File(storageService.getStorageFile(shardUuid).toString());
+        storageService.createParents(new Path(storageFile.toURI()));
 
         Files.write("bad data", storageFile, UTF_8);
 
@@ -145,7 +150,7 @@ public class TestShardRecovery
         assertTrue(Files.equal(storageFile, tempFile));
 
         // verify quarantine exists
-        List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
+        List<String> quarantined = listFiles(new File(storageService.getQuarantineFile(shardUuid).getParent().toString()));
         assertEquals(quarantined.size(), 1);
         assertTrue(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt"));
     }
@@ -167,8 +172,8 @@ public class TestShardRecovery
         assertTrue(Files.equal(tempFile, backupFile));
 
         // write corrupt storage file with wrong data
-        File storageFile = storageService.getStorageFile(shardUuid);
-        storageService.createParents(storageFile);
+        File storageFile = new File(storageService.getStorageFile(shardUuid).toString());
+        storageService.createParents(new Path(storageFile.toURI()));
 
         Files.write("test xata", storageFile, UTF_8);
 
@@ -177,13 +182,13 @@ public class TestShardRecovery
         assertFalse(Files.equal(storageFile, tempFile));
 
         // restore from backup and verify
-        recoveryManager.restoreFromBackup(shardUuid, tempFile.length(), OptionalLong.of(xxhash64(tempFile)));
+        recoveryManager.restoreFromBackup(shardUuid, tempFile.length(), OptionalLong.of(xxhash64(new RaptorLocalFileSystem(new Configuration()), new Path(tempFile.toURI()))));
 
         assertTrue(storageFile.exists());
         assertTrue(Files.equal(storageFile, tempFile));
 
         // verify quarantine exists
-        List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
+        List<String> quarantined = listFiles(new File(storageService.getQuarantineFile(shardUuid).getParent().toString()));
         assertEquals(quarantined.size(), 1);
         assertTrue(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt"));
     }
@@ -195,13 +200,13 @@ public class TestShardRecovery
         UUID shardUuid = UUID.randomUUID();
 
         // write storage file
-        File storageFile = storageService.getStorageFile(shardUuid);
-        storageService.createParents(storageFile);
+        File storageFile = new File(storageService.getStorageFile(shardUuid).toString());
+        storageService.createParents(new Path(storageFile.toURI()));
 
         Files.write("test data", storageFile, UTF_8);
 
         long size = storageFile.length();
-        long xxhash64 = xxhash64(storageFile);
+        long xxhash64 = xxhash64(new RaptorLocalFileSystem(new Configuration()), new Path(storageFile.toURI()));
 
         // backup and verify
         backupStore.backupShard(shardUuid, storageFile);
@@ -232,7 +237,7 @@ public class TestShardRecovery
         }
 
         // verify quarantine exists
-        List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
+        List<String> quarantined = listFiles(new File(storageService.getQuarantineFile(shardUuid).getParent().toString()));
         assertEquals(quarantined.size(), 1);
         assertTrue(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt"));
     }
@@ -251,6 +256,7 @@ public class TestShardRecovery
         return new ShardRecoveryManager(
                 storageService,
                 backupStore,
+                new LocalOrcDataEnvironment(),
                 new TestingNodeManager(),
                 shardManager,
                 new Duration(5, MINUTES),

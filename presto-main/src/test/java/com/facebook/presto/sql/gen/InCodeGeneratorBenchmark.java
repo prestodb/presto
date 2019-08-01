@@ -127,7 +127,7 @@ public class InCodeGeneratorBenchmark
         RowExpression filter = specialForm(IN, BOOLEAN, arguments);
 
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
+        processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.of(filter), ImmutableList.of(project)).get();
     }
 
     @Benchmark

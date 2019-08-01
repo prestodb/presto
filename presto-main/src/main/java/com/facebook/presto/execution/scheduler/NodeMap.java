@@ -18,24 +18,34 @@ import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.SetMultimap;
 
 import java.net.InetAddress;
+import java.util.Map;
 import java.util.Set;
 
 public class NodeMap
 {
+    private final Map<String, InternalNode> nodesByNodeId;
     private final SetMultimap<HostAddress, InternalNode> nodesByHostAndPort;
     private final SetMultimap<InetAddress, InternalNode> nodesByHost;
     private final SetMultimap<NetworkLocation, InternalNode> workersByNetworkPath;
     private final Set<String> coordinatorNodeIds;
 
-    public NodeMap(SetMultimap<HostAddress, InternalNode> nodesByHostAndPort,
+    public NodeMap(
+            Map<String, InternalNode> nodesByNodeId,
+            SetMultimap<HostAddress, InternalNode> nodesByHostAndPort,
             SetMultimap<InetAddress, InternalNode> nodesByHost,
             SetMultimap<NetworkLocation, InternalNode> workersByNetworkPath,
             Set<String> coordinatorNodeIds)
     {
+        this.nodesByNodeId = nodesByNodeId;
         this.nodesByHostAndPort = nodesByHostAndPort;
         this.nodesByHost = nodesByHost;
         this.workersByNetworkPath = workersByNetworkPath;
         this.coordinatorNodeIds = coordinatorNodeIds;
+    }
+
+    public Map<String, InternalNode> getNodesByNodeId()
+    {
+        return nodesByNodeId;
     }
 
     public SetMultimap<HostAddress, InternalNode> getNodesByHostAndPort()

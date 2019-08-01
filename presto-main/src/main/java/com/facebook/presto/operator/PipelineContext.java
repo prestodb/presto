@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.Distribution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
@@ -25,8 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.Distribution;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;

@@ -13,6 +13,15 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpClient.HttpResponseFuture;
+import com.facebook.airlift.http.client.HttpStatus;
+import com.facebook.airlift.http.client.HttpUriBuilder;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.Response;
+import com.facebook.airlift.http.client.ResponseHandler;
+import com.facebook.airlift.http.client.ResponseTooLargeException;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.server.remotetask.Backoff;
 import com.facebook.presto.spi.PrestoException;
@@ -21,15 +30,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpClient.HttpResponseFuture;
-import io.airlift.http.client.HttpStatus;
-import io.airlift.http.client.HttpUriBuilder;
-import io.airlift.http.client.Request;
-import io.airlift.http.client.Response;
-import io.airlift.http.client.ResponseHandler;
-import io.airlift.http.client.ResponseTooLargeException;
-import io.airlift.log.Logger;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
@@ -54,6 +54,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.airlift.http.client.HttpStatus.familyForStatusCode;
+import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
+import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.http.client.ResponseHandlerUtils.propagate;
+import static com.facebook.airlift.http.client.StatusResponseHandler.StatusResponse;
+import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
@@ -72,12 +78,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.airlift.http.client.HttpStatus.familyForStatusCode;
-import static io.airlift.http.client.Request.Builder.prepareDelete;
-import static io.airlift.http.client.Request.Builder.prepareGet;
-import static io.airlift.http.client.ResponseHandlerUtils.propagate;
-import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
-import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -110,7 +110,6 @@ public final class HttpPageBufferClient
     }
 
     private final HttpClient httpClient;
-    private final DataSize maxResponseSize;
     private final boolean acknowledgePages;
     private final URI location;
     private final ClientCallback clientCallback;
@@ -146,7 +145,6 @@ public final class HttpPageBufferClient
 
     public HttpPageBufferClient(
             HttpClient httpClient,
-            DataSize maxResponseSize,
             Duration maxErrorDuration,
             boolean acknowledgePages,
             URI location,
@@ -154,12 +152,11 @@ public final class HttpPageBufferClient
             ScheduledExecutorService scheduler,
             Executor pageBufferClientCallbackExecutor)
     {
-        this(httpClient, maxResponseSize, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
+        this(httpClient, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
     }
 
     public HttpPageBufferClient(
             HttpClient httpClient,
-            DataSize maxResponseSize,
             Duration maxErrorDuration,
             boolean acknowledgePages,
             URI location,
@@ -169,7 +166,6 @@ public final class HttpPageBufferClient
             Executor pageBufferClientCallbackExecutor)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
         this.acknowledgePages = acknowledgePages;
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
@@ -252,7 +248,7 @@ public final class HttpPageBufferClient
         }
     }
 
-    public synchronized void scheduleRequest()
+    public synchronized void scheduleRequest(DataSize maxResponseSize)
     {
         if (closed || (future != null) || scheduled) {
             return;
@@ -265,7 +261,7 @@ public final class HttpPageBufferClient
         long delayNanos = backoff.getBackoffDelayNanos();
         scheduler.schedule(() -> {
             try {
-                initiateRequest();
+                initiateRequest(maxResponseSize);
             }
             catch (Throwable t) {
                 // should not happen, but be safe and fail the operator
@@ -277,7 +273,7 @@ public final class HttpPageBufferClient
         requestsScheduled.incrementAndGet();
     }
 
-    private synchronized void initiateRequest()
+    private synchronized void initiateRequest(DataSize maxResponseSize)
     {
         scheduled = false;
         if (closed || (future != null)) {
@@ -288,13 +284,13 @@ public final class HttpPageBufferClient
             sendDelete();
         }
         else {
-            sendGetResults();
+            sendGetResults(maxResponseSize);
         }
 
         lastUpdate = DateTime.now();
     }
 
-    private synchronized void sendGetResults()
+    private synchronized void sendGetResults(DataSize maxResponseSize)
     {
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(

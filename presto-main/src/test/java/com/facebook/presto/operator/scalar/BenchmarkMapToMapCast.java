@@ -99,7 +99,7 @@ public class BenchmarkMapToMapCast
                     new CallExpression(CAST.name(), functionHandle, mapType(BIGINT, DOUBLE), ImmutableList.of(field(0, mapType(DOUBLE, BIGINT)))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
-                    .compilePageProcessor(Optional.empty(), projections)
+                    .compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections)
                     .get();
 
             Block keyBlock = createKeyBlock(POSITION_COUNT, MAP_SIZE);
@@ -115,7 +115,7 @@ public class BenchmarkMapToMapCast
             for (int i = 0; i < offsets.length; i++) {
                 offsets[i] = mapSize * i;
             }
-            return mapType.createBlockFromKeyValue(Optional.empty(), offsets, keyBlock, valueBlock);
+            return mapType.createBlockFromKeyValue(positionCount, Optional.empty(), offsets, keyBlock, valueBlock);
         }
 
         private static Block createKeyBlock(int positionCount, int mapSize)

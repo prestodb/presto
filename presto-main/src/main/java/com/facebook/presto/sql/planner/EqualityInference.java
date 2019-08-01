@@ -51,6 +51,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Makes equality based inferences to rewrite Expressions and generate equality sets in terms of specified symbol scopes
  */
+@Deprecated
 public class EqualityInference
 {
     // Ordering used to determine Expression preference when determining canonicals

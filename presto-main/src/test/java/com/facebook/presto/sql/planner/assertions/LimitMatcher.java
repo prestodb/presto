@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 
 import static com.google.common.base.Preconditions.checkState;
 

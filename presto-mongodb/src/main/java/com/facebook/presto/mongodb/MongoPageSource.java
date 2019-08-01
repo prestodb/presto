@@ -63,7 +63,8 @@ public class MongoPageSource
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private Document currentDoc;
-    private long count;
+    private long completedBytes;
+    private long completedPositions;
     private boolean finished;
 
     private final PageBuilder pageBuilder;
@@ -84,7 +85,13 @@ public class MongoPageSource
     @Override
     public long getCompletedBytes()
     {
-        return count;
+        return completedBytes;
+    }
+
+    @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
     }
 
     @Override
@@ -109,14 +116,13 @@ public class MongoPageSource
     public Page getNextPage()
     {
         verify(pageBuilder.isEmpty());
-        count = 0;
+
         for (int i = 0; i < ROWS_PER_REQUEST; i++) {
             if (!cursor.hasNext()) {
                 finished = true;
                 break;
             }
             currentDoc = cursor.next();
-            count++;
 
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
@@ -127,6 +133,10 @@ public class MongoPageSource
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
+
+        completedBytes += page.getSizeInBytes();
+        completedPositions += page.getPositionCount();
+
         return page;
     }
 

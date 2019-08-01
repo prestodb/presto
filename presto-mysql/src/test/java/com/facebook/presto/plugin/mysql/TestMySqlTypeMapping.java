@@ -16,6 +16,8 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.testing.mysql.MySqlOptions;
+import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.datatype.CreateAndInsertDataSetup;
 import com.facebook.presto.tests.datatype.CreateAsSelectDataSetup;
@@ -24,12 +26,12 @@ import com.facebook.presto.tests.datatype.DataTypeTest;
 import com.facebook.presto.tests.sql.JdbcSqlExecutor;
 import com.facebook.presto.tests.sql.PrestoSqlExecutor;
 import com.google.common.collect.ImmutableList;
-import io.airlift.testing.mysql.MySqlOptions;
-import io.airlift.testing.mysql.TestingMySqlServer;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -53,7 +55,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Test
@@ -75,12 +76,13 @@ public class TestMySqlTypeMapping
 
     private TestMySqlTypeMapping(TestingMySqlServer mysqlServer)
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, emptyList()));
+        super(() -> createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableList.of()));
         this.mysqlServer = mysqlServer;
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
+            throws IOException
     {
         mysqlServer.close();
     }

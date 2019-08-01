@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.event;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.node.NodeInfo;
+import com.facebook.airlift.stats.Distribution;
+import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -43,7 +48,7 @@ import com.facebook.presto.spi.eventlistener.QueryInputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
-import com.facebook.presto.spi.eventlistener.StageCpuDistribution;
+import com.facebook.presto.spi.eventlistener.ResourceDistribution;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.transaction.TransactionId;
@@ -53,11 +58,6 @@ import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
-import io.airlift.stats.Distribution;
-import io.airlift.stats.Distribution.DistributionSnapshot;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
@@ -164,9 +164,11 @@ public class QueryMonitor
                         0,
                         0,
                         0,
+                        0,
                         ImmutableList.of(),
                         0,
                         true,
+                        ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of()),
                 createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
@@ -204,6 +206,26 @@ public class QueryMonitor
         logQueryTimeline(queryInfo);
     }
 
+    public static ResourceDistribution createResourceDistribution(
+            int stageId,
+            int tasks,
+            DistributionSnapshot distributionSnapshot)
+    {
+        return new ResourceDistribution(
+                stageId,
+                tasks,
+                distributionSnapshot.getP25(),
+                distributionSnapshot.getP50(),
+                distributionSnapshot.getP75(),
+                distributionSnapshot.getP90(),
+                distributionSnapshot.getP95(),
+                distributionSnapshot.getP99(),
+                distributionSnapshot.getMin(),
+                distributionSnapshot.getMax(),
+                (long) distributionSnapshot.getTotal(),
+                distributionSnapshot.getTotal() / distributionSnapshot.getCount());
+    }
+
     private QueryMetadata createQueryMetadata(QueryInfo queryInfo)
     {
         return new QueryMetadata(
@@ -225,11 +247,19 @@ public class QueryMonitor
         }
 
         QueryStats queryStats = queryInfo.getQueryStats();
+
+        ImmutableList.Builder<ResourceDistribution> cpuDistributionBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ResourceDistribution> memoryDistributionBuilder = ImmutableList.builder();
+        if (queryInfo.getOutputStage().isPresent()) {
+            computeCpuAndMemoryDistributions(queryInfo.getOutputStage().get(), cpuDistributionBuilder, memoryDistributionBuilder);
+        }
+
         return new QueryStatistics(
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
                 ofMillis(queryStats.getTotalScheduledTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
                 Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
+                queryStats.getPeakRunningTasks(),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getPeakTotalMemoryReservation().toBytes(),
                 queryStats.getPeakTaskUserMemory().toBytes(),
@@ -245,7 +275,8 @@ public class QueryMonitor
                 queryStats.getStageGcStatistics(),
                 queryStats.getCompletedDrivers(),
                 queryInfo.isCompleteInfo(),
-                getCpuDistributions(queryInfo),
+                cpuDistributionBuilder.build(),
+                memoryDistributionBuilder.build(),
                 operatorSummaries.build());
     }
 
@@ -258,7 +289,6 @@ public class QueryMonitor
                 session.getUserAgent(),
                 session.getClientInfo(),
                 session.getClientTags(),
-                session.getClientCapabilities(),
                 session.getSource(),
                 session.getCatalog(),
                 session.getSchema(),
@@ -336,7 +366,7 @@ public class QueryMonitor
                             queryInfo.getOutput().get().getConnectorId().getCatalogName(),
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
-                            tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
+                            tableFinishInfo.map(TableFinishInfo::getSerializedConnectorOutputMetadata),
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
         }
         return new QueryIOMetadata(inputs.build(), output);
@@ -367,7 +397,7 @@ public class QueryMonitor
                 return task;
             }
         }
-        return stageInfo.getTasks().stream()
+        return stageInfo.getLatestAttemptExecutionInfo().getTasks().stream()
                 .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
                 .findFirst();
     }
@@ -417,7 +447,7 @@ public class QueryMonitor
                     continue;
                 }
 
-                for (TaskInfo taskInfo : stage.getTasks()) {
+                for (TaskInfo taskInfo : stage.getLatestAttemptExecutionInfo().getTasks()) {
                     TaskStats taskStats = taskInfo.getStats();
 
                     DateTime firstStartTime = taskStats.getFirstStartTime();
@@ -505,49 +535,32 @@ public class QueryMonitor
                 queryEndTime);
     }
 
-    private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)
-    {
-        if (!queryInfo.getOutputStage().isPresent()) {
-            return ImmutableList.of();
-        }
-
-        ImmutableList.Builder<StageCpuDistribution> builder = ImmutableList.builder();
-        populateDistribution(queryInfo.getOutputStage().get(), builder);
-
-        return builder.build();
-    }
-
-    private static void populateDistribution(StageInfo stageInfo, ImmutableList.Builder<StageCpuDistribution> distributions)
-    {
-        distributions.add(computeCpuDistribution(stageInfo));
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            populateDistribution(subStage, distributions);
-        }
-    }
-
-    private static StageCpuDistribution computeCpuDistribution(StageInfo stageInfo)
+    private static void computeCpuAndMemoryDistributions(
+            StageInfo stageInfo,
+            ImmutableList.Builder<ResourceDistribution> cpuDistributionBuilder,
+            ImmutableList.Builder<ResourceDistribution> memoryDistributionBuilder)
     {
         Distribution cpuDistribution = new Distribution();
+        Distribution memoryDistribution = new Distribution();
 
-        for (TaskInfo taskInfo : stageInfo.getTasks()) {
+        for (TaskInfo taskInfo : stageInfo.getLatestAttemptExecutionInfo().getTasks()) {
             cpuDistribution.add(taskInfo.getStats().getTotalCpuTime().toMillis());
+            memoryDistribution.add(taskInfo.getStats().getPeakTotalMemoryInBytes());
         }
 
-        DistributionSnapshot snapshot = cpuDistribution.snapshot();
-
-        return new StageCpuDistribution(
+        cpuDistributionBuilder.add(createResourceDistribution(
                 stageInfo.getStageId().getId(),
-                stageInfo.getTasks().size(),
-                snapshot.getP25(),
-                snapshot.getP50(),
-                snapshot.getP75(),
-                snapshot.getP90(),
-                snapshot.getP95(),
-                snapshot.getP99(),
-                snapshot.getMin(),
-                snapshot.getMax(),
-                (long) snapshot.getTotal(),
-                snapshot.getTotal() / snapshot.getCount());
+                stageInfo.getLatestAttemptExecutionInfo().getTasks().size(),
+                cpuDistribution.snapshot()));
+
+        memoryDistributionBuilder.add(createResourceDistribution(
+                stageInfo.getStageId().getId(),
+                stageInfo.getLatestAttemptExecutionInfo().getTasks().size(),
+                memoryDistribution.snapshot()));
+
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            computeCpuAndMemoryDistributions(subStage, cpuDistributionBuilder, memoryDistributionBuilder);
+        }
     }
 
     public static class JsonPlanFragment

@@ -47,7 +47,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.common.FileUtils;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -63,11 +62,15 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxBucketsForGroupedExecution;
+import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreTableBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
@@ -120,13 +123,13 @@ public class HivePartitionManager
         this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
-    public Iterable<HivePartition> getPartitionsIterator(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public Iterable<HivePartition> getPartitionsIterator(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, ConnectorSession session)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary();
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
-        Table table = getTable(metastore, tableName);
+        Table table = getTable(metastore, tableName, isOfflineDataDebugModeEnabled(session));
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
 
@@ -148,24 +151,35 @@ public class HivePartitionManager
         TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary();
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
-        Table table = getTable(metastore, tableName);
+        Table table = getTable(metastore, tableName, isOfflineDataDebugModeEnabled(session));
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
 
-        List<HivePartition> partitions = getPartitionsAsList(getPartitionsIterator(metastore, tableHandle, constraint).iterator());
+        List<HivePartition> partitions = getPartitionsAsList(getPartitionsIterator(metastore, tableHandle, constraint, session).iterator());
 
         // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
         boolean shouldIgnoreTableBucketing = !table.getTableType().equals(TEMPORARY_TABLE) && shouldIgnoreTableBucketing(session);
         Optional<HiveBucketHandle> hiveBucketHandle = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketHandle(table);
         Optional<HiveBucketFilter> bucketFilter = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketFilter(table, effectivePredicate);
 
-        if (hiveBucketHandle.isPresent() && hiveBucketHandle.get().getReadBucketCount() * partitions.size() > getMaxBucketsForGroupedExecution(session)) {
+        if (!queryUsesHiveBucketColumn(effectivePredicate)
+                && hiveBucketHandle.isPresent()
+                && queryAccessesTooManyBuckets(hiveBucketHandle.get(), bucketFilter, partitions, session)) {
             hiveBucketHandle = Optional.empty();
             bucketFilter = Optional.empty();
         }
 
         if (effectivePredicate.isNone()) {
-            return new HivePartitionResult(partitionColumns, partitions, TupleDomain.none(), TupleDomain.none(), TupleDomain.none(), hiveBucketHandle, Optional.empty());
+            return new HivePartitionResult(
+                    partitionColumns,
+                    table.getDataColumns(),
+                    table.getParameters(),
+                    partitions,
+                    TupleDomain.none(),
+                    TupleDomain.none(),
+                    TupleDomain.none(),
+                    hiveBucketHandle,
+                    Optional.empty());
         }
 
         TupleDomain<ColumnHandle> compactEffectivePredicate = effectivePredicate.compact(domainCompactionThreshold);
@@ -173,10 +187,12 @@ public class HivePartitionManager
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
                     partitionColumns,
+                    table.getDataColumns(),
+                    table.getParameters(),
                     partitions,
                     compactEffectivePredicate,
                     effectivePredicate,
-                    TupleDomain.none(),
+                    TupleDomain.all(),
                     hiveBucketHandle,
                     bucketFilter);
         }
@@ -184,7 +200,31 @@ public class HivePartitionManager
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
         TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
-        return new HivePartitionResult(partitionColumns, partitions, compactEffectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
+        return new HivePartitionResult(
+                partitionColumns,
+                table.getDataColumns(),
+                table.getParameters(),
+                partitions,
+                compactEffectivePredicate,
+                remainingTupleDomain,
+                enforcedTupleDomain,
+                hiveBucketHandle,
+                bucketFilter);
+    }
+
+    private boolean queryUsesHiveBucketColumn(TupleDomain<ColumnHandle> effectivePredicate)
+    {
+        if (!effectivePredicate.getDomains().isPresent()) {
+            return false;
+        }
+        return effectivePredicate.getDomains().get().keySet().stream().anyMatch(key -> ((HiveColumnHandle) key).getName().equals(BUCKET_COLUMN_NAME));
+    }
+
+    private boolean queryAccessesTooManyBuckets(HiveBucketHandle handle, Optional<HiveBucketFilter> filter, List<HivePartition> partitions, ConnectorSession session)
+    {
+        int bucketsPerPartition = filter.map(hiveBucketFilter -> hiveBucketFilter.getBucketsToKeep().size())
+                .orElseGet(handle::getReadBucketCount);
+        return bucketsPerPartition * partitions.size() > getMaxBucketsForGroupedExecution(session);
     }
 
     private List<HivePartition> getPartitionsAsList(Iterator<HivePartition> partitionsIterator)
@@ -210,7 +250,7 @@ public class HivePartitionManager
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
 
-        Table table = getTable(metastore, tableName);
+        Table table = getTable(metastore, tableName, isOfflineDataDebugModeEnabled(session));
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
         List<Type> partitionColumnTypes = partitionColumns.stream()
@@ -224,7 +264,16 @@ public class HivePartitionManager
                 .collect(toImmutableList());
 
         Optional<HiveBucketHandle> bucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(table);
-        return new HivePartitionResult(partitionColumns, partitionList, TupleDomain.all(), TupleDomain.all(), TupleDomain.none(), bucketHandle, Optional.empty());
+        return new HivePartitionResult(
+                partitionColumns,
+                table.getDataColumns(),
+                table.getParameters(),
+                partitionList,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                TupleDomain.none(),
+                bucketHandle,
+                Optional.empty());
     }
 
     private Optional<HivePartition> parseValuesAndFilterPartition(
@@ -252,14 +301,18 @@ public class HivePartitionManager
         return Optional.of(partition);
     }
 
-    private Table getTable(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName)
+    private Table getTable(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName, boolean offlineDataDebugModeEnabled)
     {
         Optional<Table> target = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
         if (!target.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
         Table table = target.get();
-        verifyOnline(tableName, Optional.empty(), getProtectMode(table), table.getParameters());
+
+        if (!offlineDataDebugModeEnabled) {
+            verifyOnline(tableName, Optional.empty(), getProtectMode(table), table.getParameters());
+        }
+
         return table;
     }
 
@@ -276,7 +329,7 @@ public class HivePartitionManager
                 Object value = domain.getNullableSingleValue();
                 Type type = domain.getType();
                 if (value == null) {
-                    filter.add(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION);
+                    filter.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
                 }
                 else if (type instanceof CharType) {
                     Slice slice = (Slice) value;
@@ -348,33 +401,5 @@ public class HivePartitionManager
         }
         Map<ColumnHandle, NullableValue> values = builder.build();
         return new HivePartition(tableName, partitionName, values);
-    }
-
-    public static List<String> extractPartitionValues(String partitionName)
-    {
-        ImmutableList.Builder<String> values = ImmutableList.builder();
-
-        boolean inKey = true;
-        int valueStart = -1;
-        for (int i = 0; i < partitionName.length(); i++) {
-            char current = partitionName.charAt(i);
-            if (inKey) {
-                checkArgument(current != '/', "Invalid partition spec: %s", partitionName);
-                if (current == '=') {
-                    inKey = false;
-                    valueStart = i + 1;
-                }
-            }
-            else if (current == '/') {
-                checkArgument(valueStart != -1, "Invalid partition spec: %s", partitionName);
-                values.add(FileUtils.unescapePathName(partitionName.substring(valueStart, i)));
-                inKey = true;
-                valueStart = -1;
-            }
-        }
-        checkArgument(!inKey, "Invalid partition spec: %s", partitionName);
-        values.add(FileUtils.unescapePathName(partitionName.substring(valueStart, partitionName.length())));
-
-        return values.build();
     }
 }

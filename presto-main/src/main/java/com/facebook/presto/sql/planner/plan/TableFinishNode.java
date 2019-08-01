@@ -17,6 +17,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -35,7 +36,7 @@ public class TableFinishNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final WriterTarget target;
+    private final Optional<WriterTarget> target;
     private final VariableReferenceExpression rowCountVariable;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor;
@@ -44,7 +45,7 @@ public class TableFinishNode
     public TableFinishNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("target") WriterTarget target,
+            @JsonProperty("target") Optional<WriterTarget> target,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
@@ -66,8 +67,8 @@ public class TableFinishNode
         return source;
     }
 
-    @JsonProperty
-    public WriterTarget getTarget()
+    @JsonIgnore
+    public Optional<WriterTarget> getTarget()
     {
         return target;
     }

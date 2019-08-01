@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.log.Logger;
 import com.google.common.base.Throwables;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;

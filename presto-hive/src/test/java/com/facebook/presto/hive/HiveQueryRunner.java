@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -27,8 +29,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
-import io.airlift.log.Logging;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
@@ -38,6 +39,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.airlift.log.Level.ERROR;
+import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
@@ -47,8 +50,6 @@ import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.log.Level.ERROR;
-import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -82,22 +83,56 @@ public final class HiveQueryRunner
         return createQueryRunner(tables, ImmutableMap.of(), Optional.empty());
     }
 
+    public static DistributedQueryRunner createQueryRunner(
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties,
+            Map<String, String> extraCoordinatorProperties,
+            Optional<Path> baseDataDir)
+            throws Exception
+    {
+        return createQueryRunner(tables, extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), baseDataDir);
+    }
+
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, Optional<Path> baseDataDir)
             throws Exception
     {
-        return createQueryRunner(tables, extraProperties, "sql-standard", ImmutableMap.of(), baseDataDir);
+        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), baseDataDir);
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, String security, Map<String, String> extraHiveProperties, Optional<Path> baseDataDir)
+    public static DistributedQueryRunner createQueryRunner(
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties,
+            String security,
+            Map<String, String> extraHiveProperties,
+            Optional<Path> baseDataDir)
+            throws Exception
+    {
+        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), security, extraHiveProperties, baseDataDir);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties,
+            Map<String, String> extraCoordinatorProperties,
+            String security,
+            Map<String, String> extraHiveProperties,
+            Optional<Path> baseDataDir)
             throws Exception
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
         setupLogging();
 
+        Map<String, String> systemProperties = ImmutableMap.<String, String>builder()
+                .put("task.writer-count", "2")
+                .put("task.partitioned-writer-count", "4")
+                .putAll(extraProperties)
+                .build();
+
         DistributedQueryRunner queryRunner =
                 DistributedQueryRunner.builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
                         .setNodeCount(4)
-                        .setExtraProperties(extraProperties)
+                        .setExtraProperties(systemProperties)
+                        .setCoordinatorProperties(extraCoordinatorProperties)
                         .setBaseDataDir(baseDataDir)
                         .build();
         try {
@@ -107,8 +142,9 @@ public final class HiveQueryRunner
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
 
             HiveClientConfig hiveClientConfig = new HiveClientConfig();
-            HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
-            HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
+            MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+            HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of());
+            HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
 
             FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
@@ -122,12 +158,19 @@ public final class HiveQueryRunner
                     .put("hive.collect-column-statistics-on-write", "true")
                     .put("hive.temporary-table-schema", TEMPORARY_TABLE_SCHEMA)
                     .build();
+
+            Map<String, String> storageProperties = extraHiveProperties.containsKey("hive.storage-format") ?
+                    ImmutableMap.copyOf(hiveProperties) :
+                    ImmutableMap.<String, String>builder()
+                            .putAll(hiveProperties)
+                            .put("hive.storage-format", "TEXTFILE")
+                            .put("hive.compression-codec", "NONE")
+                            .build();
+
             Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
-                    .putAll(hiveProperties)
+                    .putAll(storageProperties)
                     .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
                     .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
-                    .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
-                    .put("hive.compression-codec", "NONE") // so that the file is splittable
                     .build();
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
@@ -171,9 +214,10 @@ public final class HiveQueryRunner
     private static void setupLogging()
     {
         Logging logging = Logging.initialize();
+        logging.setLevel("com.facebook.presto.event", WARN);
         logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
         logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
-        logging.setLevel("io.airlift.bootstrap.LifeCycleManager", WARN);
+        logging.setLevel("com.facebook.airlift.bootstrap.LifeCycleManager", WARN);
         logging.setLevel("org.apache.parquet.hadoop", WARN);
         logging.setLevel("org.eclipse.jetty.server.handler.ContextHandler", WARN);
         logging.setLevel("org.eclipse.jetty.server.AbstractConnector", WARN);
@@ -197,7 +241,8 @@ public final class HiveQueryRunner
                         "hive",
                         Optional.empty(),
                         role.map(selectedRole -> ImmutableMap.of(HIVE_CATALOG, selectedRole))
-                                .orElse(ImmutableMap.of())))
+                                .orElse(ImmutableMap.of()),
+                        ImmutableMap.of()))
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
@@ -210,7 +255,8 @@ public final class HiveQueryRunner
                         "hive",
                         Optional.empty(),
                         role.map(selectedRole -> ImmutableMap.of(HIVE_BUCKETED_CATALOG, selectedRole))
-                                .orElse(ImmutableMap.of())))
+                                .orElse(ImmutableMap.of()),
+                        ImmutableMap.of()))
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();
@@ -223,7 +269,8 @@ public final class HiveQueryRunner
                         "hive",
                         Optional.empty(),
                         role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
-                                .orElse(ImmutableMap.of())))
+                                .orElse(ImmutableMap.of()),
+                        ImmutableMap.of()))
                 .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, HIVE_CATALOG)
                 .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.ALL.toString())
                 .setSystemProperty(HASH_PARTITION_COUNT, "13")

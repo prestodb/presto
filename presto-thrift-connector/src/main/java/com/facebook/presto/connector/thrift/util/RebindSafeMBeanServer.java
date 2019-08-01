@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.thrift.util;
 
-import io.airlift.log.Logger;
+import com.facebook.airlift.log.Logger;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.management.Attribute;

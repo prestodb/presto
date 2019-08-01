@@ -14,10 +14,12 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
+import com.facebook.presto.orc.stream.OrcDataOutput;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -31,8 +33,10 @@ import org.testng.annotations.Test;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
@@ -41,7 +45,6 @@ import static com.facebook.presto.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
 import static com.facebook.presto.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;
@@ -95,7 +98,16 @@ public class TestOrcWriter
             // read the footer and verify the streams are ordered by size
             DataSize dataSize = new DataSize(1, MEGABYTE);
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-            Footer footer = new OrcReader(orcDataSource, ORC, dataSize, dataSize, dataSize, dataSize).getFooter();
+            Footer footer = new OrcReader(
+                    orcDataSource,
+                    ORC,
+                    new StorageOrcFileTailSource(),
+                    new StorageStripeMetadataSource(),
+                    new OrcReaderOptions(
+                            dataSize,
+                            dataSize,
+                            dataSize,
+                            false)).getFooter();
 
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer
@@ -118,6 +130,80 @@ public class TestOrcWriter
                     }
                 }
             }
+        }
+    }
+
+    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = "Dummy exception from mocked instance")
+    public void testVerifyNoIllegalStateException()
+            throws IOException
+    {
+        OrcWriter writer = new OrcWriter(
+                new MockOrcDataSink(),
+                ImmutableList.of("test1"),
+                ImmutableList.of(VARCHAR),
+                ORC,
+                NONE,
+                new OrcWriterOptions()
+                        .withStripeMinSize(new DataSize(0, MEGABYTE))
+                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                        .withStripeMaxRowCount(10)
+                        .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
+                        .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
+                ImmutableMap.of(),
+                HIVE_STORAGE_TIME_ZONE,
+                false,
+                null,
+                new OrcWriterStats());
+
+        int entries = 65536;
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
+        byte[] bytes = "dummyString".getBytes();
+        for (int j = 0; j < entries; j++) {
+            // force to write different data
+            bytes[0] = (byte) ((bytes[0] + 1) % 128);
+            blockBuilder.writeBytes(Slices.wrappedBuffer(bytes, 0, bytes.length), 0, bytes.length);
+            blockBuilder.closeEntry();
+        }
+        Block[] blocks = new Block[] {blockBuilder.build()};
+
+        try {
+            // Throw IOException after first flush
+            writer.write(new Page(blocks));
+        }
+        catch (IOException e) {
+            writer.close();
+        }
+    }
+
+    public static class MockOrcDataSink
+            implements OrcDataSink
+    {
+        public MockOrcDataSink()
+        {
+        }
+
+        @Override
+        public long size()
+        {
+            return -1L;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return -1L;
+        }
+
+        @Override
+        public void write(List<OrcDataOutput> outputData)
+                throws IOException
+        {
+            throw new IOException("Dummy exception from mocked instance");
+        }
+
+        @Override
+        public void close()
+        {
         }
     }
 }

@@ -16,11 +16,13 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonToRowCast.JSON_TO_ROW;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
@@ -35,7 +37,7 @@ public final class JsonStringToRowCast
     private JsonStringToRowCast()
     {
         super(new Signature(
-                JSON_STRING_TO_ROW_NAME,
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ROW_NAME),
                 SCALAR,
                 ImmutableList.of(withVariadicBound("T", "row")),
                 ImmutableList.of(),
@@ -64,7 +66,7 @@ public final class JsonStringToRowCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         return JSON_TO_ROW.specialize(boundVariables, arity, typeManager, functionManager);
     }

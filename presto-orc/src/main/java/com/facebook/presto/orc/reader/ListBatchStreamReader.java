@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -22,19 +23,25 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.io.Closer;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.BatchStreamReaders.createStreamReader;
+import static com.facebook.presto.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackLengthNulls;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.Math.toIntExact;
@@ -45,6 +52,7 @@ public class ListBatchStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListBatchStreamReader.class).instanceSize();
 
+    private final Type elementType;
     private final StreamDescriptor streamDescriptor;
 
     private final BatchStreamReader elementStreamReader;
@@ -62,10 +70,14 @@ public class ListBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public ListBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public ListBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, ArrayType.class::isInstance);
+        elementType = ((ArrayType) type).getElementType();
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.elementStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
+        this.elementStreamReader = createStreamReader(elementType, streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
     }
 
     @Override
@@ -76,7 +88,7 @@ public class ListBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -106,7 +118,7 @@ public class ListBatchStreamReader
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
+            lengthStream.next(offsetVector, nextBatchSize);
         }
         else {
             nullVector = new boolean[nextBatchSize];
@@ -115,26 +127,19 @@ public class ListBatchStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize, offsetVector, 0, nullVector);
+                lengthStream.next(offsetVector, nextBatchSize - nullValues);
+                unpackLengthNulls(offsetVector, nullVector, nextBatchSize - nullValues);
             }
         }
 
-        // Convert the length values in the offsetVector to offset values in place
-        int currentLength = offsetVector[0];
-        offsetVector[0] = 0;
-        for (int i = 1; i < offsetVector.length; i++) {
-            int nextLength = offsetVector[i];
-            offsetVector[i] = offsetVector[i - 1] + currentLength;
-            currentLength = nextLength;
-        }
+        convertLengthVectorToOffsetVector(offsetVector);
 
-        Type elementType = type.getTypeParameters().get(0);
         int elementCount = offsetVector[offsetVector.length - 1];
 
         Block elements;
         if (elementCount > 0) {
             elementStreamReader.prepareNextRead(elementCount);
-            elements = elementStreamReader.readBlock(elementType);
+            elements = elementStreamReader.readBlock();
         }
         else {
             elements = elementType.createBlockBuilder(null, 0).build();
@@ -198,6 +203,17 @@ public class ListBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
+        try (Closer closer = Closer.create()) {
+            closer.register(elementStreamReader::close);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override

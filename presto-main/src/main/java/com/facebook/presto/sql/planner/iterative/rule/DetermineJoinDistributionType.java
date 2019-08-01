@@ -23,7 +23,6 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.Ordering;
@@ -142,7 +141,6 @@ public class DetermineJoinDistributionType
 
     private PlanNodeWithCost getJoinNodeWithCost(Context context, JoinNode possibleJoinNode)
     {
-        TypeProvider types = context.getVariableAllocator().getTypes();
         StatsProvider stats = context.getStatsProvider();
         boolean replicated = possibleJoinNode.getDistributionType().get().equals(REPLICATED);
         /*
@@ -173,7 +171,6 @@ public class DetermineJoinDistributionType
                 possibleJoinNode.getLeft(),
                 possibleJoinNode.getRight(),
                 stats,
-                types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
         return new PlanNodeWithCost(cost.toPlanCost(), possibleJoinNode);

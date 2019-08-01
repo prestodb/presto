@@ -13,9 +13,14 @@
  */
 package com.facebook.presto.server;
 
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.ConfigSecuritySensitive;
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.units.DataSize;
+
+import java.util.Optional;
+
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class InternalCommunicationConfig
 {
@@ -24,9 +29,13 @@ public class InternalCommunicationConfig
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
+    private String trustStorePath;
+    private Optional<String> excludeCipherSuites = Optional.empty();
+    private Optional<String> includedCipherSuites = Optional.empty();
     private boolean kerberosEnabled;
     private boolean kerberosUseCanonicalHostname = true;
     private boolean binaryTransportEnabled;
+    private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
 
     public boolean isHttpsRequired()
     {
@@ -65,6 +74,42 @@ public class InternalCommunicationConfig
         return this;
     }
 
+    public String getTrustStorePath()
+    {
+        return trustStorePath;
+    }
+
+    @Config("internal-communication.https.trust-store-path")
+    public InternalCommunicationConfig setTrustStorePath(String trustStorePath)
+    {
+        this.trustStorePath = trustStorePath;
+        return this;
+    }
+
+    public Optional<String> getIncludedCipherSuites()
+    {
+        return includedCipherSuites;
+    }
+
+    @Config("internal-communication.https.included-cipher")
+    public InternalCommunicationConfig setIncludedCipherSuites(String includedCipherSuites)
+    {
+        this.includedCipherSuites = Optional.ofNullable(includedCipherSuites);
+        return this;
+    }
+
+    public Optional<String> getExcludeCipherSuites()
+    {
+        return excludeCipherSuites;
+    }
+
+    @Config("internal-communication.https.excluded-cipher")
+    public InternalCommunicationConfig setExcludeCipherSuites(String excludeCipherSuites)
+    {
+        this.excludeCipherSuites = Optional.ofNullable(excludeCipherSuites);
+        return this;
+    }
+
     public boolean isKerberosEnabled()
     {
         return kerberosEnabled;
@@ -99,6 +144,19 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setBinaryTransportEnabled(boolean binaryTransportEnabled)
     {
         this.binaryTransportEnabled = binaryTransportEnabled;
+        return this;
+    }
+
+    public DataSize getMaxTaskUpdateSize()
+    {
+        return maxTaskUpdateSize;
+    }
+
+    @Config("experimental.internal-communication.max-task-update-size")
+    @ConfigDescription("Enables limit on the size of the task update")
+    public InternalCommunicationConfig setMaxTaskUpdateSize(DataSize maxTaskUpdateSize)
+    {
+        this.maxTaskUpdateSize = maxTaskUpdateSize;
         return this;
     }
 }

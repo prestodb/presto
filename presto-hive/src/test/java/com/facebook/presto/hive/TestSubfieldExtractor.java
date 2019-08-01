@@ -14,37 +14,49 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.TestingSession;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static org.testng.Assert.assertTrue;
 
 public class TestSubfieldExtractor
 {
@@ -59,6 +71,21 @@ public class TestSubfieldExtractor
             RowType.field("d", mapType(BIGINT, BIGINT)),
             RowType.field("e", mapType(VARCHAR, BIGINT)))));
 
+    private static final ExpressionOptimizer TEST_EXPRESSION_OPTIMIZER = new ExpressionOptimizer()
+    {
+        @Override
+        public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
+        {
+            return rowExpression;
+        }
+
+        @Override
+        public Object optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
+        {
+            throw new UnsupportedOperationException();
+        }
+    };
+
     private FunctionManager functionManager;
     private SubfieldExtractor subfieldExtractor;
 
@@ -68,7 +95,7 @@ public class TestSubfieldExtractor
         functionManager = createTestMetadataManager().getFunctionManager();
         subfieldExtractor = new SubfieldExtractor(
                 new FunctionResolution(functionManager),
-                (rowExpression, level, session) -> rowExpression,
+                TEST_EXPRESSION_OPTIMIZER,
                 TestingSession.SESSION);
     }
 
@@ -77,15 +104,42 @@ public class TestSubfieldExtractor
     {
         assertSubfieldExtract(C_BIGINT, "c_bigint");
         assertSubfieldExtract(arraySubscript(C_BIGINT_ARRAY, 5), "c_bigint_array[5]");
-        assertSubfieldExtract(mapSubscript(C_BIGINT_TO_BIGINT_MAP, constant(5, BIGINT)), "c_bigint_to_bigint_map[5]");
+        assertSubfieldExtract(mapSubscript(C_BIGINT_TO_BIGINT_MAP, constant(5L, BIGINT)), "c_bigint_to_bigint_map[5]");
         assertSubfieldExtract(mapSubscript(C_VARCHAR_TO_BIGINT_MAP, constant(Slices.utf8Slice("foo"), VARCHAR)), "c_varchar_to_bigint_map[\"foo\"]");
         assertSubfieldExtract(dereference(C_STRUCT, 0), "c_struct.a");
         assertSubfieldExtract(dereference(dereference(C_STRUCT, 1), 0), "c_struct.b.x");
         assertSubfieldExtract(arraySubscript(dereference(C_STRUCT, 2), 5), "c_struct.c[5]");
-        assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 3), constant(5, BIGINT)), "c_struct.d[5]");
+        assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 3), constant(5L, BIGINT)), "c_struct.d[5]");
         assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 4), constant(Slices.utf8Slice("foo"), VARCHAR)), "c_struct.e[\"foo\"]");
 
-        assertEquals(subfieldExtractor.extract(constant(2, INTEGER)), Optional.empty());
+        assertEquals(subfieldExtractor.extract(constant(2L, INTEGER)), Optional.empty());
+    }
+
+    @Test
+    public void testToRowExpression()
+    {
+        assertToRowExpression("a", DATE);
+        assertToRowExpression("a[1]", new ArrayType(INTEGER));
+        assertToRowExpression("a.b", rowType(ImmutableMap.of("b", VARCHAR, "c", DOUBLE)));
+        assertToRowExpression("a[1]", mapType(BIGINT, DOUBLE));
+        assertToRowExpression("a[\"hello\"]", mapType(VARCHAR, REAL));
+        assertToRowExpression("a[\"hello\"].b", mapType(VARCHAR, rowType(ImmutableMap.of("b", BIGINT))));
+        assertToRowExpression("a[\"hello\"].b.c", mapType(VARCHAR, rowType(ImmutableMap.of("b", rowType(ImmutableMap.of("c", BIGINT))))));
+    }
+
+    private void assertToRowExpression(String subfieldPath, Type type)
+    {
+        Subfield subfield = new Subfield(subfieldPath);
+        Optional<Subfield> recreatedSubfield = subfieldExtractor.extract(subfieldExtractor.toRowExpression(subfield, type));
+        assertTrue(recreatedSubfield.isPresent());
+        assertEquals(recreatedSubfield.get(), subfield);
+    }
+
+    private static RowType rowType(Map<String, Type> fields)
+    {
+        return HiveTestUtils.rowType(fields.entrySet().stream()
+                .map(entry -> new NamedTypeSignature(Optional.of(new RowFieldName(entry.getKey(), false)), entry.getValue().getTypeSignature()))
+                .collect(toImmutableList()));
     }
 
     private void assertSubfieldExtract(RowExpression expression, String subfield)
@@ -96,7 +150,7 @@ public class TestSubfieldExtractor
     private RowExpression dereference(RowExpression base, int field)
     {
         Type fieldType = base.getType().getTypeParameters().get(field);
-        return specialForm(DEREFERENCE, fieldType, ImmutableList.of(base, new ConstantExpression(field, INTEGER)));
+        return specialForm(DEREFERENCE, fieldType, ImmutableList.of(base, new ConstantExpression((long) field, INTEGER)));
     }
 
     private RowExpression arraySubscript(RowExpression arrayExpression, int index)
@@ -106,7 +160,7 @@ public class TestSubfieldExtractor
         return call(SUBSCRIPT.name(),
                 operator(SUBSCRIPT, arrayType, elementType),
                 elementType,
-                ImmutableList.of(arrayExpression, constant(index, INTEGER)));
+                ImmutableList.of(arrayExpression, constant((long) index, INTEGER)));
     }
 
     private RowExpression mapSubscript(RowExpression mapExpression, RowExpression keyExpression)
@@ -116,22 +170,6 @@ public class TestSubfieldExtractor
                 operator(SUBSCRIPT, mapType(mapType.getKeyType(), mapType.getValueType()), mapType.getKeyType()),
                 mapType.getValueType(),
                 ImmutableList.of(mapExpression, keyExpression));
-    }
-
-    private static MapType mapType(Type keyType, Type valueType)
-    {
-        return new MapType(
-                keyType,
-                valueType,
-                methodHandle(TestDomainTranslator.class, "throwUnsupportedOperationException"),
-                methodHandle(TestDomainTranslator.class, "throwUnsupportedOperationException"),
-                methodHandle(TestDomainTranslator.class, "throwUnsupportedOperationException"),
-                methodHandle(TestDomainTranslator.class, "throwUnsupportedOperationException"));
-    }
-
-    public static void throwUnsupportedOperationException()
-    {
-        throw new UnsupportedOperationException();
     }
 
     private FunctionHandle operator(OperatorType operatorType, Type... types)

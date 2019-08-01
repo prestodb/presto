@@ -14,15 +14,22 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
+import com.facebook.presto.hive.BucketAdaptation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
+import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -36,10 +43,8 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static java.util.Objects.requireNonNull;
@@ -48,19 +53,36 @@ public class DwrfSelectivePageSourceFactory
         implements HiveSelectivePageSourceFactory
 {
     private final TypeManager typeManager;
+    private final StandardFunctionResolution functionResolution;
     private final RowExpressionService rowExpressionService;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
+    private final OrcFileTailSource orcFileTailSource;
+    private final StripeMetadataSource stripeMetadataSource;
+    private final FileOpener fileOpener;
 
     @Inject
-    public DwrfSelectivePageSourceFactory(TypeManager typeManager, RowExpressionService rowExpressionService, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public DwrfSelectivePageSourceFactory(
+            TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
+            HiveClientConfig config,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
+            FileOpener fileOpener)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = requireNonNull(config, "config is null").getDomainCompactionThreshold();
+        this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
+        this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
     }
 
     @Override
@@ -71,15 +93,18 @@ public class DwrfSelectivePageSourceFactory
             long start,
             long length,
             long fileSize,
-            Properties schema,
+            Storage storage,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
+            Map<Integer, HiveCoercer> coercers,
+            Optional<BucketAdaptation> bucketAdaptation,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            Optional<byte[]> extraFileInfo)
     {
-        if (!isDeserializerClass(schema, OrcSerde.class)) {
+        if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
         }
 
@@ -98,15 +123,22 @@ public class DwrfSelectivePageSourceFactory
                 fileSize,
                 columns,
                 prefilledValues,
+                coercers,
+                bucketAdaptation,
                 outputColumns,
                 domainPredicate,
                 remainingPredicate,
                 false,
                 hiveStorageTimeZone,
                 typeManager,
+                functionResolution,
                 rowExpressionService,
                 false,
                 stats,
-                domainCompactionThreshold));
+                domainCompactionThreshold,
+                orcFileTailSource,
+                stripeMetadataSource,
+                extraFileInfo,
+                fileOpener));
     }
 }

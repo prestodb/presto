@@ -14,10 +14,10 @@
 
 package com.facebook.presto.type.setdigest;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 

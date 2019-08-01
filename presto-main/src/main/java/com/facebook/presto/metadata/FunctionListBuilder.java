@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 public class FunctionListBuilder
 {
-    private final List<SqlFunction> functions = new ArrayList<>();
+    private final List<BuiltInFunction> functions = new ArrayList<>();
 
     public FunctionListBuilder window(Class<? extends WindowFunction> clazz)
     {
@@ -57,22 +57,22 @@ public class FunctionListBuilder
         return this;
     }
 
-    public FunctionListBuilder functions(SqlFunction... sqlFunctions)
+    public FunctionListBuilder functions(BuiltInFunction... sqlFunctions)
     {
-        for (SqlFunction sqlFunction : sqlFunctions) {
+        for (BuiltInFunction sqlFunction : sqlFunctions) {
             function(sqlFunction);
         }
         return this;
     }
 
-    public FunctionListBuilder function(SqlFunction sqlFunction)
+    public FunctionListBuilder function(BuiltInFunction sqlFunction)
     {
         requireNonNull(sqlFunction, "parametricFunction is null");
         functions.add(sqlFunction);
         return this;
     }
 
-    public List<SqlFunction> getFunctions()
+    public List<BuiltInFunction> getFunctions()
     {
         return ImmutableList.copyOf(functions);
     }

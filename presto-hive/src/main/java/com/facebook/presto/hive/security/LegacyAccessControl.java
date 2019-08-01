@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.security;
 
-import com.facebook.presto.hive.HiveTransactionHandle;
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.HiveTransactionManager;
+import com.facebook.presto.hive.TransactionalMetadata;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -27,7 +27,6 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
@@ -39,7 +38,7 @@ import static java.util.Objects.requireNonNull;
 public class LegacyAccessControl
         implements ConnectorAccessControl
 {
-    private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
+    private final HiveTransactionManager hiveTransactionManager;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
     private final boolean allowAddColumn;
@@ -48,10 +47,10 @@ public class LegacyAccessControl
 
     @Inject
     public LegacyAccessControl(
-            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
+            HiveTransactionManager hiveTransactionManager,
             LegacySecurityConfig securityConfig)
     {
-        this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
+        this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
 
         requireNonNull(securityConfig, "securityConfig is null");
         allowDropTable = securityConfig.getAllowDropTable();
@@ -99,7 +98,8 @@ public class LegacyAccessControl
             denyDropTable(tableName.toString());
         }
 
-        Optional<Table> target = metastoreProvider.apply(((HiveTransactionHandle) transaction)).getTable(tableName.getSchemaName(), tableName.getTableName());
+        TransactionalMetadata metadata = hiveTransactionManager.get(transaction);
+        Optional<Table> target = metadata.getMetastore().getTable(tableName.getSchemaName(), tableName.getTableName());
 
         if (!target.isPresent()) {
             denyDropTable(tableName.toString(), "Table not found");

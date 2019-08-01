@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.verifier.event;
 
-import io.airlift.event.client.EventField;
-import io.airlift.event.client.EventType;
+import com.facebook.airlift.event.client.EventField;
+import com.facebook.airlift.event.client.EventType;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -38,7 +38,14 @@ public class QueryInfo
     private final String checksumQuery;
     private final Double cpuTimeSecs;
     private final Double wallTimeSecs;
-    private final List<FailureInfo> allFailures;
+
+    public QueryInfo(
+            String catalog,
+            String schema,
+            String originalQuery)
+    {
+        this(catalog, schema, originalQuery, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
 
     public QueryInfo(
             String catalog,
@@ -51,8 +58,7 @@ public class QueryInfo
             Optional<List<String>> teardownQueries,
             Optional<String> checksumQuery,
             Optional<Double> cpuTimeSecs,
-            Optional<Double> wallTimeSecs,
-            List<FailureInfo> allFailures)
+            Optional<Double> wallTimeSecs)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -65,7 +71,6 @@ public class QueryInfo
         this.checksumQuery = checksumQuery.orElse(null);
         this.cpuTimeSecs = cpuTimeSecs.orElse(null);
         this.wallTimeSecs = wallTimeSecs.orElse(null);
-        this.allFailures = requireNonNull(allFailures, "allFailures is null");
     }
 
     @EventField
@@ -132,11 +137,5 @@ public class QueryInfo
     public Double getWallTimeSecs()
     {
         return wallTimeSecs;
-    }
-
-    @EventField
-    public List<FailureInfo> getAllFailures()
-    {
-        return allFailures;
     }
 }

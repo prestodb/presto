@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.authentication.ImpersonatingHdfsAuthentication;
 import com.facebook.presto.hive.authentication.SimpleHadoopAuthentication;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -34,8 +35,8 @@ public class TestFileSystemCache
         ImpersonatingHdfsAuthentication auth = new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication());
         HdfsEnvironment environment =
                 new HdfsEnvironment(
-                        new HiveHdfsConfiguration(new HdfsConfigurationUpdater(new HiveClientConfig())),
-                        new HiveClientConfig(),
+                        new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveClientConfig(), new MetastoreClientConfig()), ImmutableSet.of()),
+                        new MetastoreClientConfig(),
                         auth);
         FileSystem fs1 = getFileSystem(environment, "user");
         FileSystem fs2 = getFileSystem(environment, "user");

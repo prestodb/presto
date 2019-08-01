@@ -17,8 +17,12 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 
+import java.util.function.Function;
+
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.planner.LiteralEncoder.toRowExpression;
 import static java.util.Objects.requireNonNull;
 
@@ -35,12 +39,16 @@ public final class RowExpressionOptimizer
     @Override
     public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
     {
-        if (level == Level.SERIALIZABLE) {
-            return toRowExpression(RowExpressionInterpreter.rowExpressionInterpreter(rowExpression, metadata, session).evaluate(), rowExpression.getType());
+        if (level.ordinal() <= OPTIMIZED.ordinal()) {
+            return toRowExpression(new RowExpressionInterpreter(rowExpression, metadata, session, level).optimize(), rowExpression.getType());
         }
-        if (level == Level.MOST_OPTIMIZED) {
-            return toRowExpression(new RowExpressionInterpreter(rowExpression, metadata, session, true).optimize(), rowExpression.getType());
-        }
-        throw new IllegalArgumentException("Unrecognized optimization level: " + level);
+        throw new IllegalArgumentException("Not supported optimization level: " + level);
+    }
+
+    @Override
+    public Object optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
+    {
+        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(expression, metadata, session, level);
+        return interpreter.optimize(variableResolver::apply);
     }
 }

@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -56,7 +56,7 @@ public class AggregationNodeUtils
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
         aggregation.getArguments().forEach(argument -> builder.addAll(extractAll(argument, types)));
         aggregation.getFilter().ifPresent(filter -> builder.addAll(extractAll(filter, types)));
-        aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderBy()));
+        aggregation.getOrderBy().ifPresent(orderingScheme -> builder.addAll(orderingScheme.getOrderByVariables()));
         return builder.build();
     }
 

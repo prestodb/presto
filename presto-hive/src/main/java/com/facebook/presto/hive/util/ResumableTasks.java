@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
-import io.airlift.log.Logger;
+import com.facebook.airlift.log.Logger;
 
 import java.util.concurrent.Executor;
 

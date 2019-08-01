@@ -29,7 +29,7 @@ import com.amazonaws.services.s3.model.StorageClass;
 
 import java.util.Date;
 
-import static org.apache.http.HttpStatus.SC_OK;
+import static java.net.HttpURLConnection.HTTP_OK;
 
 public class MockAmazonS3
         extends AbstractAmazonS3
@@ -37,8 +37,8 @@ public class MockAmazonS3
     private static final String STANDARD_OBJECT_KEY = "test/standard";
     private static final String GLACIER_OBJECT_KEY = "test/glacier";
 
-    private int getObjectHttpCode = SC_OK;
-    private int getObjectMetadataHttpCode = SC_OK;
+    private int getObjectHttpCode = HTTP_OK;
+    private int getObjectMetadataHttpCode = HTTP_OK;
     private GetObjectMetadataRequest getObjectMetadataRequest;
     private CannedAccessControlList acl;
     private boolean hasGlacierObjects;
@@ -72,7 +72,7 @@ public class MockAmazonS3
     public ObjectMetadata getObjectMetadata(GetObjectMetadataRequest getObjectMetadataRequest)
     {
         this.getObjectMetadataRequest = getObjectMetadataRequest;
-        if (getObjectMetadataHttpCode != SC_OK) {
+        if (getObjectMetadataHttpCode != HTTP_OK) {
             AmazonS3Exception exception = new AmazonS3Exception("Failing getObjectMetadata call with " + getObjectMetadataHttpCode);
             exception.setStatusCode(getObjectMetadataHttpCode);
             throw exception;
@@ -83,7 +83,7 @@ public class MockAmazonS3
     @Override
     public S3Object getObject(GetObjectRequest getObjectRequest)
     {
-        if (getObjectHttpCode != SC_OK) {
+        if (getObjectHttpCode != HTTP_OK) {
             AmazonS3Exception exception = new AmazonS3Exception("Failing getObject call with " + getObjectHttpCode);
             exception.setStatusCode(getObjectHttpCode);
             throw exception;

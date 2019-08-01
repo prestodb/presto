@@ -42,7 +42,7 @@ public class TestEvaluateClassifierPredictions
     @Test
     public void testEvaluateClassifierPredictions()
     {
-        metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
+        metadata.registerBuiltInFunctions(extractFunctions(new MLPlugin().getFunctions()));
         InternalAggregationFunction aggregation = functionManager.getAggregateFunctionImplementation(
                 functionManager.lookupFunction("evaluate_classifier_predictions", fromTypes(BIGINT, BIGINT)));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();

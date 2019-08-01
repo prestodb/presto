@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.presto.Session;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
@@ -24,7 +26,6 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.TypeProvider;
-import io.airlift.concurrent.SetThreadName;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -71,7 +72,8 @@ public class SqlTaskExecutionFactory
             TaskExchangeClientManager taskExchangeClientManager,
             PlanFragment fragment,
             List<TaskSource> sources,
-            OptionalInt totalPartitions)
+            OptionalInt totalPartitions,
+            TableWriteInfo tableWriteInfo)
     {
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
@@ -92,7 +94,8 @@ public class SqlTaskExecutionFactory
                         fragment.getStageExecutionDescriptor(),
                         fragment.getTableScanSchedulingOrder(),
                         outputBuffer,
-                        taskExchangeClientManager);
+                        taskExchangeClientManager,
+                        tableWriteInfo);
             }
             catch (Throwable e) {
                 // planning failed

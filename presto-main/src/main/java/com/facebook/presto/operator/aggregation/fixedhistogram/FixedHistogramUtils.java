@@ -19,17 +19,17 @@ class FixedHistogramUtils
 {
     private FixedHistogramUtils() {}
 
-    public static void verifyParameters(int bucketCount, double min, double max)
+    public static void validateParameters(int bucketCount, double min, double max)
     {
-        checkArgument(bucketCount >= 2, "bucketCount %s must be at least 2", bucketCount);
-        checkArgument(min < max, "min %s must be smaller than max %s ", min, max);
+        checkArgument(bucketCount >= 2, "bucketCount must be at least 2: %s", bucketCount);
+        checkArgument(min < max, "min must be smaller than max: %s %s", min, max);
     }
 
     public static int getIndexForValue(int bucketCount, double min, double max, double value)
     {
         checkArgument(
                 value >= min && value < max,
-                "value must be within range [%s, %s]", min, max);
+                "value must be within range: %s [%s, %s]", value, min, max);
         return Math.min(
                 (int) (bucketCount * (value - min) / (max - min)),
                 bucketCount - 1);

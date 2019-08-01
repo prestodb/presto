@@ -111,10 +111,10 @@ public class BenchmarkSTArea
         data.setup();
         BenchmarkSTArea benchmark = new BenchmarkSTArea();
 
-        assertEquals(Math.round(1000 * (Double) benchmark.stSphericalArea(data) / 3.659E8), 1000);
-        assertEquals(Math.round(1000 * (Double) benchmark.stSphericalArea500k(data) / 38842273735.0), 1000);
-        assertEquals(benchmark.stArea(data), 0.05033099592771004);
-        assertEquals(Math.round(1000 * (Double) benchmark.stArea500k(data) / Math.PI), 1000);
+        assertEquals((Double) benchmark.stSphericalArea(data) / 3.659E8, 1.0, 1E-3);
+        assertEquals((Double) benchmark.stSphericalArea500k(data) / 38842273735.0, 1.0, 1E-3);
+        assertEquals((Double) benchmark.stArea(data) / 0.0503309959277, 1.0, 1E-3);
+        assertEquals((Double) benchmark.stArea500k(data) / Math.PI, 1.0, 1E-3);
     }
 
     private static String createPolygon(double numVertices)
@@ -130,6 +130,8 @@ public class BenchmarkSTArea
             sb.append(Math.sin(angle));
             separator = ",";
         }
+        sb.append(separator);
+        sb.append("1 0");
         sb.append("))");
         return sb.toString();
     }

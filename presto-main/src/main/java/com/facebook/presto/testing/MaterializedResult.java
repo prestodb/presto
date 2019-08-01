@@ -419,6 +419,9 @@ public class MaterializedResult
             if (outputPage == null) {
                 break;
             }
+            if (outputPage.getPositionCount() == 0) {
+                continue;
+            }
             builder.page(outputPage);
         }
         return builder.build();

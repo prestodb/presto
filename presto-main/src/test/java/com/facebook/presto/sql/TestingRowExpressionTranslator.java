@@ -20,10 +20,12 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.planner.NoOpVariableResolver;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
@@ -32,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static java.util.Collections.emptyList;
 
 public class TestingRowExpressionTranslator
@@ -60,6 +63,11 @@ public class TestingRowExpressionTranslator
         return translateAndOptimize(expression, getExpressionTypes(expression, typeProvider));
     }
 
+    public RowExpression translate(String sql, Map<String, Type> types)
+    {
+        return translate(ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)), TypeProvider.viewOf(types));
+    }
+
     public RowExpression translate(Expression expression, TypeProvider typeProvider)
     {
         return SqlToRowExpressionTranslator.translate(
@@ -68,13 +76,14 @@ public class TestingRowExpressionTranslator
                 ImmutableMap.of(),
                 metadata.getFunctionManager(),
                 metadata.getTypeManager(),
-                TEST_SESSION,
-                false);
+                TEST_SESSION);
     }
 
     public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, true);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION);
+        RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
+        return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
     }
 
     Expression simplifyExpression(Expression expression)
@@ -83,7 +92,7 @@ public class TestingRowExpressionTranslator
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression, TypeProvider.empty());
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, TEST_SESSION, expressionTypes);
-        Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        Object value = interpreter.optimize(NoOpVariableResolver.INSTANCE);
         return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
     }
 

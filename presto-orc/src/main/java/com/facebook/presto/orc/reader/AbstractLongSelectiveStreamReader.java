@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 
 import java.util.Optional;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -58,8 +59,8 @@ abstract class AbstractLongSelectiveStreamReader
 
     protected AbstractLongSelectiveStreamReader(Optional<Type> outputType)
     {
-        this.outputRequired = outputType.isPresent();
-        this.outputType = requireNonNull(outputType, "outputType is null").orElse(null);
+        this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
+        this.outputType = outputType.orElse(null);
     }
 
     protected void prepareNextRead(int positionCount, boolean withNulls)
@@ -77,6 +78,11 @@ abstract class AbstractLongSelectiveStreamReader
     public int[] getReadPositions()
     {
         return outputPositions;
+    }
+
+    @Override
+    public void throwAnyError(int[] positions, int positionCount)
+    {
     }
 
     protected BlockLease buildOutputBlockView(int[] positions, int positionCount, boolean includeNulls)
@@ -202,7 +208,10 @@ abstract class AbstractLongSelectiveStreamReader
     private Block getIntArrayBlock(int[] positions, int positionCount, boolean includeNulls)
     {
         if (intValuesPopulated && positionCount == outputPositionCount) {
-            return new IntArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), intValues);
+            Block block = new IntArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), intValues);
+            intValues = null;
+            nulls = null;
+            return block;
         }
 
         int[] valuesCopy = new int[positionCount];
@@ -239,7 +248,10 @@ abstract class AbstractLongSelectiveStreamReader
     private Block getShortArrayBlock(int[] positions, int positionCount, boolean includeNulls)
     {
         if (shortValuesPopulated && positionCount == outputPositionCount) {
-            return new ShortArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), shortValues);
+            Block block = new ShortArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), shortValues);
+            shortValues = null;
+            nulls = null;
+            return block;
         }
 
         short[] valuesCopy = new short[positionCount];
@@ -273,23 +285,12 @@ abstract class AbstractLongSelectiveStreamReader
         return new ShortArrayBlock(positionCount, Optional.ofNullable(nullsCopy), valuesCopy);
     }
 
-    protected void ensureValuesCapacity(int capacity, boolean recordNulls)
+    private void ensureValuesCapacity(int capacity, boolean recordNulls)
     {
-        if (values == null || values.length < capacity) {
-            values = new long[capacity];
-        }
+        values = ensureCapacity(values, capacity);
 
         if (recordNulls) {
-            if (nulls == null || nulls.length < capacity) {
-                nulls = new boolean[capacity];
-            }
-        }
-    }
-
-    protected void ensureOutputPositionsCapacity(int capacity)
-    {
-        if (outputPositions == null || outputPositions.length < capacity) {
-            outputPositions = new int[capacity];
+            nulls = ensureCapacity(nulls, capacity);
         }
     }
 

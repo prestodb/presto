@@ -23,8 +23,8 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.block.VariableWidthBlock;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -39,11 +39,11 @@ import java.util.Optional;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackLengthNulls;
 import static com.facebook.presto.orc.reader.SliceBatchStreamReader.computeTruncatedLength;
-import static com.facebook.presto.orc.reader.SliceBatchStreamReader.getMaxCodePointCount;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -60,6 +60,8 @@ public class SliceDirectBatchStreamReader
     private static final int ONE_GIGABYTE = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     private final StreamDescriptor streamDescriptor;
+    private final int maxCodePointCount;
+    private final boolean isCharType;
 
     private int readOffset;
     private int nextBatchSize;
@@ -78,8 +80,10 @@ public class SliceDirectBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public SliceDirectBatchStreamReader(StreamDescriptor streamDescriptor)
+    public SliceDirectBatchStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType)
     {
+        this.maxCodePointCount = maxCodePointCount;
+        this.isCharType = isCharType;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 
@@ -91,7 +95,7 @@ public class SliceDirectBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -118,6 +122,17 @@ public class SliceDirectBatchStreamReader
             }
         }
 
+        if (lengthStream == null) {
+            if (presentStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
+            }
+            presentStream.skip(nextBatchSize);
+            Block nullValueBlock = readAllNullsBlock();
+            readOffset = 0;
+            nextBatchSize = 0;
+            return nullValueBlock;
+        }
+
         // create new isNullVector and offsetVector for VariableWidthBlock
         boolean[] isNullVector = null;
 
@@ -126,35 +141,33 @@ public class SliceDirectBatchStreamReader
         int[] offsetVector = new int[nextBatchSize + 1];
 
         if (presentStream == null) {
-            if (lengthStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
-            }
-            lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
+            lengthStream.next(offsetVector, nextBatchSize);
         }
         else {
             isNullVector = new boolean[nextBatchSize];
-            int nullValues = presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            if (nullValues != nextBatchSize) {
-                if (lengthStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but length stream is not present");
-                }
+            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNullVector);
+            if (nullCount == nextBatchSize) {
+                // all nulls
+                Block nullValueBlock = readAllNullsBlock();
+                readOffset = 0;
+                nextBatchSize = 0;
+                return nullValueBlock;
+            }
 
-                if (nullValues == 0) {
-                    isNullVector = null;
-                    lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
-                }
-                else {
-                    lengthStream.nextIntVector(nextBatchSize, offsetVector, 0, isNullVector);
-                }
+            if (nullCount == 0) {
+                isNullVector = null;
+                lengthStream.next(offsetVector, nextBatchSize);
+            }
+            else {
+                lengthStream.next(offsetVector, nextBatchSize - nullCount);
+                unpackLengthNulls(offsetVector, isNullVector, nextBatchSize - nullCount);
             }
         }
 
         // Calculate the total length for all entries. Note that the values in the offsetVector are still length values now.
         long totalLength = 0;
         for (int i = 0; i < nextBatchSize; i++) {
-            if (isNullVector == null || !isNullVector[i]) {
-                totalLength += offsetVector[i];
-            }
+            totalLength += offsetVector[i];
         }
 
         int currentBatchSize = nextBatchSize;
@@ -165,46 +178,56 @@ public class SliceDirectBatchStreamReader
         }
         if (totalLength > ONE_GIGABYTE) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR,
-                    format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", streamDescriptor.getFieldName(), nextBatchSize, streamDescriptor.getOrcDataSourceId()));
+                    format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", streamDescriptor.getFieldName(), currentBatchSize, streamDescriptor.getOrcDataSourceId()));
         }
         if (dataStream == null) {
-            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
         }
 
         // allocate enough space to read
         byte[] data = new byte[toIntExact(totalLength)];
         Slice slice = Slices.wrappedBuffer(data);
 
-        // We do the following operations together in the for loop:
-        // * truncate strings
-        // * convert original length values in offsetVector into truncated offset values
-        int currentLength = offsetVector[0];
-        offsetVector[0] = 0;
-        int maxCodePointCount = getMaxCodePointCount(type);
-        boolean isCharType = isCharType(type);
-        for (int i = 1; i <= currentBatchSize; i++) {
-            int nextLength = offsetVector[i];
-            if (isNullVector != null && isNullVector[i - 1]) {
-                checkState(currentLength == 0, "Corruption in slice direct stream: length is non-zero for null entry");
-                offsetVector[i] = offsetVector[i - 1];
+        if (maxCodePointCount < 0) {
+            // unbounded, simply read all data in on shot
+            dataStream.next(data, 0, data.length);
+            convertLengthVectorToOffsetVector(offsetVector);
+        }
+        else {
+            // We do the following operations together in the for loop:
+            // * truncate strings
+            // * convert original length values in offsetVector into truncated offset values
+            int currentLength = offsetVector[0];
+            offsetVector[0] = 0;
+            for (int i = 1; i <= currentBatchSize; i++) {
+                int nextLength = offsetVector[i];
+                if (isNullVector != null && isNullVector[i - 1]) {
+                    checkState(currentLength == 0, "Corruption in slice direct stream: length is non-zero for null entry");
+                    offsetVector[i] = offsetVector[i - 1];
+                    currentLength = nextLength;
+                    continue;
+                }
+                int offset = offsetVector[i - 1];
+
+                // read data without truncation
+                dataStream.next(data, offset, offset + currentLength);
+
+                // adjust offsetVector with truncated length
+                int truncatedLength = computeTruncatedLength(slice, offset, currentLength, maxCodePointCount, isCharType);
+                verify(truncatedLength >= 0);
+                offsetVector[i] = offset + truncatedLength;
+
                 currentLength = nextLength;
-                continue;
             }
-            int offset = offsetVector[i - 1];
-
-            // read data without truncation
-            dataStream.next(data, offset, offset + currentLength);
-
-            // adjust offsetVector with truncated length
-            int truncatedLength = computeTruncatedLength(slice, offset, currentLength, maxCodePointCount, isCharType);
-            verify(truncatedLength >= 0);
-            offsetVector[i] = offset + truncatedLength;
-
-            currentLength = nextLength;
         }
 
         // this can lead to over-retention but unlikely to happen given truncation rarely happens
         return new VariableWidthBlock(currentBatchSize, slice, offsetVector, Optional.ofNullable(isNullVector));
+    }
+
+    private RunLengthEncodedBlock readAllNullsBlock()
+    {
+        return new RunLengthEncodedBlock(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
     }
 
     private void openRowGroup()
@@ -257,6 +280,11 @@ public class SliceDirectBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
     }
 
     @Override

@@ -64,7 +64,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected void registerFunctions(Plugin plugin)
     {
-        functionManager.addFunctions(extractFunctions(plugin.getFunctions()));
+        functionManager.registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
     }
 
     protected void registerTypes(Plugin plugin)
@@ -77,7 +77,7 @@ public abstract class AbstractTestAggregationFunction
     protected final InternalAggregationFunction getFunction()
     {
         List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
-        FunctionHandle functionHandle = functionManager.resolveFunction(session, QualifiedName.of(getFunctionName()), parameterTypes);
+        FunctionHandle functionHandle = functionManager.resolveFunction(session.getTransactionId(), QualifiedName.of(getFunctionName()), parameterTypes);
         return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
@@ -21,8 +23,6 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.json.JsonModule;
 
 import java.util.Map;
 

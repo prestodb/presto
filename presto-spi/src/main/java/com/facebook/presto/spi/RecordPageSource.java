@@ -30,6 +30,7 @@ public class RecordPageSource
     private final RecordCursor cursor;
     private final List<Type> types;
     private final PageBuilder pageBuilder;
+    private long completedPositions;
     private boolean closed;
 
     public RecordPageSource(RecordSet recordSet)
@@ -53,6 +54,12 @@ public class RecordPageSource
     public long getCompletedBytes()
     {
         return cursor.getCompletedBytes();
+    }
+
+    @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
     }
 
     @Override
@@ -94,6 +101,8 @@ public class RecordPageSource
                     closed = true;
                     break;
                 }
+
+                completedPositions++;
 
                 pageBuilder.declarePosition();
                 for (int column = 0; column < types.size(); column++) {

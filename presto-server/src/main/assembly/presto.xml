@@ -73,6 +73,10 @@
             <outputDirectory>plugin/cassandra</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-pinot-${project.version}</directory>
+            <outputDirectory>plugin/pinot</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-example-http-${project.version}</directory>
             <outputDirectory>plugin/example-http</outputDirectory>
         </fileSet>

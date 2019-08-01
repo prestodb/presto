@@ -15,24 +15,51 @@ package com.facebook.presto.hive.metastore.glue;
 
 import com.facebook.presto.hive.AbstractTestHiveClientLocal;
 import com.facebook.presto.hive.HdfsConfiguration;
-import com.facebook.presto.hive.HdfsConfigurationUpdater;
+import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
+import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveClientGlueMetastore
         extends AbstractTestHiveClientLocal
 {
+    private ExecutorService executorService;
+
     public TestHiveClientGlueMetastore()
     {
         super("test_glue" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
+    }
+
+    @BeforeClass
+    public void setUp()
+    {
+        executorService = newCachedThreadPool(daemonThreadsNamed("hive-glue-%s"));
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        executorService.shutdownNow();
     }
 
     /**
@@ -44,12 +71,13 @@ public class TestHiveClientGlueMetastore
     protected ExtendedHiveMetastore createMetastore(File tempDir)
     {
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
 
-        return new GlueHiveMetastore(hdfsEnvironment, glueConfig);
+        return new GlueHiveMetastore(hdfsEnvironment, glueConfig, executor);
     }
 
     @Override
@@ -94,5 +122,19 @@ public class TestHiveClientGlueMetastore
             throws Exception
     {
         testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, EMPTY_TABLE_STATISTICS);
+    }
+
+    @Test
+    public void testGetPartitions() throws Exception
+    {
+        try {
+            createDummyPartitionedTable(tablePartitionFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
+            Optional<List<String>> partitionNames = getMetastoreClient().getPartitionNames(tablePartitionFormat.getSchemaName(), tablePartitionFormat.getTableName());
+            assertTrue(partitionNames.isPresent());
+            assertEquals(partitionNames.get(), ImmutableList.of("ds=2016-01-01", "ds=2016-01-02"));
+        }
+        finally {
+            dropTable(tablePartitionFormat);
+        }
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -25,7 +26,6 @@ import com.facebook.presto.orc.stream.RowGroupDictionaryLengthInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.VariableWidthBlock;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -44,11 +44,10 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.reader.SliceBatchStreamReader.computeTruncatedLength;
-import static com.facebook.presto.orc.reader.SliceBatchStreamReader.getMaxCodePointCount;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -63,6 +62,8 @@ public class SliceDictionaryBatchStreamReader
     private static final int[] EMPTY_DICTIONARY_OFFSETS = new int[2];
 
     private final StreamDescriptor streamDescriptor;
+    private final int maxCodePointCount;
+    private final boolean isCharType;
 
     private int readOffset;
     private int nextBatchSize;
@@ -98,9 +99,14 @@ public class SliceDictionaryBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public SliceDictionaryBatchStreamReader(StreamDescriptor streamDescriptor)
+    private final LocalMemoryContext systemMemoryContext;
+
+    public SliceDictionaryBatchStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType, LocalMemoryContext systemMemoryContext)
     {
+        this.maxCodePointCount = maxCodePointCount;
+        this.isCharType = isCharType;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -111,11 +117,11 @@ public class SliceDictionaryBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
-            openRowGroup(type);
+            openRowGroup();
         }
 
         if (readOffset > 0) {
@@ -142,7 +148,7 @@ public class SliceDictionaryBatchStreamReader
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
             if (inDictionaryStream == null) {
-                dataStream.nextIntVector(nextBatchSize, idsVector, 0);
+                dataStream.next(idsVector, nextBatchSize);
             }
             else {
                 for (int i = 0; i < nextBatchSize; i++) {
@@ -202,7 +208,7 @@ public class SliceDictionaryBatchStreamReader
         }
     }
 
-    private void openRowGroup(Type type)
+    private void openRowGroup()
             throws IOException
     {
         // read the dictionary
@@ -211,6 +217,7 @@ public class SliceDictionaryBatchStreamReader
                 // resize the dictionary lengths array if necessary
                 if (stripeDictionaryLength.length < stripeDictionarySize) {
                     stripeDictionaryLength = new int[stripeDictionarySize];
+                    systemMemoryContext.setBytes(sizeOf(stripeDictionaryLength));
                 }
 
                 // read the lengths
@@ -218,7 +225,7 @@ public class SliceDictionaryBatchStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but dictionary length stream is not present");
                 }
-                lengthStream.nextIntVector(stripeDictionarySize, stripeDictionaryLength, 0);
+                lengthStream.next(stripeDictionaryLength, stripeDictionarySize);
 
                 long dataLength = 0;
                 for (int i = 0; i < stripeDictionarySize; i++) {
@@ -227,12 +234,15 @@ public class SliceDictionaryBatchStreamReader
 
                 // we must always create a new dictionary array because the previous dictionary may still be referenced
                 stripeDictionaryData = new byte[toIntExact(dataLength)];
+                systemMemoryContext.setBytes(sizeOf(stripeDictionaryData));
+
                 // add one extra entry for null
                 stripeDictionaryOffsetVector = new int[stripeDictionarySize + 2];
+                systemMemoryContext.setBytes(sizeOf(stripeDictionaryOffsetVector));
 
                 // read dictionary values
                 ByteArrayInputStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
-                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, stripeDictionaryData, stripeDictionaryOffsetVector, type);
+                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, stripeDictionaryData, stripeDictionaryOffsetVector, maxCodePointCount, isCharType);
             }
             else {
                 stripeDictionaryData = EMPTY_DICTIONARY_DATA;
@@ -252,7 +262,7 @@ public class SliceDictionaryBatchStreamReader
             }
 
             // read the lengths
-            dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength, 0);
+            dictionaryLengthStream.next(rowGroupDictionaryLength, rowGroupDictionarySize);
             long dataLength = 0;
             for (int i = 0; i < rowGroupDictionarySize; i++) {
                 dataLength += rowGroupDictionaryLength[i];
@@ -265,7 +275,7 @@ public class SliceDictionaryBatchStreamReader
 
             // read dictionary values
             ByteArrayInputStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
-            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, rowGroupDictionaryData, rowGroupDictionaryOffsetVector, type);
+            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, rowGroupDictionaryData, rowGroupDictionaryOffsetVector, maxCodePointCount, isCharType);
             setDictionaryBlockData(rowGroupDictionaryData, rowGroupDictionaryOffsetVector, stripeDictionarySize + rowGroupDictionarySize + 1);
         }
         else {
@@ -288,7 +298,8 @@ public class SliceDictionaryBatchStreamReader
             int offsetVectorOffset,
             byte[] data,
             int[] offsetVector,
-            Type type)
+            int maxCodePointCount,
+            boolean isCharType)
             throws IOException
     {
         Slice slice = wrappedBuffer(data);
@@ -306,8 +317,6 @@ public class SliceDictionaryBatchStreamReader
             int length = dictionaryLengthVector[i];
 
             int truncatedLength;
-            int maxCodePointCount = getMaxCodePointCount(type);
-            boolean isCharType = isCharType(type);
             if (length > 0) {
                 // read data without truncation
                 dictionaryDataStream.next(data, offset, offset + length);
@@ -380,8 +389,17 @@ public class SliceDictionaryBatchStreamReader
     }
 
     @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+        stripeDictionaryLength = null;
+        stripeDictionaryData = null;
+        stripeDictionaryOffsetVector = null;
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE;
+        return INSTANCE_SIZE + sizeOf(stripeDictionaryLength);
     }
 }

@@ -15,21 +15,28 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.OrcBatchRecordReader;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -38,7 +45,6 @@ import java.util.Map;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -57,7 +63,12 @@ final class OrcTestingUtil
     public static OrcBatchRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+        OrcReader orcReader = new OrcReader(
+                dataSource,
+                ORC,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource(),
+                createDefaultTestConfig());
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
@@ -73,19 +84,15 @@ final class OrcTestingUtil
         return createRecordReader(orcReader, includedColumns);
     }
 
-    public static OrcBatchRecordReader createReaderNoRows(OrcDataSource dataSource)
-            throws IOException
-    {
-        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
-
-        assertEquals(orcReader.getColumnNames().size(), 0);
-
-        return createRecordReader(orcReader, ImmutableMap.of());
-    }
-
     public static OrcBatchRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
+            throws OrcCorruptionException
     {
-        return orcReader.createBatchRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE);
+        Metadata metadata = MetadataManager.createTestMetadataManager();
+        FunctionManager functionManager = metadata.getFunctionManager();
+        TypeRegistry typeRegistry = new TypeRegistry();
+        typeRegistry.setFunctionManager(functionManager);
+        StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeRegistry);
+        return orcReader.createBatchRecordReader(storageTypeConverter.toStorageTypes(includedColumns), OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE);
     }
 
     public static byte[] octets(int... values)
@@ -104,13 +111,20 @@ final class OrcTestingUtil
         return (byte) b;
     }
 
-    public static FileWriter createFileWriter(List<Long> columnIds, List<Type> columnTypes, File file, boolean useOptimizedOrcWriter)
+    public static FileWriter createFileWriter(List<Long> columnIds, List<Type> columnTypes, File file)
+            throws IOException
     {
-        if (useOptimizedOrcWriter) {
-            TypeRegistry typeManager = new TypeRegistry();
-            new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-            return new OrcFileWriter(columnIds, columnTypes, file, true, true, new OrcWriterStats(), typeManager, ZSTD);
-        }
-        return new OrcRecordWriter(columnIds, columnTypes, file, SNAPPY, true);
+        TypeRegistry typeManager = new TypeRegistry();
+        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        return new OrcFileWriter(columnIds, columnTypes, new OutputStreamOrcDataSink(new FileOutputStream(file)), true, true, new OrcWriterStats(), typeManager, ZSTD);
+    }
+
+    public static OrcReaderOptions createDefaultTestConfig()
+    {
+        return new OrcReaderOptions(
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                false);
     }
 }

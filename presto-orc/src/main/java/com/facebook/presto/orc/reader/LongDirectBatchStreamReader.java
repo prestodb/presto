@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -21,8 +22,14 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.IntArrayBlock;
+import com.facebook.presto.spi.block.LongArrayBlock;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.block.ShortArrayBlock;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -30,11 +37,19 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.minNonNullValueSize;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackIntNulls;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackLongNulls;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackShortNulls;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class LongDirectBatchStreamReader
@@ -42,6 +57,7 @@ public class LongDirectBatchStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDirectBatchStreamReader.class).instanceSize();
 
+    private final Type type;
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
@@ -57,9 +73,21 @@ public class LongDirectBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public LongDirectBatchStreamReader(StreamDescriptor streamDescriptor)
+    // only one of the three arrays will be used
+    private short[] shortNonNullValueTemp = new short[0];
+    private int[] intNonNullValueTemp = new int[0];
+    private long[] longNonNullValueTemp = new long[0];
+
+    private LocalMemoryContext systemMemoryContext;
+
+    public LongDirectBatchStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
+        this.type = type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -70,7 +98,7 @@ public class LongDirectBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -85,44 +113,128 @@ public class LongDirectBatchStreamReader
             }
             if (readOffset > 0) {
                 if (dataStream == null) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
                 }
                 dataStream.skip(readOffset);
             }
         }
 
-        if (dataStream == null && presentStream != null) {
-            presentStream.skip(nextBatchSize);
-            Block nullValueBlock = new RunLengthEncodedBlock(
-                    type.createBlockBuilder(null, 1).appendNull().build(),
-                    nextBatchSize);
-            readOffset = 0;
-            nextBatchSize = 0;
-            return nullValueBlock;
-        }
-
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
-        if (presentStream == null) {
-            if (dataStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+        Block block;
+        if (dataStream == null) {
+            if (presentStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but present stream is missing");
             }
-            dataStream.nextLongVector(type, nextBatchSize, builder);
+            presentStream.skip(nextBatchSize);
+            block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+        }
+        else if (presentStream == null) {
+            block = readNonNullBlock();
         }
         else {
-            for (int i = 0; i < nextBatchSize; i++) {
-                if (presentStream.nextBit()) {
-                    type.writeLong(builder, dataStream.next());
-                }
-                else {
-                    builder.appendNull();
-                }
+            boolean[] isNull = new boolean[nextBatchSize];
+            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            if (nullCount == 0) {
+                block = readNonNullBlock();
+            }
+            else if (nullCount != nextBatchSize) {
+                block = readNullBlock(isNull, nextBatchSize - nullCount);
+            }
+            else {
+                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
             }
         }
-
         readOffset = 0;
         nextBatchSize = 0;
 
-        return builder.build();
+        return block;
+    }
+
+    private Block readNonNullBlock()
+            throws IOException
+    {
+        verify(dataStream != null);
+        if (type instanceof BigintType) {
+            long[] values = new long[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
+        if (type instanceof IntegerType || type instanceof DateType) {
+            int[] values = new int[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            return new IntArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
+        if (type instanceof SmallintType) {
+            short[] values = new short[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            return new ShortArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
+        throw new VerifyError("Unsupported type " + type);
+    }
+
+    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        if (type instanceof BigintType) {
+            return longReadNullBlock(isNull, nonNullCount);
+        }
+        if (type instanceof IntegerType || type instanceof DateType) {
+            return intReadNullBlock(isNull, nonNullCount);
+        }
+        if (type instanceof SmallintType) {
+            return shortReadNullBlock(isNull, nonNullCount);
+        }
+        throw new VerifyError("Unsupported type " + type);
+    }
+
+    private Block longReadNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verify(dataStream != null);
+        int minNonNullValueSize = minNonNullValueSize(nonNullCount);
+        if (longNonNullValueTemp.length < minNonNullValueSize) {
+            longNonNullValueTemp = new long[minNonNullValueSize];
+            systemMemoryContext.setBytes(sizeOf(longNonNullValueTemp));
+        }
+
+        dataStream.next(longNonNullValueTemp, nonNullCount);
+
+        long[] result = unpackLongNulls(longNonNullValueTemp, isNull);
+
+        return new LongArrayBlock(nextBatchSize, Optional.of(isNull), result);
+    }
+
+    private Block intReadNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verify(dataStream != null);
+        int minNonNullValueSize = minNonNullValueSize(nonNullCount);
+        if (intNonNullValueTemp.length < minNonNullValueSize) {
+            intNonNullValueTemp = new int[minNonNullValueSize];
+            systemMemoryContext.setBytes(sizeOf(intNonNullValueTemp));
+        }
+
+        dataStream.next(intNonNullValueTemp, nonNullCount);
+
+        int[] result = unpackIntNulls(intNonNullValueTemp, isNull);
+
+        return new IntArrayBlock(nextBatchSize, Optional.of(isNull), result);
+    }
+
+    private Block shortReadNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verify(dataStream != null);
+        int minNonNullValueSize = minNonNullValueSize(nonNullCount);
+        if (shortNonNullValueTemp.length < minNonNullValueSize) {
+            shortNonNullValueTemp = new short[minNonNullValueSize];
+            systemMemoryContext.setBytes(sizeOf(shortNonNullValueTemp));
+        }
+
+        dataStream.next(shortNonNullValueTemp, nonNullCount);
+
+        short[] result = unpackShortNulls(shortNonNullValueTemp, isNull);
+
+        return new ShortArrayBlock(nextBatchSize, Optional.of(isNull), result);
     }
 
     private void openRowGroup()
@@ -170,6 +282,15 @@ public class LongDirectBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+        shortNonNullValueTemp = null;
+        intNonNullValueTemp = null;
+        longNonNullValueTemp = null;
     }
 
     @Override

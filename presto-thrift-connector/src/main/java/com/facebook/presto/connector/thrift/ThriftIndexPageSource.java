@@ -44,6 +44,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftPageResult.fromRecordSet;
 import static com.facebook.presto.connector.thrift.util.ThriftExceptions.catchingThriftException;
 import static com.facebook.presto.connector.thrift.util.TupleDomainConversion.tupleDomainToThriftTupleDomain;
@@ -52,9 +55,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
-import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -77,6 +77,7 @@ public class ThriftIndexPageSource
 
     private final AtomicLong readTimeNanos = new AtomicLong(0);
     private long completedBytes;
+    private long completedPositions;
 
     private CompletableFuture<?> statusFuture;
     private ListenableFuture<PrestoThriftSplitBatch> splitFuture;
@@ -144,6 +145,12 @@ public class ThriftIndexPageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return readTimeNanos.get();
@@ -206,6 +213,7 @@ public class ThriftIndexPageSource
         if (page != null) {
             long pageSize = page.getSizeInBytes();
             completedBytes += pageSize;
+            completedPositions += page.getPositionCount();
             stats.addIndexPageSize(pageSize);
         }
         else {

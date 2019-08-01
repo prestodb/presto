@@ -65,7 +65,10 @@ public class OrcBatchRecordReader
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize)
+            int initialBatchSize,
+            StripeMetadataSource stripeMetadataSource)
+            throws OrcCorruptionException
+
     {
         super(includedColumns,
                 // The streamReadersSystemMemoryContext covers the StreamReader local buffer sizes, plus leaf node StreamReaders'
@@ -94,7 +97,8 @@ public class OrcBatchRecordReader
                 userMetadata,
                 systemMemoryUsage,
                 writeValidation,
-                initialBatchSize);
+                initialBatchSize,
+                stripeMetadataSource);
 
         this.includedColumns = includedColumns;
     }
@@ -118,10 +122,10 @@ public class OrcBatchRecordReader
         return batchSize;
     }
 
-    public Block readBlock(Type type, int columnIndex)
+    public Block readBlock(int columnIndex)
             throws IOException
     {
-        Block block = getStreamReaders()[columnIndex].readBlock(type);
+        Block block = getStreamReaders()[columnIndex].readBlock();
         updateMaxCombinedBytesPerRow(columnIndex, block);
         return block;
     }
@@ -142,7 +146,7 @@ public class OrcBatchRecordReader
         if (shouldValidateWritePageChecksum()) {
             Block[] blocks = new Block[getStreamReaders().length];
             for (int columnIndex = 0; columnIndex < getStreamReaders().length; columnIndex++) {
-                blocks[columnIndex] = readBlock(includedColumns.get(columnIndex), columnIndex);
+                blocks[columnIndex] = readBlock(columnIndex);
             }
             Page page = new Page(batchSize, blocks);
             validateWritePageChecksum(page);
@@ -155,6 +159,7 @@ public class OrcBatchRecordReader
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns,
             AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
@@ -162,8 +167,11 @@ public class OrcBatchRecordReader
         BatchStreamReader[] streamReaders = new BatchStreamReader[rowType.getFieldCount()];
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.containsKey(columnId)) {
-                StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = BatchStreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone);
+                Type type = includedColumns.get(columnId);
+                if (type != null) {
+                    StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
+                    streamReaders[columnId] = BatchStreamReaders.createStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                }
             }
         }
         return streamReaders;

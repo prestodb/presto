@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.airlift.discovery.client.ServiceDescriptor;
+import com.facebook.airlift.discovery.client.ServiceSelector;
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.testing.TestingHttpClient;
+import com.facebook.airlift.http.client.testing.TestingResponse;
+import com.facebook.airlift.node.NodeConfig;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.server.InternalCommunicationConfig;
@@ -21,13 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.testing.TestingHttpClient;
-import io.airlift.http.client.testing.TestingResponse;
-import io.airlift.node.NodeConfig;
-import io.airlift.node.NodeInfo;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -40,12 +40,12 @@ import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import static com.facebook.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
+import static com.facebook.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
+import static com.facebook.airlift.http.client.HttpStatus.OK;
+import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.INACTIVE;
-import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
-import static io.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
-import static io.airlift.http.client.HttpStatus.OK;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 

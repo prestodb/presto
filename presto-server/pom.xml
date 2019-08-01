@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.225-SNAPSHOT</version>
+        <version>0.231-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server</artifactId>
@@ -34,7 +34,7 @@
         <!-- The scope of all of the following dependencies are provided to avoid them being added to lib -->
         <!-- bin -->
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>launcher</artifactId>
             <version>${dep.packaging.version}</version>
             <classifier>bin</classifier>
@@ -43,7 +43,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>launcher</artifactId>
             <version>${dep.packaging.version}</version>
             <classifier>properties</classifier>
@@ -87,6 +87,14 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-cassandra</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-pinot</artifactId>
             <version>${project.version}</version>
             <type>zip</type>
             <scope>provided</scope>

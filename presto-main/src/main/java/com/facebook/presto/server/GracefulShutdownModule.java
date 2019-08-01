@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 public class GracefulShutdownModule
         extends AbstractConfigurationAwareModule

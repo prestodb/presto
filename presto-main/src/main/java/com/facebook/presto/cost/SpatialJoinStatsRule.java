@@ -52,7 +52,7 @@ public class SpatialJoinStatsRule
                     return Optional.of(statsCalculator.filterStats(crossJoinStats, castToExpression(node.getFilter()), session, types));
                 }
                 else {
-                    return Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), session, types));
+                    return Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), session));
                 }
             case LEFT:
                 return Optional.of(PlanNodeStatsEstimate.unknown());

@@ -70,6 +70,7 @@ public final class SystemSessionProperties
     public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
+    public static final String TASK_PARTITIONED_WRITER_COUNT = "task_partitioned_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
@@ -130,6 +131,11 @@ public final class SystemSessionProperties
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
+    public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
+    public static final String OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE = "optimize_full_outer_join_with_coalesce";
+    public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
+    public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
+    public static final String SIMPLIFY_ARRAY_OPERATIONS = "simplify_array_operations";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -246,7 +252,16 @@ public final class SystemSessionProperties
                         Integer.class,
                         taskManagerConfig.getWriterCount(),
                         false,
-                        value -> validateValueIsPowerOfTwo(value, TASK_WRITER_COUNT),
+                        value -> validateValueIsPowerOfTwo(requireNonNull(value, "value is null"), TASK_WRITER_COUNT),
+                        value -> value),
+                new PropertyMetadata<>(
+                        TASK_PARTITIONED_WRITER_COUNT,
+                        "Number of writers per task for partitioned writes. If not set, the number set by task.writer-count will be used",
+                        BIGINT,
+                        Integer.class,
+                        taskManagerConfig.getPartitionedWriterCount(),
+                        false,
+                        value -> validateValueIsPowerOfTwo(value, TASK_PARTITIONED_WRITER_COUNT),
                         value -> value),
                 booleanProperty(
                         REDISTRIBUTE_WRITES,
@@ -279,7 +294,7 @@ public final class SystemSessionProperties
                         Integer.class,
                         taskManagerConfig.getTaskConcurrency(),
                         false,
-                        value -> validateValueIsPowerOfTwo(value, TASK_CONCURRENCY),
+                        value -> validateValueIsPowerOfTwo(requireNonNull(value, "value is null"), TASK_CONCURRENCY),
                         value -> value),
                 booleanProperty(
                         TASK_SHARE_INDEX_LOADING,
@@ -626,6 +641,35 @@ public final class SystemSessionProperties
                         PUSHDOWN_SUBFIELDS_ENABLED,
                         "Experimental: enable subfield pruning",
                         featuresConfig.isPushdownSubfieldsEnabled(),
+                        false),
+                booleanProperty(
+                        TABLE_WRITER_MERGE_OPERATOR_ENABLED,
+                        "Experimental: enable table writer merge operator",
+                        featuresConfig.isTableWriterMergeOperatorEnabled(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE,
+                        "optimize partition properties for queries using COALESCE + FULL OUTER JOIN",
+                        featuresConfig.isOptimizeFullOuterJoinWithCoalesce(),
+                        false),
+                new PropertyMetadata<>(
+                        INDEX_LOADER_TIMEOUT,
+                        "Timeout for loading indexes for index joins",
+                        VARCHAR,
+                        Duration.class,
+                        featuresConfig.getIndexLoaderTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
+                booleanProperty(
+                        OPTIMIZED_REPARTITIONING_ENABLED,
+                        "Experimental: Use optimized repartitioning",
+                        featuresConfig.isOptimizedRepartitioningEnabled(),
+                        false),
+                booleanProperty(
+                        SIMPLIFY_ARRAY_OPERATIONS,
+                        "Simplify and optimize array operations.",
+                        true,
                         false));
     }
 
@@ -716,6 +760,15 @@ public final class SystemSessionProperties
     public static int getTaskWriterCount(Session session)
     {
         return session.getSystemProperty(TASK_WRITER_COUNT, Integer.class);
+    }
+
+    public static int getTaskPartitionedWriterCount(Session session)
+    {
+        Integer partitionedWriterCount = session.getSystemProperty(TASK_PARTITIONED_WRITER_COUNT, Integer.class);
+        if (partitionedWriterCount != null) {
+            return partitionedWriterCount;
+        }
+        return getTaskWriterCount(session);
     }
 
     public static boolean isRedistributeWrites(Session session)
@@ -991,9 +1044,13 @@ public final class SystemSessionProperties
         return session.getSystemProperty(MAX_TASKS_PER_STAGE, Integer.class);
     }
 
-    private static int validateValueIsPowerOfTwo(Object value, String property)
+    private static Integer validateValueIsPowerOfTwo(Object value, String property)
     {
-        int intValue = ((Number) requireNonNull(value, "value is null")).intValue();
+        Number number = (Number) value;
+        if (number == null) {
+            return null;
+        }
+        int intValue = number.intValue();
         if (Integer.bitCount(intValue) != 1) {
             throw new PrestoException(
                     INVALID_SESSION_PROPERTY,
@@ -1062,5 +1119,29 @@ public final class SystemSessionProperties
     public static boolean isPushdownSubfieldsEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isTableWriterMergeOperatorEnabled(Session session)
+    {
+        return session.getSystemProperty(TABLE_WRITER_MERGE_OPERATOR_ENABLED, Boolean.class);
+    }
+
+    public static boolean isOptimizeFullOuterJoinWithCoalesce(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE, Boolean.class);
+    }
+
+    public static Duration getIndexLoaderTimeout(Session session)
+    {
+        return session.getSystemProperty(INDEX_LOADER_TIMEOUT, Duration.class);
+    }
+
+    public static boolean isOptimizedRepartitioningEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZED_REPARTITIONING_ENABLED, Boolean.class);
+    }
+    public static boolean isSimplifyArrayOperations(Session session)
+    {
+        return session.getSystemProperty(SIMPLIFY_ARRAY_OPERATIONS, Boolean.class);
     }
 }

@@ -14,8 +14,9 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -25,7 +26,6 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -38,8 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.execution.StageState.RUNNING;
-import static com.facebook.presto.execution.StageState.SCHEDULED;
+import static com.facebook.presto.execution.StageExecutionState.RUNNING;
+import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -69,7 +69,7 @@ public class AllAtOnceExecutionSchedule
     public Set<SqlStageExecution> getStagesToSchedule()
     {
         for (Iterator<SqlStageExecution> iterator = schedulingStages.iterator(); iterator.hasNext(); ) {
-            StageState state = iterator.next().getState();
+            StageExecutionState state = iterator.next().getState();
             if (state == SCHEDULED || state == RUNNING || state.isDone()) {
                 iterator.remove();
             }

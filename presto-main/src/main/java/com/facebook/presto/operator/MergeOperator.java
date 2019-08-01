@@ -164,7 +164,7 @@ public class MergeOperator
         exchangeClient.noMoreLocations();
         pageProducers.add(exchangeClient.pages()
                 .map(serializedPage -> {
-                    operatorContext.recordRawInput(serializedPage.getSizeInBytes());
+                    operatorContext.recordRawInput(serializedPage.getSizeInBytes(), serializedPage.getPositionCount());
                     return pagesSerde.deserialize(serializedPage);
                 }));
 

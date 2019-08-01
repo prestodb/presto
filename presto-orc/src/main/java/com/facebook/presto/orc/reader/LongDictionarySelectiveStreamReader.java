@@ -37,6 +37,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -52,6 +53,7 @@ public class LongDictionarySelectiveStreamReader
     private final StreamDescriptor streamDescriptor;
     @Nullable
     private final TupleDomainFilter filter;
+    private final boolean nonDeterministicFilter;
     private final boolean nullsAllowed;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -83,29 +85,29 @@ public class LongDictionarySelectiveStreamReader
             LocalMemoryContext systemMemoryContext)
     {
         super(outputType);
+        requireNonNull(filter, "filter is null");
+        checkArgument(filter.isPresent() || outputRequired, "filter must be present if output is not required");
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        this.filter = requireNonNull(filter, "filter is null").orElse(null);
+        this.filter = filter.orElse(null);
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
 
-        nullsAllowed = this.filter == null || this.filter.testNull();
+        nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
+        nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
     }
 
     @Override
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkArgument(positionCount > 0, "positionCount must be greater than zero");
+
         if (!rowGroupOpen) {
             openRowGroup();
         }
 
         prepareNextRead(positionCount, presentStream != null && nullsAllowed);
 
-        if (filter != null) {
-            ensureOutputPositionsCapacity(positionCount);
-        }
-        else {
-            outputPositions = positions;
-        }
+        outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
         // account memory used by values, nulls and outputPositions
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
@@ -125,9 +127,10 @@ public class LongDictionarySelectiveStreamReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if (nullsAllowed) {
+                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                     if (outputRequired) {
                         nulls[outputPositionCount] = true;
+                        values[outputPositionCount] = 0;
                     }
                     if (filter != null) {
                         outputPositions[outputPositionCount] = position;
@@ -143,7 +146,7 @@ public class LongDictionarySelectiveStreamReader
                 if (filter == null || filter.testLong(value)) {
                     if (outputRequired) {
                         values[outputPositionCount] = value;
-                        if (nulls != null) {
+                        if (presentStream != null && nullsAllowed) {
                             nulls[outputPositionCount] = false;
                         }
                     }
@@ -153,7 +156,24 @@ public class LongDictionarySelectiveStreamReader
                     outputPositionCount++;
                 }
             }
+
             streamPosition++;
+
+            if (filter != null) {
+                outputPositionCount -= filter.getPrecedingPositionsToFail();
+
+                int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
+                if (succeedingPositionsToFail > 0) {
+                    int positionsToSkip = 0;
+                    for (int j = 0; j < succeedingPositionsToFail; j++) {
+                        i++;
+                        int nextPosition = positions[i];
+                        positionsToSkip += 1 + nextPosition - streamPosition;
+                        streamPosition = nextPosition + 1;
+                    }
+                    skip(positionsToSkip);
+                }
+            }
         }
 
         readOffset = offset + streamPosition;
@@ -169,7 +189,9 @@ public class LongDictionarySelectiveStreamReader
             if (inDictionaryStream != null) {
                 inDictionaryStream.skip(dataToSkip);
             }
-            dataStream.skip(dataToSkip);
+            if (dataStream != null) {
+                dataStream.skip(dataToSkip);
+            }
         }
         else {
             if (inDictionaryStream != null) {

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.type.StandardTypes;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

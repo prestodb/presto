@@ -59,6 +59,54 @@ public class TestBooleanStream
     }
 
     @Test
+    public void testGetSetBits()
+            throws IOException
+    {
+        BooleanOutputStream outputStream = createValueOutputStream();
+        for (int i = 0; i < 100; i++) {
+            outputStream.writeBoolean(true);
+            outputStream.writeBoolean(false);
+        }
+        outputStream.close();
+
+        BooleanInputStream valueStream = createValueStream(outputStream);
+        // 0 left
+        assertAlternatingValues(valueStream, 7, true);
+        // 1 left
+        assertAlternatingValues(valueStream, 7, false);
+        // 2 left
+        assertAlternatingValues(valueStream, 7, true);
+        // 3 left
+        assertAlternatingValues(valueStream, 7, false);
+        // 4 left
+        assertAlternatingValues(valueStream, 7, true);
+        // 5 left
+        assertAlternatingValues(valueStream, 7, false);
+        // 6 left
+        assertAlternatingValues(valueStream, 7, true);
+        // 7 left
+        assertAlternatingValues(valueStream, 7, false);
+        // 0 left
+        assertAlternatingValues(valueStream, 15, true);
+        // 1 left
+        assertAlternatingValues(valueStream, 10, false);
+    }
+
+    private void assertAlternatingValues(BooleanInputStream valueStream, int batchSize, boolean expectedFirstValue)
+            throws IOException
+    {
+        boolean[] data = new boolean[batchSize];
+        int setBits = valueStream.getSetBits(batchSize, data);
+        assertEquals(setBits, (int) (expectedFirstValue ? Math.ceil(batchSize / 2.0) : Math.floor(batchSize / 2.0)));
+
+        boolean expectedValue = expectedFirstValue;
+        for (int i = 0; i < batchSize; i++) {
+            assertEquals(data[i], expectedValue);
+            expectedValue = !expectedValue;
+        }
+    }
+
+    @Test
     public void testWriteMultiple()
             throws IOException
     {
@@ -89,15 +137,7 @@ public class TestBooleanStream
 
             outputStream.close();
 
-            DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
-            StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
-            streamDataOutput.writeData(sliceOutput);
-            Stream stream = streamDataOutput.getStream();
-            assertEquals(stream.getStreamKind(), StreamKind.DATA);
-            assertEquals(stream.getColumn(), 33);
-            assertEquals(stream.getLength(), sliceOutput.size());
-
-            BooleanInputStream valueStream = createValueStream(sliceOutput.slice());
+            BooleanInputStream valueStream = createValueStream(outputStream);
             for (int index = 0; index < expectedValues.size(); index++) {
                 boolean expectedValue = expectedValues.getBoolean(index);
                 boolean actualValue = readValue(valueStream);
@@ -131,5 +171,19 @@ public class TestBooleanStream
             throws IOException
     {
         return valueStream.nextBit();
+    }
+
+    private BooleanInputStream createValueStream(BooleanOutputStream outputStream)
+            throws OrcCorruptionException
+    {
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
+        StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(33);
+        streamDataOutput.writeData(sliceOutput);
+        Stream stream = streamDataOutput.getStream();
+        assertEquals(stream.getStreamKind(), StreamKind.DATA);
+        assertEquals(stream.getColumn(), 33);
+        assertEquals(stream.getLength(), sliceOutput.size());
+
+        return createValueStream(sliceOutput.slice());
     }
 }

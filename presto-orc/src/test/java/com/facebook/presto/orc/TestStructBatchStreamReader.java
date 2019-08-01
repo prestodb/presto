@@ -14,6 +14,7 @@
 
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -153,7 +154,7 @@ public class TestStructBatchStreamReader
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp =
-            "Missing struct field name in type row\\(varchar,varchar,varchar\\)")
+            "ROW type does not have field names declared: row\\(varchar,varchar,varchar\\)")
     public void testThrowsExceptionWhenFieldNameMissing()
             throws IOException
     {
@@ -263,7 +264,16 @@ public class TestStructBatchStreamReader
     {
         DataSize dataSize = new DataSize(1, MEGABYTE);
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-        OrcReader orcReader = new OrcReader(orcDataSource, ORC, dataSize, dataSize, dataSize, dataSize);
+        OrcReader orcReader = new OrcReader(
+                orcDataSource,
+                ORC,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource(),
+                new OrcReaderOptions(
+                        dataSize,
+                        dataSize,
+                        dataSize,
+                        false));
 
         Map<Integer, Type> includedColumns = new HashMap<>();
         includedColumns.put(0, readerType);
@@ -271,7 +281,7 @@ public class TestStructBatchStreamReader
         OrcBatchRecordReader recordReader = orcReader.createBatchRecordReader(includedColumns, OrcPredicate.TRUE, UTC, newSimpleAggregatedMemoryContext(), OrcReader.INITIAL_BATCH_SIZE);
 
         recordReader.nextBatch();
-        RowBlock block = (RowBlock) recordReader.readBlock(readerType, 0);
+        RowBlock block = (RowBlock) recordReader.readBlock(0);
         recordReader.close();
         return block;
     }

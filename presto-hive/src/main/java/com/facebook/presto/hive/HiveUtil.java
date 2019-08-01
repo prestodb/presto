@@ -19,8 +19,8 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
@@ -28,8 +28,13 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -94,6 +99,7 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isBucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
@@ -101,13 +107,14 @@ import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_BUCKETING_IS_IGNORED;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -145,7 +152,6 @@ import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -156,8 +162,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Cate
 public final class HiveUtil
 {
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
-
-    public static final String PRESTO_VIEW_FLAG = "presto_view";
 
     private static final String VIEW_PREFIX = "/* Presto View: ";
     private static final String VIEW_SUFFIX = " */";
@@ -206,7 +210,7 @@ public final class HiveUtil
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         setReadColumns(configuration, readHiveColumnIndexes);
 
-        InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
+        InputFormat<?, ?> inputFormat = getInputFormat(configuration, getInputFormatName(schema), true);
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
 
@@ -279,9 +283,8 @@ public final class HiveUtil
         return Optional.ofNullable(compressionCodecFactory.getCodec(file));
     }
 
-    static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
+    static InputFormat<?, ?> getInputFormat(Configuration configuration, String inputFormatName, boolean symlinkTarget)
     {
-        String inputFormatName = getInputFormatName(schema);
         try {
             JobConf jobConf = toJobConf(configuration);
 
@@ -603,11 +606,6 @@ public final class HiveUtil
         throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
     }
 
-    public static boolean isPrestoView(Table table)
-    {
-        return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
-    }
-
     public static String encodeViewData(String data)
     {
         return VIEW_PREFIX + Base64.getEncoder().encodeToString(data.getBytes(UTF_8)) + VIEW_SUFFIX;
@@ -638,21 +636,6 @@ public final class HiveUtil
         else {
             return Optional.empty();
         }
-    }
-
-    public static boolean isArrayType(Type type)
-    {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
-    }
-
-    public static boolean isMapType(Type type)
-    {
-        return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
-    }
-
-    public static boolean isRowType(Type type)
-    {
-        return type.getTypeSignature().getBase().equals(StandardTypes.ROW);
     }
 
     public static boolean isStructuralType(Type type)
@@ -852,51 +835,22 @@ public final class HiveUtil
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         List<Column> partitionKeys = table.getPartitionColumns();
+        int partitionColumnIndex = MAX_PARTITION_KEY_COLUMN_INDEX;
         for (Column field : partitionKeys) {
             HiveType hiveType = field.getType();
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), -1, PARTITION_KEY, field.getComment()));
+            columns.add(new HiveColumnHandle(field.getName(), hiveType, hiveType.getTypeSignature(), partitionColumnIndex--, PARTITION_KEY, field.getComment()));
         }
 
         return columns.build();
-    }
-
-    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
-    {
-        if (!condition) {
-            throw new PrestoException(errorCode, format(formatString, args));
-        }
     }
 
     @Nullable
     public static String columnExtraInfo(boolean partitionKey)
     {
         return partitionKey ? "partition key" : null;
-    }
-
-    public static List<String> toPartitionValues(String partitionName)
-    {
-        // mimics Warehouse.makeValsFromName
-        ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
-        int start = 0;
-        while (true) {
-            while (start < partitionName.length() && partitionName.charAt(start) != '=') {
-                start++;
-            }
-            start++;
-            int end = start;
-            while (end < partitionName.length() && partitionName.charAt(end) != '/') {
-                end++;
-            }
-            if (start > partitionName.length()) {
-                break;
-            }
-            resultBuilder.add(unescapePathName(partitionName.substring(start, end)));
-            start = end + 1;
-        }
-        return resultBuilder.build();
     }
 
     public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber)
@@ -936,6 +890,11 @@ public final class HiveUtil
         return ((StructTypeInfo) hiveType.getTypeInfo()).getAllStructFieldTypeInfos().stream()
                 .map(typeInfo -> HiveType.valueOf(typeInfo.getTypeName()))
                 .collect(toImmutableList());
+    }
+
+    public static List<String> extractStructFieldNames(HiveType hiveType)
+    {
+        return ((StructTypeInfo) hiveType.getTypeInfo()).getAllStructFieldNames();
     }
 
     public static int getHeaderCount(Properties schema)
@@ -1029,10 +988,16 @@ public final class HiveUtil
         for (HiveColumnHandle column : columns) {
             Integer physicalOrdinal = physicalNameOrdinalMap.get(column.getName());
             if (physicalOrdinal == null) {
-                // if the column is missing from the file, assign it a column number larger
-                // than the number of columns in the file so the reader will fill it with nulls
-                physicalOrdinal = nextMissingColumnIndex;
-                nextMissingColumnIndex++;
+                // if the column is missing from the file, assign it a column number larger than the number of columns in the
+                // file so the reader will fill it with nulls.  If the index is negative, i.e. this is a sythesized column like
+                // a partitioning key, $bucket or $path, leave it as is.
+                if (column.getHiveColumnIndex() < 0) {
+                    physicalOrdinal = column.getHiveColumnIndex();
+                }
+                else {
+                    physicalOrdinal = nextMissingColumnIndex;
+                    nextMissingColumnIndex++;
+                }
             }
             physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment(), column.getRequiredSubfields()));
         }
@@ -1059,5 +1024,76 @@ public final class HiveUtil
         }
 
         return physicalNameOrdinalMap.build();
+    }
+
+    /**
+     * Translates Presto type that is incompatible (cannot be stored in a Hive table) to a compatible type with the same physical layout.
+     * This allows to store more data types in a Hive temporary table than the Hive permanent tables support.
+     */
+    public static List<ColumnMetadata> translateHiveUnsupportedTypesForTemporaryTable(List<ColumnMetadata> columns, TypeManager typeManager)
+    {
+        return columns.stream()
+                .map(column -> new ColumnMetadata(
+                        column.getName(),
+                        translateHiveUnsupportedTypeForTemporaryTable(column.getType(), typeManager),
+                        column.isNullable(),
+                        column.getComment(),
+                        column.getExtraInfo(),
+                        column.isHidden(),
+                        column.getProperties()))
+                .collect(toImmutableList());
+    }
+
+    public static Type translateHiveUnsupportedTypeForTemporaryTable(Type type, TypeManager typeManager)
+    {
+        return typeManager.getType(translateHiveUnsupportedTypeSignatureForTemporaryTable(type.getTypeSignature()));
+    }
+
+    private static TypeSignature translateHiveUnsupportedTypeSignatureForTemporaryTable(TypeSignature typeSignature)
+    {
+        List<TypeSignatureParameter> parameters = typeSignature.getParameters();
+
+        if (typeSignature.getBase().equals("unknown")) {
+            return new TypeSignature(StandardTypes.BOOLEAN);
+        }
+
+        if (typeSignature.getBase().equals(StandardTypes.ROW)) {
+            ImmutableList.Builder<TypeSignatureParameter> updatedParameters = ImmutableList.builder();
+            for (int i = 0; i < parameters.size(); i++) {
+                TypeSignatureParameter typeSignatureParameter = parameters.get(i);
+                checkArgument(typeSignatureParameter.isNamedTypeSignature(), "unexpected row type signature parameter: %s", typeSignatureParameter);
+                NamedTypeSignature namedTypeSignature = typeSignatureParameter.getNamedTypeSignature();
+                updatedParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                        Optional.of(namedTypeSignature.getFieldName().orElse(new RowFieldName("_field_" + i, false))),
+                        translateHiveUnsupportedTypeSignatureForTemporaryTable(namedTypeSignature.getTypeSignature()))));
+            }
+            return new TypeSignature(StandardTypes.ROW, updatedParameters.build());
+        }
+
+        if (!parameters.isEmpty()) {
+            ImmutableList.Builder<TypeSignatureParameter> updatedParameters = ImmutableList.builder();
+            for (TypeSignatureParameter parameter : parameters) {
+                switch (parameter.getKind()) {
+                    case LONG:
+                    case VARIABLE:
+                        updatedParameters.add(parameter);
+                        continue;
+                    case TYPE:
+                        updatedParameters.add(TypeSignatureParameter.of(translateHiveUnsupportedTypeSignatureForTemporaryTable(parameter.getTypeSignature())));
+                        break;
+                    case NAMED_TYPE:
+                        NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
+                        updatedParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                                namedTypeSignature.getFieldName(),
+                                translateHiveUnsupportedTypeSignatureForTemporaryTable(namedTypeSignature.getTypeSignature()))));
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unexpected parameter type: " + parameter.getKind());
+                }
+            }
+            return new TypeSignature(typeSignature.getBase(), updatedParameters.build());
+        }
+
+        return typeSignature;
     }
 }

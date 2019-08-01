@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableWriterOperator;
@@ -20,7 +21,6 @@ import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -40,6 +40,7 @@ public class TestQueryStats
     public static final List<OperatorStats> operatorSummaries = ImmutableList.of(
             new OperatorStats(
                     10,
+                    101,
                     11,
                     12,
                     new PlanNodeId("13"),
@@ -49,6 +50,7 @@ public class TestQueryStats
                     new Duration(16, NANOSECONDS),
                     new Duration(17, NANOSECONDS),
                     succinctBytes(18L),
+                    200,
                     succinctBytes(19L),
                     110L,
                     111.0,
@@ -73,6 +75,7 @@ public class TestQueryStats
                     null),
             new OperatorStats(
                     20,
+                    201,
                     21,
                     22,
                     new PlanNodeId("23"),
@@ -82,6 +85,7 @@ public class TestQueryStats
                     new Duration(26, NANOSECONDS),
                     new Duration(27, NANOSECONDS),
                     succinctBytes(28L),
+                    250,
                     succinctBytes(29L),
                     210L,
                     211.0,
@@ -106,6 +110,7 @@ public class TestQueryStats
                     null),
             new OperatorStats(
                     30,
+                    301,
                     31,
                     32,
                     new PlanNodeId("33"),
@@ -115,6 +120,7 @@ public class TestQueryStats
                     new Duration(36, NANOSECONDS),
                     new Duration(37, NANOSECONDS),
                     succinctBytes(38L),
+                    350,
                     succinctBytes(39L),
                     310L,
                     311.0,
@@ -155,6 +161,7 @@ public class TestQueryStats
             9,
             10,
             11,
+            11,
 
             12,
             13,
@@ -194,6 +201,7 @@ public class TestQueryStats
 
             ImmutableList.of(new StageGcStatistics(
                     101,
+                    1001,
                     102,
                     103,
                     104,
@@ -231,6 +239,7 @@ public class TestQueryStats
 
         assertEquals(actual.getTotalTasks(), 9);
         assertEquals(actual.getRunningTasks(), 10);
+        assertEquals(actual.getPeakRunningTasks(), 11);
         assertEquals(actual.getCompletedTasks(), 11);
 
         assertEquals(actual.getTotalDrivers(), 12);
@@ -271,6 +280,7 @@ public class TestQueryStats
         assertEquals(actual.getStageGcStatistics().size(), 1);
         StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);
         assertEquals(gcStatistics.getStageId(), 101);
+        assertEquals(gcStatistics.getStageExecutionId(), 1001);
         assertEquals(gcStatistics.getTasks(), 102);
         assertEquals(gcStatistics.getFullGcTasks(), 103);
         assertEquals(gcStatistics.getMinFullGcSec(), 104);

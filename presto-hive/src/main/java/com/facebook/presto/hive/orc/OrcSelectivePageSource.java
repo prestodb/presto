@@ -60,6 +60,12 @@ public class OrcSelectivePageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return recordReader.getReadPositions();
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return orcDataSource.getReadTimeNanos();

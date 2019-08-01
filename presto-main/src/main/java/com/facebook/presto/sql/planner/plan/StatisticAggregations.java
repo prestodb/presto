@@ -16,10 +16,10 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -29,8 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregations
@@ -59,18 +58,28 @@ public class StatisticAggregations
         return groupingVariables;
     }
 
-    public Parts createPartialAggregations(PlanVariableAllocator variableAllocator, FunctionManager functionManager)
+    public Parts splitIntoPartialAndFinal(PlanVariableAllocator variableAllocator, FunctionManager functionManager)
     {
-        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> partialAggregation = ImmutableMap.builder();
-        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> finalAggregation = ImmutableMap.builder();
-        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableMap.builder();
+        return split(variableAllocator, functionManager, false);
+    }
+
+    public Parts splitIntoPartialAndIntermediate(PlanVariableAllocator variableAllocator, FunctionManager functionManager)
+    {
+        return split(variableAllocator, functionManager, true);
+    }
+
+    private Parts split(PlanVariableAllocator variableAllocator, FunctionManager functionManager, boolean intermediate)
+    {
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> finalOrIntermediateAggregations = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, Aggregation> partialAggregations = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
-            VariableReferenceExpression partialVariable = variableAllocator.newVariable(functionManager.getFunctionMetadata(functionHandle).getName(), function.getIntermediateType());
-            mappings.put(entry.getKey(), partialVariable);
-            partialAggregation.put(partialVariable, new Aggregation(
+
+            // create partial aggregation
+            VariableReferenceExpression partialVariable = variableAllocator.newVariable(functionManager.getFunctionMetadata(functionHandle).getName().getFunctionName(), function.getIntermediateType());
+            partialAggregations.put(partialVariable, new Aggregation(
                     new CallExpression(
                             originalAggregation.getCall().getDisplayName(),
                             functionHandle,
@@ -80,51 +89,60 @@ public class StatisticAggregations
                     originalAggregation.getOrderBy(),
                     originalAggregation.isDistinct(),
                     originalAggregation.getMask()));
-            finalAggregation.put(entry.getKey(),
+
+            // create final aggregation
+            finalOrIntermediateAggregations.put(entry.getKey(),
                     new Aggregation(
                             new CallExpression(
                                     originalAggregation.getCall().getDisplayName(),
                                     functionHandle,
-                                    function.getFinalType(),
-                                    ImmutableList.of(castToRowExpression(asSymbolReference(partialVariable)))),
+                                    intermediate ? function.getIntermediateType() : function.getFinalType(),
+                                    ImmutableList.of(partialVariable)),
                             Optional.empty(),
                             Optional.empty(),
                             false,
                             Optional.empty()));
         }
-        groupingVariables.forEach(symbol -> mappings.put(symbol, symbol));
+
+        StatisticAggregations finalOrIntermediateAggregation = new StatisticAggregations(finalOrIntermediateAggregations.build(), groupingVariables);
         return new Parts(
-                new StatisticAggregations(partialAggregation.build(), groupingVariables),
-                new StatisticAggregations(finalAggregation.build(), groupingVariables),
-                mappings.build());
+                intermediate ? Optional.empty() : Optional.of(finalOrIntermediateAggregation),
+                intermediate ? Optional.of(finalOrIntermediateAggregation) : Optional.empty(),
+                new StatisticAggregations(partialAggregations.build(), groupingVariables));
     }
 
     public static class Parts
     {
+        private final Optional<StatisticAggregations> finalAggregation;
+        private final Optional<StatisticAggregations> intermediateAggregation;
         private final StatisticAggregations partialAggregation;
-        private final StatisticAggregations finalAggregation;
-        private final Map<VariableReferenceExpression, VariableReferenceExpression> mappings;
 
-        public Parts(StatisticAggregations partialAggregation, StatisticAggregations finalAggregation, Map<VariableReferenceExpression, VariableReferenceExpression> mappings)
+        public Parts(
+                Optional<StatisticAggregations> finalAggregation,
+                Optional<StatisticAggregations> intermediateAggregation,
+                StatisticAggregations partialAggregation)
         {
-            this.partialAggregation = requireNonNull(partialAggregation, "partialAggregation is null");
             this.finalAggregation = requireNonNull(finalAggregation, "finalAggregation is null");
-            this.mappings = ImmutableMap.copyOf(requireNonNull(mappings, "mappings is null"));
+            this.intermediateAggregation = requireNonNull(intermediateAggregation, "intermediateAggregation is null");
+            checkArgument(
+                    finalAggregation.isPresent() ^ intermediateAggregation.isPresent(),
+                    "only final or only intermediate aggregation is expected to be present");
+            this.partialAggregation = requireNonNull(partialAggregation, "partialAggregation is null");
+        }
+
+        public StatisticAggregations getFinalAggregation()
+        {
+            return finalAggregation.orElseThrow(() -> new IllegalStateException("finalAggregation is not present"));
+        }
+
+        public StatisticAggregations getIntermediateAggregation()
+        {
+            return intermediateAggregation.orElseThrow(() -> new IllegalStateException("intermediateAggregation is not present"));
         }
 
         public StatisticAggregations getPartialAggregation()
         {
             return partialAggregation;
-        }
-
-        public StatisticAggregations getFinalAggregation()
-        {
-            return finalAggregation;
-        }
-
-        public Map<VariableReferenceExpression, VariableReferenceExpression> getMappings()
-        {
-            return mappings;
         }
     }
 }

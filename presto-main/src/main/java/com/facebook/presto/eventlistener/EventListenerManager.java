@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.eventlistener;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 
 import java.io.File;
 import java.util.HashMap;

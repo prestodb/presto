@@ -25,6 +25,7 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -33,8 +34,8 @@ import static com.facebook.presto.geospatial.GeometryUtils.disjoint;
 import static com.facebook.presto.geospatial.GeometryUtils.getEnvelope;
 import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
 import static com.facebook.presto.geospatial.GeometryUtils.isPointOrRectangle;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -63,9 +64,12 @@ import static java.lang.String.format;
 public class BingTileFunctions
 {
     private static final int TILE_PIXELS = 256;
-    private static final double MAX_LATITUDE = 85.05112878;
+
+    @VisibleForTesting
+    static final double MAX_LATITUDE = 85.05112878;
     private static final double MIN_LATITUDE = -85.05112878;
-    private static final double MIN_LONGITUDE = -180;
+    @VisibleForTesting
+    static final double MIN_LONGITUDE = -180;
     private static final double MAX_LONGITUDE = 180;
     private static final double EARTH_RADIUS_KM = 6371.01;
     private static final int OPTIMIZED_TILING_MIN_ZOOM_LEVEL = 10;
@@ -75,9 +79,8 @@ public class BingTileFunctions
     private static final String LATITUDE_SPAN_OUT_OF_RANGE = String.format("Latitude span for the geometry must be in [%.2f, %.2f] range", MIN_LATITUDE, MAX_LATITUDE);
     private static final String LONGITUDE_OUT_OF_RANGE = "Longitude must be between " + MIN_LONGITUDE + " and " + MAX_LONGITUDE;
     private static final String LONGITUDE_SPAN_OUT_OF_RANGE = String.format("Longitude span for the geometry must be in [%.2f, %.2f] range", MIN_LONGITUDE, MAX_LONGITUDE);
-    private static final String QUAD_KEY_EMPTY = "QuadKey must not be empty string";
     private static final String QUAD_KEY_TOO_LONG = "QuadKey must be " + MAX_ZOOM_LEVEL + " characters or less";
-    private static final String ZOOM_LEVEL_TOO_SMALL = "Zoom level must be > 0";
+    private static final String ZOOM_LEVEL_TOO_SMALL = "Zoom level must be >= 0";
     private static final String ZOOM_LEVEL_TOO_LARGE = "Zoom level must be <= " + MAX_ZOOM_LEVEL;
 
     private BingTileFunctions() {}
@@ -367,7 +370,22 @@ public class BingTileFunctions
         boolean pointOrRectangle = isPointOrRectangle(ogcGeometry, envelope);
 
         BingTile leftUpperTile = latitudeLongitudeToTile(envelope.getYMax(), envelope.getXMin(), zoomLevel);
-        BingTile rightLowerTile = getTileCoveringLowerRightCorner(envelope, zoomLevel);
+        BingTile rightLowerTile = latitudeLongitudeToTile(envelope.getYMin(), envelope.getXMax(), zoomLevel);
+
+        // If the tile covering the lower right corner of the envelope overlaps the envelope only
+        // at the border then return a tile shifted to the left and/or top
+        int deltaX = 0;
+        int deltaY = 0;
+        Point upperLeftCorner = tileXYToLatitudeLongitude(rightLowerTile.getX(), rightLowerTile.getY(), rightLowerTile.getZoomLevel());
+        if (rightLowerTile.getX() > leftUpperTile.getX() && upperLeftCorner.getX() == envelope.getXMax()) {
+            deltaX = -1;
+        }
+        if (rightLowerTile.getY() > leftUpperTile.getY() && upperLeftCorner.getY() == envelope.getYMin()) {
+            deltaY = -1;
+        }
+        if (deltaX != 0 || deltaY != 0) {
+            rightLowerTile = BingTile.fromCoordinates(rightLowerTile.getX() + deltaX, rightLowerTile.getY() + deltaY, rightLowerTile.getZoomLevel());
+        }
 
         // XY coordinates start at (0,0) in the left upper corner and increase left to right and top to bottom
         long tileCount = (long) (rightLowerTile.getX() - leftUpperTile.getX() + 1) * (rightLowerTile.getY() - leftUpperTile.getY() + 1);
@@ -403,29 +421,6 @@ public class BingTileFunctions
         }
 
         return blockBuilder.build();
-    }
-
-    private static BingTile getTileCoveringLowerRightCorner(Envelope envelope, int zoomLevel)
-    {
-        BingTile tile = latitudeLongitudeToTile(envelope.getYMin(), envelope.getXMax(), zoomLevel);
-
-        // If the tile covering the lower right corner of the envelope overlaps the envelope only
-        // at the border then return a tile shifted to the left and/or top
-        int deltaX = 0;
-        int deltaY = 0;
-        Point upperLeftCorner = tileXYToLatitudeLongitude(tile.getX(), tile.getY(), tile.getZoomLevel());
-        if (upperLeftCorner.getX() == envelope.getXMax()) {
-            deltaX = -1;
-        }
-        if (upperLeftCorner.getY() == envelope.getYMin()) {
-            deltaY = -1;
-        }
-
-        if (deltaX != 0 || deltaY != 0) {
-            return BingTile.fromCoordinates(tile.getX() + deltaX, tile.getY() + deltaY, tile.getZoomLevel());
-        }
-
-        return tile;
     }
 
     private static void checkGeometryToBingTilesLimits(OGCGeometry ogcGeometry, Envelope envelope, boolean pointOrRectangle, long tileCount, int zoomLevel)
@@ -644,7 +639,7 @@ public class BingTileFunctions
 
     private static void checkZoomLevel(long zoomLevel)
     {
-        checkCondition(zoomLevel > 0, ZOOM_LEVEL_TOO_SMALL);
+        checkCondition(zoomLevel >= 0, ZOOM_LEVEL_TOO_SMALL);
         checkCondition(zoomLevel <= MAX_ZOOM_LEVEL, ZOOM_LEVEL_TOO_LARGE);
     }
 
@@ -655,7 +650,6 @@ public class BingTileFunctions
 
     private static void checkQuadKey(@SqlType(StandardTypes.VARCHAR) Slice quadkey)
     {
-        checkCondition(quadkey.length() > 0, QUAD_KEY_EMPTY);
         checkCondition(quadkey.length() <= MAX_ZOOM_LEVEL, QUAD_KEY_TOO_LONG);
     }
 

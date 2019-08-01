@@ -34,6 +34,10 @@ import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
@@ -44,10 +48,6 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
@@ -62,7 +62,12 @@ public class TestRaptorIntegrationSmokeTest
     @SuppressWarnings("unused")
     public TestRaptorIntegrationSmokeTest()
     {
-        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "DISABLED")));
+        this(() -> createRaptorQueryRunner(
+                ImmutableMap.of(),
+                true,
+                false,
+                false,
+                ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
     }
 
     protected TestRaptorIntegrationSmokeTest(QueryRunnerSupplier supplier)
@@ -76,6 +81,13 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("CREATE TABLE array_test AS SELECT ARRAY [1, 2, 3] AS c", 1);
         assertQuery("SELECT cardinality(c) FROM array_test", "SELECT 3");
         assertUpdate("DROP TABLE array_test");
+    }
+
+    @Test
+    public void testCreateTableUnsupportedType()
+    {
+        assertQueryFails("CREATE TABLE rowtype_test AS SELECT row(1) AS c", "Type not supported: row\\(integer\\)");
+        assertQueryFails("CREATE TABLE rowtype_test(row_type_field row(s varchar))", "Type not supported: row\\(s varchar\\)");
     }
 
     @Test
@@ -362,6 +374,8 @@ public class TestRaptorIntegrationSmokeTest
     {
         computeActual("CREATE TABLE test_table_properties_1 (foo BIGINT, bar BIGINT, ds DATE) WITH (ordering=array['foo','bar'], temporal_column='ds')");
         computeActual("CREATE TABLE test_table_properties_2 (foo BIGINT, bar BIGINT, ds DATE) WITH (ORDERING=array['foo','bar'], TEMPORAL_COLUMN='ds')");
+        computeActual("CREATE TABLE test_table_properties_3 (foo BIGINT, bar BIGINT, ds DATE) WITH (TABLE_SUPPORTS_DELTA_DELETE=false)");
+        computeActual("CREATE TABLE test_table_properties_4 (foo BIGINT, bar BIGINT, ds DATE) WITH (table_supports_delta_delete=true)");
     }
 
     @Test
@@ -577,6 +591,7 @@ public class TestRaptorIntegrationSmokeTest
                         "   bucket_count = 32,\n" +
                         "   bucketed_on = ARRAY['c1','c6'],\n" +
                         "   ordering = ARRAY['c6','c1'],\n" +
+                        "   table_supports_delta_delete = true,\n" +
                         "   temporal_column = 'c7'\n" +
                         ")",
                 getSession().getCatalog().get(), getSession().getSchema().get(), "test_show_create_table");
@@ -606,7 +621,8 @@ public class TestRaptorIntegrationSmokeTest
                         "   bucket_count = 32,\n" +
                         "   bucketed_on = ARRAY['c1','c6'],\n" +
                         "   ordering = ARRAY['c6','c1'],\n" +
-                        "   organized = true\n" +
+                        "   organized = true,\n" +
+                        "   table_supports_delta_delete = true\n" +
                         ")",
                 getSession().getCatalog().get(), getSession().getSchema().get(), "test_show_create_table_organized");
         assertUpdate(createTableSql);
@@ -628,10 +644,10 @@ public class TestRaptorIntegrationSmokeTest
                         "   \"c'4\" array(bigint),\n" +
                         "   c5 map(bigint, varchar)\n" +
                         ")",
-                getSession().getCatalog().get(), getSession().getSchema().get(), "\"test_show_create_table\"\"2\"");
+                getSession().getCatalog().get(), getSession().getSchema().get(), "test_show_create_table_default");
         assertUpdate(createTableSql);
 
-        actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table\"\"2\"");
+        actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table_default\"");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
 
@@ -655,6 +671,9 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("" +
                 "CREATE TABLE system_tables_test5 (c50 timestamp, c51 varchar, c52 double, c53 bigint, c54 bigint) " +
                 "WITH (ordering = ARRAY['c51', 'c52'], distribution_name = 'test_distribution', bucket_count = 50, bucketed_on = ARRAY ['c53', 'c54'], organized = true)");
+        assertUpdate("" +
+                "CREATE TABLE system_tables_test6 (c60 timestamp, c61 varchar, c62 double, c63 bigint, c64 bigint) " +
+                "WITH (ordering = ARRAY['c61', 'c62'], distribution_name = 'test_distribution', bucket_count = 50, bucketed_on = ARRAY ['c63', 'c64'], organized = true, table_supports_delta_delete = true)");
 
         MaterializedResult actualResults = computeActual("SELECT * FROM system.tables");
         assertEquals(
@@ -668,35 +687,39 @@ public class TestRaptorIntegrationSmokeTest
                         .add(BIGINT) // bucket_count
                         .add(new ArrayType(VARCHAR)) // bucket_columns
                         .add(BOOLEAN) // organized
+                        .add(BOOLEAN) // table_supports_delta_delete
                         .build());
         Map<String, MaterializedRow> map = actualResults.getMaterializedRows().stream()
                 .filter(row -> ((String) row.getField(1)).startsWith("system_tables_test"))
                 .collect(toImmutableMap(row -> ((String) row.getField(1)), identity()));
-        assertEquals(map.size(), 6);
+        assertEquals(map.size(), 7);
         assertEquals(
                 map.get("system_tables_test0").getFields(),
-                asList("tpch", "system_tables_test0", null, null, null, null, null, Boolean.FALSE));
+                asList("tpch", "system_tables_test0", null, null, null, null, null, Boolean.FALSE, Boolean.FALSE));
         assertEquals(
                 map.get("system_tables_test1").getFields(),
-                asList("tpch", "system_tables_test1", "c10", null, null, null, null, Boolean.FALSE));
+                asList("tpch", "system_tables_test1", "c10", null, null, null, null, Boolean.FALSE, Boolean.FALSE));
         assertEquals(
                 map.get("system_tables_test2").getFields(),
-                asList("tpch", "system_tables_test2", "c20", ImmutableList.of("c22", "c21"), null, null, null, Boolean.FALSE));
+                asList("tpch", "system_tables_test2", "c20", ImmutableList.of("c22", "c21"), null, null, null, Boolean.FALSE, Boolean.FALSE));
         assertEquals(
                 map.get("system_tables_test3").getFields(),
-                asList("tpch", "system_tables_test3", "c30", null, null, 40L, ImmutableList.of("c34", "c33"), Boolean.FALSE));
+                asList("tpch", "system_tables_test3", "c30", null, null, 40L, ImmutableList.of("c34", "c33"), Boolean.FALSE, Boolean.FALSE));
         assertEquals(
                 map.get("system_tables_test4").getFields(),
-                asList("tpch", "system_tables_test4", "c40", ImmutableList.of("c41", "c42"), "test_distribution", 50L, ImmutableList.of("c43", "c44"), Boolean.FALSE));
+                asList("tpch", "system_tables_test4", "c40", ImmutableList.of("c41", "c42"), "test_distribution", 50L, ImmutableList.of("c43", "c44"), Boolean.FALSE, Boolean.FALSE));
         assertEquals(
                 map.get("system_tables_test5").getFields(),
-                asList("tpch", "system_tables_test5", null, ImmutableList.of("c51", "c52"), "test_distribution", 50L, ImmutableList.of("c53", "c54"), Boolean.TRUE));
+                asList("tpch", "system_tables_test5", null, ImmutableList.of("c51", "c52"), "test_distribution", 50L, ImmutableList.of("c53", "c54"), Boolean.TRUE, Boolean.FALSE));
+        assertEquals(
+                map.get("system_tables_test6").getFields(),
+                asList("tpch", "system_tables_test6", null, ImmutableList.of("c61", "c62"), "test_distribution", 50L, ImmutableList.of("c63", "c64"), Boolean.TRUE, Boolean.TRUE));
 
         actualResults = computeActual("SELECT * FROM system.tables WHERE table_schema = 'tpch'");
         long actualRowCount = actualResults.getMaterializedRows().stream()
                 .filter(row -> ((String) row.getField(1)).startsWith("system_tables_test"))
                 .count();
-        assertEquals(actualRowCount, 6);
+        assertEquals(actualRowCount, 7);
 
         actualResults = computeActual("SELECT * FROM system.tables WHERE table_name = 'system_tables_test3'");
         assertEquals(actualResults.getMaterializedRows().size(), 1);
@@ -717,6 +740,7 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("DROP TABLE system_tables_test3");
         assertUpdate("DROP TABLE system_tables_test4");
         assertUpdate("DROP TABLE system_tables_test5");
+        assertUpdate("DROP TABLE system_tables_test6");
 
         assertEquals(computeActual("SELECT * FROM system.tables WHERE table_schema IN ('foo', 'bar')").getRowCount(), 0);
     }
@@ -839,6 +863,14 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    public void testAlterTableUnsupportedType()
+    {
+        assertUpdate("CREATE TABLE test_alter_table_unsupported_type (c1 bigint, c2 bigint)");
+        assertQueryFails("ALTER TABLE test_alter_table_unsupported_type ADD COLUMN c3 row(bigint)", "Type not supported: row\\(bigint\\)");
+        assertUpdate("DROP TABLE test_alter_table_unsupported_type");
+    }
+
+    @Test
     public void testDelete()
     {
         assertUpdate("CREATE TABLE test_delete_table (c1 bigint, c2 bigint)");
@@ -860,5 +892,11 @@ public class TestRaptorIntegrationSmokeTest
         assertQuery("SELECT * FROM test_delete_table", "VALUES (3, 1), (3, 2), (3, 3), (3, 4)");
 
         assertUpdate("DROP TABLE test_delete_table");
+    }
+
+    @Test
+    public void testTriggerBucketBalancer()
+    {
+        assertUpdate("CALL system.trigger_bucket_balancer()");
     }
 }

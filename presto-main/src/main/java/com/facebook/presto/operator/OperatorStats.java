@@ -37,6 +37,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class OperatorStats
 {
     private final int stageId;
+    private final int stageExecutionId;
     private final int pipelineId;
     private final int operatorId;
     private final PlanNodeId planNodeId;
@@ -48,6 +49,7 @@ public class OperatorStats
     private final Duration addInputWall;
     private final Duration addInputCpu;
     private final DataSize rawInputDataSize;
+    private final long rawInputPositions;
     private final DataSize inputDataSize;
     private final long inputPositions;
     private final double sumSquaredInputPositions;
@@ -82,6 +84,7 @@ public class OperatorStats
     @JsonCreator
     public OperatorStats(
             @JsonProperty("stageId") int stageId,
+            @JsonProperty("stageExecutionId") int stageExecutionId,
             @JsonProperty("pipelineId") int pipelineId,
             @JsonProperty("operatorId") int operatorId,
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
@@ -93,6 +96,7 @@ public class OperatorStats
             @JsonProperty("addInputWall") Duration addInputWall,
             @JsonProperty("addInputCpu") Duration addInputCpu,
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
             @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions,
@@ -125,6 +129,7 @@ public class OperatorStats
             @JsonProperty("info") OperatorInfo info)
     {
         this.stageId = stageId;
+        this.stageExecutionId = stageExecutionId;
         this.pipelineId = pipelineId;
 
         checkArgument(operatorId >= 0, "operatorId is negative");
@@ -138,6 +143,7 @@ public class OperatorStats
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
+        this.rawInputPositions = requireNonNull(rawInputPositions, "rawInputPositions is null");
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
@@ -177,6 +183,12 @@ public class OperatorStats
     public int getStageId()
     {
         return stageId;
+    }
+
+    @JsonProperty
+    public int getStageExecutionId()
+    {
+        return stageExecutionId;
     }
 
     @JsonProperty
@@ -231,6 +243,12 @@ public class OperatorStats
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
+    }
+
+    @JsonProperty
+    public long getRawInputPositions()
+    {
+        return rawInputPositions;
     }
 
     @JsonProperty
@@ -379,6 +397,7 @@ public class OperatorStats
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
         long rawInputDataSize = this.rawInputDataSize.toBytes();
+        long rawInputPositions = this.rawInputPositions;
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
         double sumSquaredInputPositions = this.sumSquaredInputPositions;
@@ -418,6 +437,7 @@ public class OperatorStats
             addInputWall += operator.getAddInputWall().roundTo(NANOSECONDS);
             addInputCpu += operator.getAddInputCpu().roundTo(NANOSECONDS);
             rawInputDataSize += operator.getRawInputDataSize().toBytes();
+            rawInputPositions += operator.getRawInputPositions();
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
             sumSquaredInputPositions += operator.getSumSquaredInputPositions();
@@ -458,6 +478,7 @@ public class OperatorStats
 
         return new OperatorStats(
                 stageId,
+                stageExecutionId,
                 pipelineId,
                 operatorId,
                 planNodeId,
@@ -469,6 +490,7 @@ public class OperatorStats
                 succinctNanos(addInputWall),
                 succinctNanos(addInputCpu),
                 succinctBytes(rawInputDataSize),
+                rawInputPositions,
                 succinctBytes(inputDataSize),
                 inputPositions,
                 sumSquaredInputPositions,
@@ -521,6 +543,7 @@ public class OperatorStats
     {
         return new OperatorStats(
                 stageId,
+                stageExecutionId,
                 pipelineId,
                 operatorId,
                 planNodeId,
@@ -530,6 +553,7 @@ public class OperatorStats
                 addInputWall,
                 addInputCpu,
                 rawInputDataSize,
+                rawInputPositions,
                 inputDataSize,
                 inputPositions,
                 sumSquaredInputPositions,

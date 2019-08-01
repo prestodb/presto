@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server.smile;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.fasterxml.jackson.dataformat.smile.SmileFactory;
 import com.google.inject.Inject;
-import io.airlift.json.ObjectMapperProvider;
 
 public class SmileObjectMapperProvider
         extends ObjectMapperProvider

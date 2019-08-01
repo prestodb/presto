@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
@@ -28,16 +29,14 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -58,9 +57,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
-                TRUE_CONSTANT,
-                ImmutableMap.of(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -94,9 +90,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
-                TRUE_CONSTANT,
-                ImmutableMap.of(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -154,9 +147,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
-                TRUE_CONSTANT,
-                ImmutableMap.of(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -194,7 +184,7 @@ public class TestHiveSplitSource
 
             // wait for thread to get the split
             ConnectorSplit split = splits.get(10, SECONDS);
-            assertEquals(((HiveSplit) split).getSchema().getProperty("id"), "33");
+            assertEquals(((HiveSplit) split).getPartitionDataColumnCount(), 33);
         }
         finally {
             // make sure the thread exits
@@ -210,9 +200,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
-                TRUE_CONSTANT,
-                ImmutableMap.of(),
                 10,
                 10000,
                 maxOutstandingSplitsSize,
@@ -251,9 +238,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
-                TRUE_CONSTANT,
-                ImmutableMap.of(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -276,9 +260,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
-                TRUE_CONSTANT,
-                ImmutableMap.of(),
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -321,7 +302,7 @@ public class TestHiveSplitSource
 
             connectorSplits = getSplits(hiveSplitSource, OptionalInt.of(0), 10);
             for (int i = 0; i < 10; i++) {
-                assertEquals(((HiveSplit) connectorSplits.get(i)).getSchema().getProperty("id"), Integer.toString(i));
+                assertEquals(((HiveSplit) connectorSplits.get(i)).getPartitionDataColumnCount(), i);
             }
             assertTrue(hiveSplitSource.isFinished());
         }
@@ -337,9 +318,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
-                TRUE_CONSTANT,
-                ImmutableMap.of(),
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -375,9 +353,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
-                TRUE_CONSTANT,
-                ImmutableMap.of(),
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -453,14 +428,20 @@ public class TestHiveSplitSource
                     true,
                     false,
                     false,
-                    new HiveSplitPartitionInfo(properties("id", String.valueOf(id)), new Path("path").toUri(), ImmutableList.of(), "partition-name", ImmutableMap.of(), Optional.empty()));
-        }
-
-        private static Properties properties(String key, String value)
-        {
-            Properties properties = new Properties();
-            properties.put(key, value);
-            return properties;
+                    new HiveSplitPartitionInfo(
+                            new Storage(
+                                    StorageFormat.create("serde", "input", "output"),
+                                    "location",
+                                    Optional.empty(),
+                                    false,
+                                    ImmutableMap.of()),
+                            new Path("path").toUri(),
+                            ImmutableList.of(),
+                            "partition-name",
+                            id,
+                            ImmutableMap.of(),
+                            Optional.empty()),
+                    Optional.empty());
         }
     }
 }

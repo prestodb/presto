@@ -80,6 +80,7 @@ import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static com.facebook.presto.type.IpAddressType.IPADDRESS;
+import static com.facebook.presto.type.IpPrefixType.IPPREFIX;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.facebook.presto.type.JsonType.JSON;
@@ -148,6 +149,7 @@ public final class TypeRegistry
         addType(JSON);
         addType(CODE_POINTS);
         addType(IPADDRESS);
+        addType(IPPREFIX);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
@@ -663,7 +665,7 @@ public final class TypeRegistry
     public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
         requireNonNull(functionManager, "functionManager is null");
-        return functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, fromTypes(argumentTypes))).getMethodHandle();
+        return functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(operatorType, fromTypes(argumentTypes))).getMethodHandle();
     }
 
     public static class TypeCompatibility

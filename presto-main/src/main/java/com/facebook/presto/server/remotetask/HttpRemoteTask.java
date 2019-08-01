@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpUriBuilder;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.ResponseHandler;
+import com.facebook.airlift.http.client.StatusResponseHandler.StatusResponse;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
@@ -28,6 +35,7 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.PageBufferInfo;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.TaskUpdateRequest;
@@ -48,13 +56,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.concurrent.SetThreadName;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpUriBuilder;
-import io.airlift.http.client.Request;
-import io.airlift.http.client.ResponseHandler;
-import io.airlift.http.client.StatusResponseHandler.StatusResponse;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -75,12 +76,20 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
+import static com.facebook.airlift.http.client.HttpStatus.NO_CONTENT;
+import static com.facebook.airlift.http.client.HttpStatus.OK;
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
+import static com.facebook.airlift.http.client.Request.Builder.preparePost;
+import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
@@ -90,6 +99,7 @@ import static com.facebook.presto.server.remotetask.RequestErrorTracker.logError
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
 import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TASK_UPDATE_SIZE_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -100,13 +110,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.http.client.HttpStatus.NO_CONTENT;
-import static io.airlift.http.client.HttpStatus.OK;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.Request.Builder.prepareDelete;
-import static io.airlift.http.client.Request.Builder.preparePost;
-import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -116,6 +120,7 @@ public final class HttpRemoteTask
         implements RemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
+    private static final double UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE = 0.01;
 
     private final TaskId taskId;
     private final URI taskLocation;
@@ -177,6 +182,9 @@ public final class HttpRemoteTask
     private final AtomicBoolean aborting = new AtomicBoolean(false);
 
     private final boolean isBinaryTransportEnabled;
+    private final int maxTaskUpdateSizeInBytes;
+
+    private final TableWriteInfo tableWriteInfo;
 
     public HttpRemoteTask(
             Session session,
@@ -201,7 +209,9 @@ public final class HttpRemoteTask
             Codec<TaskUpdateRequest> taskUpdateRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             RemoteTaskStats stats,
-            boolean isBinaryTransportEnabled)
+            boolean isBinaryTransportEnabled,
+            TableWriteInfo tableWriteInfo,
+            int maxTaskUpdateSizeInBytes)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -219,6 +229,7 @@ public final class HttpRemoteTask
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(taskInfoRefreshMaxWait, "taskInfoRefreshMaxWait is null");
+        requireNonNull(tableWriteInfo, "tableWriteInfo is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -239,6 +250,8 @@ public final class HttpRemoteTask
             this.maxErrorDuration = maxErrorDuration;
             this.stats = stats;
             this.isBinaryTransportEnabled = isBinaryTransportEnabled;
+            this.tableWriteInfo = tableWriteInfo;
+            this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
 
             this.tableScanPlanNodeIds = ImmutableSet.copyOf(planFragment.getTableScanSchedulingOrder());
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
@@ -439,7 +452,8 @@ public final class HttpRemoteTask
     {
         errorTracker.startRequest();
 
-        FutureCallback<StatusResponse> callback = new FutureCallback<StatusResponse>() {
+        FutureCallback<StatusResponse> callback = new FutureCallback<StatusResponse>()
+        {
             @Override
             public void onSuccess(@Nullable StatusResponse response)
             {
@@ -611,16 +625,29 @@ public final class HttpRemoteTask
         List<TaskSource> sources = getSources();
 
         Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment) : Optional.empty();
+        Optional<TableWriteInfo> writeInfo = sendPlan.get() ? Optional.of(tableWriteInfo) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
                 fragment,
                 sources,
                 outputBuffers.get(),
-                totalPartitions);
+                totalPartitions,
+                writeInfo);
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
+
+        if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
+            throw new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, format("TaskUpdate size of %d Bytes has exceeded the limit of %d Bytes", taskUpdateRequestJson.length, maxTaskUpdateSizeInBytes));
+        }
+
         if (fragment.isPresent()) {
-            stats.updateWithPlanBytes(taskUpdateRequestJson.length);
+            stats.updateWithPlanSize(taskUpdateRequestJson.length);
+        }
+        else {
+            if (ThreadLocalRandom.current().nextDouble() < UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE) {
+                // This is to keep track of the task update size even when the plan fragment is NOT present
+                stats.updateWithoutPlanSize(taskUpdateRequestJson.length);
+            }
         }
 
         HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);

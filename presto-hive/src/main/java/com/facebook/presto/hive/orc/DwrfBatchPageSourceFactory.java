@@ -15,10 +15,15 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
+import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.orc.OrcReaderOptions;
+import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -31,8 +36,8 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
@@ -41,7 +46,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDista
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
-import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.orc.OrcBatchPageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static java.util.Objects.requireNonNull;
@@ -53,14 +58,27 @@ public class DwrfBatchPageSourceFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
+    private final OrcFileTailSource orcFileTailSource;
+    private final StripeMetadataSource stripeMetadataSource;
+    private final FileOpener fileOpener;
 
     @Inject
-    public DwrfBatchPageSourceFactory(TypeManager typeManager, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public DwrfBatchPageSourceFactory(
+            TypeManager typeManager,
+            HiveClientConfig config,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
+            FileOpener fileOpener)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = requireNonNull(config, "config is null").getDomainCompactionThreshold();
+        this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
+        this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
     }
 
     @Override
@@ -70,12 +88,14 @@ public class DwrfBatchPageSourceFactory
             long start,
             long length,
             long fileSize,
-            Properties schema,
+            Storage storage,
+            Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            Optional<byte[]> extraFileInfo)
     {
-        if (!isDeserializerClass(schema, OrcSerde.class)) {
+        if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
         }
 
@@ -97,14 +117,20 @@ public class DwrfBatchPageSourceFactory
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
-                getOrcTinyStripeThreshold(session),
-                getOrcMaxReadBlockSize(session),
                 getOrcLazyReadSmallRanges(session),
                 false,
                 stats,
-                domainCompactionThreshold));
+                domainCompactionThreshold,
+                orcFileTailSource,
+                stripeMetadataSource,
+                extraFileInfo,
+                fileOpener,
+                new OrcReaderOptions(
+                        getOrcMaxMergeDistance(session),
+                        getOrcTinyStripeThreshold(session),
+                        getOrcMaxReadBlockSize(session),
+                        isOrcZstdJniDecompressionEnabled(session))));
     }
 }

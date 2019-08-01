@@ -18,8 +18,8 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.operator.annotations.LiteralImplementationDependency;
 import com.facebook.presto.operator.annotations.TypeImplementationDependency;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ParametricScalar;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import com.facebook.presto.spi.block.Block;
@@ -27,6 +27,7 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlNullable;
@@ -43,10 +44,11 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -76,7 +78,7 @@ public class TestAnnotationEngineForScalars
     public void testSingleImplementationScalarParse()
     {
         Signature expectedSignature = new Signature(
-                "single_implementation_parametric_scalar",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "single_implementation_parametric_scalar"),
                 FunctionKind.SCALAR,
                 DOUBLE.getTypeSignature(),
                 ImmutableList.of(DOUBLE.getTypeSignature()));
@@ -92,7 +94,7 @@ public class TestAnnotationEngineForScalars
 
         assertImplementationCount(scalar, 1, 0, 0);
 
-        ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 1, new TypeRegistry(), null);
+        BuiltInScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 1, new TypeRegistry(), null);
         assertFalse(specialized.getInstanceFactory().isPresent());
 
         assertEquals(specialized.getArgumentProperty(0).getNullConvention(), RETURN_NULL_ON_NULL);
@@ -160,7 +162,7 @@ public class TestAnnotationEngineForScalars
     public void testWithNullablePrimitiveArgScalarParse()
     {
         Signature expectedSignature = new Signature(
-                "scalar_with_nullable",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "scalar_with_nullable"),
                 FunctionKind.SCALAR,
                 DOUBLE.getTypeSignature(),
                 ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
@@ -174,7 +176,7 @@ public class TestAnnotationEngineForScalars
         assertFalse(scalar.isHidden());
         assertEquals(scalar.getDescription(), "Simple scalar with nullable primitive");
 
-        ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, new TypeRegistry(), null);
+        BuiltInScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, new TypeRegistry(), null);
         assertFalse(specialized.getInstanceFactory().isPresent());
 
         assertEquals(specialized.getArgumentProperty(0), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
@@ -198,7 +200,7 @@ public class TestAnnotationEngineForScalars
     public void testWithNullableComplexArgScalarParse()
     {
         Signature expectedSignature = new Signature(
-                "scalar_with_nullable_complex",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "scalar_with_nullable_complex"),
                 FunctionKind.SCALAR,
                 DOUBLE.getTypeSignature(),
                 ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
@@ -212,7 +214,7 @@ public class TestAnnotationEngineForScalars
         assertFalse(scalar.isHidden());
         assertEquals(scalar.getDescription(), "Simple scalar with nullable complex type");
 
-        ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, new TypeRegistry(), null);
+        BuiltInScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, new TypeRegistry(), null);
         assertFalse(specialized.getInstanceFactory().isPresent());
 
         assertEquals(specialized.getArgumentProperty(0), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
@@ -234,7 +236,7 @@ public class TestAnnotationEngineForScalars
     public void testStaticMethodScalarParse()
     {
         Signature expectedSignature = new Signature(
-                "static_method_scalar",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "static_method_scalar"),
                 FunctionKind.SCALAR,
                 DOUBLE.getTypeSignature(),
                 ImmutableList.of(DOUBLE.getTypeSignature()));
@@ -272,13 +274,13 @@ public class TestAnnotationEngineForScalars
     public void testMultiScalarParse()
     {
         Signature expectedSignature1 = new Signature(
-                "static_method_scalar_1",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "static_method_scalar_1"),
                 FunctionKind.SCALAR,
                 DOUBLE.getTypeSignature(),
                 ImmutableList.of(DOUBLE.getTypeSignature()));
 
         Signature expectedSignature2 = new Signature(
-                "static_method_scalar_2",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "static_method_scalar_2"),
                 FunctionKind.SCALAR,
                 BIGINT.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature()));
@@ -325,7 +327,7 @@ public class TestAnnotationEngineForScalars
     public void testParametricScalarParse()
     {
         Signature expectedSignature = new Signature(
-                "parametric_scalar",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "parametric_scalar"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
@@ -366,7 +368,7 @@ public class TestAnnotationEngineForScalars
     public void testComplexParametricScalarParse()
     {
         Signature expectedSignature = new Signature(
-                "with_exact_scalar",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "with_exact_scalar"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -375,7 +377,7 @@ public class TestAnnotationEngineForScalars
                 false);
 
         Signature exactSignature = new Signature(
-                "with_exact_scalar",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "with_exact_scalar"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -413,7 +415,7 @@ public class TestAnnotationEngineForScalars
     public void testSimpleInjectionScalarParse()
     {
         Signature expectedSignature = new Signature(
-                "parametric_scalar_inject",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "parametric_scalar_inject"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -473,7 +475,7 @@ public class TestAnnotationEngineForScalars
     public void testConstructorInjectionScalarParse()
     {
         Signature expectedSignature = new Signature(
-                "parametric_scalar_inject_constructor",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "parametric_scalar_inject_constructor"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
@@ -516,7 +518,7 @@ public class TestAnnotationEngineForScalars
     public void testFixedTypeParameterParse()
     {
         Signature expectedSignature = new Signature(
-                "fixed_type_parameter_scalar_function",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "fixed_type_parameter_scalar_function"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -554,7 +556,7 @@ public class TestAnnotationEngineForScalars
     public void testPartiallyFixedTypeParameterParse()
     {
         Signature expectedSignature = new Signature(
-                "partially_fixed_type_parameter_scalar_function",
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "partially_fixed_type_parameter_scalar_function"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
                 ImmutableList.of(),

@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +40,7 @@ public class FullConnectorSession
     private final ConnectorId connectorId;
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
-    private final boolean isLegacyTimestamp;
+    private final SqlFunctionProperties sqlFunctionProperties;
 
     public FullConnectorSession(Session session, ConnectorIdentity identity)
     {
@@ -49,7 +50,7 @@ public class FullConnectorSession
         this.connectorId = null;
         this.catalog = null;
         this.sessionPropertyManager = null;
-        this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
+        this.sqlFunctionProperties = session.getSqlFunctionProperties();
     }
 
     public FullConnectorSession(
@@ -66,7 +67,7 @@ public class FullConnectorSession
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
+        this.sqlFunctionProperties = session.getSqlFunctionProperties();
     }
 
     public Session getSession()
@@ -117,9 +118,21 @@ public class FullConnectorSession
     }
 
     @Override
+    public Optional<String> getClientInfo()
+    {
+        return session.getClientInfo();
+    }
+
+    @Override
     public boolean isLegacyTimestamp()
     {
-        return isLegacyTimestamp;
+        return sqlFunctionProperties.isLegacyTimestamp();
+    }
+
+    @Override
+    public SqlFunctionProperties getSqlFunctionProperties()
+    {
+        return sqlFunctionProperties;
     }
 
     @Override

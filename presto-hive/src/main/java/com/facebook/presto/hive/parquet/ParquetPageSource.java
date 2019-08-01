@@ -24,7 +24,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -35,13 +34,11 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getParquetType;
-import static com.facebook.presto.parquet.ParquetTypeUtils.getFieldIndex;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -50,48 +47,32 @@ import static org.apache.parquet.io.ColumnIOConverter.constructField;
 public class ParquetPageSource
         implements ConnectorPageSource
 {
-    private static final int MAX_VECTOR_LENGTH = 1024;
-
     private final ParquetReader parquetReader;
-    private final MessageType fileSchema;
     // for debugging heap dump
     private final List<String> columnNames;
     private final List<Type> types;
     private final List<Optional<Field>> fields;
 
-    private final Block[] constantBlocks;
-    private final int[] hiveColumnIndexes;
-
     private int batchId;
+    private long completedPositions;
     private boolean closed;
-    private final boolean useParquetColumnNames;
 
     public ParquetPageSource(
             ParquetReader parquetReader,
             MessageType fileSchema,
             MessageColumnIO messageColumnIO,
             TypeManager typeManager,
-            Properties splitSchema,
             List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
             boolean useParquetColumnNames)
     {
-        requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(effectivePredicate, "effectivePredicate is null");
+        requireNonNull(fileSchema, "fileSchema is null");
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
-        this.fileSchema = requireNonNull(fileSchema, "fileSchema is null");
-        this.useParquetColumnNames = useParquetColumnNames;
-
-        int size = columns.size();
-        this.constantBlocks = new Block[size];
-        this.hiveColumnIndexes = new int[size];
 
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
-        for (int columnIndex = 0; columnIndex < size; columnIndex++) {
-            HiveColumnHandle column = columns.get(columnIndex);
+        for (HiveColumnHandle column : columns) {
             checkState(column.getColumnType() == REGULAR, "column type must be regular");
 
             String name = column.getName();
@@ -99,15 +80,13 @@ public class ParquetPageSource
 
             namesBuilder.add(name);
             typesBuilder.add(type);
-            hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
-            if (getParquetType(column, fileSchema, useParquetColumnNames) == null) {
-                constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_VECTOR_LENGTH);
-                fieldsBuilder.add(Optional.empty());
-            }
-            else {
+            if (getParquetType(type, fileSchema, useParquetColumnNames, column).isPresent()) {
                 String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
                 fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
+            }
+            else {
+                fieldsBuilder.add(Optional.empty());
             }
         }
         types = typesBuilder.build();
@@ -119,6 +98,12 @@ public class ParquetPageSource
     public long getCompletedBytes()
     {
         return parquetReader.getDataSource().getReadBytes();
+    }
+
+    @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
     }
 
     @Override
@@ -151,27 +136,16 @@ public class ParquetPageSource
                 return null;
             }
 
-            Block[] blocks = new Block[hiveColumnIndexes.length];
+            completedPositions += batchSize;
+
+            Block[] blocks = new Block[fields.size()];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
+                Optional<Field> field = fields.get(fieldId);
+                if (field.isPresent()) {
+                    blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
                 }
                 else {
-                    Type type = types.get(fieldId);
-                    Optional<Field> field = fields.get(fieldId);
-                    int fieldIndex;
-                    if (useParquetColumnNames) {
-                        fieldIndex = getFieldIndex(fileSchema, columnNames.get(fieldId));
-                    }
-                    else {
-                        fieldIndex = hiveColumnIndexes[fieldId];
-                    }
-                    if (fieldIndex != -1 && field.isPresent()) {
-                        blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
-                    }
-                    else {
-                        blocks[fieldId] = RunLengthEncodedBlock.create(type, null, batchSize);
-                    }
+                    blocks[fieldId] = RunLengthEncodedBlock.create(types.get(fieldId), null, batchSize);
                 }
             }
             return new Page(batchSize, blocks);

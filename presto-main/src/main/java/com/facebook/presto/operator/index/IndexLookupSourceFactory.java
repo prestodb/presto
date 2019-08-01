@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Map;
@@ -60,17 +61,18 @@ public class IndexLookupSourceFactory
             IndexJoinLookupStats stats,
             boolean shareIndexLoading,
             PagesIndex.Factory pagesIndexFactory,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            Duration indexLoaderTimeout)
     {
         this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
         this.layout = ImmutableMap.copyOf(requireNonNull(layout, "layout is null"));
 
         if (shareIndexLoading) {
-            IndexLoader shared = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler);
+            IndexLoader shared = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler, indexLoaderTimeout);
             this.indexLoaderSupplier = () -> shared;
         }
         else {
-            this.indexLoaderSupplier = () -> new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler);
+            this.indexLoaderSupplier = () -> new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler, indexLoaderTimeout);
         }
     }
 

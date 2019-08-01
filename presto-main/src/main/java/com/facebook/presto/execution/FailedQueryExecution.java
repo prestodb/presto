@@ -152,6 +152,12 @@ public class FailedQueryExecution
     }
 
     @Override
+    public int getRunningTaskCount()
+    {
+        return 0;
+    }
+
+    @Override
     public void start()
     {
         // no-op

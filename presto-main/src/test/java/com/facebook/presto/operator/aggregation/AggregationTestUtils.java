@@ -166,6 +166,11 @@ public final class AggregationTestUtils
         return maskedPages;
     }
 
+    public static Object aggregation(InternalAggregationFunction function, Block... blocks)
+    {
+        return aggregation(function, new Page(blocks));
+    }
+
     public static Object aggregation(InternalAggregationFunction function, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2

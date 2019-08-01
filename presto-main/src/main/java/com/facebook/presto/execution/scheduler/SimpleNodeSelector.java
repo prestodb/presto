@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.InternalNode;
@@ -23,13 +24,12 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.log.Logger;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -40,7 +40,10 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactN
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.Sets.newHashSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class SimpleNodeSelector
         implements NodeSelector
@@ -54,6 +57,7 @@ public class SimpleNodeSelector
     private final int minCandidates;
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
+    private final int maxTasksPerStage;
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
@@ -62,7 +66,8 @@ public class SimpleNodeSelector
             Supplier<NodeMap> nodeMap,
             int minCandidates,
             int maxSplitsPerNode,
-            int maxPendingSplitsPerTask)
+            int maxPendingSplitsPerTask,
+            int maxTasksPerStage)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -71,6 +76,7 @@ public class SimpleNodeSelector
         this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
+        this.maxTasksPerStage = maxTasksPerStage;
     }
 
     @Override
@@ -105,7 +111,7 @@ public class SimpleNodeSelector
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
-        ResettableRandomizedIterator<InternalNode> randomCandidates = randomizedNodes(nodeMap, includeCoordinator, ImmutableSet.of());
+        ResettableRandomizedIterator<InternalNode> randomCandidates = getRandomCandidates(maxTasksPerStage, nodeMap, existingTasks);
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
         for (Split split : splits) {
@@ -166,6 +172,26 @@ public class SimpleNodeSelector
             blocked = toWhenHasSplitQueueSpaceFuture(blockedExactNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
         }
         return new SplitPlacementResult(blocked, assignment);
+    }
+
+    private ResettableRandomizedIterator<InternalNode> getRandomCandidates(int limit, NodeMap nodeMap, List<RemoteTask> existingTasks)
+    {
+        List<InternalNode> existingNodes = existingTasks.stream()
+                .map(remoteTask -> nodeMap.getNodesByNodeId().get(remoteTask.getNodeId()))
+                // nodes may sporadically disappear from the nodeMap if the announcement is delayed
+                .filter(Objects::nonNull)
+                .collect(toList());
+
+        int alreadySelectedNodeCount = existingNodes.size();
+        int nodeCount = nodeMap.getNodesByNodeId().size();
+
+        if (alreadySelectedNodeCount < limit && alreadySelectedNodeCount < nodeCount) {
+            List<InternalNode> moreNodes =
+                    selectNodes(limit - alreadySelectedNodeCount, randomizedNodes(nodeMap, includeCoordinator, newHashSet(existingNodes)));
+            existingNodes.addAll(moreNodes);
+        }
+        verify(existingNodes.stream().allMatch(Objects::nonNull), "existingNodes list must not contain any nulls");
+        return new ResettableRandomizedIterator<>(existingNodes);
     }
 
     @Override

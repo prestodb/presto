@@ -142,9 +142,9 @@ public class DictionaryBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getBlock(int position)
     {
-        return dictionary.getObject(getId(position), clazz);
+        return dictionary.getBlock(getId(position));
     }
 
     @Override
@@ -401,6 +401,11 @@ public class DictionaryBlock
         return Slices.wrappedIntArray(ids, idsOffset, positionCount);
     }
 
+    int[] getRawIds()
+    {
+        return ids;
+    }
+
     public int getId(int position)
     {
         checkValidPosition(position, positionCount);
@@ -519,7 +524,7 @@ public class DictionaryBlock
     public Block getBlockUnchecked(int internalPosition)
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
-        return dictionary.getObject(ids[internalPosition], Block.class);
+        return dictionary.getBlock(ids[internalPosition]);
     }
 
     @Override

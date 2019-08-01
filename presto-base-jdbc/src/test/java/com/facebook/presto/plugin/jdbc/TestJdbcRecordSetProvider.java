@@ -32,14 +32,15 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -47,6 +48,8 @@ import static org.testng.Assert.assertNotNull;
 @Test
 public class TestJdbcRecordSetProvider
 {
+    private static final JdbcIdentity IDENTITY = new JdbcIdentity("user", ImmutableMap.of());
+
     private TestingDatabase database;
     private JdbcClient jdbcClient;
     private JdbcSplit split;
@@ -64,7 +67,7 @@ public class TestJdbcRecordSetProvider
         jdbcClient = database.getJdbcClient();
         split = database.getSplit("example", "numbers");
 
-        table = jdbcClient.getTableHandle(new SchemaTableName("example", "numbers"));
+        table = jdbcClient.getTableHandle(IDENTITY, new SchemaTableName("example", "numbers"));
 
         Map<String, JdbcColumnHandle> columns = database.getColumnHandles("example", "numbers");
         textColumn = columns.get("text");
@@ -178,8 +181,8 @@ public class TestJdbcRecordSetProvider
 
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
     {
-        JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, domain);
-        ConnectorSplitSource splits = jdbcClient.getSplits(layoutHandle);
+        JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, domain, Optional.empty());
+        ConnectorSplitSource splits = jdbcClient.getSplits(IDENTITY, layoutHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();

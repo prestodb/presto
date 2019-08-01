@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
  * @author Kevin Bourrillion
  * @since 1.0
  */
-final class Primitives
+public final class Primitives
 {
     private Primitives() {}
 

@@ -18,6 +18,8 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
@@ -73,5 +75,21 @@ final class StatsUtil
                 || SmallintType.SMALLINT.equals(type)
                 || TinyintType.TINYINT.equals(type)
                 || BooleanType.BOOLEAN.equals(type);
+    }
+
+    public static VariableStatsEstimate toVariableStatsEstimate(TableStatistics tableStatistics, ColumnStatistics columnStatistics)
+    {
+        double nullsFraction = columnStatistics.getNullsFraction().getValue();
+        double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - nullsFraction);
+        double averageRowSize = nonNullRowsCount == 0 ? 0 : columnStatistics.getDataSize().getValue() / nonNullRowsCount;
+        VariableStatsEstimate.Builder result = VariableStatsEstimate.builder();
+        result.setNullsFraction(nullsFraction);
+        result.setDistinctValuesCount(columnStatistics.getDistinctValuesCount().getValue());
+        result.setAverageRowSize(averageRowSize);
+        columnStatistics.getRange().ifPresent(range -> {
+            result.setLowValue(range.getMin());
+            result.setHighValue(range.getMax());
+        });
+        return result.build();
     }
 }

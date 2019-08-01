@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -32,6 +33,7 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -73,11 +75,11 @@ import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
-import com.facebook.presto.sql.tree.SetPath;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -92,6 +94,7 @@ import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
+import com.facebook.presto.sql.tree.SqlParameterDeclaration;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
@@ -104,6 +107,7 @@ import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -550,6 +554,47 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitCreateFunction(CreateFunction node, Integer indent)
+        {
+            builder.append("CREATE FUNCTION ")
+                    .append(formatName(node.getFunctionName()))
+                    .append(" ")
+                    .append(formatSqlParameterDeclarations(node.getParameters()))
+                    .append("\nRETURNS ")
+                    .append(node.getReturnType());
+            if (node.getComment().isPresent()) {
+                builder.append("\nCOMMENT ")
+                        .append(formatStringLiteral(node.getComment().get()));
+            }
+            builder.append("\n")
+                    .append(formatRoutineCharacteristics(node.getCharacteristics()))
+                    .append("\nRETURN ")
+                    .append(formatExpression(node.getBody(), parameters));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropFunction(DropFunction node, Integer indent)
+        {
+            builder.append("DROP FUNCTION ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getFunctionName()));
+            if (node.getParameterTypes().isPresent()) {
+                String elementIndent = indentString(indent + 1);
+                builder.append("(\n")
+                        .append(node.getParameterTypes().get().stream()
+                                .map(type -> elementIndent + type)
+                                .collect(joining(",\n")))
+                        .append(")\n");
+            }
+
+            return null;
+        }
+
+        @Override
         protected Void visitDropView(DropView node, Integer context)
         {
             builder.append("DROP VIEW ");
@@ -851,6 +896,33 @@ public final class SqlFormatter
                     .collect(joining(", "));
 
             return " WITH ( " + propertyList + " )";
+        }
+
+        private String formatSqlParameterDeclarations(List<SqlParameterDeclaration> parameters)
+        {
+            if (parameters.isEmpty()) {
+                return "()";
+            }
+            return parameters.stream()
+                    .map(parameter -> format(
+                            "%s%s %s",
+                            INDENT,
+                            formatExpression(parameter.getName(), this.parameters),
+                            parameter.getType()))
+                    .collect(joining(",\n", "(\n", "\n)"));
+        }
+
+        private String formatRoutineCharacteristics(RoutineCharacteristics characteristics)
+        {
+            return Joiner.on("\n").join(ImmutableList.of(
+                    "LANGUAGE " + formatRoutineCharacteristicName(characteristics.getLanguage()),
+                    formatRoutineCharacteristicName(characteristics.getDeterminism()),
+                    formatRoutineCharacteristicName(characteristics.getNullCallClause())));
+        }
+
+        private String formatRoutineCharacteristicName(Enum characteristic)
+        {
+            return characteristic.name().replace("_", " ");
         }
 
         private static String formatName(String name)
@@ -1283,14 +1355,6 @@ public final class SqlFormatter
                         .append(node.getCatalog().get());
             }
 
-            return null;
-        }
-
-        @Override
-        public Void visitSetPath(SetPath node, Integer indent)
-        {
-            builder.append("SET PATH ");
-            builder.append(Joiner.on(", ").join(node.getPathSpecification().getPath()));
             return null;
         }
 

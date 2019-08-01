@@ -21,35 +21,34 @@ Binary (WKB) form of spatial objects:
 * ``MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)), ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))``
 * ``GEOMETRYCOLLECTION (POINT(2 3), LINESTRING (2 3, 3 4))``
 
-Use ST_GeometryFromText and ST_GeomFromBinary functions to create geometry
-objects from WKT or WKB.  In WKT/WKB, the coordinate order is ``(x, y)``.
-For spherical/geospatial uses, this implies ``(longitude, latitude)`` instead
-of ``(latitude, longitude)``.
+Use ``ST_GeometryFromText`` and ``ST_GeomFromBinary`` functions to create
+geometry objects from WKT or WKB.  In WKT/WKB, the coordinate order is
+``(x, y)``.  For spherical/geospatial uses, this implies
+``(longitude, latitude)`` instead of ``(latitude, longitude)``.
 
-The SphericalGeography type provides native support for spatial features
-represented on "geographic" coordinates (sometimes called "geodetic"
-coordinates, or "lat/lon", or "lon/lat"). Geographic coordinates are spherical
-coordinates expressed in angular units (degrees).
-
-The basis for the Geometry type is a plane. The shortest path between two
+The basis for the ``Geometry`` type is a plane. The shortest path between two
 points on the plane is a straight line. That means calculations on geometries
 (areas, distances, lengths, intersections, etc) can be calculated using
 cartesian mathematics and straight line vectors.
 
-The basis for the SphericalGeography type is a sphere. The shortest path
+The ``SphericalGeography`` type provides native support for spatial features
+represented on "geographic" coordinates (sometimes called "geodetic"
+coordinates, or "lat/lon", or "lon/lat"). Geographic coordinates are spherical
+coordinates expressed in angular units (degrees).
+
+The basis for the ``SphericalGeography`` type is a sphere. The shortest path
 between two points on the sphere is a great circle arc. That means that
 calculations on geographies (areas, distances, lengths, intersections, etc)
 must be calculated on the sphere, using more complicated mathematics. More
 accurate measurements that take the actual spheroidal shape of the world into
 account are not supported.
 
-Values returned by the measurement functions ST_Distance and ST_Length are in
-the unit of meters; values returned by ST_Area are in square meters.
+For ``SphericalGeography`` objects, values returned by the measurement functions
+``ST_Distance`` and ``ST_Length`` are in the unit of meters; values returned by
+``ST_Area`` are in square meters.
 
 Use ``to_spherical_geography()`` function to convert a geometry object to
-geography object.
-
-For example,
+geography object.  For example,
 ``ST_Distance(ST_Point(-71.0882, 42.3607), ST_Point(-74.1197, 40.6976))``
 returns 3.4577 in the unit of the passed-in values on the euclidean plane,
 while
@@ -116,7 +115,7 @@ Constructors
     of such geometries. For each point of the input geometry, it verifies that
     point.x is within [-180.0, 180.0] and point.y is within [-90.0, 90.0], and
     uses them as (longitude, latitude) degrees to construct the shape of the
-    SphericalGeography result.
+    ``SphericalGeography`` result.
 
 .. function:: to_geometry(SphericalGeography) -> Geometry
 
@@ -187,7 +186,9 @@ Operations
 .. function:: ST_Buffer(Geometry, distance) -> Geometry
 
     Returns the geometry that represents all points whose distance from the
-    specified geometry is less than or equal to the specified distance.
+    specified geometry is less than or equal to the specified distance.  If the
+    points of the geometry are extremely close together (``delta < 1e-8``), this
+    might return an empty geometry.
 
 .. function:: ST_Difference(Geometry, Geometry) -> Geometry
 
@@ -203,6 +204,13 @@ Operations
     Returns an array of two points: the lower left and upper right corners of
     the bounding rectangular polygon of a geometry. Returns ``null`` if input
     geometry is empty.
+
+.. function:: expand_envelope(Geometry, double) -> Geometry
+
+    Returns the bounding rectangular polygon of a geometry, expanded by a
+    distance. Empty geometries will return an empty polygon.  Negative or NaN
+    distances will return an error.  Positive infinity distances may lead to
+    undefined results.
 
 .. function:: ST_ExteriorRing(Geometry) -> Geometry
 
@@ -241,7 +249,7 @@ Accessors
 
     Returns the area of a polygon or multi-polygon in square meters using a spherical model for Earth.
 
-.. function:: ST_Centroid(Geometry) -> Geometry
+.. function:: ST_Centroid(Geometry) -> Point
 
     Returns the point value that is the mathematical centroid of a geometry.
 
@@ -334,34 +342,29 @@ Accessors
 
 .. function:: ST_XMax(Geometry) -> double
 
-    Returns X maxima of a bounding box of a geometry.
+    Returns the X maximum of the geometry's bounding box.
 
 .. function:: ST_YMax(Geometry) -> double
 
-    Returns Y maxima of a bounding box of a geometry.
+    Returns the Y maximum of the geometry's bounding box.
 
 .. function:: ST_XMin(Geometry) -> double
 
-    Returns X minima of a bounding box of a geometry.
+    Returns the X minimum of the geometry's bounding box.
 
 .. function:: ST_YMin(Geometry) -> double
 
-    Returns Y minima of a bounding box of a geometry.
+    Returns the Y minimum of the geometry's bounding box.
 
 .. function:: ST_StartPoint(Geometry) -> point
 
     Returns the first point of a LineString geometry as a Point.
-    This is a shortcut for ST_PointN(geometry, 1).
-
-.. function:: simplify_geometry(Geometry, double) -> Geometry
-
-    Returns a "simplified" version of the input geometry using the Douglas-Peucker algorithm.
-    Will avoid creating derived geometries (polygons in particular) that are invalid.
+    This is a shortcut for ``ST_PointN(geometry, 1)``.
 
 .. function:: ST_EndPoint(Geometry) -> point
 
     Returns the last point of a LineString geometry as a Point.
-    This is a shortcut for ST_PointN(geometry, ST_NumPoints(geometry)).
+    This is a shortcut for ``ST_PointN(geometry, ST_NumPoints(geometry))``.
 
 .. function:: ST_X(Point) -> double
 
@@ -371,7 +374,7 @@ Accessors
 
     Return the Y coordinate of the point.
 
-.. function:: ST_InteriorRings(Geometry) -> Geometry
+.. function:: ST_InteriorRings(Geometry) -> array(Geometry)
 
    Returns an array of all interior rings found in the input geometry, or an empty
    array if the polygon has no interior rings. Returns ``null`` if the input geometry
@@ -380,15 +383,22 @@ Accessors
 .. function:: ST_NumGeometries(Geometry) -> bigint
 
     Returns the number of geometries in the collection.
-    If the geometry is a collection of geometries (e.g., GEOMETRYCOLLECTION or MULTI*),
-    returns the number of geometries,
-    for single geometries returns 1,
-    for empty geometries returns 0.
+    If the geometry is a collection of geometries (e.g., GEOMETRYCOLLECTION or
+    MULTI*), returns the number of geometries, for single geometries returns 1,
+    for empty geometries returns 0.  Note that empty geometries inside of a
+    GEOMETRYCOLLECTION will count as a geometry; eg
+    ``ST_NumGeometries(ST_GeometryFromText('GEOMETRYCOLLECTION(MULTIPOINT EMPTY)'))``
+    will evaluate to 1.
 
-.. function:: ST_Geometries(Geometry) -> Geometry
+.. function:: ST_Geometries(Geometry) -> array(Geometry)
 
    Returns an array of geometries in the specified collection. Returns a one-element array
    if the input geometry is not a multi-geometry. Returns ``null`` if input geometry is empty.
+
+   For example, a MultiLineString will create an array of LineStrings.  A GeometryCollection
+   will produce an un-flattened array of its constituents:
+   ``GEOMETRYCOLLECTION(MULTIPOINT(0 0, 1 1), GEOMETRYCOLLECTION(MULTILINESTRING((2 2, 3 3))))``
+   would produce ``array[MULTIPOINT(0 0, 1 1), GEOMETRYCOLLECTION(MULTILINESTRING((2 2, 3 3)))]``.
 
 .. function:: ST_NumPoints(Geometry) -> bigint
 
@@ -399,12 +409,25 @@ Accessors
 
     Returns the cardinality of the collection of interior rings of a polygon.
 
+.. function:: simplify_geometry(Geometry, double) -> Geometry
+
+    Returns a "simplified" version of the input geometry using the Douglas-Peucker algorithm.
+    Will avoid creating derived geometries (polygons in particular) that are invalid.
+
 .. function:: line_locate_point(LineString, Point) -> double
 
     Returns a float between 0 and 1 representing the location of the closest point on
     the LineString to the given Point, as a fraction of total 2d line length.
 
     Returns ``null`` if a LineString or a Point is empty or ``null``.
+
+.. function:: line_interpolate_point(LineString, double) -> Geometry
+
+    Returns the Point on the LineString at a fractional distance given by the
+    double argument.  Throws an exception if the distance is not between 0 and 1.
+
+    Returns an empty Point if the LineString is empty.  Returns ``null`` if
+    either the LineString or double is null.
 
 .. function:: geometry_invalid_reason(Geometry) -> varchar
 

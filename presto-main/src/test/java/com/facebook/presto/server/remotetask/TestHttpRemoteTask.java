@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.http.client.testing.TestingHttpClient;
+import com.facebook.airlift.jaxrs.JsonMapper;
+import com.facebook.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap;
@@ -27,6 +33,7 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.TaskTestUtils;
 import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
@@ -55,12 +62,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.http.client.testing.TestingHttpClient;
-import io.airlift.jaxrs.JsonMapper;
-import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -81,12 +82,16 @@ import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
@@ -98,9 +103,6 @@ import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonBinder.jsonBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -212,14 +214,15 @@ public class TestHttpRemoteTask
     {
         return httpRemoteTaskFactory.createRemoteTask(
                 TEST_SESSION,
-                new TaskId("test", 1, 2),
+                new TaskId("test", 1, 0, 2),
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
                 OptionalInt.empty(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
-                true);
+                true,
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)

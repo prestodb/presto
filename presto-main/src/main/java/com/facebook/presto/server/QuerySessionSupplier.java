@@ -20,7 +20,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
-import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.transaction.TransactionManager;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -42,7 +41,6 @@ public class QuerySessionSupplier
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
-    private final Optional<String> path;
     private final Optional<TimeZoneKey> forcedSessionTimeZone;
 
     @Inject
@@ -56,7 +54,6 @@ public class QuerySessionSupplier
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         requireNonNull(config, "config is null");
-        this.path = requireNonNull(config.getPath(), "path is null");
         this.forcedSessionTimeZone = requireNonNull(config.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
     }
 
@@ -72,18 +69,12 @@ public class QuerySessionSupplier
                 .setSource(context.getSource())
                 .setCatalog(context.getCatalog())
                 .setSchema(context.getSchema())
-                .setPath(new SqlPath(path))
                 .setRemoteUserAddress(context.getRemoteUserAddress())
                 .setUserAgent(context.getUserAgent())
                 .setClientInfo(context.getClientInfo())
                 .setClientTags(context.getClientTags())
-                .setClientCapabilities(context.getClientCapabilities())
                 .setTraceToken(context.getTraceToken())
                 .setResourceEstimates(context.getResourceEstimates());
-
-        if (context.getPath() != null) {
-            sessionBuilder.setPath(new SqlPath(Optional.of(context.getPath())));
-        }
 
         if (forcedSessionTimeZone.isPresent()) {
             sessionBuilder.setTimeZoneKey(forcedSessionTimeZone.get());

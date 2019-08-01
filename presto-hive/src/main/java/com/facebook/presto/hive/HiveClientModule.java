@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.concurrent.ExecutorServiceAdapter;
+import com.facebook.airlift.event.client.EventClient;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
@@ -22,11 +24,25 @@ import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.rule.HivePlanOptimizerProvider;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
+import com.facebook.presto.orc.CacheStatsMBean;
+import com.facebook.presto.orc.CachingStripeMetadataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.StripeReader.StripeId;
+import com.facebook.presto.orc.StripeReader.StripeStreamId;
+import com.facebook.presto.orc.cache.CachingOrcFileTailSource;
+import com.facebook.presto.orc.cache.OrcCacheConfig;
+import com.facebook.presto.orc.cache.OrcFileTailSource;
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
+import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -34,21 +50,21 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
-import io.airlift.concurrent.BoundedExecutor;
-import io.airlift.concurrent.ExecutorServiceAdapter;
-import io.airlift.event.client.EventClient;
+import io.airlift.slice.Slice;
+import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
 
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.lang.Math.toIntExact;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
@@ -71,7 +87,8 @@ public class HiveClientModule
         binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
         binder.bind(CoercionPolicy.class).to(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
 
-        binder.bind(HdfsConfigurationUpdater.class).in(Scopes.SINGLETON);
+        binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, DynamicConfigurationProvider.class);
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(DirectoryLister.class).to(HadoopDirectoryLister.class).in(Scopes.SINGLETON);
@@ -101,6 +118,7 @@ public class HiveClientModule
         binder.bind(new TypeLiteral<Supplier<TransactionalMetadata>>() {}).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(StagingFileCommitter.class).to(HiveStagingFileCommitter.class).in(Scopes.SINGLETON);
         binder.bind(ZeroRowFileCreator.class).to(HiveZeroRowFileCreator.class).in(Scopes.SINGLETON);
+        binder.bind(PartitionObjectBuilder.class).to(HivePartitionObjectBuilder.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generatedNameOf(HiveSplitManager.class, connectorId));
@@ -120,6 +138,10 @@ public class HiveClientModule
         pageSourceFactoryBinder.addBinding().to(ParquetPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
 
+        configBinder(binder).bindConfig(OrcCacheConfig.class, connectorId);
+
+        binder.bind(FileOpener.class).to(HadoopFileOpener.class).in(Scopes.SINGLETON);
+
         Multibinder<HiveSelectivePageSourceFactory> selectivePageSourceFactoryBinder = newSetBinder(binder, HiveSelectivePageSourceFactory.class);
         selectivePageSourceFactoryBinder.addBinding().to(OrcSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
         selectivePageSourceFactoryBinder.addBinding().to(DwrfSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
@@ -132,6 +154,7 @@ public class HiveClientModule
         fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ParquetFileWriterConfig.class);
+        binder.install(new MetastoreClientModule());
     }
 
     @ForHiveClient
@@ -145,10 +168,10 @@ public class HiveClientModule
     @ForCachingHiveMetastore
     @Singleton
     @Provides
-    public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
+    public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, MetastoreClientConfig metastoreClientConfig)
     {
         return newFixedThreadPool(
-                hiveClientConfig.getMaxMetastoreRefreshThreads(),
+                metastoreClientConfig.getMaxMetastoreRefreshThreads(),
                 daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
     }
 
@@ -178,8 +201,47 @@ public class HiveClientModule
 
     @Singleton
     @Provides
-    public Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> createMetastoreGetter(HiveTransactionManager transactionManager)
+    public OrcFileTailSource createOrcFileTailSource(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
     {
-        return transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore();
+        OrcFileTailSource orcFileTailSource = new StorageOrcFileTailSource();
+        if (orcCacheConfig.isFileTailCacheEnabled()) {
+            Cache<OrcDataSourceId, OrcFileTail> cache = CacheBuilder.newBuilder()
+                    .maximumWeight(orcCacheConfig.getFileTailCacheSize().toBytes())
+                    .weigher((id, tail) -> ((OrcFileTail) tail).getFooterSize() + ((OrcFileTail) tail).getMetadataSize())
+                    .expireAfterAccess(orcCacheConfig.getFileTailCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
+                    .recordStats()
+                    .build();
+            CacheStatsMBean cacheStatsMBean = new CacheStatsMBean(cache);
+            orcFileTailSource = new CachingOrcFileTailSource(orcFileTailSource, cache);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_OrcFileTail"), cacheStatsMBean);
+        }
+        return orcFileTailSource;
+    }
+
+    @Singleton
+    @Provides
+    public StripeMetadataSource createStripeMetadataSource(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
+    {
+        StripeMetadataSource stripeMetadataSource = new StorageStripeMetadataSource();
+        if (orcCacheConfig.isStripeMetadataCacheEnabled()) {
+            Cache<StripeId, Slice> footerCache = CacheBuilder.newBuilder()
+                    .maximumWeight(orcCacheConfig.getStripeFooterCacheSize().toBytes())
+                    .weigher((id, footer) -> toIntExact(((Slice) footer).getRetainedSize()))
+                    .expireAfterAccess(orcCacheConfig.getStripeFooterCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
+                    .recordStats()
+                    .build();
+            Cache<StripeStreamId, Slice> streamCache = CacheBuilder.newBuilder()
+                    .maximumWeight(orcCacheConfig.getStripeStreamCacheSize().toBytes())
+                    .weigher((id, stream) -> toIntExact(((Slice) stream).getRetainedSize()))
+                    .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
+                    .recordStats()
+                    .build();
+            CacheStatsMBean footerCacheStatsMBean = new CacheStatsMBean(footerCache);
+            CacheStatsMBean streamCacheStatsMBean = new CacheStatsMBean(streamCache);
+            stripeMetadataSource = new CachingStripeMetadataSource(stripeMetadataSource, footerCache, streamCache);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
+        }
+        return stripeMetadataSource;
     }
 }

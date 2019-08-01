@@ -40,7 +40,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
+import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
@@ -109,6 +109,21 @@ public class RuleAssert
         plan = planProvider.apply(builder);
         types = builder.getTypes();
         return this;
+    }
+
+    public PlanNode get()
+    {
+        RuleApplication ruleApplication = applyRule();
+        TypeProvider types = ruleApplication.types;
+
+        if (!ruleApplication.wasRuleApplied()) {
+            fail(String.format(
+                    "%s did not fire for:\n%s",
+                    rule.getClass().getName(),
+                    formatPlan(plan, types)));
+        }
+
+        return ruleApplication.getTransformedPlan();
     }
 
     public void doesNotFire()
@@ -190,7 +205,7 @@ public class RuleAssert
     private String formatPlan(PlanNode plan, TypeProvider types)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session);
         return inTransaction(session -> textLogicalPlan(translateExpressions(plan, types), types, metadata.getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
     }
 
@@ -214,7 +229,7 @@ public class RuleAssert
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, PlanVariableAllocator variableAllocator, Memo memo, Lookup lookup, Session session)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, variableAllocator.getTypes());
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session, variableAllocator.getTypes());
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
 
         return new Rule.Context()
         {

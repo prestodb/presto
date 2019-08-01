@@ -52,6 +52,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
@@ -59,7 +60,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -213,6 +213,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertQuerySucceeds(Session session, @Language("SQL") String sql)
     {
         QueryAssertions.assertQuerySucceeds(queryRunner, session, sql);
+    }
+
+    protected void assertQuerySucceeds(@Language("SQL") String sql)
+    {
+        QueryAssertions.assertQuerySucceeds(queryRunner, getSession(), sql);
     }
 
     protected void assertQueryFailsEventually(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
@@ -371,7 +376,6 @@ public abstract class AbstractTestQueryFramework
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 sqlParser,
-                featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
                 queryRunner.getSplitManager(),

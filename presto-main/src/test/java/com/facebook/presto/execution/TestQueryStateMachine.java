@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.warnings.WarningCollector;
@@ -27,11 +28,14 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.transaction.DelegatingTransactionManager;
+import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.TestingTicker;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -46,6 +50,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -59,7 +64,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.google.common.util.concurrent.Futures.allAsList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -352,6 +357,77 @@ public class TestQueryStateMachine
         assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
     }
 
+    @Test
+    public void testTransitionToFailedAfterTransitionToFinishing()
+    {
+        SettableFuture<?> commitFuture = SettableFuture.create();
+        TransactionManager transactionManager = new DelegatingTransactionManager(createTestTransactionManager())
+        {
+            @Override
+            public ListenableFuture<?> asyncCommit(TransactionId transactionId)
+            {
+                return allAsList(commitFuture, super.asyncCommit(transactionId));
+            }
+        };
+
+        QueryStateMachine stateMachine = createQueryStateMachine(transactionManager);
+        stateMachine.transitionToFinishing();
+        assertEquals(stateMachine.getQueryState(), FINISHING);
+        assertFalse(stateMachine.transitionToFailed(new RuntimeException("failed")));
+        assertEquals(stateMachine.getQueryState(), FINISHING);
+        commitFuture.set(null);
+        tryGetFutureValue(stateMachine.getStateChange(FINISHED), 2, SECONDS);
+        assertEquals(stateMachine.getQueryState(), FINISHED);
+    }
+
+    @Test
+    public void testTransitionToCanceledAfterTransitionToFinishing()
+    {
+        SettableFuture<?> commitFuture = SettableFuture.create();
+        TransactionManager transactionManager = new DelegatingTransactionManager(createTestTransactionManager())
+        {
+            @Override
+            public ListenableFuture<?> asyncCommit(TransactionId transactionId)
+            {
+                return allAsList(commitFuture, super.asyncCommit(transactionId));
+            }
+        };
+
+        QueryStateMachine stateMachine = createQueryStateMachine(transactionManager);
+        stateMachine.transitionToFinishing();
+        assertEquals(stateMachine.getQueryState(), FINISHING);
+        assertTrue(stateMachine.transitionToCanceled());
+        assertEquals(stateMachine.getQueryState(), FAILED);
+        commitFuture.set(null);
+        assertEquals(stateMachine.getQueryState(), FAILED);
+        assertEquals(stateMachine.getFailureInfo().get().getMessage(), "Query was canceled");
+    }
+
+    @Test
+    public void testCommitFailure()
+    {
+        SettableFuture<?> commitFuture = SettableFuture.create();
+        TransactionManager transactionManager = new DelegatingTransactionManager(createTestTransactionManager())
+        {
+            @Override
+            public ListenableFuture<?> asyncCommit(TransactionId transactionId)
+            {
+                return allAsList(commitFuture, super.asyncCommit(transactionId));
+            }
+        };
+
+        QueryStateMachine stateMachine = createQueryStateMachine(transactionManager);
+        stateMachine.transitionToFinishing();
+        // after transitioning to finishing, the transaction is gone
+        assertEquals(stateMachine.getQueryState(), FINISHING);
+        assertFalse(stateMachine.transitionToFailed(new RuntimeException("failed")));
+        assertEquals(stateMachine.getQueryState(), FINISHING);
+        commitFuture.setException(new RuntimeException("transaction failed"));
+        tryGetFutureValue(stateMachine.getStateChange(FAILED), 2, SECONDS);
+        assertEquals(stateMachine.getQueryState(), FAILED);
+        assertEquals(stateMachine.getFailureInfo().get().getMessage(), "transaction failed");
+    }
+
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)
     {
         assertFinalState(stateMachine, expectedState, null);
@@ -455,10 +531,19 @@ public class TestQueryStateMachine
         return createQueryStateMachineWithTicker(Ticker.systemTicker());
     }
 
+    private QueryStateMachine createQueryStateMachine(TransactionManager transactionManager)
+    {
+        return createQueryStateMachineWithTicker(Ticker.systemTicker(), transactionManager);
+    }
+
     private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker)
     {
+        return createQueryStateMachineWithTicker(ticker, createTestTransactionManager());
+    }
+
+    private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker, TransactionManager transactionManager)
+    {
         Metadata metadata = MetadataManager.createTestMetadataManager();
-        TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                 QUERY,

@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.split.EmptySplitHandleResolver;
 
 import javax.inject.Inject;
@@ -56,7 +57,7 @@ public class HandleResolver
         handleResolvers.put("$info_schema", new MaterializedHandleResolver(new InformationSchemaHandleResolver()));
         handleResolvers.put("$empty", new MaterializedHandleResolver(new EmptySplitHandleResolver()));
 
-        functionHandleResolvers.put("$static", new MaterializedFunctionHandleResolver(new StaticFunctionNamespaceHandleResolver()));
+        functionHandleResolvers.put("$static", new MaterializedFunctionHandleResolver(new BuiltInFunctionNamespaceHandleResolver()));
     }
 
     public void addConnectorName(String name, ConnectorHandleResolver resolver)
@@ -68,7 +69,7 @@ public class HandleResolver
                 "Connector '%s' is already assigned to resolver: %s", name, existingResolver);
     }
 
-    public void addFunctionNamepsace(String name, FunctionHandleResolver resolver)
+    public void addFunctionNamespace(String name, FunctionHandleResolver resolver)
     {
         requireNonNull(name, "name is null");
         requireNonNull(resolver, "resolver is null");

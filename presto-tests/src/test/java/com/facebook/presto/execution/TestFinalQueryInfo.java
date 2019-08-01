@@ -29,9 +29,9 @@ import org.testng.annotations.Test;
 import java.util.Locale;
 import java.util.Optional;
 
+import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertTrue;
@@ -68,7 +68,6 @@ public class TestFinalQueryInfo
                     "source",
                     Optional.empty(),
                     ImmutableSet.of(),
-                    null,
                     null,
                     null,
                     null,

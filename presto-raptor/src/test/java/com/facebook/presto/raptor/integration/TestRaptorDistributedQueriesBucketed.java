@@ -22,7 +22,7 @@ public class TestRaptorDistributedQueriesBucketed
 {
     public TestRaptorDistributedQueriesBucketed()
     {
-        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
+        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
     }
 
     @Override

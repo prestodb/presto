@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.verifier.event.FailureInfo;
+import com.facebook.presto.verifier.event.QueryFailure;
 import org.testng.annotations.Test;
 
 import java.net.SocketTimeoutException;
@@ -21,38 +21,42 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestVerificationContext
 {
-    private static final QueryOrigin QUERY_ORIGIN = forMain(CONTROL);
+    private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
 
     @Test
     public void testDuplicateExceptions()
     {
         VerificationContext context = new VerificationContext();
-        QueryException queryException = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), false, Optional.empty(), QUERY_ORIGIN);
+        QueryException queryException = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), false, Optional.empty(), QUERY_STAGE);
 
-        context.recordFailure(queryException);
-        context.recordFailure(queryException);
+        context.addException(queryException);
+        context.addException(queryException);
 
-        List<FailureInfo> allFailures = context.getAllFailures(CONTROL);
-        assertEquals(allFailures.size(), 1);
-        assertEquals(allFailures.get(0).getErrorCode(), "PRESTO(REMOTE_HOST_GONE)");
+        List<QueryFailure> queryFailures = context.getQueryFailures();
+        assertEquals(queryFailures.size(), 1);
+        assertEquals(queryFailures.get(0).getErrorCode(), "PRESTO(REMOTE_HOST_GONE)");
+        assertFalse(queryFailures.get(0).isRetryable());
     }
 
     @Test
     public void testMultipleExceptions()
     {
         VerificationContext context = new VerificationContext();
-        context.recordFailure(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN));
-        context.recordFailure(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN));
+        context.addException(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_STAGE));
+        context.addException(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_STAGE));
 
-        List<FailureInfo> allFailures = context.getAllFailures(CONTROL);
-        assertEquals(allFailures.size(), 2);
-        assertEquals(allFailures.get(0).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
-        assertEquals(allFailures.get(1).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
+        List<QueryFailure> queryFailures = context.getQueryFailures();
+        assertEquals(queryFailures.size(), 2);
+        assertEquals(queryFailures.get(0).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
+        assertEquals(queryFailures.get(1).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
+        assertTrue(queryFailures.get(0).isRetryable());
+        assertTrue(queryFailures.get(1).isRetryable());
     }
 }

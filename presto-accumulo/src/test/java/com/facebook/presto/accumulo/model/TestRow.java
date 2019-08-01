@@ -108,7 +108,7 @@ public class TestRow
         schema.addColumn("m", Optional.of("m"), Optional.of("m"), VARCHAR);
         schema.addColumn("n", Optional.of("n"), Optional.of("n"), VARCHAR);
 
-        Row actual = Row.fromString(schema, "a,b,c|true|1999-01-01|123.45678|123.45678|12345678|12345678|12345|12:30:00|1999-01-01 12:30:00.0|123|O'Leary|O'Leary|", '|');
+        Row actual = Row.fromString(schema, "a,b,c|true|1999-01-01|123.45678|123.45678|12345678|12345678|12345|12:30:00|1999-01-01 12:30:00.000|123|O'Leary|O'Leary|", '|');
         assertEquals(actual, expected);
     }
 }

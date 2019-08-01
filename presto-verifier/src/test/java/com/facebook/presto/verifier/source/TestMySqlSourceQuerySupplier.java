@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.verifier.source;
 
-import io.airlift.testing.mysql.TestingMySqlServer;
+import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import org.jdbi.v3.core.Handle;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.verifier.VerifierTestUtil.VERIFIER_QUERIES_TABLE;
 import static com.facebook.presto.verifier.VerifierTestUtil.XDB;
 import static com.facebook.presto.verifier.VerifierTestUtil.getHandle;
 import static com.facebook.presto.verifier.VerifierTestUtil.insertSourceQuery;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupMySql;
 import static com.facebook.presto.verifier.VerifierTestUtil.truncateVerifierQueries;
-import static io.airlift.testing.Closeables.closeQuietly;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -49,8 +49,8 @@ public class TestMySqlSourceQuerySupplier
                 .setTableName(VERIFIER_QUERIES_TABLE);
     }
 
-    @AfterClass
-    public void teardown()
+    @AfterClass(alwaysRun = true)
+    public void destroy()
     {
         closeQuietly(mySqlServer, handle);
     }

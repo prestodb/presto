@@ -15,12 +15,16 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -44,19 +48,22 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
-import static com.facebook.presto.hive.HiveSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
-import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.MOST_OPTIMIZED;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.reconstructPartitionSchema;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -93,9 +100,11 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns)
     {
-        List<HiveColumnHandle> hiveColumns = columns.stream()
+        HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout;
+
+        List<HiveColumnHandle> selectedColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)
                 .collect(toList());
 
@@ -104,8 +113,11 @@ public class HivePageSourceProvider
 
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
-        if (isPushdownFilterEnabled(session)) {
-            return createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveColumns, hiveStorageTimeZone, rowExpressionService);
+        if (hiveLayout.isPushdownFilterEnabled()) {
+            Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, hiveStorageTimeZone, rowExpressionService, typeManager);
+            if (selectivePageSource.isPresent()) {
+                return selectivePageSource.get();
+            }
         }
 
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
@@ -118,40 +130,54 @@ public class HivePageSourceProvider
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
-                hiveSplit.getSchema(),
-                hiveSplit.getDomainPredicate()
+                hiveSplit.getStorage(),
+                hiveLayout.getDomainPredicate()
                         .transform(Subfield::getRootName)
-                        .transform(hiveSplit.getPredicateColumns()::get),
-                hiveColumns,
+                        .transform(hiveLayout.getPredicateColumns()::get),
+                selectedColumns,
+                hiveLayout.getPredicateColumns(),
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
                 typeManager,
-                hiveSplit.getColumnCoercions(),
+                hiveLayout.getSchemaTableName(),
+                hiveLayout.getPartitionColumns(),
+                hiveLayout.getDataColumns(),
+                hiveLayout.getTableParameters(),
+                hiveSplit.getPartitionDataColumnCount(),
+                hiveSplit.getPartitionSchemaDifference(),
                 hiveSplit.getBucketConversion(),
-                hiveSplit.isS3SelectPushdownEnabled());
+                hiveSplit.isS3SelectPushdownEnabled(),
+                hiveSplit.getExtraFileInfo(),
+                hiveLayout.getRemainingPredicate(),
+                hiveLayout.isPushdownFilterEnabled(),
+                rowExpressionService);
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
         throw new IllegalStateException("Could not find a file reader for split " + hiveSplit);
     }
 
-    private static ConnectorPageSource createSelectivePageSource(
+    private static Optional<ConnectorPageSource> createSelectivePageSource(
             Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories,
             Configuration configuration,
             ConnectorSession session,
             HiveSplit split,
+            HiveTableLayoutHandle layout,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            RowExpressionService rowExpressionService)
+            RowExpressionService rowExpressionService,
+            TypeManager typeManager)
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
-                .addAll(split.getPredicateColumns().values())
+                .addAll(layout.getPredicateColumns().values())
                 .addAll(split.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()))
                 .build();
 
+        Set<String> columnNames = columns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
+
         List<HiveColumnHandle> allColumns = ImmutableList.<HiveColumnHandle>builder()
                 .addAll(columns)
-                .addAll(interimColumns.stream().filter(not(columns::contains)).collect(toImmutableList()))
+                .addAll(interimColumns.stream().filter(column -> !columnNames.contains(column.getName())).collect(toImmutableList()))
                 .build();
 
         Path path = new Path(split.getPath());
@@ -159,22 +185,27 @@ public class HivePageSourceProvider
                 split.getPartitionKeys(),
                 allColumns,
                 ImmutableList.of(),
-                split.getColumnCoercions(), // TODO Include predicateColumns
+                split.getPartitionSchemaDifference(),
                 path,
                 split.getTableBucketNumber());
 
-        Optional<BucketAdaptation> bucketAdaptation = split.getBucketConversion().map(conversion -> toBucketAdaptation(conversion, columnMappings, split.getTableBucketNumber()));
-        checkArgument(!bucketAdaptation.isPresent(), "Bucket conversion is not supported yet");
+        Optional<BucketAdaptation> bucketAdaptation = split.getBucketConversion().map(conversion -> toBucketAdaptation(conversion, columnMappings, split.getTableBucketNumber(), mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex()));
 
         Map<Integer, String> prefilledValues = columnMappings.stream()
                 .filter(mapping -> mapping.getKind() == ColumnMappingKind.PREFILLED)
                 .collect(toImmutableMap(mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(), ColumnMapping::getPrefilledValue));
 
+        Map<Integer, HiveCoercer> coercers = columnMappings.stream()
+                .filter(mapping -> mapping.getCoercionFrom().isPresent())
+                .collect(toImmutableMap(
+                        mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(),
+                        mapping -> createCoercer(typeManager, mapping.getCoercionFrom().get(), mapping.getHiveColumnHandle().getHiveType())));
+
         List<Integer> outputColumns = columns.stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .collect(toImmutableList());
 
-        RowExpression optimizedRemainingPredicate = rowExpressionService.getExpressionOptimizer().optimize(split.getRemainingPredicate(), MOST_OPTIMIZED, session);
+        RowExpression optimizedRemainingPredicate = rowExpressionService.getExpressionOptimizer().optimize(layout.getRemainingPredicate(), OPTIMIZED, session);
 
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -184,19 +215,22 @@ public class HivePageSourceProvider
                     split.getStart(),
                     split.getLength(),
                     split.getFileSize(),
-                    split.getSchema(),
+                    split.getStorage(),
                     toColumnHandles(columnMappings, true),
                     prefilledValues,
+                    coercers,
+                    bucketAdaptation,
                     outputColumns,
-                    split.getDomainPredicate(),
+                    layout.getDomainPredicate(),
                     optimizedRemainingPredicate,
-                    hiveStorageTimeZone);
+                    hiveStorageTimeZone,
+                    split.getExtraFileInfo());
             if (pageSource.isPresent()) {
-                return pageSource.get();
+                return Optional.of(pageSource.get());
             }
         }
 
-        throw new IllegalStateException("Could not find a file reader for split " + split);
+        return Optional.empty();
     }
 
     public static Optional<ConnectorPageSource> createHivePageSource(
@@ -209,26 +243,58 @@ public class HivePageSourceProvider
             long start,
             long length,
             long fileSize,
-            Properties schema,
+            Storage storage,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> hiveColumns,
+            Map<String, HiveColumnHandle> predicateColumns,
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            Map<Integer, HiveType> columnCoercions,
+            SchemaTableName tableName,
+            List<HiveColumnHandle> partitionKeyColumnHandles,
+            List<Column> tableDataColumns,
+            Map<String, String> tableParameters,
+            int partitionDataColumnCount,
+            Map<Integer, Column> partitionSchemaDifference,
             Optional<BucketConversion> bucketConversion,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            Optional<byte[]> extraFileInfo,
+            RowExpression remainingPredicate,
+            boolean isPushdownFilterEnabled,
+            RowExpressionService rowExpressionService)
     {
+        List<HiveColumnHandle> allColumns;
+
+        if (isPushdownFilterEnabled) {
+            Set<String> columnNames = hiveColumns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
+            List<HiveColumnHandle> additionalColumns = predicateColumns.values().stream()
+                    .filter(column -> !columnNames.contains(column.getName()))
+                    .collect(toImmutableList());
+
+            allColumns = ImmutableList.<HiveColumnHandle>builder()
+                    .addAll(hiveColumns)
+                    .addAll(additionalColumns)
+                    .build();
+        }
+        else {
+            allColumns = hiveColumns;
+        }
+
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 partitionKeys,
-                hiveColumns,
+                allColumns,
                 bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
-                columnCoercions,
+                partitionSchemaDifference,
                 path,
                 tableBucketNumber);
+
+        Set<Integer> outputIndices = hiveColumns.stream()
+                .map(HiveColumnHandle::getHiveColumnIndex)
+                .collect(toImmutableSet());
+
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
-        Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber));
+        Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber, ColumnMapping::getIndex));
 
         for (HiveBatchPageSourceFactory pageSourceFactory : pageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -238,24 +304,52 @@ public class HivePageSourceProvider
                     start,
                     length,
                     fileSize,
-                    schema,
+                    storage,
+                    tableParameters,
                     toColumnHandles(regularAndInterimColumnMappings, true),
                     effectivePredicate,
-                    hiveStorageTimeZone);
+                    hiveStorageTimeZone,
+                    extraFileInfo);
             if (pageSource.isPresent()) {
-                return Optional.of(
-                        new HivePageSource(
-                                columnMappings,
-                                bucketAdaptation,
-                                hiveStorageTimeZone,
-                                typeManager,
-                                pageSource.get()));
+                HivePageSource hivePageSource = new HivePageSource(
+                        columnMappings,
+                        bucketAdaptation,
+                        hiveStorageTimeZone,
+                        typeManager,
+                        pageSource.get());
+
+                if (isPushdownFilterEnabled) {
+                    return Optional.of(new FilteringPageSource(
+                            columnMappings,
+                            effectivePredicate,
+                            remainingPredicate,
+                            typeManager,
+                            rowExpressionService,
+                            session,
+                            outputIndices,
+                            hivePageSource));
+                }
+                return Optional.of(hivePageSource);
             }
         }
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
             // GenericHiveRecordCursor will automatically do the coercion without HiveCoercionRecordCursor
             boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
+
+            List<Column> partitionDataColumns = reconstructPartitionSchema(tableDataColumns, partitionDataColumnCount, partitionSchemaDifference);
+            List<Column> partitionKeyColumns = partitionKeyColumnHandles.stream()
+                    .map(handle -> new Column(handle.getName(), handle.getHiveType(), handle.getComment()))
+                    .collect(toImmutableList());
+
+            Properties schema = getHiveSchema(
+                    storage,
+                    partitionDataColumns,
+                    tableDataColumns,
+                    tableParameters,
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    partitionKeyColumns);
 
             Optional<RecordCursor> cursor = provider.createRecordCursor(
                     configuration,
@@ -295,25 +389,38 @@ public class HivePageSourceProvider
                         hiveStorageTimeZone,
                         typeManager,
                         delegate);
-                List<Type> columnTypes = hiveColumns.stream()
+                List<Type> columnTypes = allColumns.stream()
                         .map(input -> typeManager.getType(input.getTypeSignature()))
                         .collect(toList());
 
-                return Optional.of(new RecordPageSource(columnTypes, hiveRecordCursor));
+                RecordPageSource recordPageSource = new RecordPageSource(columnTypes, hiveRecordCursor);
+                if (isPushdownFilterEnabled) {
+                    return Optional.of(new FilteringPageSource(
+                            columnMappings,
+                            effectivePredicate,
+                            remainingPredicate,
+                            typeManager,
+                            rowExpressionService,
+                            session,
+                            outputIndices,
+                            recordPageSource));
+                }
+                return Optional.of(recordPageSource);
             }
         }
 
         return Optional.empty();
     }
 
-    private static BucketAdaptation toBucketAdaptation(BucketConversion conversion, List<ColumnMapping> columnMappings, OptionalInt tableBucketNumber)
+    private static BucketAdaptation toBucketAdaptation(BucketConversion conversion, List<ColumnMapping> columnMappings, OptionalInt tableBucketNumber, Function<ColumnMapping, Integer> bucketColumnIndexProducer)
     {
         Map<Integer, ColumnMapping> hiveIndexToBlockIndex = uniqueIndex(columnMappings, columnMapping -> columnMapping.getHiveColumnHandle().getHiveColumnIndex());
         int[] bucketColumnIndices = conversion.getBucketColumnHandles().stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .map(hiveIndexToBlockIndex::get)
-                .mapToInt(ColumnMapping::getIndex)
+                .mapToInt(bucketColumnIndexProducer::apply)
                 .toArray();
+
         List<HiveType> bucketColumnHiveTypes = conversion.getBucketColumnHandles().stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .map(hiveIndexToBlockIndex::get)
@@ -391,14 +498,14 @@ public class HivePageSourceProvider
         /**
          * @param columns columns that need to be returned to engine
          * @param requiredInterimColumns columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
-         * @param columnCoercions map from hive column index to hive type
+         * @param partitionSchemaDifference map from hive column index to hive type
          * @param bucketNumber empty if table is not bucketed, a number within [0, # bucket in table) otherwise
          */
         public static List<ColumnMapping> buildColumnMappings(
                 List<HivePartitionKey> partitionKeys,
                 List<HiveColumnHandle> columns,
                 List<HiveColumnHandle> requiredInterimColumns,
-                Map<Integer, HiveType> columnCoercions,
+                Map<Integer, Column> partitionSchemaDifference,
                 Path path,
                 OptionalInt bucketNumber)
         {
@@ -407,7 +514,14 @@ public class HivePageSourceProvider
             Set<Integer> regularColumnIndices = new HashSet<>();
             ImmutableList.Builder<ColumnMapping> columnMappings = ImmutableList.builder();
             for (HiveColumnHandle column : columns) {
-                Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
+                // will be present if the partition has a different schema (column type, column name) for the column
+                Optional<Column> partitionColumn = Optional.ofNullable(partitionSchemaDifference.get(column.getHiveColumnIndex()));
+                Optional<HiveType> coercionFrom = Optional.empty();
+                // we don't care if only the column name has changed
+                if (partitionColumn.isPresent() && !partitionColumn.get().getType().equals(column.getHiveType())) {
+                    coercionFrom = Optional.of(partitionColumn.get().getType());
+                }
+
                 if (column.getColumnType() == REGULAR) {
                     checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
                     columnMappings.add(regular(column, regularIndex, coercionFrom));
@@ -467,48 +581,5 @@ public class HivePageSourceProvider
         REGULAR,
         PREFILLED,
         INTERIM,
-    }
-
-    public static class BucketAdaptation
-    {
-        private final int[] bucketColumnIndices;
-        private final List<HiveType> bucketColumnHiveTypes;
-        private final int tableBucketCount;
-        private final int partitionBucketCount;
-        private final int bucketToKeep;
-
-        public BucketAdaptation(int[] bucketColumnIndices, List<HiveType> bucketColumnHiveTypes, int tableBucketCount, int partitionBucketCount, int bucketToKeep)
-        {
-            this.bucketColumnIndices = bucketColumnIndices;
-            this.bucketColumnHiveTypes = bucketColumnHiveTypes;
-            this.tableBucketCount = tableBucketCount;
-            this.partitionBucketCount = partitionBucketCount;
-            this.bucketToKeep = bucketToKeep;
-        }
-
-        public int[] getBucketColumnIndices()
-        {
-            return bucketColumnIndices;
-        }
-
-        public List<HiveType> getBucketColumnHiveTypes()
-        {
-            return bucketColumnHiveTypes;
-        }
-
-        public int getTableBucketCount()
-        {
-            return tableBucketCount;
-        }
-
-        public int getPartitionBucketCount()
-        {
-            return partitionBucketCount;
-        }
-
-        public int getBucketToKeep()
-        {
-            return bucketToKeep;
-        }
     }
 }

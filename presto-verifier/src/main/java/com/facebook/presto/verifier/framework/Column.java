@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 
@@ -47,11 +44,6 @@ public class Column
     }
 
     private static final Set<Type> FLOATING_POINT_TYPES = ImmutableSet.of(DOUBLE, REAL);
-    private static final TypeRegistry typeRegistry = new TypeRegistry();
-
-    static {
-        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-    }
 
     private final String name;
     private final Category category;
@@ -85,10 +77,10 @@ public class Column
         return type;
     }
 
-    public static Column fromResultSet(ResultSet resultSet)
+    public static Column fromResultSet(TypeManager typeManager, ResultSet resultSet)
             throws SQLException
     {
-        Type type = typeRegistry.getType(parseTypeSignature(resultSet.getString("Type")));
+        Type type = typeManager.getType(parseTypeSignature(resultSet.getString("Type")));
         Category category;
         if (FLOATING_POINT_TYPES.contains(type)) {
             category = FLOATING_POINT;

@@ -16,6 +16,7 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -31,10 +32,10 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.NoOpSymbolResolver;
-import com.facebook.presto.sql.planner.RowExpressionInterpreter;
+import com.facebook.presto.sql.planner.NoOpVariableResolver;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -58,8 +59,10 @@ import java.util.OptionalDouble;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
 import static com.facebook.presto.spi.function.OperatorType.MODULUS;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
+import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static com.facebook.presto.util.MoreMath.max;
 import static com.facebook.presto.util.MoreMath.min;
 import static com.google.common.base.Preconditions.checkState;
@@ -89,6 +92,11 @@ public class ScalarStatsCalculator
 
     public VariableStatsEstimate calculate(RowExpression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session)
     {
+        return scalarExpression.accept(new RowExpressionStatsVisitor(inputStatistics, session.toConnectorSession()), null);
+    }
+
+    public VariableStatsEstimate calculate(RowExpression scalarExpression, PlanNodeStatsEstimate inputStatistics, ConnectorSession session)
+    {
         return scalarExpression.accept(new RowExpressionStatsVisitor(inputStatistics, session), null);
     }
 
@@ -96,10 +104,10 @@ public class ScalarStatsCalculator
             implements RowExpressionVisitor<VariableStatsEstimate, Void>
     {
         private final PlanNodeStatsEstimate input;
-        private final Session session;
+        private final ConnectorSession session;
         private final FunctionResolution resolution = new FunctionResolution(metadata.getFunctionManager());
 
-        public RowExpressionStatsVisitor(PlanNodeStatsEstimate input, Session session)
+        public RowExpressionStatsVisitor(PlanNodeStatsEstimate input, ConnectorSession session)
         {
             this.input = requireNonNull(input, "input is null");
             this.session = requireNonNull(session, "session is null");
@@ -108,10 +116,6 @@ public class ScalarStatsCalculator
         @Override
         public VariableStatsEstimate visitCall(CallExpression call, Void context)
         {
-            if (resolution.isCastFunction(call.getFunctionHandle())) {
-                return computeCastStatistics(call, context);
-            }
-
             if (resolution.isNegateFunction(call.getFunctionHandle())) {
                 return computeNegationStatistics(call, context);
             }
@@ -121,22 +125,21 @@ public class ScalarStatsCalculator
                 return computeArithmeticBinaryStatistics(call, context);
             }
 
-            Object value = new RowExpressionInterpreter(call, metadata, session.toConnectorSession(), true).optimize();
+            RowExpression value = new RowExpressionOptimizer(metadata).optimize(call, OPTIMIZED, session);
 
-            if (value == null) {
+            if (isNull(value)) {
                 return nullStatsEstimate();
             }
 
-            if (value instanceof RowExpression) {
-                // value is not a constant
-                return VariableStatsEstimate.unknown();
+            if (value instanceof ConstantExpression) {
+                return value.accept(this, context);
             }
 
-            // value is a constant
-            return VariableStatsEstimate.builder()
-                    .setNullsFraction(0)
-                    .setDistinctValuesCount(1)
-                    .build();
+            // value is not a constant but we can still propagate estimation through cast
+            if (resolution.isCastFunction(call.getFunctionHandle())) {
+                return computeCastStatistics(call, context);
+            }
+            return VariableStatsEstimate.unknown();
         }
 
         @Override
@@ -152,7 +155,7 @@ public class ScalarStatsCalculator
                 return nullStatsEstimate();
             }
 
-            OptionalDouble doubleValue = toStatsRepresentation(metadata, session, literal.getType(), literal.getValue());
+            OptionalDouble doubleValue = toStatsRepresentation(metadata.getFunctionManager(), session, literal.getType(), literal.getValue());
             VariableStatsEstimate.Builder estimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1);
@@ -370,7 +373,7 @@ public class ScalarStatsCalculator
         {
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, node, types);
             ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(node, metadata, session, expressionTypes);
-            Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+            Object value = interpreter.optimize(NoOpVariableResolver.INSTANCE);
 
             if (value == null || value instanceof NullLiteral) {
                 return nullStatsEstimate();

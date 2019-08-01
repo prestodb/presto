@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
@@ -36,8 +38,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import io.airlift.concurrent.BoundedExecutor;
-import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -51,14 +51,15 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.function.Function;
 
 import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TRANSACTION_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
+import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
@@ -77,10 +78,9 @@ import static java.util.Objects.requireNonNull;
 public class HiveSplitManager
         implements ConnectorSplitManager
 {
-    public static final String PRESTO_OFFLINE = "presto_offline";
     public static final String OBJECT_NOT_READABLE = "object_not_readable";
 
-    private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
+    private final HiveTransactionManager hiveTransactionManager;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
     private final DirectoryLister directoryLister;
@@ -98,7 +98,7 @@ public class HiveSplitManager
     @Inject
     public HiveSplitManager(
             HiveClientConfig hiveClientConfig,
-            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
+            HiveTransactionManager hiveTransactionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -106,7 +106,7 @@ public class HiveSplitManager
             CoercionPolicy coercionPolicy)
     {
         this(
-                metastoreProvider,
+                hiveTransactionManager,
                 namenodeStats,
                 hdfsEnvironment,
                 directoryLister,
@@ -123,7 +123,7 @@ public class HiveSplitManager
     }
 
     public HiveSplitManager(
-            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
+            HiveTransactionManager hiveTransactionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -138,7 +138,7 @@ public class HiveSplitManager
             int splitLoaderConcurrency,
             boolean recursiveDfsWalkerEnabled)
     {
-        this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
+        this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
@@ -166,14 +166,20 @@ public class HiveSplitManager
         SchemaTableName tableName = layout.getSchemaTableName();
 
         // get table metadata
-        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply((HiveTransactionHandle) transaction);
+        TransactionalMetadata metadata = hiveTransactionManager.get(transaction);
+        if (metadata == null) {
+            throw new PrestoException(HIVE_TRANSACTION_NOT_FOUND, format("Transaction not found: %s", transaction));
+        }
+        SemiTransactionalHiveMetastore metastore = metadata.getMetastore();
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        // verify table is not marked as non-readable
-        String tableNotReadable = table.getParameters().get(OBJECT_NOT_READABLE);
-        if (!isNullOrEmpty(tableNotReadable)) {
-            throw new HiveNotReadableException(tableName, Optional.empty(), tableNotReadable);
+        if (!isOfflineDataDebugModeEnabled(session)) {
+            // verify table is not marked as non-readable
+            String tableNotReadable = table.getParameters().get(OBJECT_NOT_READABLE);
+            if (!isNullOrEmpty(tableNotReadable)) {
+                throw new HiveNotReadableException(tableName, Optional.empty(), tableNotReadable);
+            }
         }
 
         // get partitions
@@ -209,7 +215,7 @@ public class HiveSplitManager
         if (bucketHandle.isPresent() && !bucketHandle.get().isVirtuallyBucketed()) {
             hiveBucketProperty = bucketHandle.map(HiveBucketHandle::toTableBucketProperty);
         }
-        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, hiveBucketProperty);
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, hiveBucketProperty, session);
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
@@ -232,9 +238,6 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        layout.getDomainPredicate(),
-                        layout.getRemainingPredicate(),
-                        layout.getPredicateColumns(),
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -247,9 +250,6 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        layout.getDomainPredicate(),
-                        layout.getRemainingPredicate(),
-                        layout.getPredicateColumns(),
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -262,9 +262,6 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        layout.getDomainPredicate(),
-                        layout.getRemainingPredicate(),
-                        layout.getPredicateColumns(),
                         maxInitialSplits,
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,
@@ -296,7 +293,13 @@ public class HiveSplitManager
         return highMemorySplitSourceCounter;
     }
 
-    private Iterable<HivePartitionMetadata> getPartitionMetadata(SemiTransactionalHiveMetastore metastore, Table table, SchemaTableName tableName, List<HivePartition> hivePartitions, Optional<HiveBucketProperty> bucketProperty)
+    private Iterable<HivePartitionMetadata> getPartitionMetadata(
+            SemiTransactionalHiveMetastore metastore,
+            Table table,
+            SchemaTableName tableName,
+            List<HivePartition> hivePartitions,
+            Optional<HiveBucketProperty> bucketProperty,
+            ConnectorSession session)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
@@ -335,13 +338,15 @@ public class HiveSplitManager
                 }
                 String partName = makePartName(table.getPartitionColumns(), partition.getValues());
 
-                // verify partition is online
-                verifyOnline(tableName, Optional.of(partName), getProtectMode(partition), partition.getParameters());
+                if (!isOfflineDataDebugModeEnabled(session)) {
+                    // verify partition is online
+                    verifyOnline(tableName, Optional.of(partName), getProtectMode(partition), partition.getParameters());
 
-                // verify partition is not marked as non-readable
-                String partitionNotReadable = partition.getParameters().get(OBJECT_NOT_READABLE);
-                if (!isNullOrEmpty(partitionNotReadable)) {
-                    throw new HiveNotReadableException(tableName, Optional.of(partName), partitionNotReadable);
+                    // verify partition is not marked as non-readable
+                    String partitionNotReadable = partition.getParameters().get(OBJECT_NOT_READABLE);
+                    if (!isNullOrEmpty(partitionNotReadable)) {
+                        throw new HiveNotReadableException(tableName, Optional.of(partName), partitionNotReadable);
+                    }
                 }
 
                 // Verify that the partition schema matches the table schema.
@@ -354,12 +359,18 @@ public class HiveSplitManager
                 if ((tableColumns == null) || (partitionColumns == null)) {
                     throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
                 }
-                ImmutableMap.Builder<Integer, HiveTypeName> columnCoercions = ImmutableMap.builder();
-                for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
+                ImmutableMap.Builder<Integer, Column> partitionSchemaDifference = ImmutableMap.builder();
+                for (int i = 0; i < partitionColumns.size(); i++) {
+                    Column partitionColumn = partitionColumns.get(i);
+
+                    if (i >= tableColumns.size()) {
+                        partitionSchemaDifference.put(i, partitionColumn);
+                        continue;
+                    }
+
                     HiveType tableType = tableColumns.get(i).getType();
-                    HiveType partitionType = partitionColumns.get(i).getType();
-                    if (!tableType.equals(partitionType)) {
-                        if (!coercionPolicy.canCoerce(partitionType, tableType)) {
+                    if (!tableType.equals(partitionColumn.getType())) {
+                        if (!coercionPolicy.canCoerce(partitionColumn.getType(), tableType)) {
                             throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
                                             "There is a mismatch between the table and partition schemas. " +
                                             "The types are incompatible and cannot be coerced. " +
@@ -370,9 +381,14 @@ public class HiveSplitManager
                                     tableType,
                                     partName,
                                     partitionColumns.get(i).getName(),
-                                    partitionType));
+                                    partitionColumn.getType()));
                         }
-                        columnCoercions.put(i, partitionType.getHiveTypeName());
+                        partitionSchemaDifference.put(i, partitionColumn);
+                        continue;
+                    }
+
+                    if (!tableColumns.get(i).getName().equals(partitionColumn.getName())) {
+                        partitionSchemaDifference.put(i, partitionColumn);
                     }
                 }
 
@@ -400,7 +416,7 @@ public class HiveSplitManager
                     }
                 }
 
-                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), columnCoercions.build()));
+                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), partitionSchemaDifference.build()));
             }
 
             return results.build();

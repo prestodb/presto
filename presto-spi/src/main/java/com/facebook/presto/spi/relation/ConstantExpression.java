@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.predicate.Primitives;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -35,7 +36,9 @@ public final class ConstantExpression
     public ConstantExpression(Object value, Type type)
     {
         requireNonNull(type, "type is null");
-
+        if (value != null && !Primitives.wrap(type.getJavaType()).isInstance(value)) {
+            throw new IllegalArgumentException(String.format("Object '%s' does not match type %s", value, type.getJavaType()));
+        }
         this.value = value;
         this.type = type;
     }

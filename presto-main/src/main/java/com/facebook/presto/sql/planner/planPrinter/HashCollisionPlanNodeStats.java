@@ -36,12 +36,14 @@ public class HashCollisionPlanNodeStats
             Duration planNodeCpuTime,
             long planNodeInputPositions,
             DataSize planNodeInputDataSize,
+            long planNodeRawInputPositions,
+            DataSize planNodeRawInputDataSize,
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             Map<String, OperatorInputStats> operatorInputStats,
             Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats)
     {
-        super(planNodeId, planNodeScheduledTime, planNodeCpuTime, planNodeInputPositions, planNodeInputDataSize, planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats);
+        super(planNodeId, planNodeScheduledTime, planNodeCpuTime, planNodeInputPositions, planNodeInputDataSize, planNodeRawInputPositions, planNodeRawInputDataSize, planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats);
         this.operatorHashCollisionsStats = requireNonNull(operatorHashCollisionsStats, "operatorHashCollisionsStats is null");
     }
 
@@ -92,6 +94,8 @@ public class HashCollisionPlanNodeStats
                 merged.getPlanNodeCpuTime(),
                 merged.getPlanNodeInputPositions(),
                 merged.getPlanNodeInputDataSize(),
+                merged.getPlanNodeRawInputPositions(),
+                merged.getPlanNodeRawInputDataSize(),
                 merged.getPlanNodeOutputPositions(),
                 merged.getPlanNodeOutputDataSize(),
                 merged.operatorInputStats,

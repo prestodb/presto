@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.hive.s3;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -51,6 +51,9 @@ public class HiveS3Module
         else if (type == S3FileSystemType.EMRFS) {
             validateEmrFsClass();
             binder.bind(S3ConfigurationUpdater.class).to(EmrFsS3ConfigurationUpdater.class).in(Scopes.SINGLETON);
+        }
+        else if (type == S3FileSystemType.HADOOP_DEFAULT) {
+            // configuration is done using Hadoop configuration files
         }
         else {
             throw new RuntimeException("Unknown file system type: " + type);

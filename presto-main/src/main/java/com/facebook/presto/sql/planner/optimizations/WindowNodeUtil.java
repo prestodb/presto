@@ -45,7 +45,7 @@ public final class WindowNodeUtil
     public static boolean dependsOn(WindowNode parent, WindowNode child, TypeProvider types)
     {
         return parent.getPartitionBy().stream().anyMatch(child.getCreatedVariable()::contains)
-                || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderBy().stream()
+                || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderByVariables().stream()
                 .anyMatch(child.getCreatedVariable()::contains))
                 || parent.getWindowFunctions().values().stream()
                 .map(function -> extractWindowFunctionUniqueVariables(function, types))

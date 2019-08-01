@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -22,6 +23,10 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -34,6 +39,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -44,6 +50,7 @@ public class LongDictionaryBatchStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDictionaryBatchStreamReader.class).instanceSize();
 
+    private final Type type;
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
@@ -68,9 +75,16 @@ public class LongDictionaryBatchStreamReader
     private boolean dictionaryOpen;
     private boolean rowGroupOpen;
 
-    public LongDictionaryBatchStreamReader(StreamDescriptor streamDescriptor)
+    private final LocalMemoryContext systemMemoryContext;
+
+    public LongDictionaryBatchStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
+        this.type = type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -81,7 +95,7 @@ public class LongDictionaryBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -172,13 +186,14 @@ public class LongDictionaryBatchStreamReader
         if (!dictionaryOpen && dictionarySize > 0) {
             if (dictionary.length < dictionarySize) {
                 dictionary = new long[dictionarySize];
+                systemMemoryContext.setBytes(sizeOf(dictionary));
             }
 
             LongInputStream dictionaryStream = dictionaryDataStreamSource.openStream();
             if (dictionaryStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but data stream is not present");
             }
-            dictionaryStream.nextLongVector(dictionarySize, dictionary);
+            dictionaryStream.next(dictionary, dictionarySize);
         }
         dictionaryOpen = true;
 
@@ -235,6 +250,13 @@ public class LongDictionaryBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+        dictionary = null;
     }
 
     @Override

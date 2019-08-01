@@ -13,18 +13,24 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.Assignments.Builder;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionVariableInliner;
+import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.planner.plan.Assignments.Builder;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Literal;
@@ -34,6 +40,7 @@ import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -46,6 +53,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -61,6 +69,13 @@ public class InlineProjections
 
     private static final Pattern<ProjectNode> PATTERN = project()
             .with(source().matching(project().capturedAs(CHILD)));
+
+    private final FunctionResolution functionResolution;
+
+    public InlineProjections(FunctionManager functionManager)
+    {
+        this.functionResolution = new FunctionResolution(functionManager);
+    }
 
     @Override
     public Pattern<ProjectNode> getPattern()
@@ -84,7 +99,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        entry -> castToRowExpression(inlineReferences(castToExpression(entry.getValue()), assignments, context.getVariableAllocator().getTypes()))));
+                        entry -> inlineReferences(entry.getValue(), assignments, context.getVariableAllocator().getTypes())));
 
         // Synthesize identity assignments for the inputs of expressions that were inlined
         // to place in the child projection.
@@ -94,8 +109,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
-                .map(OriginalExpressionUtils::castToExpression)
-                .flatMap(entry -> VariablesExtractor.extractAll(entry, context.getVariableAllocator().getTypes()).stream())
+                .flatMap(expression -> extractInputs(expression, context.getVariableAllocator().getTypes()).stream())
                 .collect(toSet());
 
         Builder childAssignments = Assignments.builder();
@@ -104,8 +118,19 @@ public class InlineProjections
                 childAssignments.put(assignment);
             }
         }
+
+        boolean allTranslated = child.getAssignments().entrySet()
+                .stream()
+                .map(Map.Entry::getValue)
+                .noneMatch(OriginalExpressionUtils::isExpression);
+
         for (VariableReferenceExpression input : inputs) {
-            childAssignments.put(identityAsSymbolReference(input));
+            if (allTranslated) {
+                childAssignments.put(input, input);
+            }
+            else {
+                childAssignments.put(identityAsSymbolReference(input));
+            }
         }
 
         return Result.ofPlanNode(
@@ -118,16 +143,18 @@ public class InlineProjections
                         Assignments.copyOf(parentAssignments)));
     }
 
-    private Expression inlineReferences(Expression expression, Assignments assignments, TypeProvider types)
+    private RowExpression inlineReferences(RowExpression expression, Assignments assignments, TypeProvider types)
     {
-        Function<VariableReferenceExpression, Expression> mapping = variable -> {
-            if (assignments.get(variable) == null) {
-                return new SymbolReference(variable.getName());
-            }
-            return castToExpression(assignments.get(variable));
-        };
-
-        return ExpressionVariableInliner.inlineVariables(mapping, expression, types);
+        if (isExpression(expression)) {
+            Function<VariableReferenceExpression, Expression> mapping = variable -> {
+                if (assignments.get(variable) == null) {
+                    return new SymbolReference(variable.getName());
+                }
+                return castToExpression(assignments.get(variable));
+            };
+            return castToRowExpression(ExpressionVariableInliner.inlineVariables(mapping, castToExpression(expression), types));
+        }
+        return RowExpressionVariableInliner.inlineVariables(variable -> assignments.getMap().getOrDefault(variable, variable), expression);
     }
 
     private Sets.SetView<VariableReferenceExpression> extractInliningTargets(ProjectNode parent, ProjectNode child, Context context)
@@ -141,25 +168,25 @@ public class InlineProjections
         // which come from the child, as opposed to an enclosing scope.
 
         Set<VariableReferenceExpression> childOutputSet = ImmutableSet.copyOf(child.getOutputVariables());
+        TypeProvider types = context.getVariableAllocator().getTypes();
 
         Map<VariableReferenceExpression, Long> dependencies = parent.getAssignments()
                 .getExpressions()
                 .stream()
-                .map(OriginalExpressionUtils::castToExpression)
-                .flatMap(expression -> VariablesExtractor.extractAll(expression, context.getVariableAllocator().getTypes()).stream())
+                .flatMap(expression -> extractInputs(expression, context.getVariableAllocator().getTypes()).stream())
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         // find references to simple constants
         Set<VariableReferenceExpression> constants = dependencies.keySet().stream()
-                .filter(input -> castToExpression(child.getAssignments().get(input)) instanceof Literal)
+                .filter(input -> isConstant(child.getAssignments().get(input)))
                 .collect(toSet());
 
         // exclude any complex inputs to TRY expressions. Inlining them would potentially
         // change the semantics of those expressions
         Set<VariableReferenceExpression> tryArguments = parent.getAssignments()
                 .getExpressions().stream()
-                .flatMap(expression -> extractTryArguments(castToExpression(expression), context.getVariableAllocator().getTypes()).stream())
+                .flatMap(expression -> extractTryArguments(expression, types).stream())
                 .collect(toSet());
 
         Set<VariableReferenceExpression> singletons = dependencies.entrySet().stream()
@@ -172,12 +199,43 @@ public class InlineProjections
         return Sets.union(singletons, constants);
     }
 
-    private Set<VariableReferenceExpression> extractTryArguments(Expression expression, TypeProvider types)
+    private Set<VariableReferenceExpression> extractTryArguments(RowExpression expression, TypeProvider types)
     {
-        return AstUtils.preOrder(expression)
-                .filter(TryExpression.class::isInstance)
-                .map(TryExpression.class::cast)
-                .flatMap(tryExpression -> VariablesExtractor.extractAll(tryExpression, types).stream())
-                .collect(toSet());
+        if (isExpression(expression)) {
+            return AstUtils.preOrder(castToExpression(expression))
+                    .filter(TryExpression.class::isInstance)
+                    .map(TryExpression.class::cast)
+                    .flatMap(tryExpression -> VariablesExtractor.extractAll(tryExpression, types).stream())
+                    .collect(toSet());
+        }
+        ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
+        expression.accept(new DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<VariableReferenceExpression>>()
+        {
+            @Override
+            public Void visitCall(CallExpression call, ImmutableSet.Builder<VariableReferenceExpression> context)
+            {
+                if (functionResolution.isTryFunction(call.getFunctionHandle())) {
+                    context.addAll(VariablesExtractor.extractAll(call));
+                }
+                return super.visitCall(call, context);
+            }
+        }, builder);
+        return builder.build();
+    }
+
+    private static List<VariableReferenceExpression> extractInputs(RowExpression expression, TypeProvider types)
+    {
+        if (isExpression(expression)) {
+            return VariablesExtractor.extractAll(castToExpression(expression), types);
+        }
+        return VariablesExtractor.extractAll(expression);
+    }
+
+    private static boolean isConstant(RowExpression expression)
+    {
+        if (isExpression(expression)) {
+            return castToExpression(expression) instanceof Literal;
+        }
+        return expression instanceof ConstantExpression;
     }
 }

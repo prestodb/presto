@@ -35,6 +35,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestTupleDomainFilter
 {
@@ -144,6 +145,15 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testDouble(-0.3));
         assertFalse(filter.testDouble(55.6));
+        assertFalse(filter.testDouble(Double.NaN));
+
+        try {
+            DoubleRange.of(Double.NaN, false, false, Double.NaN, false, false, false);
+            fail("able to create a DoubleRange with NaN");
+        }
+        catch (IllegalArgumentException e) {
+            //expected
+        }
     }
 
     @Test
@@ -170,6 +180,15 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testFloat(1.1f));
         assertFalse(filter.testFloat(15.632f));
+        assertFalse(filter.testFloat(Float.NaN));
+
+        try {
+            FloatRange.of(Float.NaN, false, false, Float.NaN, false, false, false);
+            fail("able to create a FloatRange with NaN");
+        }
+        catch (IllegalArgumentException e) {
+            //expected
+        }
     }
 
     @Test
@@ -200,9 +219,12 @@ public class TestTupleDomainFilter
     {
         TupleDomainFilter filter = BytesRange.of(toBytes("abc"), false, toBytes("abc"), false, false);
         assertTrue(filter.testBytes(toBytes("abc"), 0, 3));
+        assertFalse(filter.testBytes(toBytes("acb"), 0, 3));
+        assertTrue(filter.testLength(3));
 
         assertFalse(filter.testNull());
         assertFalse(filter.testBytes(toBytes("apple"), 0, 5));
+        assertFalse(filter.testLength(4));
 
         String theBestOfTimes = "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity,...";
         filter = BytesRange.of(null, true, toBytes(theBestOfTimes), false, false);
@@ -210,6 +232,9 @@ public class TestTupleDomainFilter
         assertTrue(filter.testBytes(toBytes(theBestOfTimes), 0, 5));
         assertTrue(filter.testBytes(toBytes(theBestOfTimes), 0, 50));
         assertTrue(filter.testBytes(toBytes(theBestOfTimes), 0, 100));
+        // testLength is true of all lengths for a range filter.
+        assertTrue(filter.testLength(1));
+        assertTrue(filter.testLength(1000));
 
         assertFalse(filter.testNull());
         assertFalse(filter.testBytes(toBytes("Zzz"), 0, 3));
@@ -279,7 +304,9 @@ public class TestTupleDomainFilter
             }
         }
         filter = BytesValues.of(filterValues, false);
+        assertFalse(filter.testLength(10000));
         for (int i = 0; i < testValues.length; i++) {
+            assertEquals(filter.testLength(i), i % 9 == 0);
             assertEquals(i % 9 == 0, filter.testBytes(testValues[i], 0, testValues[i].length));
         }
     }

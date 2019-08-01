@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -30,7 +30,7 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import java.io.File;
+import java.net.URI;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -44,7 +44,8 @@ import static java.lang.Runtime.getRuntime;
 @DefunctConfig("storage.backup-directory")
 public class StorageManagerConfig
 {
-    private File dataDirectory;
+    private URI dataDirectory;
+    private String fileSystemProvider = "file";
     private DataSize minAvailableSpace = new DataSize(0, BYTE);
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
@@ -70,18 +71,34 @@ public class StorageManagerConfig
     private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
     private int oneSplitPerBucketThreshold;
     private String shardDayBoundaryTimeZone = TimeZoneKey.UTC_KEY.getId();
+    private int maxAllowedFilesPerWriter = Integer.MAX_VALUE;
+    private boolean zstdJniDecompressionEnabled;
 
     @NotNull
-    public File getDataDirectory()
+    public URI getDataDirectory()
     {
         return dataDirectory;
     }
 
     @Config("storage.data-directory")
-    @ConfigDescription("Base directory to use for storing shard data")
-    public StorageManagerConfig setDataDirectory(File dataDirectory)
+    @ConfigDescription("Base URI to use for storing shard data")
+    public StorageManagerConfig setDataDirectory(URI dataURI)
     {
-        this.dataDirectory = dataDirectory;
+        this.dataDirectory = dataURI;
+        return this;
+    }
+
+    @NotNull
+    public String getFileSystemProvider()
+    {
+        return fileSystemProvider;
+    }
+
+    @Config("storage.file-system")
+    @ConfigDescription("File system used for storage (e.g. file, hdfs)")
+    public StorageManagerConfig setFileSystemProvider(String fileSystemProvider)
+    {
+        this.fileSystemProvider = fileSystemProvider;
         return this;
     }
 
@@ -168,7 +185,7 @@ public class StorageManagerConfig
 
     public enum OrcOptimizedWriterStage
     {
-        DISABLED, ENABLED, ENABLED_AND_VALIDATED
+        ENABLED, ENABLED_AND_VALIDATED
     }
 
     public OrcOptimizedWriterStage getOrcOptimizedWriterStage()
@@ -368,6 +385,20 @@ public class StorageManagerConfig
         return this;
     }
 
+    @Min(1)
+    public int getMaxAllowedFilesPerWriter()
+    {
+        return maxAllowedFilesPerWriter;
+    }
+
+    @Config("storage.max-allowed-files-per-writer")
+    @ConfigDescription("Maximum number of files that can be created per writer for a query. Default value is Integer.MAX_VALUE")
+    public StorageManagerConfig setMaxAllowedFilesPerWriter(int maxAllowedFilesPerWriter)
+    {
+        this.maxAllowedFilesPerWriter = maxAllowedFilesPerWriter;
+        return this;
+    }
+
     public boolean isCompactionEnabled()
     {
         return compactionEnabled;
@@ -415,6 +446,18 @@ public class StorageManagerConfig
     public StorageManagerConfig setShardDayBoundaryTimeZone(String timeZone)
     {
         this.shardDayBoundaryTimeZone = timeZone;
+        return this;
+    }
+
+    public boolean isZstdJniDecompressionEnabled()
+    {
+        return zstdJniDecompressionEnabled;
+    }
+
+    @Config("storage.zstd-jni-decompression-enabled")
+    public StorageManagerConfig setZstdJniDecompressionEnabled(boolean zstdJniDecompressionEnabled)
+    {
+        this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
         return this;
     }
 }

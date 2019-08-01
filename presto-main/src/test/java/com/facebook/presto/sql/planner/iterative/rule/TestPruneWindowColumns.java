@@ -15,9 +15,10 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -213,8 +214,7 @@ public class TestPruneWindowColumns
                         new WindowNode.Specification(
                                 ImmutableList.of(partitionKey),
                                 Optional.of(new OrderingScheme(
-                                        ImmutableList.of(orderKey),
-                                        ImmutableMap.of(orderKey, SortOrder.ASC_NULLS_FIRST)))),
+                                        ImmutableList.of(new Ordering(orderKey, SortOrder.ASC_NULLS_FIRST))))),
                         ImmutableMap.of(
                                 output1,
                                 new WindowNode.Function(
@@ -226,7 +226,8 @@ public class TestPruneWindowColumns
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
                                                 Optional.of(new SymbolReference(startValue1.getName())).map(Expression::toString),
-                                                Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString))),
+                                                Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString)),
+                                        false),
                                 output2,
                                 new WindowNode.Function(
                                         call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, input2),
@@ -237,7 +238,8 @@ public class TestPruneWindowColumns
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
                                                 Optional.of(new SymbolReference(startValue2.getName())).map(Expression::toString),
-                                                Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString)))),
+                                                Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString)),
+                                        false)),
                         hash,
                         p.values(
                                 filteredInputs,

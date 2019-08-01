@@ -13,18 +13,26 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSourceProvider;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -35,11 +43,9 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -48,18 +54,17 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
@@ -79,11 +84,11 @@ public class SplitSourceFactory
         this.splitSourceProvider = requireNonNull(splitSourceProvider, "splitSourceProvider is null");
     }
 
-    public Map<PlanNodeId, SplitSource> createSplitSources(PlanFragment fragment, Session session)
+    public Map<PlanNodeId, SplitSource> createSplitSources(PlanFragment fragment, Session session, TableWriteInfo tableWriteInfo)
     {
         ImmutableList.Builder<SplitSource> splitSources = ImmutableList.builder();
         try {
-            return fragment.getRoot().accept(new Visitor(session, fragment.getStageExecutionDescriptor(), splitSources), null);
+            return fragment.getRoot().accept(new Visitor(session, fragment.getStageExecutionDescriptor(), splitSources), new Context(tableWriteInfo));
         }
         catch (Throwable t) {
             splitSources.build().forEach(SplitSourceFactory::closeSplitSource);
@@ -113,7 +118,7 @@ public class SplitSourceFactory
     }
 
     private final class Visitor
-            extends InternalPlanVisitor<Map<PlanNodeId, SplitSource>, Void>
+            extends InternalPlanVisitor<Map<PlanNodeId, SplitSource>, Context>
     {
         private final Session session;
         private final StageExecutionDescriptor stageExecutionDescriptor;
@@ -127,18 +132,26 @@ public class SplitSourceFactory
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitExplainAnalyze(ExplainAnalyzeNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitExplainAnalyze(ExplainAnalyzeNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Context context)
         {
             // get dataSource for table
+            TableHandle table;
+            Optional<DeleteScanInfo> deleteScanInfo = context.getTableWriteInfo().getDeleteScanInfo();
+            if (deleteScanInfo.isPresent() && deleteScanInfo.get().getId() == node.getId()) {
+                table = deleteScanInfo.get().getTableHandle();
+            }
+            else {
+                table = node.getTable();
+            }
             Supplier<SplitSource> splitSourceSupplier = () -> splitSourceProvider.getSplits(
                     session,
-                    node.getTable(),
+                    table,
                     getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId()));
 
             SplitSource splitSource = new LazySplitSource(splitSourceSupplier);
@@ -149,7 +162,7 @@ public class SplitSourceFactory
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitJoin(JoinNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitJoin(JoinNode node, Context context)
         {
             Map<PlanNodeId, SplitSource> leftSplits = node.getLeft().accept(this, context);
             Map<PlanNodeId, SplitSource> rightSplits = node.getRight().accept(this, context);
@@ -160,7 +173,7 @@ public class SplitSourceFactory
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitSemiJoin(SemiJoinNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitSemiJoin(SemiJoinNode node, Context context)
         {
             Map<PlanNodeId, SplitSource> sourceSplits = node.getSource().accept(this, context);
             Map<PlanNodeId, SplitSource> filteringSourceSplits = node.getFilteringSource().accept(this, context);
@@ -171,7 +184,7 @@ public class SplitSourceFactory
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitSpatialJoin(SpatialJoinNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitSpatialJoin(SpatialJoinNode node, Context context)
         {
             Map<PlanNodeId, SplitSource> leftSplits = node.getLeft().accept(this, context);
             Map<PlanNodeId, SplitSource> rightSplits = node.getRight().accept(this, context);
@@ -182,33 +195,33 @@ public class SplitSourceFactory
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitIndexJoin(IndexJoinNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitIndexJoin(IndexJoinNode node, Context context)
         {
             return node.getProbeSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitRemoteSource(RemoteSourceNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitRemoteSource(RemoteSourceNode node, Context context)
         {
             // remote source node does not have splits
             return ImmutableMap.of();
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitValues(ValuesNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitValues(ValuesNode node, Context context)
         {
             // values node does not have splits
             return ImmutableMap.of();
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitSample(SampleNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitSample(SampleNode node, Context context)
         {
             switch (node.getSampleType()) {
                 case BERNOULLI:
@@ -230,139 +243,145 @@ public class SplitSourceFactory
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitAggregation(AggregationNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitAggregation(AggregationNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitGroupId(GroupIdNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitGroupId(GroupIdNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitMarkDistinct(MarkDistinctNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitMarkDistinct(MarkDistinctNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitWindow(WindowNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitWindow(WindowNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitRowNumber(RowNumberNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitRowNumber(RowNumberNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitTopNRowNumber(TopNRowNumberNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitProject(ProjectNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitProject(ProjectNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitUnnest(UnnestNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitUnnest(UnnestNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitTopN(TopNNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitTopN(TopNNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitOutput(OutputNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitOutput(OutputNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitEnforceSingleRow(EnforceSingleRowNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitAssignUniqueId(AssignUniqueId node, Void context)
+        public Map<PlanNodeId, SplitSource> visitAssignUniqueId(AssignUniqueId node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitLimit(LimitNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitLimit(LimitNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitDistinctLimit(DistinctLimitNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitDistinctLimit(DistinctLimitNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitSort(SortNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitSort(SortNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitTableWriter(TableWriterNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitTableWriter(TableWriterNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitTableFinish(TableFinishNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitTableWriteMerge(TableWriterMergeNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitStatisticsWriterNode(StatisticsWriterNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitTableFinish(TableFinishNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitDelete(DeleteNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitStatisticsWriterNode(StatisticsWriterNode node, Context context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitMetadataDelete(MetadataDeleteNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitDelete(DeleteNode node, Context context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitMetadataDelete(MetadataDeleteNode node, Context context)
         {
             // MetadataDelete node does not have splits
             return ImmutableMap.of();
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitUnion(UnionNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitUnion(UnionNode node, Context context)
         {
             return processSources(node.getSources(), context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitExchange(ExchangeNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitExchange(ExchangeNode node, Context context)
         {
             return processSources(node.getSources(), context);
         }
 
-        private Map<PlanNodeId, SplitSource> processSources(List<PlanNode> sources, Void context)
+        private Map<PlanNodeId, SplitSource> processSources(List<PlanNode> sources, Context context)
         {
             ImmutableMap.Builder<PlanNodeId, SplitSource> result = ImmutableMap.builder();
             for (PlanNode child : sources) {
@@ -373,9 +392,24 @@ public class SplitSourceFactory
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitPlan(PlanNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitPlan(PlanNode node, Context context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+    }
+
+    private static class Context
+    {
+        private final TableWriteInfo tableWriteInfo;
+
+        public Context(TableWriteInfo tableWriteInfo)
+        {
+            this.tableWriteInfo = tableWriteInfo;
+        }
+
+        public TableWriteInfo getTableWriteInfo()
+        {
+            return tableWriteInfo;
         }
     }
 }

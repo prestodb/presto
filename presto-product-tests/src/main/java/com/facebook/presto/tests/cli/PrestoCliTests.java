@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.tests.cli;
 
+import com.facebook.airlift.testing.TempFile;
 import com.facebook.presto.cli.Presto;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.airlift.testing.TempFile;
 import io.prestodb.tempto.AfterTestWithContext;
 import io.prestodb.tempto.Requirement;
 import io.prestodb.tempto.RequirementsProvider;

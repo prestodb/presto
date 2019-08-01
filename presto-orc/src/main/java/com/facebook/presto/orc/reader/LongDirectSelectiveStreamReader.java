@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.block.ClosingBlockLease.newLease;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,6 +51,7 @@ public class LongDirectSelectiveStreamReader
     private final StreamDescriptor streamDescriptor;
     @Nullable
     private final TupleDomainFilter filter;
+    private final boolean nonDeterministicFilter;
     private final boolean nullsAllowed;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -74,17 +76,22 @@ public class LongDirectSelectiveStreamReader
             LocalMemoryContext systemMemoryContext)
     {
         super(outputType);
+        requireNonNull(filter, "filter is null");
+        checkArgument(filter.isPresent() || outputRequired, "filter must be present if output is not required");
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        this.filter = requireNonNull(filter, "filter is null").orElse(null);
+        this.filter = filter.orElse(null);
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
 
-        nullsAllowed = this.filter == null || this.filter.testNull();
+        nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
+        nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
     }
 
     @Override
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkArgument(positionCount > 0, "positionCount must be greater than zero");
+
         if (!rowGroupOpen) {
             openRowGroup();
         }
@@ -93,19 +100,10 @@ public class LongDirectSelectiveStreamReader
 
         allNulls = false;
 
-        if (filter != null) {
-            ensureOutputPositionsCapacity(positionCount);
-        }
-        else {
-            outputPositions = positions;
-        }
+        outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
         // account memory used by values, nulls and outputPositions
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
-
-        if (readOffset < offset) {
-            skip(offset - readOffset);
-        }
 
         outputPositionCount = 0;
         int streamPosition = 0;
@@ -113,6 +111,10 @@ public class LongDirectSelectiveStreamReader
             streamPosition = readAllNulls(positions, positionCount);
         }
         else {
+            if (readOffset < offset) {
+                skip(offset - readOffset);
+            }
+
             for (int i = 0; i < positionCount; i++) {
                 int position = positions[i];
                 if (position > streamPosition) {
@@ -121,9 +123,10 @@ public class LongDirectSelectiveStreamReader
                 }
 
                 if (presentStream != null && !presentStream.nextBit()) {
-                    if (nullsAllowed) {
+                    if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                         if (outputRequired) {
                             nulls[outputPositionCount] = true;
+                            values[outputPositionCount] = 0;
                         }
                         if (filter != null) {
                             outputPositions[outputPositionCount] = position;
@@ -146,7 +149,24 @@ public class LongDirectSelectiveStreamReader
                         outputPositionCount++;
                     }
                 }
+
                 streamPosition++;
+
+                if (filter != null) {
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+
+                    int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
+                    if (succeedingPositionsToFail > 0) {
+                        int positionsToSkip = 0;
+                        for (int j = 0; j < succeedingPositionsToFail; j++) {
+                            i++;
+                            int nextPosition = positions[i];
+                            positionsToSkip += 1 + nextPosition - streamPosition;
+                            streamPosition = nextPosition + 1;
+                        }
+                        skip(positionsToSkip);
+                    }
+                }
             }
         }
 
@@ -160,14 +180,26 @@ public class LongDirectSelectiveStreamReader
     {
         presentStream.skip(positions[positionCount - 1]);
 
-        if (nullsAllowed) {
+        if (nonDeterministicFilter) {
+            outputPositionCount = 0;
+            for (int i = 0; i < positionCount; i++) {
+                if (filter.testNull()) {
+                    outputPositionCount++;
+                }
+                else {
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+                    i += filter.getSucceedingPositionsToFail();
+                }
+            }
+        }
+        else if (nullsAllowed) {
             outputPositionCount = positionCount;
-            allNulls = true;
         }
         else {
             outputPositionCount = 0;
         }
 
+        allNulls = true;
         return positions[positionCount - 1] + 1;
     }
 
@@ -200,7 +232,7 @@ public class LongDirectSelectiveStreamReader
         checkState(positionCount <= outputPositionCount, "Not enough values");
 
         if (allNulls) {
-            return new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), outputPositionCount);
+            return new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount);
         }
 
         return buildOutputBlock(positions, positionCount, nullsAllowed && presentStream != null);
@@ -214,7 +246,7 @@ public class LongDirectSelectiveStreamReader
         checkState(positionCount <= outputPositionCount, "Not enough values");
 
         if (allNulls) {
-            return newLease(new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), outputPositionCount));
+            return newLease(new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount));
         }
 
         return buildOutputBlockView(positions, positionCount, nullsAllowed && presentStream != null);

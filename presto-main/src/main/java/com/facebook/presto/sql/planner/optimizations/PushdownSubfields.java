@@ -20,20 +20,24 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.Subfield.NestedField;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -42,16 +46,13 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
@@ -71,11 +72,14 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyUnnest;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.Subfield.allSubscripts;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -114,6 +118,7 @@ public class PushdownSubfields
         private final Metadata metadata;
         private final TypeProvider types;
         private final SubfieldExtractor subfieldExtractor;
+        private static final QualifiedFunctionName ARBITRARY_AGGREGATE_FUNCTION = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "arbitrary");
 
         public Rewriter(Session session, Metadata metadata, TypeProvider types)
         {
@@ -128,13 +133,24 @@ public class PushdownSubfields
         {
             context.get().variables.addAll(node.getGroupingKeys());
 
-            for (AggregationNode.Aggregation aggregation : node.getAggregations().values()) {
-                aggregation.getArguments().forEach(expression -> subfieldExtractor.process(castToExpression(expression), context.get()));
+            for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
+                VariableReferenceExpression variable = entry.getKey();
+                AggregationNode.Aggregation aggregation = entry.getValue();
+
+                // Allow sub-field pruning to pass through the arbitrary() aggregation
+                QualifiedFunctionName aggregateName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getCall().getFunctionHandle()).getName();
+                if (ARBITRARY_AGGREGATE_FUNCTION.equals(aggregateName)) {
+                    SymbolReference argument = (SymbolReference) castToExpression(aggregation.getArguments().get(0));
+                    context.get().addAssignment(variable, new VariableReferenceExpression(argument.getName(), types.get(argument)));
+                }
+                else {
+                    aggregation.getArguments().forEach(expression -> subfieldExtractor.process(castToExpression(expression), context.get()));
+                }
 
                 aggregation.getFilter().ifPresent(expression -> subfieldExtractor.process(castToExpression(expression), context.get()));
 
                 aggregation.getOrderBy()
-                        .map(OrderingScheme::getOrderBy)
+                        .map(OrderingScheme::getOrderByVariables)
                         .ifPresent(context.get().variables::addAll);
 
                 aggregation.getMask().ifPresent(context.get().variables::add);
@@ -267,7 +283,7 @@ public class PushdownSubfields
         @Override
         public PlanNode visitSort(SortNode node, RewriteContext<Context> context)
         {
-            context.get().variables.addAll(node.getOrderingScheme().getOrderBy());
+            context.get().variables.addAll(node.getOrderingScheme().getOrderByVariables());
             return context.defaultRewrite(node, context.get());
         }
 
@@ -330,7 +346,7 @@ public class PushdownSubfields
         @Override
         public PlanNode visitTopN(TopNNode node, RewriteContext<Context> context)
         {
-            context.get().variables.addAll(node.getOrderingScheme().getOrderBy());
+            context.get().variables.addAll(node.getOrderingScheme().getOrderByVariables());
             return context.defaultRewrite(node, context.get());
         }
 
@@ -339,14 +355,14 @@ public class PushdownSubfields
         {
             context.get().variables.add(node.getRowNumberVariable());
             context.get().variables.addAll(node.getPartitionBy());
-            context.get().variables.addAll(node.getOrderingScheme().getOrderBy());
+            context.get().variables.addAll(node.getOrderingScheme().getOrderByVariables());
             return context.defaultRewrite(node, context.get());
         }
 
         @Override
         public PlanNode visitUnion(UnionNode node, RewriteContext<Context> context)
         {
-            for (Map.Entry<VariableReferenceExpression, Collection<VariableReferenceExpression>> entry : node.getVariableMapping().asMap().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getVariableMapping().entrySet()) {
                 entry.getValue().forEach(variable -> context.get().addAssignment(entry.getKey(), variable));
             }
 
@@ -361,11 +377,11 @@ public class PushdownSubfields
                 VariableReferenceExpression container = entry.getKey();
                 boolean found = false;
 
-                if (isRowType(container)) {
+                if (isRowType(container) && !isLegacyUnnest(session)) {
                     for (VariableReferenceExpression field : entry.getValue()) {
                         if (context.get().variables.contains(field)) {
                             found = true;
-                            newSubfields.add(new Subfield(container.getName(), ImmutableList.of(allSubscripts(), new NestedField(field.getName()))));
+                            newSubfields.add(new Subfield(container.getName(), ImmutableList.of(allSubscripts(), nestedField(field.getName()))));
                         }
                         else {
                             List<Subfield> matchingSubfields = context.get().findSubfields(field.getName());
@@ -375,7 +391,7 @@ public class PushdownSubfields
                                         .map(Subfield::getPath)
                                         .map(path -> new Subfield(container.getName(), ImmutableList.<Subfield.PathElement>builder()
                                                 .add(allSubscripts())
-                                                .add(new NestedField(field.getName()))
+                                                .add(nestedField(field.getName()))
                                                 .addAll(path)
                                                 .build()))
                                         .forEach(newSubfields::add);
@@ -420,7 +436,7 @@ public class PushdownSubfields
             context.get().variables.addAll(node.getSpecification().getPartitionBy());
 
             node.getSpecification().getOrderingScheme()
-                    .map(OrderingScheme::getOrderBy)
+                    .map(OrderingScheme::getOrderByVariables)
                     .ifPresent(context.get().variables::addAll);
 
             node.getWindowFunctions().values().stream()
@@ -472,7 +488,7 @@ public class PushdownSubfields
 
                 if (expression instanceof DereferenceExpression) {
                     DereferenceExpression dereference = (DereferenceExpression) expression;
-                    elements.add(new NestedField(dereference.getField().getValue()));
+                    elements.add(nestedField(dereference.getField().getValue()));
                     expression = dereference.getBase();
                 }
                 else if (expression instanceof SubscriptExpression) {
@@ -505,6 +521,11 @@ public class PushdownSubfields
                     return Optional.empty();
                 }
             }
+        }
+
+        private static NestedField nestedField(String name)
+        {
+            return new NestedField(name.toLowerCase(Locale.ENGLISH));
         }
 
         private static final class SubfieldExtractor

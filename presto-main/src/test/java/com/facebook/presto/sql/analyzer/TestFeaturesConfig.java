@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.airlift.configuration.ConfigurationFactory;
+import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
@@ -34,8 +36,6 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -116,8 +116,13 @@ public class TestFeaturesConfig
                 .setLegacyUnnestArrayRows(false)
                 .setJsonSerdeCodeGenerationEnabled(false)
                 .setPushLimitThroughOuterJoin(true)
-                .setMaxConcurrentMaterializations(10)
-                .setPushdownSubfieldsEnabled(false));
+                .setMaxConcurrentMaterializations(3)
+                .setPushdownSubfieldsEnabled(false)
+                .setTableWriterMergeOperatorEnabled(true)
+                .setOptimizeFullOuterJoinWithCoalesce(true)
+                .setIndexLoaderTimeout(new Duration(20, SECONDS))
+                .setOptimizedRepartitioningEnabled(false)
+                .setListNonBuiltInFunctions(false));
     }
 
     @Test
@@ -194,6 +199,11 @@ public class TestFeaturesConfig
                 .put("optimizer.push-limit-through-outer-join", "false")
                 .put("max-concurrent-materializations", "5")
                 .put("experimental.pushdown-subfields-enabled", "true")
+                .put("experimental.table-writer-merge-operator-enabled", "false")
+                .put("optimizer.optimize-full-outer-join-with-coalesce", "false")
+                .put("index-loader-timeout", "10s")
+                .put("experimental.optimized-repartitioning", "true")
+                .put("list-non-built-in-functions", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -266,7 +276,12 @@ public class TestFeaturesConfig
                 .setJsonSerdeCodeGenerationEnabled(true)
                 .setPushLimitThroughOuterJoin(false)
                 .setMaxConcurrentMaterializations(5)
-                .setPushdownSubfieldsEnabled(true);
+                .setPushdownSubfieldsEnabled(true)
+                .setTableWriterMergeOperatorEnabled(false)
+                .setOptimizeFullOuterJoinWithCoalesce(false)
+                .setIndexLoaderTimeout(new Duration(10, SECONDS))
+                .setOptimizedRepartitioningEnabled(true)
+                .setListNonBuiltInFunctions(true);
         assertFullMapping(properties, expected);
     }
 

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.Response;
+import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.PagesSerde;
@@ -22,7 +25,7 @@ import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.http.client.testing.TestingHttpClient;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
@@ -30,20 +33,25 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -112,12 +120,13 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
+                0.2,
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
-        exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
+        exchangeClient.addLocation(location, TaskId.valueOf("queryid.0.0.0"));
         exchangeClient.noMoreLocations();
 
         assertFalse(exchangeClient.isClosed());
@@ -151,6 +160,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
+                0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
@@ -161,7 +171,7 @@ public class TestExchangeClient
         processor.addPage(location1, createPage(2));
         processor.addPage(location1, createPage(3));
         processor.setComplete(location1);
-        exchangeClient.addLocation(location1, TaskId.valueOf("foo"));
+        exchangeClient.addLocation(location1, TaskId.valueOf("foo.0.0.0"));
 
         assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
@@ -178,7 +188,7 @@ public class TestExchangeClient
         processor.addPage(location2, createPage(5));
         processor.addPage(location2, createPage(6));
         processor.setComplete(location2);
-        exchangeClient.addLocation(location2, TaskId.valueOf("bar"));
+        exchangeClient.addLocation(location2, TaskId.valueOf("bar.0.0.0"));
 
         assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(4));
@@ -223,12 +233,13 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
+                0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
-        exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0"));
         exchangeClient.noMoreLocations();
         assertFalse(exchangeClient.isClosed());
 
@@ -305,11 +316,12 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
+                0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
-        exchangeClient.addLocation(location, TaskId.valueOf("taskid"));
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0"));
         exchangeClient.noMoreLocations();
 
         // fetch a page
@@ -330,16 +342,110 @@ public class TestExchangeClient
     }
 
     @Test
+    public void testInitialRequestLimit()
+    {
+        DataSize maxResponseSize = new DataSize(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, BYTE);
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize) {
+            @Override
+            public Response handle(Request request)
+            {
+                if (!awaitUninterruptibly(countDownLatch, 10, SECONDS)) {
+                    throw new UncheckedTimeoutException();
+                }
+                return super.handle(request);
+            }
+        };
+
+        List<URI> locations = new ArrayList<>();
+        int numLocations = 16;
+        List<DataSize> expectedMaxSizes = new ArrayList<>();
+
+        // add pages
+        for (int i = 0; i < numLocations; i++) {
+            URI location = URI.create("http://localhost:" + (8080 + i));
+            locations.add(location);
+
+            processor.addPage(location, createPage(DEFAULT_MAX_PAGE_SIZE_IN_BYTES));
+            processor.addPage(location, createPage(DEFAULT_MAX_PAGE_SIZE_IN_BYTES));
+            processor.addPage(location, createPage(DEFAULT_MAX_PAGE_SIZE_IN_BYTES));
+
+            processor.setComplete(location);
+
+            expectedMaxSizes.add(maxResponseSize);
+        }
+
+        try (ExchangeClient exchangeClient = new ExchangeClient(
+                new DataSize(16, MEGABYTE),
+                maxResponseSize,
+                1,
+                new Duration(1, MINUTES),
+                true,
+                0.2,
+                new TestingHttpClient(processor, testingHttpClientExecutor),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor)) {
+            for (int i = 0; i < numLocations; i++) {
+                exchangeClient.addLocation(locations.get(i), TaskId.valueOf("taskid.0.0." + i));
+            }
+            exchangeClient.noMoreLocations();
+            assertFalse(exchangeClient.isClosed());
+
+            long start = System.nanoTime();
+            countDownLatch.countDown();
+
+            // wait for a page to be fetched
+            do {
+                // there is no thread coordination here, so sleep is the best we can do
+                assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+                sleepUninterruptibly(100, MILLISECONDS);
+            }
+            while (exchangeClient.getStatus().getBufferedPages() < 16);
+
+            // Client should have sent 16 requests for a single page (0) and gotten them back
+            // The memory limit should be hit immediately and then it doesn't fetch the third page from each
+            assertEquals(exchangeClient.getStatus().getBufferedPages(), 16);
+            assertTrue(exchangeClient.getStatus().getBufferedBytes() > 0);
+            List<PageBufferClientStatus> pageBufferClientStatuses = exchangeClient.getStatus().getPageBufferClientStatuses();
+            assertEquals(
+                    16,
+                    pageBufferClientStatuses.stream()
+                            .filter(status -> status.getPagesReceived() == 1)
+                            .mapToInt(PageBufferClientStatus::getPagesReceived)
+                            .sum());
+            assertEquals(processor.getRequestMaxSizes(), expectedMaxSizes);
+
+            for (int i = 0; i < numLocations * 3; i++) {
+                assertNotNull(getNextPage(exchangeClient));
+            }
+
+            do {
+                // there is no thread coordination here, so sleep is the best we can do
+                assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+                sleepUninterruptibly(100, MILLISECONDS);
+            }
+            while (processor.getRequestMaxSizes().size() < 64);
+
+            for (int i = 0; i < 48; i++) {
+                expectedMaxSizes.add(maxResponseSize);
+            }
+
+            assertEquals(processor.getRequestMaxSizes(), expectedMaxSizes);
+        }
+    }
+
+    @Test
     public void testRemoveRemoteSource()
             throws Exception
     {
         DataSize maxResponseSize = new DataSize(1, BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
-        URI location1 = URI.create("http://localhost:8081/foo");
-        TaskId taskId1 = TaskId.valueOf("foo");
-        URI location2 = URI.create("http://localhost:8082/bar");
-        TaskId taskId2 = TaskId.valueOf("bar");
+        URI location1 = URI.create("http://localhost:8081/foo.0.0.0");
+        TaskId taskId1 = TaskId.valueOf("foo.0.0.0");
+        URI location2 = URI.create("http://localhost:8082/bar.0.0.0");
+        TaskId taskId2 = TaskId.valueOf("bar.0.0.0");
 
         processor.addPage(location1, createPage(1));
         processor.addPage(location1, createPage(2));
@@ -351,6 +457,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
+                0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),

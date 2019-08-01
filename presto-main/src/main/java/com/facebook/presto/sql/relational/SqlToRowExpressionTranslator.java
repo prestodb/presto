@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -28,8 +29,9 @@ import com.facebook.presto.spi.type.RowType.Field;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.sql.analyzer.SemanticErrorCode;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -42,7 +44,6 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CurrentPath;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -77,6 +78,7 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -85,10 +87,9 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
-import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
@@ -111,7 +112,9 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -135,6 +138,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlToRowExpressionTranslator
@@ -147,24 +151,31 @@ public final class SqlToRowExpressionTranslator
             Map<VariableReferenceExpression, Integer> layout,
             FunctionManager functionManager,
             TypeManager typeManager,
-            Session session,
-            boolean optimize)
+            Session session)
+    {
+        return translate(expression, types, layout, functionManager, typeManager, Optional.of(session.getUser()), session.getTransactionId(), session.getSqlFunctionProperties());
+    }
+
+    public static RowExpression translate(
+            Expression expression,
+            Map<NodeRef<Expression>, Type> types,
+            Map<VariableReferenceExpression, Integer> layout,
+            FunctionManager functionManager,
+            TypeManager typeManager,
+            Optional<String> user,
+            Optional<TransactionId> transactionId,
+            SqlFunctionProperties sqlFunctionProperties)
     {
         Visitor visitor = new Visitor(
                 types,
                 layout,
                 typeManager,
                 functionManager,
-                session);
+                user,
+                transactionId,
+                sqlFunctionProperties);
         RowExpression result = visitor.process(expression, null);
-
         requireNonNull(result, "translated expression is null");
-
-        if (optimize) {
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(functionManager, session.toConnectorSession());
-            return optimizer.optimize(result);
-        }
-
         return result;
     }
 
@@ -175,7 +186,9 @@ public final class SqlToRowExpressionTranslator
         private final Map<VariableReferenceExpression, Integer> layout;
         private final TypeManager typeManager;
         private final FunctionManager functionManager;
-        private final Session session;
+        private final Optional<String> user;
+        private final Optional<TransactionId> transactionId;
+        private final SqlFunctionProperties sqlFunctionProperties;
         private final FunctionResolution functionResolution;
 
         private Visitor(
@@ -183,13 +196,17 @@ public final class SqlToRowExpressionTranslator
                 Map<VariableReferenceExpression, Integer> layout,
                 TypeManager typeManager,
                 FunctionManager functionManager,
-                Session session)
+                Optional<String> user,
+                Optional<TransactionId> transactionId,
+                SqlFunctionProperties sqlFunctionProperties)
         {
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
             this.typeManager = typeManager;
             this.functionManager = functionManager;
-            this.session = session;
+            this.user = user;
+            this.transactionId = transactionId;
+            this.sqlFunctionProperties = sqlFunctionProperties;
             this.functionResolution = new FunctionResolution(functionManager);
         }
 
@@ -214,13 +231,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitCurrentUser(CurrentUser node, Void context)
         {
-            return constant(Slices.utf8Slice(session.getUser()), VARCHAR);
-        }
-
-        @Override
-        protected RowExpression visitCurrentPath(CurrentPath node, Void context)
-        {
-            return constant(Slices.utf8Slice(session.getPath().toString()), VARCHAR);
+            return user.map(user -> constant(Slices.utf8Slice(user), VARCHAR)).orElseThrow(() -> new UnsupportedOperationException("Do not have current user"));
         }
 
         @Override
@@ -292,6 +303,21 @@ public final class SqlToRowExpressionTranslator
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
+            try {
+                if (TINYINT.equals(type)) {
+                    return constant((long) Byte.parseByte(node.getValue()), TINYINT);
+                }
+                else if (SMALLINT.equals(type)) {
+                    return constant((long) Short.parseShort(node.getValue()), SMALLINT);
+                }
+                else if (BIGINT.equals(type)) {
+                    return constant(Long.parseLong(node.getValue()), BIGINT);
+                }
+            }
+            catch (NumberFormatException e) {
+                throw new SemanticException(SemanticErrorCode.INVALID_LITERAL, node, format("Invalid formatted generic %s literal: %s", type, node));
+            }
+
             if (JSON.equals(type)) {
                 return call(
                         "json_parse",
@@ -315,9 +341,9 @@ public final class SqlToRowExpressionTranslator
                 value = parseTimeWithTimeZone(node.getValue());
             }
             else {
-                if (isLegacyTimestamp(session)) {
+                if (sqlFunctionProperties.isLegacyTimestamp()) {
                     // parse in time zone of client
-                    value = parseTimeWithoutTimeZone(session.getTimeZoneKey(), node.getValue());
+                    value = parseTimeWithoutTimeZone(sqlFunctionProperties.getTimeZoneKey(), node.getValue());
                 }
                 else {
                     value = parseTimeWithoutTimeZone(node.getValue());
@@ -330,8 +356,8 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitTimestampLiteral(TimestampLiteral node, Void context)
         {
             long value;
-            if (isLegacyTimestamp(session)) {
-                value = parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+            if (sqlFunctionProperties.isLegacyTimestamp()) {
+                value = parseTimestampLiteral(sqlFunctionProperties.getTimeZoneKey(), node.getValue());
             }
             else {
                 value = parseTimestampLiteral(node.getValue());
@@ -379,7 +405,7 @@ public final class SqlToRowExpressionTranslator
                     .map(TypeSignatureProvider::new)
                     .collect(toImmutableList());
 
-            return call(node.getName().toString(), functionManager.resolveFunction(session, node.getName(), argumentTypes), getType(node), arguments);
+            return call(node.getName().toString(), functionManager.resolveFunction(transactionId, node.getName(), argumentTypes), getType(node), arguments);
         }
 
         @Override
@@ -576,7 +602,7 @@ public final class SqlToRowExpressionTranslator
                 }
             }
 
-            if (isLegacyRowFieldOrdinalAccessEnabled(session) && index < 0) {
+            if (sqlFunctionProperties.isLegacyRowFieldOrdinalAccessEnabled() && index < 0) {
                 OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, fields);
                 if (rowIndex.isPresent()) {
                     index = rowIndex.getAsInt();
@@ -609,7 +635,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitTryExpression(TryExpression node, Void context)
         {
-            return call("TRY", functionResolution.tryFunction(getType(node)), getType(node), process(node.getInnerExpression(), context));
+            throw new UnsupportedOperationException("Must desugar TryExpression before translate it into RowExpression");
         }
 
         @Override

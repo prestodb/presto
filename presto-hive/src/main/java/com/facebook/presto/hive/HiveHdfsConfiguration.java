@@ -14,11 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.Set;
 
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.facebook.presto.hive.util.ConfigurationUtils.getInitialConfiguration;
@@ -37,23 +39,34 @@ public class HiveHdfsConfiguration
         {
             Configuration configuration = new Configuration(false);
             copy(INITIAL_CONFIGURATION, configuration);
-            updater.updateConfiguration(configuration);
+            initializer.updateConfiguration(configuration);
             return configuration;
         }
     };
 
-    private final HdfsConfigurationUpdater updater;
+    private final HdfsConfigurationInitializer initializer;
+    private final Set<DynamicConfigurationProvider> dynamicProviders;
 
     @Inject
-    public HiveHdfsConfiguration(HdfsConfigurationUpdater updater)
+    public HiveHdfsConfiguration(HdfsConfigurationInitializer initializer, Set<DynamicConfigurationProvider> dynamicProviders)
     {
-        this.updater = requireNonNull(updater, "updater is null");
+        this.initializer = requireNonNull(initializer, "initializer is null");
+        this.dynamicProviders = ImmutableSet.copyOf(requireNonNull(dynamicProviders, "dynamicProviders is null"));
     }
 
     @Override
     public Configuration getConfiguration(HdfsContext context, URI uri)
     {
-        // use the same configuration for everything
-        return hadoopConfiguration.get();
+        if (dynamicProviders.isEmpty()) {
+            // use the same configuration for everything
+            return hadoopConfiguration.get();
+        }
+
+        Configuration config = new Configuration(false);
+        copy(hadoopConfiguration.get(), config);
+        for (DynamicConfigurationProvider provider : dynamicProviders) {
+            provider.updateConfiguration(config, context, uri);
+        }
+        return config;
     }
 }

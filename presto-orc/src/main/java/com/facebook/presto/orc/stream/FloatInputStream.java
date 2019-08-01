@@ -16,8 +16,6 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.io.IOException;
 
@@ -28,8 +26,6 @@ public class FloatInputStream
         implements ValueInputStream<FloatStreamCheckpoint>
 {
     private final OrcInputStream input;
-    private final byte[] buffer = new byte[SIZE_OF_FLOAT];
-    private final Slice slice = Slices.wrappedBuffer(buffer);
 
     public FloatInputStream(OrcInputStream input)
     {
@@ -60,8 +56,7 @@ public class FloatInputStream
     public float next()
             throws IOException
     {
-        input.readFully(buffer, 0, SIZE_OF_FLOAT);
-        return slice.getFloat(0);
+        return input.readFloat();
     }
 
     public void nextVector(Type type, int items, BlockBuilder builder)

@@ -21,7 +21,7 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -68,7 +68,7 @@ public class NullIfCodeGenerator
         FunctionManager functionManager = generatorContext.getFunctionManager();
         FunctionHandle equalFunction = functionManager.resolveOperator(EQUAL, fromTypes(firstType, secondType));
         FunctionMetadata equalFunctionMetadata = functionManager.getFunctionMetadata(equalFunction);
-        ScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(equalFunction);
+        BuiltInScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(equalFunction);
         BytecodeNode equalsCall = generatorContext.generateCall(
                 EQUAL.name(),
                 equalsFunction,
@@ -111,6 +111,6 @@ public class NullIfCodeGenerator
                 .lookupCast(CastType.CAST, actualType.getTypeSignature(), requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(CAST.name(), generatorContext.getFunctionManager().getScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));
+        return generatorContext.generateCall(CAST.name(), generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));
     }
 }

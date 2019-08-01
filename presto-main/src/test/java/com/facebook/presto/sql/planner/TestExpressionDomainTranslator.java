@@ -1442,7 +1442,7 @@ public class TestExpressionDomainTranslator
 
     private static FunctionCall colorLiteral(long value)
     {
-        return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName()), ImmutableList.of(bigintLiteral(value)));
+        return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getNameSuffix()), ImmutableList.of(bigintLiteral(value)));
     }
 
     private Expression varbinaryLiteral(Slice value)

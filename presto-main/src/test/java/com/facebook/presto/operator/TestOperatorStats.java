@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputInfo;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.operator.repartition.PartitionedOutputInfo;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -34,6 +34,7 @@ public class TestOperatorStats
 
     public static final OperatorStats EXPECTED = new OperatorStats(
             0,
+            10,
             1,
             41,
             new PlanNodeId("test"),
@@ -45,6 +46,7 @@ public class TestOperatorStats
             new Duration(3, NANOSECONDS),
             new Duration(4, NANOSECONDS),
             new DataSize(5, BYTE),
+            10,
             new DataSize(6, BYTE),
             7,
             8d,
@@ -75,6 +77,7 @@ public class TestOperatorStats
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
             0,
+            10,
             1,
             41,
             new PlanNodeId("test"),
@@ -86,6 +89,7 @@ public class TestOperatorStats
             new Duration(3, NANOSECONDS),
             new Duration(4, NANOSECONDS),
             new DataSize(5, BYTE),
+            10,
             new DataSize(6, BYTE),
             7,
             8d,
@@ -128,6 +132,7 @@ public class TestOperatorStats
     public static void assertExpectedOperatorStats(OperatorStats actual)
     {
         assertEquals(actual.getStageId(), 0);
+        assertEquals(actual.getStageExecutionId(), 10);
         assertEquals(actual.getOperatorId(), 41);
         assertEquals(actual.getOperatorType(), "test");
 
@@ -171,6 +176,7 @@ public class TestOperatorStats
         OperatorStats actual = EXPECTED.add(EXPECTED, EXPECTED);
 
         assertEquals(actual.getStageId(), 0);
+        assertEquals(actual.getStageExecutionId(), 10);
         assertEquals(actual.getOperatorId(), 41);
         assertEquals(actual.getOperatorType(), "test");
 
@@ -212,6 +218,7 @@ public class TestOperatorStats
         OperatorStats actual = MERGEABLE.add(MERGEABLE, MERGEABLE);
 
         assertEquals(actual.getStageId(), 0);
+        assertEquals(actual.getStageExecutionId(), 10);
         assertEquals(actual.getOperatorId(), 41);
         assertEquals(actual.getOperatorType(), "test");
 

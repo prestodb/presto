@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationBuilder;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.OrcWriterStats.FlushReason;
@@ -36,9 +37,9 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -68,6 +69,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Integer.max;
 import static java.lang.Integer.min;
 import static java.lang.Math.toIntExact;
@@ -328,22 +330,26 @@ public class OrcWriter
             outputData.add(createDataOutput(MAGIC));
             stripeStartOffset += MAGIC.length();
         }
-        // add stripe data
-        outputData.addAll(bufferStripeData(stripeStartOffset, flushReason));
-        // if the file is being closed, add the file footer
-        if (flushReason == CLOSED) {
-            outputData.addAll(bufferFileFooter());
+
+        try {
+            // add stripe data
+            outputData.addAll(bufferStripeData(stripeStartOffset, flushReason));
+            // if the file is being closed, add the file footer
+            if (flushReason == CLOSED) {
+                outputData.addAll(bufferFileFooter());
+            }
+
+            // write all data
+            orcDataSink.write(outputData);
         }
-
-        // write all data
-        orcDataSink.write(outputData);
-
-        // open next stripe
-        columnWriters.forEach(ColumnWriter::reset);
-        dictionaryCompressionOptimizer.reset();
-        rowGroupRowCount = 0;
-        stripeRowCount = 0;
-        bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+        finally {
+            // open next stripe
+            columnWriters.forEach(ColumnWriter::reset);
+            dictionaryCompressionOptimizer.reset();
+            rowGroupRowCount = 0;
+            stripeRowCount = 0;
+            bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+        }
     }
 
     /**
@@ -515,7 +521,8 @@ public class OrcWriter
                 input,
                 types,
                 hiveStorageTimeZone,
-                orcEncoding);
+                orcEncoding,
+                new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false));
     }
 
     private int estimateAverageLogicalSizePerRow(Page page)

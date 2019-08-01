@@ -18,13 +18,7 @@ import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 
-import {
-    formatRows,
-    getStageStateColor,
-    initializeGraph,
-    initializeSvg,
-    truncateString
-} from "../utils";
+import {formatRows, getStageStateColor, initializeGraph, initializeSvg, truncateString} from "../utils";
 import {QueryHeader} from "./QueryHeader";
 
 type StageStatisticsProps = {
@@ -61,8 +55,8 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
             id: stageInfo.plan.id,
             root: stageInfo.plan.root.id,
             distribution: stageInfo.plan.distribution,
-            stageStats: stageInfo.stageStats,
-            state: stageInfo.state,
+            stageStats: stageInfo.latestAttemptExecutionInfo.stats,
+            state: stageInfo.latestAttemptExecutionInfo.state,
             nodes: nodes
         });
     }

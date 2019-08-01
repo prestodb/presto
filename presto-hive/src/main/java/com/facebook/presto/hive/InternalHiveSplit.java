@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
@@ -25,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -62,6 +62,7 @@ public class InternalHiveSplit
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
     private final HiveSplitPartitionInfo partitionInfo;
+    private final Optional<byte[]> extraFileInfo;
 
     private long start;
     private int currentBlockIndex;
@@ -77,7 +78,8 @@ public class InternalHiveSplit
             boolean splittable,
             boolean forceLocalScheduling,
             boolean s3SelectPushdownEnabled,
-            HiveSplitPartitionInfo partitionInfo)
+            HiveSplitPartitionInfo partitionInfo,
+            Optional<byte[]> extraFileInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "end must be positive");
@@ -86,6 +88,7 @@ public class InternalHiveSplit
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(partitionInfo, "partitionInfo is null");
+        requireNonNull(extraFileInfo, "extraFileInfo is null");
 
         this.relativeUri = relativeUri.getBytes(UTF_8);
         this.start = start;
@@ -97,6 +100,7 @@ public class InternalHiveSplit
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.partitionInfo = partitionInfo;
+        this.extraFileInfo = extraFileInfo;
 
         ImmutableList.Builder<List<HostAddress>> addressesBuilder = ImmutableList.builder();
         blockEndOffsets = new long[blocks.size()];
@@ -137,11 +141,6 @@ public class InternalHiveSplit
         return s3SelectPushdownEnabled;
     }
 
-    public Properties getSchema()
-    {
-        return partitionInfo.getSchema();
-    }
-
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionInfo.getPartitionKeys();
@@ -172,9 +171,9 @@ public class InternalHiveSplit
         return forceLocalScheduling;
     }
 
-    public Map<Integer, HiveTypeName> getColumnCoercions()
+    public Map<Integer, Column> getPartitionSchemaDifference()
     {
-        return partitionInfo.getColumnCoercions();
+        return partitionInfo.getPartitionSchemaDifference();
     }
 
     public Optional<BucketConversion> getBucketConversion()
@@ -207,6 +206,11 @@ public class InternalHiveSplit
         return partitionInfo;
     }
 
+    public Optional<byte[]> getExtraFileInfo()
+    {
+        return extraFileInfo;
+    }
+
     public void reset()
     {
         currentBlockIndex = 0;
@@ -231,6 +235,9 @@ public class InternalHiveSplit
                     result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
                 }
             }
+        }
+        if (extraFileInfo.isPresent()) {
+            result += sizeOf(extraFileInfo.get());
         }
         return result;
     }

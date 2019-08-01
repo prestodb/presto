@@ -15,8 +15,8 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Decimals;
@@ -41,6 +41,7 @@ import com.google.common.collect.Ordering;
 import io.airlift.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
+import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -103,7 +104,7 @@ public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
     // We can just use the default type registry, since we don't use any parametric types
-    protected static final List<SqlFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
+    protected static final List<BuiltInFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
             .aggregates(CustomSum.class)
             .window(CustomRank.class)
             .scalars(CustomAdd.class)
@@ -446,6 +447,29 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testTryMapTransformValueFunction()
+    {
+        // MaterializedResult#Builder doesn't support null row. Coalesce null value to empty map for comparison.
+        MaterializedResult actual = computeActual("" +
+                "SELECT COALESCE( TRY( TRANSFORM_VALUES( id, (k, v) -> k / v ) ) , MAP() )" +
+                "FROM ( VALUES " +
+                "(MAP(ARRAY[1, 2], ARRAY[0, 0])), " +
+                "(MAP(ARRAY[1, 2], ARRAY[1, 2])), " +
+                "(MAP(ARRAY[28, 56], ARRAY[2, 4])), " +
+                "(MAP(ARRAY[4, 5], ARRAY[0, 0])), " +
+                "(MAP(ARRAY[12, 72], ARRAY[3, 6]))) AS t (id)");
+
+        MaterializedResult expected = resultBuilder(getSession(), mapType(INTEGER, INTEGER))
+                .row(ImmutableMap.of())
+                .row(ImmutableMap.of(1, 1, 2, 1))
+                .row(ImmutableMap.of(28, 14, 56, 14))
+                .row(ImmutableMap.of())
+                .row(ImmutableMap.of(12, 4, 72, 12))
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testRowFieldAccessorInWindowFunction()
     {
         assertQuery("SELECT a.col0, " +
@@ -643,6 +667,14 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (SELECT custkey FROM orders ORDER BY orderkey LIMIT 1) CROSS JOIN (VALUES (10, 1), (20, 2), (30, 3))");
 
         assertQuery("SELECT * FROM orders, UNNEST(ARRAY[1])", "SELECT orders.*, 1 FROM orders");
+        assertQuery("SELECT a FROM (" +
+                        "    SELECT l.arr AS arr FROM (" +
+                        "        SELECT orderkey, ARRAY[1,2,3] AS arr FROM orders ORDER BY orderkey LIMIT 1) l" +
+                        "    FULL OUTER JOIN (" +
+                        "        SELECT orderkey, ARRAY[1,2,3] AS arr FROM orders ORDER BY orderkey LIMIT 1) o" +
+                        "    ON l.orderkey = o.orderkey) " +
+                        "CROSS JOIN UNNEST(arr) AS t (a)",
+                "SELECT * FROM (VALUES (1), (2), (3))");
 
         assertQueryFails(
                 "SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN UNNEST(x) ON true",
@@ -4076,7 +4108,7 @@ public abstract class AbstractTestQueries
     public void testInvalidWindowFunction()
     {
         assertQueryFails("SELECT abs(x) OVER ()\n" +
-                "FROM (VALUES (1), (2), (3)) t(x)",
+                        "FROM (VALUES (1), (2), (3)) t(x)",
                 "line 1:1: Not a window function: abs");
     }
 
@@ -4621,6 +4653,8 @@ public abstract class AbstractTestQueries
     {
         assertExplainDdl("CREATE TABLE foo (pk bigint)", "CREATE TABLE foo");
         assertExplainDdl("CREATE VIEW foo AS SELECT * FROM orders", "CREATE VIEW foo");
+        assertExplainDdl("CREATE OR REPLACE FUNCTION testing.default.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' LANGUAGE SQL DETERMINISTIC CALLED ON NULL INPUT RETURN sin(x) / cos(x)", "CREATE FUNCTION testing.default.tan");
+        assertExplainDdl("DROP FUNCTION IF EXISTS testing.default.tan (int)", "DROP FUNCTION testing.default.tan");
         assertExplainDdl("DROP TABLE orders");
         assertExplainDdl("DROP VIEW view");
         assertExplainDdl("ALTER TABLE orders RENAME TO new_name");
@@ -4939,7 +4973,6 @@ public abstract class AbstractTestQueries
                 getSession().getSource(),
                 getSession().getCatalog(),
                 getSession().getSchema(),
-                getSession().getPath(),
                 getSession().getTraceToken(),
                 getSession().getTimeZoneKey(),
                 getSession().getLocale(),
@@ -4947,7 +4980,6 @@ public abstract class AbstractTestQueries
                 getSession().getUserAgent(),
                 getSession().getClientInfo(),
                 getSession().getClientTags(),
-                getSession().getClientCapabilities(),
                 getSession().getResourceEstimates(),
                 getSession().getStartTime(),
                 ImmutableMap.<String, String>builder()
@@ -7950,6 +7982,9 @@ public abstract class AbstractTestQueries
         assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");
+        assertDescribeOutputEmpty("CREATE FUNCTION testing.default.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' LANGUAGE SQL DETERMINISTIC CALLED ON NULL INPUT RETURN sin(x) / cos(x)");
+        assertDescribeOutputEmpty("DROP FUNCTION IF EXISTS testing.default.tan (int)");
+
         assertDescribeOutputEmpty("DROP VIEW foo");
         assertDescribeOutputEmpty("PREPARE test FROM SELECT * FROM orders");
         assertDescribeOutputEmpty("EXECUTE test");
@@ -8215,6 +8250,53 @@ public abstract class AbstractTestQueries
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM small_part RIGHT JOIN lineitem ON  small_part.partkey = lineitem.partkey");
     }
 
+    @Test
+    public void CardinalityOfFilterSimplification()
+    {
+        MaterializedResult result = computeActual("" +
+                "SELECT cardinality(filter(array_agg(orderkey), x -> x % 2 = 0)) " +
+                "FROM orders " +
+                "WHERE orderkey < 20");
+
+        assertEquals(result.getRowCount(), 1);
+        Assert.assertEquals(result.getMaterializedRows().get(0).getField(0), 3L);
+    }
+
+    @Test
+    public void CardinalityOfFilterComparisonSimplification()
+    {
+        MaterializedResult result = computeActual("" +
+                "SELECT cardinality(filter(array_agg(orderkey), x -> x % 3 = 0)) = 1 " +
+                "FROM orders " +
+                "WHERE orderkey < 20");
+
+        assertEquals(result.getRowCount(), 1);
+        Assert.assertEquals(result.getMaterializedRows().get(0).getField(0), true);
+    }
+
+    @Test
+    public void CardinalityOfFilteGreaterThanZeroSimplification()
+    {
+        MaterializedResult result = computeActual("" +
+                "SELECT cardinality(filter(array_agg(orderkey), x -> x % 2 = 0)) > 0 " +
+                "FROM orders " +
+                "WHERE orderkey < 20");
+
+        assertEquals(result.getRowCount(), 1);
+        Assert.assertEquals(result.getMaterializedRows().get(0).getField(0), true);
+    }
+
+    @Test
+    public void CardinalityOfFilteEqualsZeroSimplification()
+    {
+        MaterializedResult result = computeActual("" +
+                "SELECT cardinality(filter(array_agg(orderkey), x -> x > 2)) = 0 " +
+                "FROM orders " +
+                "WHERE orderkey < 20");
+
+        assertEquals(result.getRowCount(), 1);
+        Assert.assertEquals(result.getMaterializedRows().get(0).getField(0), false);
+    }
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())

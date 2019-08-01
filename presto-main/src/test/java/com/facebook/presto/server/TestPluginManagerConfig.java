@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.resolver.ArtifactResolver;
 import org.testng.annotations.Test;
 

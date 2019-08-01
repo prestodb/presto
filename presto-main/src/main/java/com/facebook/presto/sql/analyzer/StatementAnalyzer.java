@@ -49,6 +49,7 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -59,6 +60,7 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -113,6 +115,7 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.SqlParameterDeclaration;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
@@ -125,6 +128,7 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.facebook.presto.sql.util.AstUtils;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -139,6 +143,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
@@ -149,6 +154,7 @@ import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
@@ -165,8 +171,10 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRI
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PARAMETER_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
@@ -212,7 +220,10 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
+import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.counting;
+import static java.util.stream.Collectors.groupingBy;
 
 class StatementAnalyzer
 {
@@ -535,6 +546,55 @@ class StatementAnalyzer
 
             validateColumns(node, queryScope.getRelationType());
 
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitCreateFunction(CreateFunction node, Optional<Scope> scope)
+        {
+            analysis.setUpdateType("CREATE FUNCTION");
+
+            // Check function name
+            checkFunctionName(node, node.getFunctionName());
+
+            // Check parameter
+            List<String> duplicateParameters = node.getParameters().stream()
+                    .map(SqlParameterDeclaration::getName)
+                    .map(Identifier::getValue)
+                    .collect(groupingBy(Function.identity(), counting()))
+                    .entrySet()
+                    .stream()
+                    .filter(entry -> entry.getValue() > 1)
+                    .map(Entry::getKey)
+                    .collect(toImmutableList());
+            if (!duplicateParameters.isEmpty()) {
+                throw new SemanticException(DUPLICATE_PARAMETER_NAME, node, "Duplicate function parameter name: %s", Joiner.on(", ").join(duplicateParameters));
+            }
+
+            // Check return type
+            Type returnType = metadata.getType(parseTypeSignature(node.getReturnType()));
+            List<Field> fields = node.getParameters().stream()
+                    .map(parameter -> Field.newUnqualified(parameter.getName().getValue(), metadata.getType(parseTypeSignature(parameter.getType()))))
+                    .collect(toImmutableList());
+            Scope functionScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(fields))
+                    .build();
+            Type bodyType = analyzeExpression(node.getBody(), functionScope).getExpressionTypes().get(NodeRef.of(node.getBody()));
+            if (!bodyType.equals(returnType)) {
+                throw new SemanticException(TYPE_MISMATCH, node, "Function implementation type '%s' does not match declared return type '%s'", bodyType, returnType);
+            }
+
+            Analyzer.verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), node.getBody(), "CREATE FUNCTION body");
+
+            // TODO: Check body contains no SQL invoked functions
+
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropFunction(DropFunction node, Optional<Scope> scope)
+        {
+            checkFunctionName(node, node.getFunctionName());
             return createAndAssignScope(node, scope);
         }
 
@@ -1495,6 +1555,13 @@ class StatementAnalyzer
             return assignments.build();
         }
 
+        private void checkFunctionName(Statement node, QualifiedName functionName)
+        {
+            if (functionName.getParts().size() != 3) {
+                throw new SemanticException(INVALID_FUNCTION_NAME, node, format("Function name should be in the form of catalog.schema.function_name, found: %s", functionName));
+            }
+        }
+
         private class OrderByExpressionRewriter
                 extends ExpressionRewriter<Void>
         {
@@ -1925,7 +1992,6 @@ class StatementAnalyzer
                     viewAccessControl = accessControl;
                 }
 
-                // TODO: record path in view definition (?) (check spec) and feed it into the session object we use to evaluate the query defined by the view
                 Session viewSession = Session.builder(metadata.getSessionPropertyManager())
                         .setQueryId(session.getQueryId())
                         .setTransactionId(session.getTransactionId().orElse(null))
@@ -1933,7 +1999,6 @@ class StatementAnalyzer
                         .setSource(session.getSource().orElse(null))
                         .setCatalog(catalog.orElse(null))
                         .setSchema(schema.orElse(null))
-                        .setPath(session.getPath())
                         .setTimeZoneKey(session.getTimeZoneKey())
                         .setLocale(session.getLocale())
                         .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))

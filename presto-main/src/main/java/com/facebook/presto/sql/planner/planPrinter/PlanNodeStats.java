@@ -39,6 +39,8 @@ public class PlanNodeStats
     private final Duration planNodeCpuTime;
     private final long planNodeInputPositions;
     private final DataSize planNodeInputDataSize;
+    private final long planNodeRawInputPositions;
+    private final DataSize planNodeRawInputDataSize;
     private final long planNodeOutputPositions;
     private final DataSize planNodeOutputDataSize;
 
@@ -50,6 +52,8 @@ public class PlanNodeStats
             Duration planNodeCpuTime,
             long planNodeInputPositions,
             DataSize planNodeInputDataSize,
+            long planNodeRawInputPositions,
+            DataSize planNodeRawInputDataSize,
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             Map<String, OperatorInputStats> operatorInputStats)
@@ -60,6 +64,8 @@ public class PlanNodeStats
         this.planNodeCpuTime = requireNonNull(planNodeCpuTime, "planNodeCpuTime is null");
         this.planNodeInputPositions = planNodeInputPositions;
         this.planNodeInputDataSize = planNodeInputDataSize;
+        this.planNodeRawInputPositions = planNodeRawInputPositions;
+        this.planNodeRawInputDataSize = planNodeRawInputDataSize;
         this.planNodeOutputPositions = planNodeOutputPositions;
         this.planNodeOutputDataSize = planNodeOutputDataSize;
 
@@ -104,6 +110,16 @@ public class PlanNodeStats
         return planNodeInputDataSize;
     }
 
+    public long getPlanNodeRawInputPositions()
+    {
+        return planNodeRawInputPositions;
+    }
+
+    public DataSize getPlanNodeRawInputDataSize()
+    {
+        return planNodeRawInputDataSize;
+    }
+
     public long getPlanNodeOutputPositions()
     {
         return planNodeOutputPositions;
@@ -140,6 +156,8 @@ public class PlanNodeStats
 
         long planNodeInputPositions = this.planNodeInputPositions + other.planNodeInputPositions;
         DataSize planNodeInputDataSize = succinctBytes(this.planNodeInputDataSize.toBytes() + other.planNodeInputDataSize.toBytes());
+        long planNodeRawInputPositions = this.planNodeRawInputPositions + other.planNodeRawInputPositions;
+        DataSize planNodeRawInputDataSize = succinctBytes(this.planNodeRawInputDataSize.toBytes() + other.planNodeRawInputDataSize.toBytes());
         long planNodeOutputPositions = this.planNodeOutputPositions + other.planNodeOutputPositions;
         DataSize planNodeOutputDataSize = succinctBytes(this.planNodeOutputDataSize.toBytes() + other.planNodeOutputDataSize.toBytes());
 
@@ -150,6 +168,7 @@ public class PlanNodeStats
                 new Duration(planNodeScheduledTime.toMillis() + other.getPlanNodeScheduledTime().toMillis(), MILLISECONDS),
                 new Duration(planNodeCpuTime.toMillis() + other.getPlanNodeCpuTime().toMillis(), MILLISECONDS),
                 planNodeInputPositions, planNodeInputDataSize,
+                planNodeRawInputPositions, planNodeRawInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
                 operatorInputStats);
     }

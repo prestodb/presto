@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 
 import java.util.List;
@@ -47,12 +48,15 @@ public class PageSourceManager
     }
 
     @Override
-    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
     {
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
 
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
+        if (table.getLayout().isPresent()) {
+            return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), table.getLayout().get(), columns);
+        }
         return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
     }
 

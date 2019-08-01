@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizerDao;
@@ -31,7 +32,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.h2.jdbc.JdbcConnection;
 import org.skife.jdbi.v2.Handle;
@@ -151,7 +151,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed, OptionalLong temporalColumnId)
+    public void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed, OptionalLong temporalColumnId, boolean tableSupportsDeltaDelete)
     {
         StringJoiner tableColumns = new StringJoiner(",\n  ", "  ", ",\n").setEmptyValue("");
 
@@ -169,43 +169,27 @@ public class DatabaseShardManager
         temporalColumnId.ifPresent(id -> coveringIndexColumns.add(maxColumn(id)));
         temporalColumnId.ifPresent(id -> coveringIndexColumns.add(minColumn(id)));
 
-        String sql;
         if (bucketed) {
-            coveringIndexColumns
-                    .add("bucket_number")
-                    .add("shard_id")
-                    .add("shard_uuid");
-
-            sql = "" +
-                    "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
-                    "  shard_id BIGINT NOT NULL,\n" +
-                    "  shard_uuid BINARY(16) NOT NULL,\n" +
-                    "  bucket_number INT NOT NULL\n," +
-                    tableColumns +
-                    "  PRIMARY KEY (bucket_number, shard_uuid),\n" +
-                    "  UNIQUE (shard_id),\n" +
-                    "  UNIQUE (shard_uuid),\n" +
-                    "  UNIQUE (" + coveringIndexColumns + ")\n" +
-                    ")";
+            coveringIndexColumns.add("bucket_number");
         }
         else {
-            coveringIndexColumns
-                    .add("node_ids")
-                    .add("shard_id")
-                    .add("shard_uuid");
-
-            sql = "" +
-                    "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
-                    "  shard_id BIGINT NOT NULL,\n" +
-                    "  shard_uuid BINARY(16) NOT NULL,\n" +
-                    "  node_ids VARBINARY(128) NOT NULL,\n" +
-                    tableColumns +
-                    "  PRIMARY KEY (node_ids, shard_uuid),\n" +
-                    "  UNIQUE (shard_id),\n" +
-                    "  UNIQUE (shard_uuid),\n" +
-                    "  UNIQUE (" + coveringIndexColumns + ")\n" +
-                    ")";
+            coveringIndexColumns.add("node_ids");
         }
+        coveringIndexColumns
+                .add("shard_id")
+                .add("shard_uuid");
+        String sql = "" +
+                "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
+                "  shard_id BIGINT NOT NULL,\n" +
+                "  shard_uuid BINARY(16) NOT NULL,\n" +
+                (tableSupportsDeltaDelete ? "  delta_shard_uuid BINARY(16) DEFAULT NULL,\n" : "") +
+                (bucketed ? "  bucket_number INT NOT NULL\n," : "  node_ids VARBINARY(128) NOT NULL,\n") +
+                tableColumns +
+                (bucketed ? "  PRIMARY KEY (bucket_number, shard_uuid),\n" : "  PRIMARY KEY (node_ids, shard_uuid),\n") +
+                "  UNIQUE (shard_id),\n" +
+                "  UNIQUE (shard_uuid),\n" +
+                "  UNIQUE (" + coveringIndexColumns + ")\n" +
+                ")";
 
         try (Handle handle = dbi.open()) {
             handle.execute(sql);

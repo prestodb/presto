@@ -15,7 +15,9 @@ package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -138,8 +140,12 @@ public class GlobalSystemConnector
     @Override
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
-        return (transactionHandle, session, split, columns) -> {
-            throw new UnsupportedOperationException();
+        return new ConnectorPageSourceProvider() {
+            @Override
+            public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns)
+            {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 

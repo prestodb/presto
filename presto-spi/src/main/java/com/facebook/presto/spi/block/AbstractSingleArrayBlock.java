@@ -86,10 +86,10 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getBlock(int position)
     {
         checkReadablePosition(position);
-        return getBlock().getObject(position + start, clazz);
+        return getBlock().getBlock(position + start);
     }
 
     @Override

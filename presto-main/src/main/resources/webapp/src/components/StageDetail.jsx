@@ -19,10 +19,10 @@ import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 
 import {
-    getChildren,
     formatCount,
     formatDataSize,
     formatDuration,
+    getChildren,
     getFirstParameter,
     getTaskNumber,
     initializeGraph,
@@ -362,7 +362,7 @@ class StageOperatorGraph extends React.Component {
         const stage = this.props.stage;
 
         let operatorStageSummary = null;
-        const operatorSummaries = stage.stageStats.operatorSummaries;
+        const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
         for (let i = 0; i < operatorSummaries.length; i++) {
             if (operatorSummaries[i].pipelineId === pipelineId && operatorSummaries[i].operatorId === operatorId) {
                 operatorStageSummary = operatorSummaries[i];
@@ -436,7 +436,7 @@ class StageOperatorGraph extends React.Component {
 
     computeOperatorMap() {
         const operatorMap = new Map();
-        this.props.stage.stageStats.operatorSummaries.forEach(operator => {
+        this.props.stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach(operator => {
             if (!operatorMap.has(operator.planNodeId)) {
                 operatorMap.set(operator.planNodeId, [])
             }
@@ -509,7 +509,8 @@ class StageOperatorGraph extends React.Component {
             );
         }
 
-        if (!stage.hasOwnProperty('stageStats') || !stage.stageStats.hasOwnProperty("operatorSummaries") || stage.stageStats.operatorSummaries.length === 0) {
+        const latestAttemptExecutionInfo = stage.latestAttemptExecutionInfo;
+        if (!latestAttemptExecutionInfo.hasOwnProperty('stats') || !latestAttemptExecutionInfo.stats.hasOwnProperty("operatorSummaries") || latestAttemptExecutionInfo.stats.operatorSummaries.length === 0) {
             return (
                 <div className="row error-message">
                     <div className="col-xs-12">

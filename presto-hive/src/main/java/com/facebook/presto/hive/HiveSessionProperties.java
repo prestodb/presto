@@ -51,6 +51,7 @@ public final class HiveSessionProperties
     private static final String ORC_TINY_STRIPE_THRESHOLD = "orc_tiny_stripe_threshold";
     private static final String ORC_MAX_READ_BLOCK_SIZE = "orc_max_read_block_size";
     private static final String ORC_LAZY_READ_SMALL_RANGES = "orc_lazy_read_small_ranges";
+    private static final String ORC_ZSTD_JNI_DECOMPRESSION_ENABLED = "orc_zstd_jni_decompression_enabled";
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
     private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
@@ -65,6 +66,7 @@ public final class HiveSessionProperties
     private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
+    private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
@@ -72,10 +74,12 @@ public final class HiveSessionProperties
     public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
+    public static final String SORTED_WRITE_TO_TEMP_PATH_ENABLED = "sorted_write_to_temp_path_enabled";
+    public static final String SORTED_WRITE_TEMP_PATH_SUBDIRECTORY_COUNT = "sorted_write_temp_path_subdirectory_count";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
-    private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
+    public static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
@@ -84,8 +88,10 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
+    public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
+    public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -257,6 +263,11 @@ public final class HiveSessionProperties
                         hiveClientConfig.isFailOnCorruptedParquetStatistics(),
                         false),
                 dataSizeSessionProperty(
+                        PARQUET_MAX_READ_BLOCK_SIZE,
+                        "Parquet: Maximum size of a block to read",
+                        hiveClientConfig.getParquetMaxReadBlockSize(),
+                        false),
+                dataSizeSessionProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
                         "Parquet: Writer block size",
                         parquetFileWriterConfig.getBlockSize(),
@@ -290,6 +301,16 @@ public final class HiveSessionProperties
                         SORTED_WRITING_ENABLED,
                         "Enable writing to bucketed sorted tables",
                         hiveClientConfig.isSortedWritingEnabled(),
+                        false),
+                booleanProperty(
+                        SORTED_WRITE_TO_TEMP_PATH_ENABLED,
+                        "Enable writing temp files to temp path when writing to bucketed sorted tables",
+                        hiveClientConfig.isSortedWriteToTempPathEnabled(),
+                        false),
+                integerProperty(
+                        SORTED_WRITE_TEMP_PATH_SUBDIRECTORY_COUNT,
+                        "Number of directories per partition for temp files generated by writing sorted table",
+                        hiveClientConfig.getSortedWriteTempPathSubdirectoryCount(),
                         false),
                 booleanProperty(
                         STATISTICS_ENABLED,
@@ -359,6 +380,11 @@ public final class HiveSessionProperties
                         "Experimental: enable complex filter pushdown",
                         hiveClientConfig.isPushdownFilterEnabled(),
                         false),
+                booleanProperty(
+                        RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED,
+                        "Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers",
+                        hiveClientConfig.isRangeFiltersOnSubscriptsEnabled(),
+                        false),
                 integerProperty(
                         VIRTUAL_BUCKET_COUNT,
                         "Number of virtual bucket assigned for unbucketed tables",
@@ -368,7 +394,17 @@ public final class HiveSessionProperties
                         MAX_BUCKETS_FOR_GROUPED_EXECUTION,
                         "maximum total buckets to allow using grouped execution",
                         hiveClientConfig.getMaxBucketsForGroupedExecution(),
-                        false));
+                        false),
+                booleanProperty(
+                        OFFLINE_DATA_DEBUG_MODE_ENABLED,
+                        "allow reading from tables or partitions that are marked as offline or not readable",
+                        false,
+                        true),
+                booleanProperty(
+                        ORC_ZSTD_JNI_DECOMPRESSION_ENABLED,
+                        "use JNI based zstd decompression for reading ORC files",
+                        hiveClientConfig.isZstdJniDecompressionEnabled(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -434,6 +470,11 @@ public final class HiveSessionProperties
     public static boolean getOrcLazyReadSmallRanges(ConnectorSession session)
     {
         return session.getProperty(ORC_LAZY_READ_SMALL_RANGES, Boolean.class);
+    }
+
+    public static boolean isOrcZstdJniDecompressionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ORC_ZSTD_JNI_DECOMPRESSION_ENABLED, Boolean.class);
     }
 
     public static DataSize getOrcStringStatisticsLimit(ConnectorSession session)
@@ -513,6 +554,11 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_FAIL_WITH_CORRUPTED_STATISTICS, Boolean.class);
     }
 
+    public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
+    }
+
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_BLOCK_SIZE, DataSize.class);
@@ -546,6 +592,16 @@ public final class HiveSessionProperties
     public static boolean isSortedWritingEnabled(ConnectorSession session)
     {
         return session.getProperty(SORTED_WRITING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isSortedWriteToTempPathEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SORTED_WRITE_TO_TEMP_PATH_ENABLED, Boolean.class);
+    }
+
+    public static int getSortedWriteTempPathSubdirectoryCount(ConnectorSession session)
+    {
+        return session.getProperty(SORTED_WRITE_TEMP_PATH_SUBDIRECTORY_COUNT, Integer.class);
     }
 
     public static boolean isS3SelectPushdownEnabled(ConnectorSession session)
@@ -613,6 +669,11 @@ public final class HiveSessionProperties
         return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
     }
 
+    public static boolean isRangeFiltersOnSubscriptsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED, Boolean.class);
+    }
+
     public static int getVirtualBucketCount(ConnectorSession session)
     {
         int virtualBucketCount = session.getProperty(VIRTUAL_BUCKET_COUNT, Integer.class);
@@ -620,6 +681,11 @@ public final class HiveSessionProperties
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must not be negative: %s", VIRTUAL_BUCKET_COUNT, virtualBucketCount));
         }
         return virtualBucketCount;
+    }
+
+    public static boolean isOfflineDataDebugModeEnabled(ConnectorSession session)
+    {
+        return session.getProperty(OFFLINE_DATA_DEBUG_MODE_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

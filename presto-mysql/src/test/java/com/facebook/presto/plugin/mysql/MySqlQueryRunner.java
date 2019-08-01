@@ -15,19 +15,20 @@ package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
 
+import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 
 public final class MySqlQueryRunner
 {
@@ -40,10 +41,22 @@ public final class MySqlQueryRunner
     public static QueryRunner createMySqlQueryRunner(TestingMySqlServer server, TpchTable<?>... tables)
             throws Exception
     {
-        return createMySqlQueryRunner(server, ImmutableList.copyOf(tables));
+        return createMySqlQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
     }
 
-    public static QueryRunner createMySqlQueryRunner(TestingMySqlServer server, Iterable<TpchTable<?>> tables)
+    public static QueryRunner createMySqlQueryRunner(TestingMySqlServer server, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        try {
+            return createMySqlQueryRunner(server.getJdbcUrl(), connectorProperties, tables);
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, server);
+            throw e;
+        }
+    }
+
+    public static QueryRunner createMySqlQueryRunner(String jdbcUrl, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -53,20 +66,19 @@ public final class MySqlQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<String, String> properties = ImmutableMap.<String, String>builder()
-                    .put("connection-url", server.getJdbcUrl())
-                    .put("allow-drop-table", "true")
-                    .build();
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties.putIfAbsent("connection-url", jdbcUrl);
+            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new MySqlPlugin());
-            queryRunner.createCatalog("mysql", "mysql", properties);
+            queryRunner.createCatalog("mysql", "mysql", connectorProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
             return queryRunner;
         }
         catch (Throwable e) {
-            closeAllSuppress(e, queryRunner, server);
+            closeAllSuppress(e, queryRunner);
             throw e;
         }
     }

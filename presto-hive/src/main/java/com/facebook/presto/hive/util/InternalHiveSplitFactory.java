@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.HiveSplitPartitionInfo;
 import com.facebook.presto.hive.InternalHiveSplit;
 import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
@@ -23,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
@@ -70,28 +70,29 @@ public class InternalHiveSplitFactory
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, boolean splittable)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(HiveFileInfo fileInfo, boolean splittable)
     {
-        return createInternalHiveSplit(status, OptionalInt.empty(), OptionalInt.empty(), splittable);
+        return createInternalHiveSplit(fileInfo, OptionalInt.empty(), OptionalInt.empty(), splittable);
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, int readBucketNumber, int tableBucketNumber, boolean splittable)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(HiveFileInfo fileInfo, int readBucketNumber, int tableBucketNumber, boolean splittable)
     {
-        return createInternalHiveSplit(status, OptionalInt.of(readBucketNumber), OptionalInt.of(tableBucketNumber), splittable);
+        return createInternalHiveSplit(fileInfo, OptionalInt.of(readBucketNumber), OptionalInt.of(tableBucketNumber), splittable);
     }
 
-    private Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt readBucketNumber, OptionalInt tableBucketNumber, boolean splittable)
+    private Optional<InternalHiveSplit> createInternalHiveSplit(HiveFileInfo fileInfo, OptionalInt readBucketNumber, OptionalInt tableBucketNumber, boolean splittable)
     {
-        splittable = splittable && isSplittable(inputFormat, fileSystem, status.getPath());
+        splittable = splittable && isSplittable(inputFormat, fileSystem, fileInfo.getPath());
         return createInternalHiveSplit(
-                status.getPath(),
-                status.getBlockLocations(),
+                fileInfo.getPath(),
+                fileInfo.getBlockLocations(),
                 0,
-                status.getLen(),
-                status.getLen(),
+                fileInfo.getLength(),
+                fileInfo.getLength(),
                 readBucketNumber,
                 tableBucketNumber,
-                splittable);
+                splittable,
+                fileInfo.getExtraFileInfo());
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
@@ -106,7 +107,8 @@ public class InternalHiveSplitFactory
                 file.getLen(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
-                false);
+                false,
+                Optional.empty());
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
@@ -117,7 +119,8 @@ public class InternalHiveSplitFactory
             long fileSize,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
-            boolean splittable)
+            boolean splittable,
+            Optional<byte[]> extraFileInfo)
     {
         String pathString = path.toString();
         if (!pathMatchesPredicate(pathDomain, pathString)) {
@@ -179,7 +182,8 @@ public class InternalHiveSplitFactory
                 splittable,
                 forceLocalScheduling && allBlocksHaveRealAddress(blocks),
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
-                partitionInfo));
+                partitionInfo,
+                extraFileInfo));
     }
 
     private boolean needsHostAddresses(boolean forceLocalScheduling, List<HostAddress> addresses)

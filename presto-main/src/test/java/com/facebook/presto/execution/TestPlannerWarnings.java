@@ -21,14 +21,15 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
@@ -127,7 +128,14 @@ public class TestPlannerWarnings
                 queryRunner.getCostCalculator(),
                 ImmutableSet.copyOf(rules));
 
-        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer, queryRunner.translateExpressions()), LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, warningCollector);
+        // Translate all OriginalExpression in planNodes to RowExpression so that we can do plan pattern asserting and printing on RowExpression only.
+        PlanOptimizer expressionTranslator = new IterativeOptimizer(
+                new RuleStatsRecorder(),
+                queryRunner.getStatsCalculator(),
+                queryRunner.getCostCalculator(),
+                ImmutableSet.copyOf(new TranslateExpressions(queryRunner.getMetadata(), queryRunner.getSqlParser()).rules()));
+
+        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer, expressionTranslator), LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, warningCollector);
     }
 
     public static List<PrestoWarning> createTestWarnings(int numberOfWarnings)

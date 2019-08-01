@@ -41,6 +41,7 @@ public final class StandardTypes
     public static final String MAP = "map";
     public static final String JSON = "json";
     public static final String IPADDRESS = "ipaddress";
+    public static final String IPPREFIX = "ipprefix";
     public static final String GEOMETRY = "Geometry";
     public static final String BING_TILE = "BingTile";
 

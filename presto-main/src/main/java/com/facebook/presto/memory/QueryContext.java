@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -246,6 +246,16 @@ public class QueryContext
         return memoryPool;
     }
 
+    public long getMaxUserMemory()
+    {
+        return maxUserMemory;
+    }
+
+    public long getMaxTotalMemory()
+    {
+        return maxTotalMemory;
+    }
+
     public TaskContext addTaskContext(
             TaskStateMachine taskStateMachine,
             Session session,
@@ -288,6 +298,11 @@ public class QueryContext
         TaskContext taskContext = taskContexts.get(taskId);
         verify(taskContext != null, "task does not exist");
         return taskContext;
+    }
+
+    public QueryId getQueryId()
+    {
+        return queryId;
     }
 
     private static class QueryMemoryReservationHandler
@@ -341,7 +356,7 @@ public class QueryContext
     @GuardedBy("this")
     private String getAdditionalFailureInfo(long allocated, long delta)
     {
-        Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations().get(queryId);
+        Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations(queryId);
 
         String additionalInfo = format("Allocated: %s, Delta: %s", succinctBytes(allocated), succinctBytes(delta));
 

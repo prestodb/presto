@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.stats.Distribution;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
@@ -23,13 +26,19 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -44,7 +53,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.airlift.stats.Distribution;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -88,11 +96,13 @@ import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -104,16 +114,12 @@ import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.ZLIB;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
@@ -400,7 +406,8 @@ public class TestOrcBatchPageSourceMemoryTracking
     private class TestPreparer
     {
         private final FileSplit fileSplit;
-        private final Properties schema;
+        private final Storage storage;
+        private final TableHandle table;
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
         private final List<HivePartitionKey> partitionKeys;
@@ -417,22 +424,23 @@ public class TestOrcBatchPageSourceMemoryTracking
                 throws Exception
         {
             OrcSerde serde = new OrcSerde();
-            schema = new Properties();
-            schema.setProperty("columns",
-                    testColumns.stream()
-                            .map(TestColumn::getName)
-                            .collect(Collectors.joining(",")));
-            schema.setProperty("columns.types",
-                    testColumns.stream()
-                            .map(TestColumn::getType)
-                            .collect(Collectors.joining(",")));
-            schema.setProperty(FILE_INPUT_FORMAT, OrcInputFormat.class.getName());
-            schema.setProperty(SERIALIZATION_LIB, serde.getClass().getName());
+            storage = new Storage(
+                    StorageFormat.create(serde.getClass().getName(), OrcInputFormat.class.getName(), OrcOutputFormat.class.getName()),
+                    "location",
+                    Optional.empty(),
+                    false,
+                    ImmutableMap.of());
 
             partitionKeys = testColumns.stream()
                     .filter(TestColumn::isPartitionKey)
                     .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                     .collect(toList());
+
+            table = new TableHandle(
+                    new ConnectorId("test"),
+                    new ConnectorTableHandle() {},
+                    new ConnectorTransactionHandle() {},
+                    Optional.empty());
 
             ImmutableList.Builder<HiveColumnHandle> columnsBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -466,7 +474,15 @@ public class TestOrcBatchPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
-            OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, stats, 100);
+            OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(
+                    TYPE_MANAGER,
+                    false,
+                    HDFS_ENVIRONMENT,
+                    stats,
+                    100,
+                    new StorageOrcFileTailSource(),
+                    new StorageStripeMetadataSource(),
+                    new HadoopFileOpener());
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
@@ -477,15 +493,25 @@ public class TestOrcBatchPageSourceMemoryTracking
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     fileSplit.getLength(),
-                    schema,
+                    storage,
                     TupleDomain.all(),
                     columns,
+                    ImmutableMap.of(),
                     partitionKeys,
                     DateTimeZone.UTC,
                     TYPE_MANAGER,
+                    new SchemaTableName("schema", "table"),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    ImmutableMap.of(),
+                    0,
                     ImmutableMap.of(),
                     Optional.empty(),
-                    false)
+                    false,
+                    Optional.empty(),
+                    null,
+                    false,
+                    ROW_EXPRESSION_SERVICE)
                     .get();
         }
 
@@ -495,7 +521,8 @@ public class TestOrcBatchPageSourceMemoryTracking
             SourceOperatorFactory sourceOperatorFactory = new TableScanOperatorFactory(
                     0,
                     new PlanNodeId("0"),
-                    (session, split, columnHandles) -> pageSource,
+                    (session, split, table, columnHandles) -> pageSource,
+                    table,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -509,15 +536,16 @@ public class TestOrcBatchPageSourceMemoryTracking
             for (int i = 0; i < types.size(); i++) {
                 projectionsBuilder.add(field(i, types.get(i)));
             }
-            Supplier<CursorProcessor> cursorProcessor = EXPRESSION_COMPILER.compileCursorProcessor(Optional.empty(), projectionsBuilder.build(), "key");
-            Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(Optional.empty(), projectionsBuilder.build());
+            Supplier<CursorProcessor> cursorProcessor = EXPRESSION_COMPILER.compileCursorProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build(), "key");
+            Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build());
             SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
-                    (session, split, columnHandles) -> pageSource,
+                    (session, split, table, columnHandles) -> pageSource,
                     cursorProcessor,
                     pageProcessor,
+                    table,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
                     types,
                     new DataSize(0, BYTE),

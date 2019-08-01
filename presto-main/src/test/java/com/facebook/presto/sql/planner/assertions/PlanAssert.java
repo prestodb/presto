@@ -43,14 +43,13 @@ public final class PlanAssert
     public static void assertPlan(Session session, Metadata metadata, StatsProvider statsProvider, Plan actual, Lookup lookup, PlanMatchPattern pattern, Function<PlanNode, PlanNode> planSanitizer)
     {
         MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, lookup), pattern);
+        // TODO (Issue #13231) add back printing unresolved plan once we have no need to translate OriginalExpression to RowExpression
         if (!matches.isMatch()) {
-            String formattedPlan = textLogicalPlan(planSanitizer.apply(actual.getRoot()), actual.getTypes(), metadata.getFunctionManager(), StatsAndCosts.empty(), session, 0);
             PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
             String resolvedFormattedPlan = textLogicalPlan(planSanitizer.apply(resolvedPlan), actual.getTypes(), metadata.getFunctionManager(), StatsAndCosts.empty(), session, 0);
             throw new AssertionError(format(
-                    "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n] which resolves to [\n\n%s\n]",
+                    "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]",
                     pattern,
-                    formattedPlan,
                     resolvedFormattedPlan));
         }
     }

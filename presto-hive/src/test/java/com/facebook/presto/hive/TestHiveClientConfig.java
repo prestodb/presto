@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
 import com.facebook.presto.hive.s3.S3FileSystemType;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.HostAndPort;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -49,13 +48,6 @@ public class TestHiveClientConfig
                 .setMaxOutstandingSplitsSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(1_000)
                 .setAllowCorruptWritesForTesting(false)
-                .setMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
-                .setMetastoreRefreshInterval(new Duration(0, TimeUnit.SECONDS))
-                .setMetastoreCacheMaximumSize(10000)
-                .setPerTransactionMetastoreCacheMaximumSize(1000)
-                .setMaxMetastoreRefreshThreads(100)
-                .setMetastoreSocksProxy(null)
-                .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setMinPartitionBatchSize(10)
                 .setMaxPartitionBatchSize(100)
                 .setMaxInitialSplits(200)
@@ -71,7 +63,6 @@ public class TestHiveClientConfig
                 .setIpcPingInterval(new Duration(10, TimeUnit.SECONDS))
                 .setDfsConnectTimeout(new Duration(500, TimeUnit.MILLISECONDS))
                 .setDfsConnectMaxRetries(5)
-                .setVerifyChecksum(true)
                 .setDomainSocketPath(null)
                 .setS3FileSystemType(S3FileSystemType.PRESTO)
                 .setResourceConfigFiles("")
@@ -86,6 +77,7 @@ public class TestHiveClientConfig
                 .setTextMaxLineLength(new DataSize(100, Unit.MEGABYTE))
                 .setUseParquetColumnNames(false)
                 .setFailOnCorruptedParquetStatistics(true)
+                .setParquetMaxReadBlockSize(new DataSize(16, Unit.MEGABYTE))
                 .setUseOrcColumnNames(false)
                 .setAssumeCanonicalPartitionKeys(false)
                 .setOrcBloomFiltersEnabled(false)
@@ -109,6 +101,8 @@ public class TestHiveClientConfig
                 .setBucketExecutionEnabled(true)
                 .setIgnoreTableBucketing(false)
                 .setMaxBucketsForGroupedExecution(1_000_000)
+                .setSortedWriteToTempPathEnabled(false)
+                .setSortedWriteTempPathSubdirectoryCount(10)
                 .setFileSystemMaxCacheSize(1000)
                 .setTableStatisticsEnabled(true)
                 .setOptimizeMismatchedBucketCount(false)
@@ -117,9 +111,6 @@ public class TestHiveClientConfig
                 .setHdfsWireEncryptionEnabled(false)
                 .setPartitionStatisticsSampleSize(100)
                 .setIgnoreCorruptedStatistics(false)
-                .setRecordingPath(null)
-                .setRecordingDuration(new Duration(0, TimeUnit.MINUTES))
-                .setReplay(false)
                 .setCollectColumnStatisticsOnWrite(false)
                 .setCollectColumnStatisticsOnWrite(false)
                 .setS3SelectPushdownEnabled(false)
@@ -129,7 +120,9 @@ public class TestHiveClientConfig
                 .setTemporaryTableSchema("default")
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
-                .setPushdownFilterEnabled(false));
+                .setPushdownFilterEnabled(false)
+                .setZstdJniDecompressionEnabled(false)
+                .setRangeFiltersOnSubscriptsEnabled(false));
     }
 
     @Test
@@ -143,20 +136,12 @@ public class TestHiveClientConfig
                 .put("hive.max-outstanding-splits-size", "32MB")
                 .put("hive.max-split-iterator-threads", "10")
                 .put("hive.allow-corrupt-writes-for-testing", "true")
-                .put("hive.metastore-cache-ttl", "2h")
-                .put("hive.metastore-refresh-interval", "30m")
-                .put("hive.metastore-cache-maximum-size", "5000")
-                .put("hive.per-transaction-metastore-cache-maximum-size", "500")
-                .put("hive.metastore-refresh-max-threads", "2500")
-                .put("hive.metastore.thrift.client.socks-proxy", "localhost:1080")
-                .put("hive.metastore-timeout", "20s")
                 .put("hive.metastore.partition-batch-size.min", "1")
                 .put("hive.metastore.partition-batch-size.max", "1000")
                 .put("hive.dfs.ipc-ping-interval", "34s")
                 .put("hive.dfs-timeout", "33s")
                 .put("hive.dfs.connect.timeout", "20s")
                 .put("hive.dfs.connect.max-retries", "10")
-                .put("hive.dfs.verify-checksum", "false")
                 .put("hive.dfs.domain-socket-path", "/foo")
                 .put("hive.s3-file-system-type", "EMRFS")
                 .put("hive.config.resources", "/foo.xml,/bar.xml")
@@ -180,6 +165,7 @@ public class TestHiveClientConfig
                 .put("hive.text.max-line-length", "13MB")
                 .put("hive.parquet.use-column-names", "true")
                 .put("hive.parquet.fail-on-corrupted-statistics", "false")
+                .put("hive.parquet.max-read-block-size", "66kB")
                 .put("hive.orc.use-column-names", "true")
                 .put("hive.orc.bloom-filters.enabled", "true")
                 .put("hive.orc.default-bloom-filter-fpp", "0.96")
@@ -203,6 +189,8 @@ public class TestHiveClientConfig
                 .put("hive.sorted-writing", "false")
                 .put("hive.ignore-table-bucketing", "true")
                 .put("hive.max-buckets-for-grouped-execution", "100")
+                .put("hive.sorted-write-to-temp-path-enabled", "true")
+                .put("hive.sorted-write-temp-path-subdirectory-count", "50")
                 .put("hive.fs.cache.max-size", "1010")
                 .put("hive.table-statistics-enabled", "false")
                 .put("hive.optimize-mismatched-bucket-count", "true")
@@ -211,9 +199,6 @@ public class TestHiveClientConfig
                 .put("hive.hdfs.wire-encryption.enabled", "true")
                 .put("hive.partition-statistics-sample-size", "1234")
                 .put("hive.ignore-corrupted-statistics", "true")
-                .put("hive.metastore-recording-path", "/foo/bar")
-                .put("hive.metastore-recoding-duration", "42s")
-                .put("hive.replay-metastore-recording", "true")
                 .put("hive.collect-column-statistics-on-write", "true")
                 .put("hive.s3select-pushdown.enabled", "true")
                 .put("hive.s3select-pushdown.max-connections", "1234")
@@ -223,6 +208,8 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-storage-format", "DWRF")
                 .put("hive.temporary-table-compression-codec", "NONE")
                 .put("hive.pushdown-filter-enabled", "true")
+                .put("hive.range-filters-on-subscripts-enabled", "true")
+                .put("hive.zstd-jni-decompression-enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -233,13 +220,6 @@ public class TestHiveClientConfig
                 .setMaxOutstandingSplitsSize(new DataSize(32, Unit.MEGABYTE))
                 .setMaxSplitIteratorThreads(10)
                 .setAllowCorruptWritesForTesting(true)
-                .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
-                .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
-                .setMetastoreCacheMaximumSize(5000)
-                .setPerTransactionMetastoreCacheMaximumSize(500)
-                .setMaxMetastoreRefreshThreads(2500)
-                .setMetastoreSocksProxy(HostAndPort.fromParts("localhost", 1080))
-                .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setMinPartitionBatchSize(1)
                 .setMaxPartitionBatchSize(1000)
                 .setMaxInitialSplits(10)
@@ -255,7 +235,6 @@ public class TestHiveClientConfig
                 .setDfsTimeout(new Duration(33, TimeUnit.SECONDS))
                 .setDfsConnectTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setDfsConnectMaxRetries(10)
-                .setVerifyChecksum(false)
                 .setResourceConfigFiles(ImmutableList.of("/foo.xml", "/bar.xml"))
                 .setHiveStorageFormat(HiveStorageFormat.SEQUENCEFILE)
                 .setCompressionCodec(HiveCompressionCodec.NONE)
@@ -269,6 +248,7 @@ public class TestHiveClientConfig
                 .setTextMaxLineLength(new DataSize(13, Unit.MEGABYTE))
                 .setUseParquetColumnNames(true)
                 .setFailOnCorruptedParquetStatistics(false)
+                .setParquetMaxReadBlockSize(new DataSize(66, Unit.KILOBYTE))
                 .setUseOrcColumnNames(true)
                 .setAssumeCanonicalPartitionKeys(true)
                 .setOrcBloomFiltersEnabled(true)
@@ -293,6 +273,8 @@ public class TestHiveClientConfig
                 .setSortedWritingEnabled(false)
                 .setIgnoreTableBucketing(true)
                 .setMaxBucketsForGroupedExecution(100)
+                .setSortedWriteToTempPathEnabled(true)
+                .setSortedWriteTempPathSubdirectoryCount(50)
                 .setFileSystemMaxCacheSize(1010)
                 .setTableStatisticsEnabled(false)
                 .setOptimizeMismatchedBucketCount(true)
@@ -301,9 +283,6 @@ public class TestHiveClientConfig
                 .setHdfsWireEncryptionEnabled(true)
                 .setPartitionStatisticsSampleSize(1234)
                 .setIgnoreCorruptedStatistics(true)
-                .setRecordingPath("/foo/bar")
-                .setRecordingDuration(new Duration(42, TimeUnit.SECONDS))
-                .setReplay(true)
                 .setCollectColumnStatisticsOnWrite(true)
                 .setCollectColumnStatisticsOnWrite(true)
                 .setS3SelectPushdownEnabled(true)
@@ -313,7 +292,9 @@ public class TestHiveClientConfig
                 .setTemporaryTableSchema("other")
                 .setTemporaryTableStorageFormat(DWRF)
                 .setTemporaryTableCompressionCodec(NONE)
-                .setPushdownFilterEnabled(true);
+                .setPushdownFilterEnabled(true)
+                .setZstdJniDecompressionEnabled(true)
+                .setRangeFiltersOnSubscriptsEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

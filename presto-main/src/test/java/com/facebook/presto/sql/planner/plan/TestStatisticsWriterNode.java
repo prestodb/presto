@@ -13,7 +13,13 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -23,25 +29,26 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.testing.TestingHandleResolver;
+import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonModule;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.UUID;
 
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.json.JsonBinder.jsonBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.testng.Assert.assertEquals;
 
 public class TestStatisticsWriterNode
@@ -55,7 +62,7 @@ public class TestStatisticsWriterNode
         JsonCodec<StatisticsWriterNode> jsonCodec = getJsonCodec();
         StatisticsWriterNode expected = createStatisticsWriterNode();
         StatisticsWriterNode deserialized = jsonCodec.fromJson(jsonCodec.toJson(expected));
-        assertEquals(deserialized.getTarget(), expected.getTarget());
+        assertEquals(deserialized.getTableHandle(), expected.getTableHandle());
         assertEquals(deserialized.getRowCountVariable(), expected.getRowCountVariable());
         assertEquals(deserialized.isRowCountEnabled(), expected.isRowCountEnabled());
         assertEquals(deserialized.getDescriptor(), expected.getDescriptor());
@@ -92,7 +99,7 @@ public class TestStatisticsWriterNode
         return new StatisticsWriterNode(
                 newId(),
                 new ValuesNode(newId(), COLUMNS.stream().map(column -> new VariableReferenceExpression(column, BIGINT)).collect(toImmutableList()), ImmutableList.of()),
-                new StatisticsWriterNode.TestWriteStatisticsHandle(),
+                new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()),
                 variableAllocator.newVariable("count", BIGINT),
                 true,
                 createTestDescriptor());
@@ -118,6 +125,8 @@ public class TestStatisticsWriterNode
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();
+        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
+        handleResolver.addConnectorName("test", new TestingHandleResolver());
         return injector.getInstance(new Key<JsonCodec<StatisticsWriterNode>>() {});
     }
 }

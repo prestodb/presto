@@ -23,12 +23,26 @@ import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
+import com.facebook.presto.spi.PrestoException;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateSequence;
+import org.locationtech.jts.geom.CoordinateSequenceFactory;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
+import org.locationtech.jts.io.WKTWriter;
 
 import java.util.HashSet;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+
 public final class GeometryUtils
 {
+    private static final CoordinateSequenceFactory COORDINATE_SEQUENCE_FACTORY = new PackedCoordinateSequenceFactory();
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(COORDINATE_SEQUENCE_FACTORY);
+
     private GeometryUtils() {}
 
     /**
@@ -96,6 +110,58 @@ public final class GeometryUtils
         }
     }
 
+    /**
+     * Get the bounding box for an OGCGeometry.
+     * <p>
+     * If the geometry is empty, return a Retangle with NaN coordinates.
+     *
+     * @param ogcGeometry
+     * @return Rectangle bounding box
+     */
+    public static Rectangle getExtent(OGCGeometry ogcGeometry)
+    {
+        return getExtent(ogcGeometry, 0.0);
+    }
+
+    /**
+     * Get the bounding box for an OGCGeometry, inflated by radius.
+     * <p>
+     * If the geometry is empty, return a Retangle with NaN coordinates.
+     *
+     * @param ogcGeometry
+     * @return Rectangle bounding box
+     */
+    public static Rectangle getExtent(OGCGeometry ogcGeometry, double radius)
+    {
+        com.esri.core.geometry.Envelope envelope = getEnvelope(ogcGeometry);
+
+        return new Rectangle(
+                envelope.getXMin() - radius,
+                envelope.getYMin() - radius,
+                envelope.getXMax() + radius,
+                envelope.getYMax() + radius);
+    }
+
+    public static org.locationtech.jts.geom.Envelope getJtsEnvelope(OGCGeometry ogcGeometry, double radius)
+    {
+        Envelope esriEnvelope = getEnvelope(ogcGeometry);
+
+        if (esriEnvelope.isEmpty()) {
+            return new org.locationtech.jts.geom.Envelope();
+        }
+
+        return new org.locationtech.jts.geom.Envelope(
+                esriEnvelope.getXMin() - radius,
+                esriEnvelope.getXMax() + radius,
+                esriEnvelope.getYMin() - radius,
+                esriEnvelope.getYMax() + radius);
+    }
+
+    public static org.locationtech.jts.geom.Envelope getJtsEnvelope(OGCGeometry ogcGeometry)
+    {
+        return getJtsEnvelope(ogcGeometry, 0.0);
+    }
+
     public static boolean disjoint(Envelope envelope, OGCGeometry ogcGeometry)
     {
         GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
@@ -159,5 +225,55 @@ public final class GeometryUtils
         }
 
         return true;
+    }
+
+    public static org.locationtech.jts.geom.Geometry jtsGeometryFromWkt(String wkt)
+    {
+        try {
+            return new WKTReader(GEOMETRY_FACTORY).read(wkt);
+        }
+        catch (ParseException | IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKT: " + e.getMessage(), e);
+        }
+    }
+
+    public static String wktFromJtsGeometry(org.locationtech.jts.geom.Geometry geometry)
+    {
+        return new WKTWriter().write(geometry);
+    }
+
+    public static org.locationtech.jts.geom.Point createJtsEmptyPoint()
+    {
+        return GEOMETRY_FACTORY.createPoint();
+    }
+
+    public static org.locationtech.jts.geom.Point createJtsPoint(Coordinate coordinate)
+    {
+        return GEOMETRY_FACTORY.createPoint(coordinate);
+    }
+
+    public static org.locationtech.jts.geom.Point createJtsPoint(double x, double y)
+    {
+        return createJtsPoint(new Coordinate(x, y));
+    }
+
+    public static org.locationtech.jts.geom.MultiPoint createJtsMultiPoint(CoordinateSequence coordinates)
+    {
+        return GEOMETRY_FACTORY.createMultiPoint(coordinates);
+    }
+
+    public static org.locationtech.jts.geom.Geometry createJtsEmptyLineString()
+    {
+        return GEOMETRY_FACTORY.createLineString();
+    }
+
+    public static org.locationtech.jts.geom.Geometry createJtsLineString(CoordinateSequence coordinates)
+    {
+        return GEOMETRY_FACTORY.createLineString(coordinates);
+    }
+
+    public static org.locationtech.jts.geom.Geometry createJtsEmptyPolygon()
+    {
+        return GEOMETRY_FACTORY.createPolygon();
     }
 }

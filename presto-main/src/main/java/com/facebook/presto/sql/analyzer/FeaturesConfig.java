@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -43,6 +43,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "resource-group-manager",
@@ -123,6 +124,7 @@ public class FeaturesConfig
     private boolean preferPartialAggregation = true;
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
+    private boolean optimizeFullOuterJoinWithCoalesce = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -132,9 +134,16 @@ public class FeaturesConfig
     private boolean legacyUnnestArrayRows;
 
     private boolean jsonSerdeCodeGenerationEnabled;
-    private int maxConcurrentMaterializations = 10;
+    private int maxConcurrentMaterializations = 3;
+    private boolean optimizedRepartitioningEnabled;
 
     private boolean pushdownSubfieldsEnabled;
+
+    private boolean tableWriterMergeOperatorEnabled = true;
+
+    private Duration indexLoaderTimeout = new Duration(20, SECONDS);
+
+    private boolean listNonBuiltInFunctions;
 
     public enum JoinReorderingStrategy
     {
@@ -1043,5 +1052,67 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldsEnabled()
     {
         return pushdownSubfieldsEnabled;
+    }
+
+    public boolean isTableWriterMergeOperatorEnabled()
+    {
+        return tableWriterMergeOperatorEnabled;
+    }
+
+    @Config("experimental.table-writer-merge-operator-enabled")
+    public FeaturesConfig setTableWriterMergeOperatorEnabled(boolean tableWriterMergeOperatorEnabled)
+    {
+        this.tableWriterMergeOperatorEnabled = tableWriterMergeOperatorEnabled;
+        return this;
+    }
+
+    @Config("optimizer.optimize-full-outer-join-with-coalesce")
+    public FeaturesConfig setOptimizeFullOuterJoinWithCoalesce(boolean optimizeFullOuterJoinWithCoalesce)
+    {
+        this.optimizeFullOuterJoinWithCoalesce = optimizeFullOuterJoinWithCoalesce;
+        return this;
+    }
+
+    public Boolean isOptimizeFullOuterJoinWithCoalesce()
+    {
+        return this.optimizeFullOuterJoinWithCoalesce;
+    }
+
+    @Config("index-loader-timeout")
+    @ConfigDescription("Time limit for loading indexes for index joins")
+    public FeaturesConfig setIndexLoaderTimeout(Duration indexLoaderTimeout)
+    {
+        this.indexLoaderTimeout = indexLoaderTimeout;
+        return this;
+    }
+
+    public Duration getIndexLoaderTimeout()
+    {
+        return this.indexLoaderTimeout;
+    }
+
+    public boolean isOptimizedRepartitioningEnabled()
+    {
+        return optimizedRepartitioningEnabled;
+    }
+
+    @Config("experimental.optimized-repartitioning")
+    @ConfigDescription("Experimental: Use optimized repartitioning")
+    public FeaturesConfig setOptimizedRepartitioningEnabled(boolean optimizedRepartitioningEnabled)
+    {
+        this.optimizedRepartitioningEnabled = optimizedRepartitioningEnabled;
+        return this;
+    }
+
+    public boolean isListNonBuiltInFunctions()
+    {
+        return listNonBuiltInFunctions;
+    }
+
+    @Config("list-non-built-in-functions")
+    public FeaturesConfig setListNonBuiltInFunctions(boolean listNonBuiltInFunctions)
+    {
+        this.listNonBuiltInFunctions = listNonBuiltInFunctions;
+        return this;
     }
 }

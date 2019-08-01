@@ -16,16 +16,17 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 
 import static com.facebook.presto.SystemSessionProperties.isPushLimitThroughOuterJoin;
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.spi.plan.LimitNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -82,11 +83,11 @@ public class PushLimitThroughOuterJoin
         PlanNode right = joinNode.getRight();
 
         if (joinNode.getType() == LEFT && !isLimited(left, context.getLookup(), parent.getCount())) {
-            left = new LimitNode(context.getIdAllocator().getNextId(), left, parent.getCount(), true);
+            left = new LimitNode(context.getIdAllocator().getNextId(), left, parent.getCount(), PARTIAL);
         }
 
         if (joinNode.getType() == RIGHT && !isLimited(right, context.getLookup(), parent.getCount())) {
-            right = new LimitNode(context.getIdAllocator().getNextId(), right, parent.getCount(), true);
+            right = new LimitNode(context.getIdAllocator().getNextId(), right, parent.getCount(), PARTIAL);
         }
 
         if (joinNode.getLeft() != left || joinNode.getRight() != right) {

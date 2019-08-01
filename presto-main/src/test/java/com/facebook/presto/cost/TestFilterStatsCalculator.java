@@ -175,7 +175,7 @@ public class TestFilterStatsCalculator
         // For ExpressionInterpreter, cast will return unknown; but RowExpressionInterpreter can actually evaluate cast.
         Expression expression = expression("cast(null as boolean) AND sin(x) > x");
         RowExpression rowExpression = translator.translateAndOptimize(expression, standardTypes);
-        PlanNodeStatsEstimate rowExpressionStatsEstimate = statsCalculator.filterStats(standardInputStatistics, rowExpression, session, standardTypes);
+        PlanNodeStatsEstimate rowExpressionStatsEstimate = statsCalculator.filterStats(standardInputStatistics, rowExpression, session);
         PlanNodeStatsAssertion.assertThat(rowExpressionStatsEstimate).outputRowsCount(0.0);
     }
 
@@ -596,7 +596,7 @@ public class TestFilterStatsCalculator
         // assert both visitors yield the same result
         RowExpression rowExpression = translator.translateAndOptimize(expression, standardTypes);
         PlanNodeStatsEstimate expressionStatsEstimate = statsCalculator.filterStats(standardInputStatistics, expression, session, standardTypes);
-        PlanNodeStatsEstimate rowExpressionStatsEstimate = statsCalculator.filterStats(standardInputStatistics, rowExpression, session, standardTypes);
+        PlanNodeStatsEstimate rowExpressionStatsEstimate = statsCalculator.filterStats(standardInputStatistics, rowExpression, session);
         assertEquals(expressionStatsEstimate, rowExpressionStatsEstimate);
 
         return PlanNodeStatsAssertion.assertThat(expressionStatsEstimate);

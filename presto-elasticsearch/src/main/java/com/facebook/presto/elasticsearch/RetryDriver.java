@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import io.airlift.log.Logger;
+import com.facebook.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import java.util.ArrayList;

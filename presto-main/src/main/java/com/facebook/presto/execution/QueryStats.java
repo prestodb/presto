@@ -55,6 +55,7 @@ public class QueryStats
 
     private final int totalTasks;
     private final int runningTasks;
+    private final int peakRunningTasks;
     private final int completedTasks;
 
     private final int totalDrivers;
@@ -114,6 +115,7 @@ public class QueryStats
 
             @JsonProperty("totalTasks") int totalTasks,
             @JsonProperty("runningTasks") int runningTasks,
+            @JsonProperty("peakRunningTasks") int peakRunningTasks,
             @JsonProperty("completedTasks") int completedTasks,
 
             @JsonProperty("totalDrivers") int totalDrivers,
@@ -173,6 +175,8 @@ public class QueryStats
         this.totalTasks = totalTasks;
         checkArgument(runningTasks >= 0, "runningTasks is negative");
         this.runningTasks = runningTasks;
+        checkArgument(peakRunningTasks >= 0, "peakRunningTasks is negative");
+        this.peakRunningTasks = peakRunningTasks;
         checkArgument(completedTasks >= 0, "completedTasks is negative");
         this.completedTasks = completedTasks;
 
@@ -239,6 +243,7 @@ public class QueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                0,
                 0,
                 0,
                 0,
@@ -351,6 +356,12 @@ public class QueryStats
     public int getRunningTasks()
     {
         return runningTasks;
+    }
+
+    @JsonProperty
+    public int getPeakRunningTasks()
+    {
+        return peakRunningTasks;
     }
 
     @JsonProperty

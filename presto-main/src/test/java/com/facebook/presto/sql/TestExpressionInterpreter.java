@@ -29,6 +29,7 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.Type;
@@ -39,7 +40,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -71,6 +72,9 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -89,7 +93,6 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
-import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -127,6 +130,7 @@ public class TestExpressionInterpreter
             .put("unbound_boolean", BOOLEAN)
             .put("unbound_date", DATE)
             .put("unbound_time", TIME)
+            .put("unbound_array", new ArrayType(BIGINT))
             .put("unbound_timestamp", TIMESTAMP)
             .put("unbound_interval", INTERVAL_DAY_TIME)
             .put("unbound_pattern", VARCHAR)
@@ -141,7 +145,7 @@ public class TestExpressionInterpreter
     @BeforeClass
     public void setup()
     {
-        METADATA.getFunctionManager().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        METADATA.getFunctionManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
     }
 
     @Test
@@ -547,13 +551,6 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testCurrentPath()
-            throws Exception
-    {
-        assertOptimizedEquals("current_path", "'" + TEST_SESSION.getPath() + "'");
-    }
-
-    @Test
     public void testCastToString()
     {
         // integer
@@ -893,9 +890,9 @@ public class TestExpressionInterpreter
                         "end");
 
         assertOptimizedMatches("case when 0 / 0 = 0 then 1 end",
-                "case when cast(fail() as boolean) then 1 end");
+                "case when cast(fail(8, 'ignored failure message') as boolean) then 1 end");
 
-        assertOptimizedMatches("if(false, 1, 0 / 0)", "cast(fail() as integer)");
+        assertOptimizedMatches("if(false, 1, 0 / 0)", "cast(fail(8, 'ignored failure message') as integer)");
 
         assertOptimizedEquals("case " +
                         "when false then 2.2 " +
@@ -1116,7 +1113,7 @@ public class TestExpressionInterpreter
                 "" +
                         "case BIGINT '1' " +
                         "when unbound_long then 1 " +
-                        "when cast(fail() AS integer) then 2 " +
+                        "when cast(fail(8, 'ignored failure message') AS integer) then 2 " +
                         "else 1 " +
                         "end");
 
@@ -1127,8 +1124,8 @@ public class TestExpressionInterpreter
                         "end",
                 "" +
                         "case 1 " +
-                        "when cast(fail() as integer) then 1 " +
-                        "when cast(fail() as integer) then 2 " +
+                        "when cast(fail(8, 'ignored failure message') as integer) then 1 " +
+                        "when cast(fail(8, 'ignored failure message') as integer) then 2 " +
                         "else 1 " +
                         "end");
 
@@ -1167,7 +1164,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("coalesce(2 * 3 * unbound_integer, 1.0E0/2.0E0, null)", "coalesce(6 * unbound_integer, 0.5E0)");
         assertOptimizedEquals("coalesce(unbound_integer, 2, 1.0E0/2.0E0, 12.34E0, null)", "coalesce(unbound_integer, 2.0E0, 0.5E0, 12.34E0)");
         assertOptimizedMatches("coalesce(0 / 0 > 1, unbound_boolean, 0 / 0 = 0)",
-                "coalesce(cast(fail() as boolean), unbound_boolean)");
+                "coalesce(cast(fail(8, 'ignored failure message') as boolean), unbound_boolean)");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long)", "unbound_long");
         assertOptimizedMatches("coalesce(2 * unbound_long, 2 * unbound_long)", "BIGINT '2' * unbound_long");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long2, unbound_long)", "coalesce(unbound_long, unbound_long2)");
@@ -1311,6 +1308,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("'abc' LIKE bound_pattern", "false");
 
         assertOptimizedEquals("unbound_string LIKE bound_pattern", "unbound_string LIKE bound_pattern");
+        assertDoNotOptimize("unbound_string LIKE 'abc%'", SERIALIZABLE);
 
         assertOptimizedEquals("unbound_string LIKE unbound_pattern ESCAPE unbound_string", "unbound_string LIKE unbound_pattern ESCAPE unbound_string");
     }
@@ -1328,9 +1326,18 @@ public class TestExpressionInterpreter
     @Test
     public void testLambda()
     {
+        assertDoNotOptimize("transform(unbound_array, x -> x + x)", OPTIMIZED);
         assertOptimizedEquals("transform(ARRAY[1, 5], x -> x + x)", "transform(ARRAY[1, 5], x -> x + x)");
         assertOptimizedEquals("transform(sequence(1, 5), x -> x + x)", "transform(sequence(1, 5), x -> x + x)");
-        evaluate("transform(ARRAY[1, 5], x -> x + x)", true);
+        assertRowExpressionOptimizedEquals(
+                OPTIMIZED,
+                "transform(sequence(1, unbound_long), x -> cast(json_parse('[1, 2]') AS ARRAY<INTEGER>)[1] + x)",
+                "transform(sequence(1, unbound_long), x -> 1 + x)");
+        assertRowExpressionOptimizedEquals(
+                OPTIMIZED,
+                "transform(sequence(1, unbound_long), x -> cast(json_parse('[1, 2]') AS ARRAY<INTEGER>)[1] + 1)",
+                "transform(sequence(1, unbound_long), x -> 2)");
+        assertEquals(evaluate("reduce(ARRAY[1, 5], 0, (x, y) -> x + y, x -> x)", true), 6L);
     }
 
     @Test
@@ -1348,22 +1355,22 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("if(unbound_boolean, 0 / 0, 1)", "CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END");
 
         assertOptimizedMatches("CASE unbound_long WHEN 1 THEN 1 WHEN 0 / 0 THEN 2 END",
-                "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN cast(fail() as bigint) THEN 2 END");
+                "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN cast(fail(8, 'ignored failure message') as bigint) THEN 2 END");
 
         assertOptimizedMatches("CASE unbound_boolean WHEN true THEN 1 ELSE 0 / 0 END",
-                "CASE unbound_boolean WHEN true THEN 1 ELSE cast(fail() as integer) END");
+                "CASE unbound_boolean WHEN true THEN 1 ELSE cast(fail(8, 'ignored failure message') as integer) END");
 
         assertOptimizedMatches("CASE bound_long WHEN unbound_long THEN 1 WHEN 0 / 0 THEN 2 ELSE 1 END",
-                "CASE BIGINT '1234' WHEN unbound_long THEN 1 WHEN cast(fail() as bigint) THEN 2 ELSE 1 END");
+                "CASE BIGINT '1234' WHEN unbound_long THEN 1 WHEN cast(fail(8, 'ignored failure message') as bigint) THEN 2 ELSE 1 END");
 
         assertOptimizedMatches("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end",
-                "case when unbound_boolean then 1 when cast(fail() as boolean) then 2 end");
+                "case when unbound_boolean then 1 when cast(fail(8, 'ignored failure message') as boolean) then 2 end");
 
         assertOptimizedMatches("case when unbound_boolean then 1 else 0 / 0  end",
-                "case when unbound_boolean then 1 else cast(fail() as integer) end");
+                "case when unbound_boolean then 1 else cast(fail(8, 'ignored failure message') as integer) end");
 
         assertOptimizedMatches("case when unbound_boolean then 0 / 0 else 1 end",
-                "case when unbound_boolean then cast(fail() as integer) else 1 end");
+                "case when unbound_boolean then cast(fail(8, 'ignored failure message') as integer) else 1 end");
     }
 
     @Test(expectedExceptions = PrestoException.class)
@@ -1373,8 +1380,13 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testMassiveArrayConstructor()
+    public void testMassiveArray()
     {
+        assertRowExpressionOptimizedEquals(
+                OPTIMIZED,
+                "SEQUENCE(1, 999)",
+                format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(1, 1000).mapToObj(i -> "(BIGINT '" + i + "')").iterator())));
+        assertDoNotOptimize("SEQUENCE(1, 1000)", SERIALIZABLE);
         optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "(bound_long + " + i + ")").iterator())));
         optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "(bound_integer + " + i + ")").iterator())));
         optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "'" + i + "'").iterator())));
@@ -1513,6 +1525,17 @@ public class TestExpressionInterpreter
         assertEquals(optimize(actual), optimize(expected));
     }
 
+    private static void assertRowExpressionOptimizedEquals(Level level, @Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        Object actualResult = optimize(toRowExpression(expression(actual)), level);
+        Object expectedResult = optimize(toRowExpression(expression(expected)), level);
+        if (actualResult instanceof Block && expectedResult instanceof Block) {
+            assertEquals(blockToSlice((Block) actualResult), blockToSlice((Block) expectedResult));
+            return;
+        }
+        assertEquals(actualResult, expectedResult);
+    }
+
     private static void assertOptimizedMatches(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         // replaces FunctionCalls to FailureFunction by fail()
@@ -1529,29 +1552,64 @@ public class TestExpressionInterpreter
     {
         assertRoundTrip(expression);
 
-        Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
+        Expression parsedExpression = expression(expression);
+        Object expressionResult = optimize(parsedExpression);
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, parsedExpression, emptyList(), WarningCollector.NOOP);
-        ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
+        RowExpression rowExpression = toRowExpression(parsedExpression);
+        Object rowExpressionResult = optimize(rowExpression, OPTIMIZED);
+        assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
+        return expressionResult;
+    }
 
-        Object expressionResult = interpreter.optimize(symbol -> {
+    private static Expression expression(String expression)
+    {
+        return FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
+    }
+
+    private static RowExpression toRowExpression(Expression expression)
+    {
+        return TRANSLATOR.translate(expression, SYMBOL_TYPES);
+    }
+
+    private static Object optimize(Expression expression)
+    {
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
+        ExpressionInterpreter interpreter = expressionOptimizer(expression, METADATA, TEST_SESSION, expressionTypes);
+        return interpreter.optimize(variable -> {
+            Symbol symbol = new Symbol(variable.getName());
             Object value = symbolConstant(symbol);
             if (value == null) {
                 return symbol.toSymbolReference();
             }
             return value;
         });
-        RowExpression rowExpression = TRANSLATOR.translate(parsedExpression, SYMBOL_TYPES);
-        Object rowExpressionResult = new RowExpressionInterpreter(rowExpression, METADATA, TEST_SESSION.toConnectorSession(), true).optimize(symbol -> {
+    }
+
+    private static Object optimize(RowExpression expression, Level level)
+    {
+        return new RowExpressionInterpreter(expression, METADATA, TEST_SESSION.toConnectorSession(), level).optimize(variable -> {
+            Symbol symbol = new Symbol(variable.getName());
             Object value = symbolConstant(symbol);
             if (value == null) {
                 return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
             }
             return value;
         });
+    }
 
-        assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
-        return expressionResult;
+    private static void assertDoNotOptimize(@Language("SQL") String expression, Level optimizationLevel)
+    {
+        assertRoundTrip(expression);
+        Expression translatedExpression = expression(expression);
+        RowExpression rowExpression = toRowExpression(translatedExpression);
+
+        Object expressionResult = optimize(translatedExpression);
+        if (expressionResult instanceof Expression) {
+            expressionResult = toRowExpression((Expression) expressionResult);
+        }
+        Object rowExpressionResult = optimize(rowExpression, optimizationLevel);
+        assertRowExpressionEvaluationEquals(expressionResult, rowExpressionResult);
+        assertRowExpressionEvaluationEquals(rowExpressionResult, rowExpression);
     }
 
     private static Object symbolConstant(Symbol symbol)
@@ -1594,7 +1652,7 @@ public class TestExpressionInterpreter
             // It is tricky to check the equivalence of an expression and a row expression.
             // We rely on the optimized translator to fill the gap.
             RowExpression translated = TRANSLATOR.translateAndOptimize((Expression) expressionResult, SYMBOL_TYPES);
-            assertRowExpressionEvaluationEquals(translated, new ExpressionOptimizer(METADATA.getFunctionManager(), SESSION).optimize((RowExpression) rowExpressionResult));
+            assertRowExpressionEvaluationEquals(translated, rowExpressionResult);
         }
         else {
             // We have constants; directly compare
@@ -1612,6 +1670,10 @@ public class TestExpressionInterpreter
             assertTrue(left instanceof RowExpression);
             // assertEquals(((RowExpression) left).getType(), ((RowExpression) right).getType());
             if (left instanceof ConstantExpression) {
+                if (isRemovableCast(right)) {
+                    assertRowExpressionEvaluationEquals(left, ((CallExpression) right).getArguments().get(0));
+                    return;
+                }
                 assertTrue(right instanceof ConstantExpression);
                 assertRowExpressionEvaluationEquals(((ConstantExpression) left).getValue(), ((ConstantExpression) left).getValue());
             }
@@ -1652,6 +1714,17 @@ public class TestExpressionInterpreter
                 assertEquals(left, right);
             }
         }
+    }
+
+    private static boolean isRemovableCast(Object value)
+    {
+        if (value instanceof CallExpression &&
+                new FunctionResolution(METADATA.getFunctionManager()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
+            Type targetType = ((CallExpression) value).getType();
+            Type sourceType = ((CallExpression) value).getArguments().get(0).getType();
+            return METADATA.getTypeManager().canCoerce(sourceType, targetType);
+        }
+        return false;
     }
 
     private static Slice blockToSlice(Block block)
@@ -1702,7 +1775,7 @@ public class TestExpressionInterpreter
         public Expression rewriteFunctionCall(FunctionCall node, Object context, ExpressionTreeRewriter<Object> treeRewriter)
         {
             if (node.getName().equals(QualifiedName.of("fail"))) {
-                return new FunctionCall(QualifiedName.of("fail"), ImmutableList.of());
+                return new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(node.getArguments().get(0), new StringLiteral("ignored failure message")));
             }
             return node;
         }

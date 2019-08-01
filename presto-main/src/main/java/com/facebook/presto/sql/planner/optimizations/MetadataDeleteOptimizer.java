@@ -31,7 +31,6 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -96,7 +95,7 @@ public class MetadataDeleteOptimizer
 
             return new MetadataDeleteNode(
                     idAllocator.getNextId(),
-                    new DeleteHandle(tableScanNode.getTable(), delete.get().getTarget().getSchemaTableName()),
+                    tableScanNode.getTable(),
                     Iterables.getOnlyElement(node.getOutputVariables()));
         }
 

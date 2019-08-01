@@ -13,31 +13,27 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.StageState;
-import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
@@ -47,242 +43,297 @@ import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_
 import static com.facebook.presto.SystemSessionProperties.RECOVERABLE_GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.REDISTRIBUTE_WRITES;
 import static com.facebook.presto.SystemSessionProperties.SCALE_WRITERS;
+import static com.facebook.presto.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static com.facebook.presto.SystemSessionProperties.TASK_WRITER_COUNT;
+import static com.facebook.presto.execution.TaskState.RUNNING;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_BUCKETED_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.VIRTUAL_BUCKET_COUNT;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.Thread.sleep;
-import static java.util.Objects.requireNonNull;
+import static java.util.Collections.shuffle;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true, enabled = false)
+@Test(singleThreaded = true)
 public class TestHiveRecoverableGroupedExecution
 {
-    private static final Set<StageState> SPLIT_SCHEDULING_STARTED_STATES = ImmutableSet.of(StageState.SCHEDULING_SPLITS, StageState.SCHEDULED, StageState.RUNNING, StageState.FINISHED);
+    private static final Logger log = Logger.get(TestHiveRecoverableGroupedExecution.class);
 
-    private final Session recoverableSession;
-    private final DistributedQueryRunnerSupplier distributedQueryRunnerSupplier;
+    private static final int TEST_TIMEOUT = 120_000;
+    private static final int INVOCATION_COUNT = 1;
+
+    private DistributedQueryRunner queryRunner;
     private ListeningExecutorService executor;
-
-    @SuppressWarnings("unused")
-    public TestHiveRecoverableGroupedExecution()
-    {
-        this(() -> createQueryRunner(
-                ImmutableList.of(ORDERS),
-                ImmutableMap.of("query.remote-task.max-error-duration", "1s"),
-                Optional.empty()),
-                createRecoverableSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
-    }
-
-    protected TestHiveRecoverableGroupedExecution(DistributedQueryRunnerSupplier distributedQueryRunnerSupplier, Session recoverableSession)
-    {
-        this.distributedQueryRunnerSupplier = requireNonNull(distributedQueryRunnerSupplier, "distributedQueryRunnerSupplier is null");
-        this.recoverableSession = requireNonNull(recoverableSession, "recoverableSession is null");
-    }
 
     @BeforeClass
     public void setUp()
+            throws Exception
     {
+        queryRunner = createQueryRunner(
+                ImmutableList.of(ORDERS),
+                // extra properties
+                ImmutableMap.of(
+                        // task get results timeout has to be significantly higher that the task status update timeout
+                        "exchange.max-error-duration", "5m",
+                        // set the timeout of a single HTTP request to 1s, to make sure that the task result requests are actually failing
+                        // The default is 10s, that might not be sufficient to make sure that the request fails before the recoverable execution kicks in
+                        "exchange.http-client.request-timeout", "1s"),
+                // extra coordinator properties
+                ImmutableMap.of(
+                        // set the timeout of the task update requests to something low to improve overall test latency
+                        "scheduler.http-client.request-timeout", "1s",
+                        // this effectively disables the retries
+                        "query.remote-task.max-error-duration", "1s",
+                        // allow 2 out of 4 tasks to fail
+                        "max-failed-task-percentage", "0.6"),
+
+                Optional.empty());
         executor = listeningDecorator(newCachedThreadPool());
     }
 
     @AfterClass(alwaysRun = true)
     public void shutdown()
     {
-        executor.shutdownNow();
+        if (executor != null) {
+            executor.shutdownNow();
+        }
+        executor = null;
+
+        if (queryRunner != null) {
+            queryRunner.close();
+        }
+        queryRunner = null;
     }
 
-    @Test(timeOut = 60_000, enabled = false)
-    public void testCreateBucketedTable()
+    @DataProvider(name = "writerConcurrency")
+    public static Object[][] writerConcurrency()
+    {
+        return new Object[][] {{1}, {2}};
+    }
+
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
+    public void testCreateBucketedTable(int writerConcurrency)
             throws Exception
     {
         testRecoverableGroupedExecution(
+                writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table1\n" +
+                        "CREATE TABLE create_bucketed_table_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                                 "SELECT orderkey key1, comment value1 FROM orders",
-                        "CREATE TABLE test_table2\n" +
+                        "CREATE TABLE create_bucketed_table_2\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
                                 "SELECT orderkey key2, comment value2 FROM orders",
-                        "CREATE TABLE test_table3\n" +
+                        "CREATE TABLE create_bucketed_table_3\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
                                 "SELECT orderkey key3, comment value3 FROM orders"),
-                "CREATE TABLE test_success WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
+                "CREATE TABLE create_bucketed_table_success WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                         "SELECT key1, value1, key2, value2, key3, value3\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM create_bucketed_table_1\n" +
+                        "JOIN create_bucketed_table_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN create_bucketed_table_3\n" +
                         "ON key2 = key3",
-                "CREATE TABLE test_failure WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
+                "CREATE TABLE create_bucketed_table_failure WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                         "SELECT key1, value1, key2, value2, key3, value3\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM create_bucketed_table_1\n" +
+                        "JOIN create_bucketed_table_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN create_bucketed_table_3\n" +
                         "ON key2 = key3",
                 15000,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table1",
-                        "DROP TABLE IF EXISTS test_table2",
-                        "DROP TABLE IF EXISTS test_table3",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS create_bucketed_table_1",
+                        "DROP TABLE IF EXISTS create_bucketed_table_2",
+                        "DROP TABLE IF EXISTS create_bucketed_table_3",
+                        "DROP TABLE IF EXISTS create_bucketed_table_success",
+                        "DROP TABLE IF EXISTS create_bucketed_table_failure"));
     }
 
-    @Test(timeOut = 60_000, enabled = false)
-    public void testInsertBucketedTable()
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
+    public void testInsertBucketedTable(int writerConcurrency)
             throws Exception
     {
         testRecoverableGroupedExecution(
+                writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table1\n" +
+                        "CREATE TABLE insert_bucketed_table_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                                 "SELECT orderkey key1, comment value1 FROM orders",
-                        "CREATE TABLE test_table2\n" +
+                        "CREATE TABLE insert_bucketed_table_2\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
                                 "SELECT orderkey key2, comment value2 FROM orders",
-                        "CREATE TABLE test_table3\n" +
+                        "CREATE TABLE insert_bucketed_table_3\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
                                 "SELECT orderkey key3, comment value3 FROM orders",
-                        "CREATE TABLE test_success (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
+                        "CREATE TABLE insert_bucketed_table_success (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key'], partitioned_by = ARRAY['partition_key'])",
-                        "CREATE TABLE test_failure (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
+                        "CREATE TABLE insert_bucketed_table_failure (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key'], partitioned_by = ARRAY['partition_key'])"),
-                "INSERT INTO test_success\n" +
+                "INSERT INTO insert_bucketed_table_success\n" +
                         "SELECT key1, value1, 'foo'\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM insert_bucketed_table_1\n" +
+                        "JOIN insert_bucketed_table_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN insert_bucketed_table_3\n" +
                         "ON key2 = key3",
-                "INSERT INTO test_failure\n" +
+                "INSERT INTO insert_bucketed_table_failure\n" +
                         "SELECT key1, value1, 'foo'\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM insert_bucketed_table_1\n" +
+                        "JOIN insert_bucketed_table_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN insert_bucketed_table_3\n" +
                         "ON key2 = key3",
                 15000,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table1",
-                        "DROP TABLE IF EXISTS test_table2",
-                        "DROP TABLE IF EXISTS test_table3",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS insert_bucketed_table_1",
+                        "DROP TABLE IF EXISTS insert_bucketed_table_2",
+                        "DROP TABLE IF EXISTS insert_bucketed_table_3",
+                        "DROP TABLE IF EXISTS insert_bucketed_table_success",
+                        "DROP TABLE IF EXISTS insert_bucketed_table_failure"));
     }
 
-    @Test(timeOut = 60_000, enabled = false)
-    public void testCreateUnbucketedTableWithGroupedExecution()
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
+    public void testCreateUnbucketedTableWithGroupedExecution(int writerConcurrency)
             throws Exception
     {
         testRecoverableGroupedExecution(
+                writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table1\n" +
+                        "CREATE TABLE create_unbucketed_table_with_grouped_execution_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                                 "SELECT orderkey key1, comment value1 FROM orders",
-                        "CREATE TABLE test_table2\n" +
+                        "CREATE TABLE create_unbucketed_table_with_grouped_execution_2\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
                                 "SELECT orderkey key2, comment value2 FROM orders",
-                        "CREATE TABLE test_table3\n" +
+                        "CREATE TABLE create_unbucketed_table_with_grouped_execution_3\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
                                 "SELECT orderkey key3, comment value3 FROM orders"),
-                "CREATE TABLE test_success AS\n" +
+                "CREATE TABLE create_unbucketed_table_with_grouped_execution_success AS\n" +
                         "SELECT key1, value1, key2, value2, key3, value3\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM create_unbucketed_table_with_grouped_execution_1\n" +
+                        "JOIN create_unbucketed_table_with_grouped_execution_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN create_unbucketed_table_with_grouped_execution_3\n" +
                         "ON key2 = key3",
-                "CREATE TABLE test_failure AS\n" +
+                "CREATE TABLE create_unbucketed_table_with_grouped_execution_failure AS\n" +
                         "SELECT key1, value1, key2, value2, key3, value3\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM create_unbucketed_table_with_grouped_execution_1\n" +
+                        "JOIN create_unbucketed_table_with_grouped_execution_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN create_unbucketed_table_with_grouped_execution_3\n" +
                         "ON key2 = key3",
                 15000,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table1",
-                        "DROP TABLE IF EXISTS test_table2",
-                        "DROP TABLE IF EXISTS test_table3",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_1",
+                        "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_2",
+                        "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_3",
+                        "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_success",
+                        "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_failure"));
     }
 
-    @Test(timeOut = 60_000, enabled = false)
-    public void testInsertUnbucketedTableWithGroupedExecution()
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
+    public void testInsertUnbucketedTableWithGroupedExecution(int writerConcurrency)
             throws Exception
     {
         testRecoverableGroupedExecution(
+                writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table1\n" +
+                        "CREATE TABLE insert_unbucketed_table_with_grouped_execution_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                                 "SELECT orderkey key1, comment value1 FROM orders",
-                        "CREATE TABLE test_table2\n" +
+                        "CREATE TABLE insert_unbucketed_table_with_grouped_execution_2\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
                                 "SELECT orderkey key2, comment value2 FROM orders",
-                        "CREATE TABLE test_table3\n" +
+                        "CREATE TABLE insert_unbucketed_table_with_grouped_execution_3\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
                                 "SELECT orderkey key3, comment value3 FROM orders",
-                        "CREATE TABLE test_success (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
+                        "CREATE TABLE insert_unbucketed_table_with_grouped_execution_success (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
                                 "WITH (partitioned_by = ARRAY['partition_key'])",
-                        "CREATE TABLE test_failure (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
+                        "CREATE TABLE insert_unbucketed_table_with_grouped_execution_failure (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
                                 "WITH (partitioned_by = ARRAY['partition_key'])"),
-                "INSERT INTO test_success\n" +
+                "INSERT INTO insert_unbucketed_table_with_grouped_execution_success\n" +
                         "SELECT key1, value1, 'foo'\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM insert_unbucketed_table_with_grouped_execution_1\n" +
+                        "JOIN insert_unbucketed_table_with_grouped_execution_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN insert_unbucketed_table_with_grouped_execution_3\n" +
                         "ON key2 = key3",
-                "INSERT INTO test_failure\n" +
+                "INSERT INTO insert_unbucketed_table_with_grouped_execution_failure\n" +
                         "SELECT key1, value1, 'foo'\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM insert_unbucketed_table_with_grouped_execution_1\n" +
+                        "JOIN insert_unbucketed_table_with_grouped_execution_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN insert_unbucketed_table_with_grouped_execution_3\n" +
                         "ON key2 = key3",
                 15000,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table1",
-                        "DROP TABLE IF EXISTS test_table2",
-                        "DROP TABLE IF EXISTS test_table3",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_1",
+                        "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_2",
+                        "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_3",
+                        "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_success",
+                        "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_failure"));
     }
 
-    @Test(timeOut = 60_000, enabled = false)
-    public void testScanFilterProjectionOnlyQueryOnUnbucketedTable()
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
+    public void testScanFilterProjectionOnlyQueryOnUnbucketedTable(int writerConcurrency)
             throws Exception
     {
         testRecoverableGroupedExecution(
+                writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table AS\n" +
+                        "CREATE TABLE scan_filter_projection_only_query_on_unbucketed_table AS\n" +
                                 "SELECT t.comment\n" +
                                 "FROM orders\n" +
                                 "CROSS JOIN UNNEST(REPEAT(comment, 10)) AS t (comment)"),
-                "CREATE TABLE test_success AS\n" +
-                        "SELECT comment value1 FROM test_table",
-                "CREATE TABLE test_failure AS\n" +
-                        "SELECT comment value1 FROM test_table",
+                "CREATE TABLE scan_filter_projection_only_query_on_unbucketed_table_success AS\n" +
+                        "SELECT comment value1 FROM scan_filter_projection_only_query_on_unbucketed_table",
+                "CREATE TABLE scan_filter_projection_only_query_on_unbucketed_table_failure AS\n" +
+                        "SELECT comment value1 FROM scan_filter_projection_only_query_on_unbucketed_table",
                 15000 * 10,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS scan_filter_projection_only_query_on_unbucketed_table",
+                        "DROP TABLE IF EXISTS scan_filter_projection_only_query_on_unbucketed_table_success",
+                        "DROP TABLE IF EXISTS scan_filter_projection_only_query_on_unbucketed_table_failure"));
+    }
+
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
+    public void testUnionAll(int writerConcurrency)
+            throws Exception
+    {
+        testRecoverableGroupedExecution(
+                writerConcurrency,
+                ImmutableList.of(
+                        "CREATE TABLE test_union_all AS\n" +
+                                "SELECT t.comment\n" +
+                                "FROM orders\n" +
+                                "CROSS JOIN UNNEST(REPEAT(comment, 10)) AS t (comment)"),
+                "CREATE TABLE test_union_all_success AS\n" +
+                        "SELECT comment value1 FROM test_union_all " +
+                        "UNION ALL " +
+                        "SELECT comment value1 FROM test_union_all",
+                "CREATE TABLE test_union_all_failure AS\n" +
+                        "SELECT comment value1 FROM test_union_all " +
+                        "UNION ALL " +
+                        "SELECT comment value1 FROM test_union_all",
+                30000 * 10,
+                ImmutableList.of(
+                        "DROP TABLE IF EXISTS test_union_all",
+                        "DROP TABLE IF EXISTS test_union_all_success",
+                        "DROP TABLE IF EXISTS test_union_all_failure"));
     }
 
     private void testRecoverableGroupedExecution(
+            int writerConcurrency,
             List<String> preQueries,
             @Language("SQL") String queryWithoutFailure,
             @Language("SQL") String queryWithFailure,
@@ -290,71 +341,101 @@ public class TestHiveRecoverableGroupedExecution
             List<String> postQueries)
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = distributedQueryRunnerSupplier.get()) {
-            try {
-                for (@Language("SQL") String preQuery : preQueries) {
-                    queryRunner.execute(recoverableSession, preQuery);
-                }
-
-                // test no failure case
-                assertEquals(queryRunner.execute(recoverableSession, queryWithoutFailure).getUpdateCount(), OptionalLong.of(expectedUpdateCount));
-
-                // test failure case
-                ListenableFuture<MaterializedResult> result = executor.submit(() -> queryRunner.execute(recoverableSession, queryWithFailure));
-
-                // wait for split scheduling starts
-                while (!isSplitSchedulingStarted(queryRunner)) {
-                    sleep(10);
-                }
-
-                // wait for additional 300ms before close a worker
-                sleep(300);
-
-                assertTrue(getRunningQueryId(queryRunner.getQueries()).isPresent());
-                TestingPrestoServer worker = queryRunner.getServers().stream()
-                        .filter(server -> !server.isCoordinator())
-                        .findFirst()
-                        .get();
-                worker.close();
-
-                assertEquals(result.get(30, SECONDS).getUpdateCount(), OptionalLong.of(expectedUpdateCount));
+        Session recoverableSession = createRecoverableSession(writerConcurrency);
+        try {
+            for (@Language("SQL") String preQuery : preQueries) {
+                queryRunner.execute(recoverableSession, preQuery);
             }
-            finally {
-                for (@Language("SQL") String postQuery : postQueries) {
-                    queryRunner.execute(recoverableSession, postQuery);
+
+            // test no failure case
+            Stopwatch noRecoveryStopwatch = Stopwatch.createStarted();
+            assertEquals(queryRunner.execute(recoverableSession, queryWithoutFailure).getUpdateCount(), OptionalLong.of(expectedUpdateCount));
+            log.info("Query with no recovery took %sms", noRecoveryStopwatch.elapsed(MILLISECONDS));
+
+            // cancel all queries and tasks to make sure we are dealing only with a single running query
+            cancelAllQueries(queryRunner);
+            cancelAllTasks(queryRunner);
+
+            // test failure case
+            Stopwatch recoveryStopwatch = Stopwatch.createStarted();
+            ListenableFuture<MaterializedResult> result = executor.submit(() -> queryRunner.execute(recoverableSession, queryWithFailure));
+
+            List<TestingPrestoServer> workers = queryRunner.getServers().stream()
+                    .filter(server -> !server.isCoordinator())
+                    .collect(toList());
+            shuffle(workers);
+
+            TestingPrestoServer worker1 = workers.get(0);
+            // kill worker1 right away, to make sure recoverable execution works in cases when the task hasn't been yet submitted
+            worker1.stopResponding();
+
+            // kill worker2 only after the task has been scheduled
+            TestingPrestoServer worker2 = workers.get(1);
+            Stopwatch stopwatch = Stopwatch.createStarted();
+            while (true) {
+                // wait for a while
+                sleep(500);
+
+                // if the task is already running - move ahead
+                if (hasTaskRunning(worker2)) {
+                    break;
                 }
+
+                // don't fail the test if task execution already finished
+                if (stopwatch.elapsed(SECONDS) > 5) {
+                    break;
+                }
+            }
+            worker2.stopResponding();
+
+            assertEquals(result.get(60, SECONDS).getUpdateCount(), OptionalLong.of(expectedUpdateCount));
+            log.info("Query with recovery took %sms", recoveryStopwatch.elapsed(MILLISECONDS));
+        }
+        finally {
+            queryRunner.getServers().forEach(TestingPrestoServer::startResponding);
+            cancelAllQueries(queryRunner);
+            cancelAllTasks(queryRunner);
+            for (@Language("SQL") String postQuery : postQueries) {
+                queryRunner.execute(recoverableSession, postQuery);
             }
         }
     }
 
-    private boolean isSplitSchedulingStarted(DistributedQueryRunner queryRunner)
+    private static void cancelAllQueries(DistributedQueryRunner queryRunner)
     {
-        Optional<QueryId> runningQueryId = getRunningQueryId(queryRunner.getQueries());
-        if (!runningQueryId.isPresent()) {
-            return false;
-        }
-
-        return queryRunner.getQueryInfo(runningQueryId.get()).getOutputStage().get().getSubStages().stream()
-                .map(StageInfo::getState)
-                .allMatch(SPLIT_SCHEDULING_STARTED_STATES::contains);
+        queryRunner.getQueries().forEach(query -> queryRunner.getCoordinator().getQueryManager().cancelQuery(query.getQueryId()));
+        queryRunner.getQueries().forEach(query -> assertTrue(query.getState().isDone()));
     }
 
-    private static Optional<QueryId> getRunningQueryId(List<BasicQueryInfo> basicQueryInfos)
+    private static void cancelAllTasks(DistributedQueryRunner queryRunner)
     {
-        return basicQueryInfos.stream()
-                .filter(basicQueryInfo -> basicQueryInfo.getState() == QueryState.RUNNING)
-                .map(BasicQueryInfo::getQueryId)
-                .collect(toOptional());
+        queryRunner.getServers().forEach(TestHiveRecoverableGroupedExecution::cancelAllTasks);
     }
 
-    private static Session createRecoverableSession(Optional<SelectedRole> role)
+    private static void cancelAllTasks(TestingPrestoServer server)
     {
+        server.getTaskManager().getAllTaskInfo().forEach(task -> server.getTaskManager().cancelTask(task.getTaskStatus().getTaskId()));
+        server.getTaskManager().getAllTaskInfo().forEach(task -> assertTrue(task.getTaskStatus().getState().isDone()));
+    }
+
+    private static boolean hasTaskRunning(TestingPrestoServer server)
+    {
+        return server.getTaskManager().getAllTaskInfo().stream()
+                .anyMatch(taskInfo -> taskInfo.getTaskStatus().getState() == RUNNING);
+    }
+
+    private static Session createRecoverableSession(int writerConcurrency)
+    {
+        Identity identity = new Identity(
+                "hive",
+                Optional.empty(),
+                Optional.of(new SelectedRole(ROLE, Optional.of("admin")))
+                        .map(selectedRole -> ImmutableMap.of("hive", selectedRole))
+                        .orElse(ImmutableMap.of()),
+                ImmutableMap.of());
+
         return testSessionBuilder()
-                .setIdentity(new Identity(
-                        "hive",
-                        Optional.empty(),
-                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
-                                .orElse(ImmutableMap.of())))
+                .setIdentity(identity)
                 .setSystemProperty(COLOCATED_JOIN, "true")
                 .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
                 .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
@@ -363,17 +444,11 @@ public class TestHiveRecoverableGroupedExecution
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(REDISTRIBUTE_WRITES, "false")
                 .setSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, "true")
-                .setSystemProperty(TASK_WRITER_COUNT, "1")
+                .setSystemProperty(TASK_WRITER_COUNT, Integer.toString(writerConcurrency))
+                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, Integer.toString(writerConcurrency))
                 .setCatalogSessionProperty(HIVE_CATALOG, VIRTUAL_BUCKET_COUNT, "16")
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();
-    }
-
-    @FunctionalInterface
-    public interface DistributedQueryRunnerSupplier
-    {
-        DistributedQueryRunner get()
-                throws Exception;
     }
 }

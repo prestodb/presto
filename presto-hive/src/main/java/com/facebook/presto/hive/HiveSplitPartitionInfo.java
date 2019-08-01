@@ -14,6 +14,8 @@
 
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.PrestoException;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -22,7 +24,6 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -38,36 +39,39 @@ public class HiveSplitPartitionInfo
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveSplitPartitionInfo.class).instanceSize();
     private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
 
-    private final Properties schema;
+    private final Storage storage;
     private final URI path;
     private final List<HivePartitionKey> partitionKeys;
     private final String partitionName;
-    private final Map<Integer, HiveTypeName> columnCoercions;
+    private final int partitionDataColumnCount;
+    private final Map<Integer, Column> partitionSchemaDifference;
     private final Optional<HiveSplit.BucketConversion> bucketConversion;
 
     // keep track of how many InternalHiveSplits reference this PartitionInfo.
     private final AtomicInteger references = new AtomicInteger(0);
 
     public HiveSplitPartitionInfo(
-            Properties schema,
+            Storage storage,
             URI path,
             List<HivePartitionKey> partitionKeys,
             String partitionName,
-            Map<Integer, HiveTypeName> columnCoercions,
+            int partitionDataColumnCount,
+            Map<Integer, Column> partitionSchemaDifference,
             Optional<HiveSplit.BucketConversion> bucketConversion)
     {
-        requireNonNull(schema, "schema is null");
+        requireNonNull(storage, "storage is null");
         requireNonNull(path, "path is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(partitionName, "partitionName is null");
-        requireNonNull(columnCoercions, "columnCoersions is null");
+        requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
 
-        this.schema = schema;
+        this.storage = storage;
         this.path = ensurePathHasTrailingSlash(path);
         this.partitionKeys = partitionKeys;
         this.partitionName = partitionName;
-        this.columnCoercions = columnCoercions;
+        this.partitionDataColumnCount = partitionDataColumnCount;
+        this.partitionSchemaDifference = partitionSchemaDifference;
         this.bucketConversion = bucketConversion;
     }
 
@@ -90,9 +94,9 @@ public class HiveSplitPartitionInfo
         return path;
     }
 
-    public Properties getSchema()
+    public Storage getStorage()
     {
-        return schema;
+        return storage;
     }
 
     public List<HivePartitionKey> getPartitionKeys()
@@ -105,9 +109,14 @@ public class HiveSplitPartitionInfo
         return partitionName;
     }
 
-    public Map<Integer, HiveTypeName> getColumnCoercions()
+    public int getPartitionDataColumnCount()
     {
-        return columnCoercions;
+        return partitionDataColumnCount;
+    }
+
+    public Map<Integer, Column> getPartitionSchemaDifference()
+    {
+        return partitionSchemaDifference;
     }
 
     public Optional<HiveSplit.BucketConversion> getBucketConversion()
@@ -124,9 +133,9 @@ public class HiveSplitPartitionInfo
         }
 
         result += partitionName.length() * Character.BYTES;
-        result += sizeOfObjectArray(columnCoercions.size());
-        for (HiveTypeName hiveTypeName : columnCoercions.values()) {
-            result += INTEGER_INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
+        result += sizeOfObjectArray(partitionSchemaDifference.size());
+        for (Column column : partitionSchemaDifference.values()) {
+            result += INTEGER_INSTANCE_SIZE + column.getEstimatedSizeInBytes();
         }
         return result;
     }

@@ -86,6 +86,12 @@ public class KuduUpdatablePageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return inner.getCompletedPositions();
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return inner.getReadTimeNanos();

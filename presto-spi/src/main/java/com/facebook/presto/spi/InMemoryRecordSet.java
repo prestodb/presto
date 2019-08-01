@@ -236,6 +236,10 @@ public class InMemoryRecordSet
                     checkArgument(value instanceof Block,
                             "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
                 }
+                else if (type.getTypeSignature().getBase().equals("row")) {
+                    checkArgument(value instanceof Block,
+                            "Expected value %d to be an instance of Block, but is a %s", i, value.getClass().getSimpleName());
+                }
                 else {
                     throw new IllegalStateException("Unsupported column type " + types.get(i));
                 }

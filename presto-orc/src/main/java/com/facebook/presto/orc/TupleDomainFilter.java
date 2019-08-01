@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -34,7 +36,26 @@ public interface TupleDomainFilter
     TupleDomainFilter IS_NULL = new IsNull();
     TupleDomainFilter IS_NOT_NULL = new IsNotNull();
 
+    /**
+     * A filter becomes non-deterministic when applies to nested column,
+     * e.g. a[1] > 10 is non-deterministic because > 10 filter applies only to some
+     * positions, e.g. first entry in a set of entries that correspond to a single
+     * top-level position.
+     */
+    boolean isDeterministic();
+
     boolean testNull();
+
+    /**
+     * Used to apply is [not] null filters to complex types, e.g.
+     * a[1] is null AND a[3] is not null, where a is an array(array(T)).
+     *
+     * In these case, the exact values are not known, but it is known whether they are
+     * null or not. Furthermore, for some positions only nulls are allowed (a[1] is null),
+     * for others only non-nulls (a[3] is not null), and for the rest both are allowed
+     * (a[2] and a[N], where N > 3).
+     */
+    boolean testNonNull();
 
     boolean testLong(long value);
 
@@ -48,49 +69,110 @@ public interface TupleDomainFilter
 
     boolean testBytes(byte[] buffer, int offset, int length);
 
+    /**
+     * Filters like string equality and IN, as well as conditions on cardinality of lists and maps can be at least partly
+     * decided by looking at lengths alone. If this is false, then no further checks are needed. If true, eventual filters on the
+     * data itself need to be evaluated.
+     */
+    boolean testLength(int length);
+
+    /**
+     * When a filter applied to a nested column fails, the whole top-level position should
+     * fail. To enable this functionality, the filter keeps track of the boundaries of
+     * top-level positions and allows the caller to find out where the current top-level
+     * position started and how far it continues.
+     * @return number of positions from the start of the current top-level position up to
+     * the current position (excluding current position)
+     */
+    int getPrecedingPositionsToFail();
+
+    /**
+     * @return number of positions remaining until the end of the current top-level position
+     */
+    int getSucceedingPositionsToFail();
+
     abstract class AbstractTupleDomainFilter
             implements TupleDomainFilter
     {
         protected final boolean nullAllowed;
+        private final boolean deterministic;
 
-        private AbstractTupleDomainFilter(boolean nullAllowed)
+        protected AbstractTupleDomainFilter(boolean deterministic, boolean nullAllowed)
         {
             this.nullAllowed = nullAllowed;
+            this.deterministic = deterministic;
         }
 
+        @Override
+        public boolean isDeterministic()
+        {
+            return deterministic;
+        }
+
+        @Override
         public boolean testNull()
         {
             return nullAllowed;
         }
 
+        @Override
+        public boolean testNonNull()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public boolean testLong(long value)
         {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public boolean testDouble(double value)
         {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public boolean testFloat(float value)
         {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public boolean testDecimal(long low, long high)
         {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public boolean testBoolean(boolean value)
         {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public boolean testBytes(byte[] buffer, int offset, int length)
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean testLength(int length)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getPrecedingPositionsToFail()
+        {
+            return 0;
+        }
+
+        @Override
+        public int getSucceedingPositionsToFail()
+        {
+            return 0;
         }
     }
 
@@ -99,7 +181,13 @@ public interface TupleDomainFilter
     {
         private AlwaysFalse()
         {
-            super(false);
+            super(true, false);
+        }
+
+        @Override
+        public boolean testNonNull()
+        {
+            return false;
         }
 
         @Override
@@ -134,6 +222,12 @@ public interface TupleDomainFilter
 
         @Override
         public boolean testBytes(byte[] buffer, int offset, int length)
+        {
+            return false;
+        }
+
+        @Override
+        public boolean testLength(int length)
         {
             return false;
         }
@@ -150,7 +244,13 @@ public interface TupleDomainFilter
     {
         private IsNull()
         {
-            super(true);
+            super(true, true);
+        }
+
+        @Override
+        public boolean testNonNull()
+        {
+            return false;
         }
 
         @Override
@@ -185,6 +285,12 @@ public interface TupleDomainFilter
 
         @Override
         public boolean testBytes(byte[] buffer, int offset, int length)
+        {
+            return false;
+        }
+
+        @Override
+        public boolean testLength(int length)
         {
             return false;
         }
@@ -201,7 +307,13 @@ public interface TupleDomainFilter
     {
         private IsNotNull()
         {
-            super(false);
+            super(true, false);
+        }
+
+        @Override
+        public boolean testNonNull()
+        {
+            return true;
         }
 
         @Override
@@ -236,6 +348,12 @@ public interface TupleDomainFilter
 
         @Override
         public boolean testBytes(byte[] buffer, int offset, int length)
+        {
+            return true;
+        }
+
+        @Override
+        public boolean testLength(int length)
         {
             return true;
         }
@@ -254,7 +372,7 @@ public interface TupleDomainFilter
 
         private BooleanValue(boolean value, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             this.value = value;
         }
 
@@ -307,9 +425,10 @@ public interface TupleDomainFilter
         private final long lower;
         private final long upper;
 
-        private BigintRange(long lower, long upper, boolean nullAllowed)
+        @VisibleForTesting
+        protected BigintRange(long lower, long upper, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             checkArgument(lower <= upper, "lower must be less than or equal to upper");
             this.lower = lower;
             this.upper = upper;
@@ -389,7 +508,7 @@ public interface TupleDomainFilter
 
         private BigintValues(long[] values, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
 
             requireNonNull(values, "values is null");
             checkArgument(values.length > 1, "values must contain at least 2 entries");
@@ -484,7 +603,7 @@ public interface TupleDomainFilter
 
         private AbstractRange(boolean lowerUnbounded, boolean lowerExclusive, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             this.lowerUnbounded = lowerUnbounded;
             this.lowerExclusive = lowerExclusive;
             this.upperUnbounded = upperUnbounded;
@@ -498,9 +617,12 @@ public interface TupleDomainFilter
         private final double lower;
         private final double upper;
 
-        private DoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
+        @VisibleForTesting
+        protected DoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
             super(lowerUnbounded, lowerExclusive, upperUnbounded, upperExclusive, nullAllowed);
+            checkArgument(lowerUnbounded || !Double.isNaN(lower));
+            checkArgument(upperUnbounded || !Double.isNaN(upper));
             this.lower = lower;
             this.upper = upper;
         }
@@ -510,9 +632,22 @@ public interface TupleDomainFilter
             return new DoubleRange(lower, lowerUnbounded, lowerExclusive, upper, upperUnbounded, upperExclusive, nullAllowed);
         }
 
+        public double getLower()
+        {
+            return lower;
+        }
+
+        public double getUpper()
+        {
+            return upper;
+        }
+
         @Override
         public boolean testDouble(double value)
         {
+            if (Double.isNaN(value)) {
+                return false;
+            }
             if (!lowerUnbounded) {
                 if (value < lower) {
                     return false;
@@ -583,6 +718,8 @@ public interface TupleDomainFilter
         private FloatRange(float lower, boolean lowerUnbounded, boolean lowerExclusive, float upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
             super(lowerUnbounded, lowerExclusive, upperUnbounded, upperExclusive, nullAllowed);
+            checkArgument(lowerUnbounded || !Float.isNaN(lower));
+            checkArgument(upperUnbounded || !Float.isNaN(upper));
             this.lower = lower;
             this.upper = upper;
         }
@@ -595,6 +732,9 @@ public interface TupleDomainFilter
         @Override
         public boolean testFloat(float value)
         {
+            if (Float.isNaN(value)) {
+                return false;
+            }
             if (!lowerUnbounded) {
                 if (value < lower) {
                     return false;
@@ -759,7 +899,7 @@ public interface TupleDomainFilter
 
         private BytesRange(byte[] lower, boolean lowerExclusive, byte[] upper, boolean upperExclusive, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             this.lower = lower;
             this.upper = upper;
             this.lowerExclusive = lowerExclusive;
@@ -784,8 +924,8 @@ public interface TupleDomainFilter
                     if (buffer[i + offset] != lower[i]) {
                         return false;
                     }
-                    return true;
                 }
+                return true;
             }
 
             if (lower != null) {
@@ -800,6 +940,12 @@ public interface TupleDomainFilter
                 return compare < 0 || (!upperExclusive && compare == 0);
             }
             return true;
+        }
+
+        @Override
+        public boolean testLength(int length)
+        {
+            return !singleValue || lower.length == length;
         }
 
         @Override
@@ -858,15 +1004,18 @@ public interface TupleDomainFilter
         private final int hashTableSizeMask;
         private final long[] bloom;
         private final int bloomSize;
+        // Contains true in position i if at least one of the values has length i.
+        private final boolean[] lengthExists;
 
         private BytesValues(byte[][] values, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
 
             requireNonNull(values, "values is null");
             checkArgument(values.length > 1, "values must contain at least 2 entries");
 
             this.values = values;
+            lengthExists = new boolean[Arrays.stream(values).mapToInt(value -> value.length).max().getAsInt() + 1];
             // Linear hash table size is the highest power of two less than or equal to number of values * 4. This means that the
             // table is under half full, e.g. 127 elements gets 256 slots.
             int hashTableSize = Integer.highestOneBit(values.length * 4);
@@ -876,6 +1025,7 @@ public interface TupleDomainFilter
             bloomSize = Math.max(1, hashTableSize / 8);
             bloom = new long[bloomSize];
             for (byte[] value : values) {
+                lengthExists[value.length] = true;
                 long hashCode = hash(value, 0, value.length);
                 bloom[bloomIndex(hashCode)] |= bloomMask(hashCode);
                 int position = (int) (hashCode & hashTableSizeMask);
@@ -916,6 +1066,12 @@ public interface TupleDomainFilter
                 }
             }
             return false;
+        }
+
+        @Override
+        public boolean testLength(int length)
+        {
+            return length < lengthExists.length && lengthExists[length];
         }
 
         private static long bloomMask(long hashCode)
@@ -975,7 +1131,7 @@ public interface TupleDomainFilter
 
         private BigintMultiRange(List<BigintRange> ranges, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             requireNonNull(ranges, "ranges is null");
             checkArgument(!ranges.isEmpty(), "ranges is empty");
 
@@ -1049,7 +1205,7 @@ public interface TupleDomainFilter
 
         private MultiRange(List<TupleDomainFilter> filters, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             requireNonNull(filters, "filters is null");
             checkArgument(filters.size() > 1, "filters must contain at least 2 entries");
 
@@ -1106,6 +1262,17 @@ public interface TupleDomainFilter
         }
 
         @Override
+        public boolean testLength(int length)
+        {
+            for (TupleDomainFilter filter : filters) {
+                if (filter.testLength(length)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
         public boolean equals(Object o)
         {
             if (this == o) {
@@ -1134,6 +1301,268 @@ public interface TupleDomainFilter
                     .add("filters", filters)
                     .add("nullAllowed", nullAllowed)
                     .toString();
+        }
+    }
+
+    abstract class BasePositionalFilter
+            implements TupleDomainFilter
+    {
+        // Index into filters array pointing to the next filter to apply
+        protected int filterIndex;
+
+        // Indices into filters array identifying boundaries of the outer rows
+        protected int[] offsets;
+
+        // Index into offsets array pointing to the next offset
+        private int offsetIndex;
+
+        private boolean[] failed;
+
+        // Number of positions from the start of the top-level position to fail;
+        // populated on first failure within a top-level position
+        private int precedingPositionsToFail;
+
+        // Number of positions to the end of the top-level position to fail;
+        // populated on first failure within a top-level position
+        private int succeedingPositionsToFail;
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return false;
+        }
+
+        public boolean[] getFailed()
+        {
+            return failed;
+        }
+
+        @Override
+        public int getPrecedingPositionsToFail()
+        {
+            return precedingPositionsToFail;
+        }
+
+        @Override
+        public int getSucceedingPositionsToFail()
+        {
+            return succeedingPositionsToFail;
+        }
+
+        protected void reset()
+        {
+            filterIndex = 0;
+            offsetIndex = 1;
+
+            if (failed == null || failed.length < offsets.length) {
+                failed = new boolean[offsets.length];
+            }
+            else {
+                Arrays.fill(failed, false);
+            }
+            failed[0] = false;
+            precedingPositionsToFail = 0;
+            succeedingPositionsToFail = 0;
+        }
+
+        protected void advance()
+        {
+            while (filterIndex == offsets[offsetIndex]) {
+                // start of the next top-level position
+                precedingPositionsToFail = 0;
+                succeedingPositionsToFail = 0;
+                failed[offsetIndex] = false;
+                offsetIndex++;
+            }
+        }
+
+        protected boolean recordTestResult(boolean result)
+        {
+            if (!result) {
+                failed[offsetIndex - 1] = true;
+                precedingPositionsToFail = filterIndex - offsets[offsetIndex - 1] - 1;
+                succeedingPositionsToFail = offsets[offsetIndex] - filterIndex;
+                filterIndex = offsets[offsetIndex];
+            }
+
+            return result;
+        }
+    }
+
+    class PositionalFilter
+            extends BasePositionalFilter
+    {
+        // Filters for individual positions being read; some may be null
+        private TupleDomainFilter[] filters;
+
+        public void setFilters(TupleDomainFilter[] filters, int[] offsets)
+        {
+            this.filters = requireNonNull(filters, "filters is null");
+            this.offsets = requireNonNull(offsets, "offsets is null");
+            reset();
+        }
+
+        @Override
+        public boolean testNull()
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testNull());
+        }
+
+        @Override
+        public boolean testNonNull()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean testLong(long value)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testLong(value));
+        }
+
+        @Override
+        public boolean testDouble(double value)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testDouble(value));
+        }
+
+        @Override
+        public boolean testFloat(float value)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testFloat(value));
+        }
+
+        @Override
+        public boolean testDecimal(long low, long high)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testDecimal(low, high));
+        }
+
+        @Override
+        public boolean testBoolean(boolean value)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testBoolean(value));
+        }
+
+        @Override
+        public boolean testBytes(byte[] buffer, int offset, int length)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testBytes(buffer, offset, length));
+        }
+
+        public boolean testLength(int length)
+        {
+            // Returns true without advancing to the next filter because this is a pre-check followed by a test on the value,
+            // which will advance the state. TODO: We could advance the state on false and not advance on true. Consider the
+            // case where testLength is the only filter on a list/map inside another. This would imply exposing advancing as a
+            // separate operation.
+            return true;
+        }
+    }
+
+    class NullsFilter
+            extends BasePositionalFilter
+    {
+        private boolean[] nullsAllowed;
+        private boolean[] nonNullsAllowed;
+
+        public void setup(boolean[] nullsAllowed, boolean[] nonNullsAllowed, int[] offsets)
+        {
+            this.nullsAllowed = requireNonNull(nullsAllowed, "nullsAllowed is null");
+            this.nonNullsAllowed = requireNonNull(nonNullsAllowed, "nonNullsAllowed is null");
+            this.offsets = requireNonNull(offsets, "offsets is null");
+            reset();
+        }
+
+        @Override
+        public boolean testNull()
+        {
+            advance();
+            return recordTestResult(nullsAllowed[filterIndex++]);
+        }
+
+        @Override
+        public boolean testNonNull()
+        {
+            advance();
+            return recordTestResult(nonNullsAllowed[filterIndex++]);
+        }
+
+        public boolean testLong(long value)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testDouble(double value)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testFloat(float value)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testDecimal(long low, long high)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testBoolean(boolean value)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testBytes(byte[] buffer, int offset, int length)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testLength(int length)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

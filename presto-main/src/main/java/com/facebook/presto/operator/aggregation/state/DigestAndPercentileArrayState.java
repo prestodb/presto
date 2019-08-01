@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.airlift.stats.QuantileDigest;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
-import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 

@@ -22,9 +22,9 @@ import java.math.BigDecimal;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit;
 
 public class TestTaskManagerConfig
@@ -54,6 +54,7 @@ public class TestTaskManagerConfig
                 .setSinkMaxBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setWriterCount(1)
+                .setPartitionedWriterCount(null)
                 .setTaskConcurrency(16)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
@@ -89,6 +90,7 @@ public class TestTaskManagerConfig
                 .put("sink.max-buffer-size", "42MB")
                 .put("driver.max-page-partitioning-buffer-size", "40MB")
                 .put("task.writer-count", "4")
+                .put("task.partitioned-writer-count", "8")
                 .put("task.concurrency", "8")
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
@@ -121,6 +123,7 @@ public class TestTaskManagerConfig
                 .setSinkMaxBufferSize(new DataSize(42, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(new DataSize(40, Unit.MEGABYTE))
                 .setWriterCount(4)
+                .setPartitionedWriterCount(8)
                 .setTaskConcurrency(8)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)

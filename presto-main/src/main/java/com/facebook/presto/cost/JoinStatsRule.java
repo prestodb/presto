@@ -14,8 +14,8 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.spi.relation.LogicalRowExpressions;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -160,7 +160,7 @@ public class JoinStatsRule
                 return filterStatsCalculator.filterStats(crossJoinStats, castToExpression(node.getFilter().get()), session, types);
             }
             else {
-                return filterStatsCalculator.filterStats(crossJoinStats, node.getFilter().get(), session, types);
+                return filterStatsCalculator.filterStats(crossJoinStats, node.getFilter().get(), session);
             }
         }
 
@@ -179,7 +179,7 @@ public class JoinStatsRule
             filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, castToExpression(node.getFilter().get()), session, types);
         }
         else {
-            filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().get(), session, types);
+            filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().get(), session);
         }
 
         if (filteredEquiJoinEstimate.isOutputRowCountUnknown()) {

@@ -22,6 +22,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -47,10 +49,12 @@ import java.sql.Array;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -68,6 +72,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
@@ -195,6 +200,11 @@ public class H2QueryRunner
         return materializedRows;
     }
 
+    public Handle getHandle()
+    {
+        return handle;
+    }
+
     private static RowMapper<MaterializedRow> rowMapper(List<? extends Type> types)
     {
         return new RowMapper<MaterializedRow>()
@@ -289,6 +299,15 @@ public class H2QueryRunner
                             row.add(padEnd(stringValue, ((CharType) type).getLength(), ' '));
                         }
                     }
+                    else if (VARBINARY.equals(type)) {
+                        byte[] binary = resultSet.getBytes(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(binary);
+                        }
+                    }
                     else if (DATE.equals(type)) {
                         // resultSet.getDate(i) doesn't work if JVM's zone skipped day being retrieved (e.g. 2011-12-30 and Pacific/Apia zone)
                         LocalDate dateValue = resultSet.getObject(i, LocalDate.class);
@@ -363,7 +382,16 @@ public class H2QueryRunner
                             row.add(null);
                         }
                         else {
-                            row.add(newArrayList((Object[]) array.getArray()));
+                            row.add(newArrayList(mapArrayValues(((ArrayType) type), (Object[]) array.getArray())));
+                        }
+                    }
+                    else if (type instanceof RowType) {
+                        Array array = resultSet.getArray(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(newArrayList(mapRowValues((RowType) type, (Object[]) array.getArray())));
                         }
                     }
                     else {
@@ -373,6 +401,55 @@ public class H2QueryRunner
                 return new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, row);
             }
         };
+    }
+
+    private static Object[] mapArrayValues(ArrayType arrayType, Object[] values)
+    {
+        Type elementType = arrayType.getElementType();
+        if (elementType instanceof ArrayType) {
+            return Arrays.stream(values)
+                    .map(v -> v == null ? null : newArrayList((Object[]) v))
+                    .toArray();
+        }
+
+        if (elementType instanceof RowType) {
+            RowType rowType = (RowType) elementType;
+            return Arrays.stream(values)
+                    .map(v -> v == null ? null : newArrayList(mapRowValues(rowType, (Object[]) v)))
+                    .toArray();
+        }
+
+        if (elementType instanceof CharType) {
+            int length = ((CharType) elementType).getLength();
+            return Arrays.stream(values)
+                    .map(String.class::cast)
+                    .map(v -> v == null ? null : padEnd(v, length, ' '))
+                    .toArray();
+        }
+
+        if (elementType instanceof TimestampType) {
+            return Arrays.stream(values)
+                    .map(v -> v == null ? null : ((Timestamp) v).toLocalDateTime())
+                    .toArray();
+        }
+
+        return values;
+    }
+
+    private static Object[] mapRowValues(RowType rowType, Object[] values)
+    {
+        int fieldCount = rowType.getFields().size();
+        Object[] fields = new Object[fieldCount];
+        for (int j = 0; j < fieldCount; j++) {
+            Type fieldType = rowType.getTypeParameters().get(j);
+            if (fieldType instanceof RowType) {
+                fields[j] = newArrayList(mapRowValues((RowType) fieldType, (Object[]) values[j]));
+            }
+            else {
+                fields[j] = values[j];
+            }
+        }
+        return fields;
     }
 
     private static void insertRows(ConnectorTableMetadata tableMetadata, Handle handle, RecordSet data)

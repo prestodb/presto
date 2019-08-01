@@ -29,6 +29,7 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -42,6 +43,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -59,7 +61,7 @@ public interface Metadata
 
     List<SqlFunction> listFunctions();
 
-    void addFunctions(List<? extends SqlFunction> functions);
+    void registerBuiltInFunctions(List<? extends BuiltInFunction> functions);
 
     boolean schemaExists(Session session, CatalogSchemaName schema);
 
@@ -143,9 +145,9 @@ public interface Metadata
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
     /**
-     * Return statistics for specified table for given filtering contraint.
+     * Return statistics for specified table for given columns and filtering constraint.
      */
-    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint);
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -417,13 +419,13 @@ public interface Metadata
      * Commits partition for table creation.
      */
     @Experimental
-    void commitPartition(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+    ListenableFuture<Void> commitPartitionAsync(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Commits partition for table insertion.
      */
     @Experimental
-    void commitPartition(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
+    ListenableFuture<Void> commitPartitionAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
     FunctionManager getFunctionManager();
 

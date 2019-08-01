@@ -65,6 +65,7 @@ public class SliceDirectColumnWriter
     private final PresentOutputStream presentStream;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
+    private long columnStatisticsRetainedSizeInBytes;
 
     private final Supplier<SliceColumnStatisticsBuilder> statisticsBuilderSupplier;
     private SliceColumnStatisticsBuilder statisticsBuilder;
@@ -129,6 +130,7 @@ public class SliceDirectColumnWriter
 
         ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
         rowGroupColumnStatistics.add(statistics);
+        columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
 
         statisticsBuilder = statisticsBuilderSupplier.get();
         return ImmutableMap.of(column, statistics);
@@ -211,11 +213,7 @@ public class SliceDirectColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        long retainedBytes = INSTANCE_SIZE + lengthStream.getRetainedBytes() + dataStream.getRetainedBytes() + presentStream.getRetainedBytes();
-        for (ColumnStatistics statistics : rowGroupColumnStatistics) {
-            retainedBytes += statistics.getRetainedSizeInBytes();
-        }
-        return retainedBytes;
+        return INSTANCE_SIZE + lengthStream.getRetainedBytes() + dataStream.getRetainedBytes() + presentStream.getRetainedBytes() + columnStatisticsRetainedSizeInBytes;
     }
 
     @Override
@@ -227,6 +225,7 @@ public class SliceDirectColumnWriter
         dataStream.reset();
         presentStream.reset();
         rowGroupColumnStatistics.clear();
+        columnStatisticsRetainedSizeInBytes = 0;
         statisticsBuilder = statisticsBuilderSupplier.get();
     }
 }

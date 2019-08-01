@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi.type;
 
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodecFactory;
+import com.facebook.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

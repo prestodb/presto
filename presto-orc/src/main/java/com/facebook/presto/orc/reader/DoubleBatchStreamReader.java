@@ -23,6 +23,7 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -33,7 +34,9 @@ import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -57,8 +60,11 @@ public class DoubleBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public DoubleBatchStreamReader(StreamDescriptor streamDescriptor)
+    public DoubleBatchStreamReader(Type type, StreamDescriptor streamDescriptor)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, DoubleType.class::isInstance);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 
@@ -70,7 +76,7 @@ public class DoubleBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -93,25 +99,23 @@ public class DoubleBatchStreamReader
 
         if (dataStream == null && presentStream != null) {
             presentStream.skip(nextBatchSize);
-            Block nullValueBlock = new RunLengthEncodedBlock(
-                    type.createBlockBuilder(null, 1).appendNull().build(),
-                    nextBatchSize);
+            Block nullValueBlock = RunLengthEncodedBlock.create(DOUBLE, null, nextBatchSize);
             readOffset = 0;
             nextBatchSize = 0;
             return nullValueBlock;
         }
 
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
+        BlockBuilder builder = DOUBLE.createBlockBuilder(null, nextBatchSize);
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            dataStream.nextVector(type, nextBatchSize, builder);
+            dataStream.nextVector(DOUBLE, nextBatchSize, builder);
         }
         else {
             for (int i = 0; i < nextBatchSize; i++) {
                 if (presentStream.nextBit()) {
-                    type.writeDouble(builder, dataStream.next());
+                    DOUBLE.writeDouble(builder, dataStream.next());
                 }
                 else {
                     builder.appendNull();
@@ -170,6 +174,11 @@ public class DoubleBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
     }
 
     @Override

@@ -19,5 +19,14 @@ import java.util.Set;
 
 public interface ConnectorPlanOptimizerProvider
 {
-    Set<ConnectorPlanOptimizer> getConnectorPlanOptimizers();
+    /**
+     * The plan optimizers to be applied before having the notion of distribution.
+     */
+    Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers();
+
+    /**
+     * The plan optimizers to be applied after having the notion of distribution.
+     * The plan will be only executed on a single node.
+     */
+    Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers();
 }

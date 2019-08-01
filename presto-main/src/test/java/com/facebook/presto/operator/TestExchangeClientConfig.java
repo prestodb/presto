@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.http.client.HttpClientConfig;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -22,9 +22,9 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit;
 
 public class TestExchangeClientConfig
@@ -40,7 +40,8 @@ public class TestExchangeClientConfig
                 .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
                 .setPageBufferClientMaxCallbackThreads(25)
                 .setClientThreads(25)
-                .setAcknowledgePages(true));
+                .setAcknowledgePages(true)
+                .setResponseSizeExponentialMovingAverageDecayingAlpha(0.1));
     }
 
     @Test
@@ -55,6 +56,7 @@ public class TestExchangeClientConfig
                 .put("exchange.client-threads", "2")
                 .put("exchange.page-buffer-client.max-callback-threads", "16")
                 .put("exchange.acknowledge-pages", "false")
+                .put("exchange.response-size-exponential-moving-average-decaying-alpha", "0.42")
                 .build();
 
         ExchangeClientConfig expected = new ExchangeClientConfig()
@@ -65,7 +67,8 @@ public class TestExchangeClientConfig
                 .setMaxResponseSize(new DataSize(1, Unit.MEGABYTE))
                 .setClientThreads(2)
                 .setPageBufferClientMaxCallbackThreads(16)
-                .setAcknowledgePages(false);
+                .setAcknowledgePages(false)
+                .setResponseSizeExponentialMovingAverageDecayingAlpha(0.42);
 
         assertFullMapping(properties, expected);
     }

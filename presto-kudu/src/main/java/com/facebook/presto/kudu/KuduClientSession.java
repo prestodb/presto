@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.kudu;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.kudu.properties.ColumnDesign;
 import com.facebook.presto.kudu.properties.HashPartitionDefinition;
 import com.facebook.presto.kudu.properties.KuduTableProperties;
@@ -38,7 +39,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.DecimalType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;

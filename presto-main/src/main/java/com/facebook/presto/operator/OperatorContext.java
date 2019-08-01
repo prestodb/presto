@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -25,7 +26,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.stats.CounterStat;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -61,6 +61,7 @@ public class OperatorContext
     private final Executor executor;
 
     private final CounterStat rawInputDataSize = new CounterStat();
+    private final CounterStat rawInputPositions = new CounterStat();
 
     private final OperationTiming addInputTiming = new OperationTiming();
     private final CounterStat inputDataSize = new CounterStat();
@@ -153,21 +154,23 @@ public class OperatorContext
     }
 
     /**
-     * Record the amount of physical bytes that were read by an operator.
+     * Record the number of rows and amount of physical bytes that were read by an operator.
      * This metric is valid only for source operators.
      */
-    public void recordRawInput(long sizeInBytes)
+    public void recordRawInput(long sizeInBytes, long positionCount)
     {
         rawInputDataSize.update(sizeInBytes);
+        rawInputPositions.update(positionCount);
     }
 
     /**
-     * Record the amount of physical bytes that were read by an operator and
+     * Record the number of rows and amount of physical bytes that were read by an operator and
      * the time it took to read the data. This metric is valid only for source operators.
      */
-    public void recordRawInputWithTiming(long sizeInBytes, long readNanos)
+    public void recordRawInputWithTiming(long sizeInBytes, long positionCount, long readNanos)
     {
         rawInputDataSize.update(sizeInBytes);
+        rawInputPositions.update(positionCount);
         addInputTiming.record(readNanos, 0);
     }
 
@@ -438,7 +441,8 @@ public class OperatorContext
         long inputPositionsCount = inputPositions.getTotalCount();
 
         return new OperatorStats(
-                driverContext.getTaskId().getStageId().getId(),
+                driverContext.getTaskId().getStageExecutionId().getStageId().getId(),
+                driverContext.getTaskId().getStageExecutionId().getId(),
                 driverContext.getPipelineContext().getPipelineId(),
                 operatorId,
                 planNodeId,
@@ -450,6 +454,7 @@ public class OperatorContext
                 succinctNanos(addInputTiming.getWallNanos()),
                 succinctNanos(addInputTiming.getCpuNanos()),
                 succinctBytes(rawInputDataSize.getTotalCount()),
+                rawInputPositions.getTotalCount(),
                 succinctBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,
                 (double) inputPositionsCount * inputPositionsCount,
@@ -604,7 +609,12 @@ public class OperatorContext
         @Override
         public boolean trySetBytes(long bytes)
         {
-            return delegate.trySetBytes(bytes);
+            if (delegate.trySetBytes(bytes)) {
+                allocationListener.run();
+                return true;
+            }
+
+            return false;
         }
 
         @Override
@@ -658,6 +668,7 @@ public class OperatorContext
                 throw new UnsupportedOperationException("Called close on unclosable aggregated memory context");
             }
             delegate.close();
+            allocationListener.run();
         }
     }
 

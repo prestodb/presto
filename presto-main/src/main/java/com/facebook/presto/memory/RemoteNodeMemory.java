@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpClient.HttpResponseFuture;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.ResponseHandler;
+import com.facebook.airlift.http.client.StaticBodyGenerator;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpClient.HttpResponseFuture;
-import io.airlift.http.client.Request;
-import io.airlift.http.client.ResponseHandler;
-import io.airlift.http.client.StaticBodyGenerator;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
@@ -36,15 +36,15 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.airlift.http.client.HttpStatus.OK;
+import static com.facebook.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
+import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
 import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
 import static com.facebook.presto.server.smile.SmileBodyGenerator.smileBodyGenerator;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.http.client.HttpStatus.OK;
-import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
-import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;

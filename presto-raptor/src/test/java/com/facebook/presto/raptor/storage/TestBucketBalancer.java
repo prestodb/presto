@@ -42,13 +42,13 @@ import java.util.List;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.raptor.metadata.Distribution.serializeColumnTypes;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 
@@ -275,9 +275,9 @@ public class TestBucketBalancer
     private long createBucketedTable(String tableName, long distributionId, DataSize compressedSize)
     {
         MetadataDao dao = dbi.onDemand(MetadataDao.class);
-        long tableId = dao.insertTable("test", tableName, false, false, distributionId, 0);
+        long tableId = dao.insertTable("test", tableName, false, false, distributionId, 0, false);
         List<ColumnInfo> columnsA = ImmutableList.of(new ColumnInfo(1, BIGINT));
-        shardManager.createTable(tableId, columnsA, false, OptionalLong.empty());
+        shardManager.createTable(tableId, columnsA, false, OptionalLong.empty(), false);
 
         metadataDao.updateTableStats(tableId, 1024, 1024 * 1024 * 1024, compressedSize.toBytes(), compressedSize.toBytes() * 2);
         return tableId;

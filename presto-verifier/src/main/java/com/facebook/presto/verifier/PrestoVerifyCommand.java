@@ -16,12 +16,13 @@ package com.facebook.presto.verifier;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.verifier.framework.AbstractVerifyCommand;
-import com.facebook.presto.verifier.framework.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.framework.SourceQuery;
-import com.facebook.presto.verifier.framework.SqlExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.ExceededGlobalMemoryLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.ExceededTimeLimitFailureResolver;
-import com.facebook.presto.verifier.resolver.FailureResolver;
+import com.facebook.presto.verifier.resolver.FailureResolverFactory;
+import com.facebook.presto.verifier.resolver.TooManyOpenPartitionsFailureResolver;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
@@ -72,11 +73,12 @@ public class PrestoVerifyCommand
     }
 
     @Override
-    public List<FailureResolver> getFailureResolvers()
+    public List<FailureResolverFactory> getFailureResolverFactories()
     {
         return ImmutableList.of(
-                new ExceededGlobalMemoryLimitFailureResolver(),
-                new ExceededTimeLimitFailureResolver());
+                new ExceededGlobalMemoryLimitFailureResolver.Factory(),
+                new ExceededTimeLimitFailureResolver.Factory(),
+                new TooManyOpenPartitionsFailureResolver.Factory());
     }
 
     @Override

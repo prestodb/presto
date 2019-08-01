@@ -287,7 +287,7 @@ public class TestScalarStatsCalculator
     private VariableStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics, TypeProvider types)
     {
         // assert both visitors yield the same result
-        RowExpression scalarRowExpression = translator.translateAndOptimize(scalarExpression, types);
+        RowExpression scalarRowExpression = translator.translate(scalarExpression, types);
         VariableStatsEstimate expressionVariableStatsEstimate = calculator.calculate(scalarExpression, inputStatistics, session, types);
         VariableStatsEstimate rowExpressionVariableStatsEstimate = calculator.calculate(scalarRowExpression, inputStatistics, session);
         assertEquals(expressionVariableStatsEstimate, rowExpressionVariableStatsEstimate);

@@ -157,7 +157,7 @@ public class TestEventListener
 
         // Sum of row count processed by all leaf stages is equal to the number of rows in the table
         long actualCompletedPositions = splitCompletedEvents.stream()
-                .filter(e -> !e.getStageId().endsWith(".0"))    // filter out the root stage
+                .filter(e -> !e.getStageExecutionId().endsWith(".0.0"))    // filter out the root stage
                 .mapToLong(e -> e.getStatistics().getCompletedPositions())
                 .sum();
 

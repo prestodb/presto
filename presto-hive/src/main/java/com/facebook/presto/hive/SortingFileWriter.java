@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.hive.util.MergingPageIterator;
 import com.facebook.presto.hive.util.SortBuffer;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Queue;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
@@ -56,6 +55,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 
 public class SortingFileWriter
         implements HiveFileWriter
@@ -73,8 +73,8 @@ public class SortingFileWriter
     private final HiveFileWriter outputWriter;
     private final SortBuffer sortBuffer;
     private final TempFileSinkFactory tempFileSinkFactory;
+    private final boolean sortedWriteToTempPathEnabled;
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::getSize));
-    private final AtomicLong nextFileId = new AtomicLong();
 
     public SortingFileWriter(
             FileSystem fileSystem,
@@ -86,7 +86,8 @@ public class SortingFileWriter
             List<Integer> sortFields,
             List<SortOrder> sortOrders,
             PageSorter pageSorter,
-            TempFileSinkFactory tempFileSinkFactory)
+            TempFileSinkFactory tempFileSinkFactory,
+            boolean sortedWriteToTempPathEnabled)
     {
         checkArgument(maxOpenTempFiles >= 2, "maxOpenTempFiles must be at least two");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
@@ -98,6 +99,7 @@ public class SortingFileWriter
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
         this.sortBuffer = new SortBuffer(maxMemory, types, sortFields, sortOrders, pageSorter);
         this.tempFileSinkFactory = tempFileSinkFactory;
+        this.sortedWriteToTempPathEnabled = sortedWriteToTempPathEnabled;
     }
 
     @Override
@@ -147,8 +149,10 @@ public class SortingFileWriter
     @Override
     public void rollback()
     {
-        for (TempFile file : tempFiles) {
-            cleanupFile(file.getPath());
+        if (!sortedWriteToTempPathEnabled) {
+            for (TempFile file : tempFiles) {
+                cleanupFile(file.getPath());
+            }
         }
 
         outputWriter.rollback();
@@ -224,11 +228,13 @@ public class SortingFileWriter
             new MergingPageIterator(iterators, types, sortFields, sortOrders)
                     .forEachRemaining(consumer);
 
-            for (TempFile tempFile : files) {
-                Path file = tempFile.getPath();
-                fileSystem.delete(file, false);
-                if (fileSystem.exists(file)) {
-                    throw new IOException("Failed to delete temporary file: " + file);
+            if (!sortedWriteToTempPathEnabled) {
+                for (TempFile tempFile : files) {
+                    Path file = tempFile.getPath();
+                    fileSystem.delete(file, false);
+                    if (fileSystem.exists(file)) {
+                        throw new IOException("Failed to delete temporary file: " + file);
+                    }
                 }
             }
         }
@@ -247,7 +253,9 @@ public class SortingFileWriter
             tempFiles.add(new TempFile(tempFile, writer.getWrittenBytes()));
         }
         catch (IOException | UncheckedIOException e) {
-            cleanupFile(tempFile);
+            if (!sortedWriteToTempPathEnabled) {
+                cleanupFile(tempFile);
+            }
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to write temporary file: " + tempFile, e);
         }
     }
@@ -267,7 +275,7 @@ public class SortingFileWriter
 
     private Path getTempFileName()
     {
-        return new Path(tempFilePrefix + "." + nextFileId.getAndIncrement());
+        return new Path(tempFilePrefix + "." + randomUUID().toString().replaceAll("-", "_"));
     }
 
     private static class TempFile

@@ -15,10 +15,10 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
@@ -34,6 +34,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
@@ -44,11 +45,15 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
@@ -59,6 +64,7 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
@@ -89,6 +95,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -99,11 +106,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createIntsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRowBlock;
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTimestampsWithTimezoneBlock;
@@ -128,9 +138,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -151,6 +159,11 @@ public final class FunctionAssertions
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    // Increase the number of fields to generate a wide column
+    private static final int TEST_ROW_NUMBER_OF_FIELDS = 2500;
+    private static final RowType TEST_ROW_TYPE = createTestRowType(TEST_ROW_NUMBER_OF_FIELDS);
+    private static final Block TEST_ROW_DATA = createTestRowData(TEST_ROW_TYPE);
+
     private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
             createStringsBlock("hello"),
@@ -161,7 +174,8 @@ public final class FunctionAssertions
             createStringsBlock((String) null),
             createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
             createSlicesBlock(Slices.wrappedBuffer((byte) 0xab)),
-            createIntsBlock(1234));
+            createIntsBlock(1234),
+            TEST_ROW_DATA);
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
@@ -176,6 +190,7 @@ public final class FunctionAssertions
             .put(new VariableReferenceExpression("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE), 7)
             .put(new VariableReferenceExpression("bound_binary_literal", VARBINARY), 8)
             .put(new VariableReferenceExpression("bound_integer", INTEGER), 9)
+            .put(new VariableReferenceExpression("bound_row", TEST_ROW_TYPE), 10)
             .build();
 
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.fromVariables(INPUT_MAPPING.keySet());
@@ -216,15 +231,15 @@ public final class FunctionAssertions
         return metadata;
     }
 
-    public FunctionAssertions addFunctions(List<? extends SqlFunction> functionInfos)
+    public FunctionAssertions addFunctions(List<? extends BuiltInFunction> functionInfos)
     {
-        metadata.addFunctions(functionInfos);
+        metadata.registerBuiltInFunctions(functionInfos);
         return this;
     }
 
     public FunctionAssertions addScalarFunctions(Class<?> clazz)
     {
-        metadata.addFunctions(new FunctionListBuilder().scalars(clazz).getFunctions());
+        metadata.registerBuiltInFunctions(new FunctionListBuilder().scalars(clazz).getFunctions());
         return this;
     }
 
@@ -444,7 +459,7 @@ public final class FunctionAssertions
 
         Expression projectionExpression = createExpression(session, projection, metadata, SYMBOL_TYPES);
         RowExpression projectionRowExpression = toRowExpression(session, projectionExpression);
-        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projectionRowExpression)).get();
+        PageProcessor processor = compiler.compilePageProcessor(session.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(projectionRowExpression)).get();
 
         // This is a heuristic to detect whether the retained size of cachedInstance is bounded.
         // * The test runs at least 1000 iterations.
@@ -573,7 +588,7 @@ public final class FunctionAssertions
         }
 
         // execute as standalone operator
-        OperatorFactory operatorFactory = compileFilterProject(Optional.empty(), projectionRowExpression, compiler);
+        OperatorFactory operatorFactory = compileFilterProject(session.getSqlFunctionProperties(), Optional.empty(), projectionRowExpression, compiler);
         Object directOperatorValue = selectSingleValue(operatorFactory, expectedType, session);
         results.add(directOperatorValue);
 
@@ -582,7 +597,7 @@ public final class FunctionAssertions
         results.add(interpretedValue);
 
         // execute over normal operator
-        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(Optional.empty(), projectionRowExpression, compiler);
+        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(session.getSqlFunctionProperties(), Optional.empty(), projectionRowExpression, compiler);
         Object scanOperatorValue = selectSingleValue(scanProjectOperatorFactory, expectedType, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -673,12 +688,12 @@ public final class FunctionAssertions
         List<Boolean> results = new ArrayList<>();
 
         // execute as standalone operator
-        OperatorFactory operatorFactory = compileFilterProject(Optional.of(filterRowExpression), constant(true, BOOLEAN), compiler);
+        OperatorFactory operatorFactory = compileFilterProject(session.getSqlFunctionProperties(), Optional.of(filterRowExpression), constant(true, BOOLEAN), compiler);
         results.add(executeFilter(operatorFactory, session));
 
         if (executeWithNoInputColumns) {
             // execute as standalone operator
-            operatorFactory = compileFilterWithNoInputColumns(filterRowExpression, compiler);
+            operatorFactory = compileFilterWithNoInputColumns(session.getSqlFunctionProperties(), filterRowExpression, compiler);
             results.add(executeFilterWithNoInputColumns(operatorFactory, session));
         }
 
@@ -690,7 +705,7 @@ public final class FunctionAssertions
         results.add(interpretedValue);
 
         // execute over normal operator
-        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(Optional.of(filterRowExpression), constant(true, BOOLEAN), compiler);
+        SourceOperatorFactory scanProjectOperatorFactory = compileScanFilterProject(session.getSqlFunctionProperties(), Optional.of(filterRowExpression), constant(true, BOOLEAN), compiler);
         boolean scanOperatorValue = executeFilter(scanProjectOperatorFactory, createNormalSplit(), session);
         results.add(scanOperatorValue);
 
@@ -854,7 +869,8 @@ public final class FunctionAssertions
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
         ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, expressionTypes);
 
-        Object result = evaluator.evaluate(symbol -> {
+        Object result = evaluator.evaluate(variable -> {
+            Symbol symbol = new Symbol(variable.getName());
             int position = 0;
             int channel = INPUT_MAPPING.get(new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference())));
             Type type = SYMBOL_TYPES.get(symbol.toSymbolReference());
@@ -892,10 +908,10 @@ public final class FunctionAssertions
         return expectedType.getObjectValue(session.toConnectorSession(), block, 0);
     }
 
-    private static OperatorFactory compileFilterWithNoInputColumns(RowExpression filter, ExpressionCompiler compiler)
+    private static OperatorFactory compileFilterWithNoInputColumns(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, ExpressionCompiler compiler)
     {
         try {
-            Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of());
+            Supplier<PageProcessor> processor = compiler.compilePageProcessor(sqlFunctionProperties, Optional.of(filter), ImmutableList.of());
 
             return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(), new DataSize(0, BYTE), 0);
         }
@@ -907,10 +923,10 @@ public final class FunctionAssertions
         }
     }
 
-    private static OperatorFactory compileFilterProject(Optional<RowExpression> filter, RowExpression projection, ExpressionCompiler compiler)
+    private static OperatorFactory compileFilterProject(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, RowExpression projection, ExpressionCompiler compiler)
     {
         try {
-            Supplier<PageProcessor> processor = compiler.compilePageProcessor(filter, ImmutableList.of(projection));
+            Supplier<PageProcessor> processor = compiler.compilePageProcessor(sqlFunctionProperties, filter, ImmutableList.of(projection));
             return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(projection.getType()), new DataSize(0, BYTE), 0);
         }
         catch (Throwable e) {
@@ -921,15 +937,17 @@ public final class FunctionAssertions
         }
     }
 
-    private static SourceOperatorFactory compileScanFilterProject(Optional<RowExpression> filter, RowExpression projection, ExpressionCompiler compiler)
+    private static SourceOperatorFactory compileScanFilterProject(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, RowExpression projection, ExpressionCompiler compiler)
     {
         try {
             Supplier<CursorProcessor> cursorProcessor = compiler.compileCursorProcessor(
+                    sqlFunctionProperties,
                     filter,
                     ImmutableList.of(projection),
                     SOURCE_ID);
 
             Supplier<PageProcessor> pageProcessor = compiler.compilePageProcessor(
+                    sqlFunctionProperties,
                     filter,
                     ImmutableList.of(projection));
 
@@ -940,6 +958,11 @@ public final class FunctionAssertions
                     PAGE_SOURCE_PROVIDER,
                     cursorProcessor,
                     pageProcessor,
+                    new TableHandle(
+                            new ConnectorId("test"),
+                            new ConnectorTableHandle() {},
+                            new ConnectorTransactionHandle() {},
+                            Optional.empty()),
                     ImmutableList.of(),
                     ImmutableList.of(projection.getType()),
                     new DataSize(0, BYTE),
@@ -955,7 +978,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<VariableReferenceExpression, Integer> layout)
     {
-        return translate(projection, expressionTypes, layout, metadata.getFunctionManager(), metadata.getTypeManager(), session, false);
+        return translate(projection, expressionTypes, layout, metadata.getFunctionManager(), metadata.getTypeManager(), session);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)
@@ -1015,12 +1038,12 @@ public final class FunctionAssertions
             implements PageSourceProvider
     {
         @Override
-        public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+        public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
         {
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER))
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER, TEST_ROW_TYPE))
                         .addRow(
                                 1234L,
                                 "hello",
@@ -1031,7 +1054,8 @@ public final class FunctionAssertions
                                 null,
                                 packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")),
                                 Slices.wrappedBuffer((byte) 0xab),
-                                1234)
+                                1234,
+                                TEST_ROW_DATA.getBlock(0))
                         .build();
                 return new RecordPageSource(records);
             }
@@ -1049,6 +1073,45 @@ public final class FunctionAssertions
     private static Split createNormalSplit()
     {
         return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit(false));
+    }
+
+    private static RowType createTestRowType(int numberOfFields)
+    {
+        Iterator<Type> types = Iterables.<Type>cycle(
+                BIGINT,
+                INTEGER,
+                VARCHAR,
+                DOUBLE,
+                BOOLEAN,
+                VARBINARY,
+                RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))).iterator();
+
+        List<RowType.Field> fields = new ArrayList<>();
+        for (int fieldIdx = 0; fieldIdx < numberOfFields; fieldIdx++) {
+            fields.add(new RowType.Field(Optional.of("nested_column_" + fieldIdx), types.next()));
+        }
+
+        return RowType.from(fields);
+    }
+
+    private static Block createTestRowData(RowType rowType)
+    {
+        Iterator<Object> values = Iterables.cycle(
+                1234L,
+                34,
+                "hello",
+                12.34d,
+                true,
+                Slices.wrappedBuffer((byte) 0xab),
+                createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getBlock(0)).iterator();
+
+        final int numFields = rowType.getFields().size();
+        Object[] rowValues = new Object[numFields];
+        for (int fieldIdx = 0; fieldIdx < numFields; fieldIdx++) {
+            rowValues[fieldIdx] = values.next();
+        }
+
+        return createRowBlock(rowType.getTypeParameters(), rowValues);
     }
 
     private static class TestSplit

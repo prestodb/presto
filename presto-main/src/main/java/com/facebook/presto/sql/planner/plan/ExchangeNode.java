@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
-import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -89,6 +88,7 @@ public class ExchangeNode
     // for each source, the list of inputs corresponding to each output
     private final List<List<VariableReferenceExpression>> inputs;
 
+    private final boolean ensureSourceOrdering;
     private final Optional<OrderingScheme> orderingScheme;
 
     @JsonCreator
@@ -99,6 +99,7 @@ public class ExchangeNode
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("inputs") List<List<VariableReferenceExpression>> inputs,
+            @JsonProperty("ensureSourceOrdering") boolean ensureSourceOrdering,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme)
     {
         super(id);
@@ -117,7 +118,7 @@ public class ExchangeNode
             checkArgument(sources.get(i).getOutputVariables().containsAll(inputs.get(i)), "Source does not supply all required input variables");
         }
 
-        checkArgument(!scope.isLocal() || partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable),
+        checkArgument(!scope.isLocal() || partitioningScheme.getPartitioning().getArguments().stream().allMatch(VariableReferenceExpression.class::isInstance),
                 "local exchanges do not support constant partition function arguments");
 
         checkArgument(!scope.isRemote() || type == REPARTITION || !partitioningScheme.isReplicateNullsAndAny(), "Only REPARTITION can replicate remotely");
@@ -127,13 +128,15 @@ public class ExchangeNode
             PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
             checkArgument(!scope.isRemote() || partitioningHandle.equals(SINGLE_DISTRIBUTION), "remote merging exchange requires single distribution");
             checkArgument(!scope.isLocal() || partitioningHandle.equals(FIXED_PASSTHROUGH_DISTRIBUTION), "local merging exchange requires passthrough distribution");
-            checkArgument(partitioningScheme.getOutputLayout().containsAll(ordering.getOrderBy()), "Partitioning scheme does not supply all required ordering symbols");
+            checkArgument(partitioningScheme.getOutputLayout().containsAll(ordering.getOrderByVariables()), "Partitioning scheme does not supply all required ordering symbols");
         });
         this.type = type;
         this.sources = sources;
         this.scope = scope;
         this.partitioningScheme = partitioningScheme;
         this.inputs = listOfListsCopy(inputs);
+        this.ensureSourceOrdering = ensureSourceOrdering;
+        orderingScheme.ifPresent(scheme -> checkArgument(ensureSourceOrdering, "if ordering scheme is present the exchange must ensure source ordering"));
         this.orderingScheme = orderingScheme;
     }
 
@@ -184,6 +187,7 @@ public class ExchangeNode
                 partitioningScheme,
                 ImmutableList.of(child),
                 ImmutableList.of(partitioningScheme.getOutputLayout()),
+                false,
                 Optional.empty());
     }
 
@@ -196,10 +200,21 @@ public class ExchangeNode
                 new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), child.getOutputVariables()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputVariables()),
+                false,
                 Optional.empty());
     }
 
     public static ExchangeNode gatheringExchange(PlanNodeId id, Scope scope, PlanNode child)
+    {
+        return gatheringExchange(id, scope, child, false);
+    }
+
+    public static ExchangeNode ensureSourceOrderingGatheringExchange(PlanNodeId id, Scope scope, PlanNode child)
+    {
+        return gatheringExchange(id, scope, child, true);
+    }
+
+    private static ExchangeNode gatheringExchange(PlanNodeId id, Scope scope, PlanNode child, boolean ensureSourceOrdering)
     {
         return new ExchangeNode(
                 id,
@@ -208,6 +223,7 @@ public class ExchangeNode
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputVariables()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputVariables()),
+                ensureSourceOrdering,
                 Optional.empty());
     }
 
@@ -230,6 +246,7 @@ public class ExchangeNode
                 new PartitioningScheme(Partitioning.create(partitioningHandle, ImmutableList.of()), child.getOutputVariables()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputVariables()),
+                true,
                 Optional.of(orderingScheme));
     }
 
@@ -265,6 +282,12 @@ public class ExchangeNode
     }
 
     @JsonProperty
+    public boolean isEnsureSourceOrdering()
+    {
+        return ensureSourceOrdering;
+    }
+
+    @JsonProperty
     public Optional<OrderingScheme> getOrderingScheme()
     {
         return orderingScheme;
@@ -285,6 +308,6 @@ public class ExchangeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExchangeNode(getId(), type, scope, partitioningScheme, newChildren, inputs, orderingScheme);
+        return new ExchangeNode(getId(), type, scope, partitioningScheme, newChildren, inputs, ensureSourceOrdering, orderingScheme);
     }
 }

@@ -66,6 +66,7 @@ public class TestBasicQueryInfo
                                 Duration.valueOf("11m"),
                                 13,
                                 14,
+                                21,
                                 15,
                                 16,
                                 17,
@@ -97,6 +98,7 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("36GB"),
                                 ImmutableList.of(new StageGcStatistics(
                                         101,
+                                        1002,
                                         102,
                                         103,
                                         104,
@@ -104,7 +106,6 @@ public class TestBasicQueryInfo
                                         106,
                                         107)),
                                 ImmutableList.of()),
-                        Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(),

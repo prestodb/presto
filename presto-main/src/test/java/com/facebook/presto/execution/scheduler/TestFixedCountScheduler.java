@@ -30,9 +30,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -61,7 +61,7 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition, totalPartitions) -> Optional.of(taskFactory.createTableScanTask(
-                        new TaskId("test", 1, 1),
+                        new TaskId("test", 1, 0, 1),
                         node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> {}))),
                 generateRandomNodes(1));
@@ -78,7 +78,7 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition, totalPartitions) -> Optional.of(taskFactory.createTableScanTask(
-                        new TaskId("test", 1, 1),
+                        new TaskId("test", 1, 0, 1),
                         node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> {}))),
                 generateRandomNodes(5));

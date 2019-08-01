@@ -13,20 +13,51 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.util.HiveFileIterator;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
+import java.util.Iterator;
+import java.util.Optional;
+
+import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
+import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy;
+import static java.util.Objects.requireNonNull;
 
 public class HadoopDirectoryLister
         implements DirectoryLister
 {
     @Override
-    public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Path path)
-            throws IOException
+    public Iterator<HiveFileInfo> list(FileSystem fileSystem, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy)
     {
-        return fs.listLocatedStatus(path);
+        return new HiveFileIterator(path, p -> new HadoopFileInfoIterator(fileSystem.listLocatedStatus(p)), namenodeStats, nestedDirectoryPolicy);
+    }
+
+    public static class HadoopFileInfoIterator
+            implements RemoteIterator<HiveFileInfo>
+    {
+        private final RemoteIterator<LocatedFileStatus> locatedFileStatusIterator;
+
+        public HadoopFileInfoIterator(RemoteIterator<LocatedFileStatus> locatedFileStatusIterator)
+        {
+            this.locatedFileStatusIterator = requireNonNull(locatedFileStatusIterator, "locatedFileStatusIterator is null");
+        }
+
+        @Override
+        public boolean hasNext()
+                throws IOException
+        {
+            return locatedFileStatusIterator.hasNext();
+        }
+
+        @Override
+        public HiveFileInfo next()
+                throws IOException
+        {
+            return createHiveFileInfo(locatedFileStatusIterator.next(), Optional.empty());
+        }
     }
 }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
@@ -28,8 +30,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -96,6 +96,7 @@ public class TaskContext
 
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
+    private final AtomicLong peakTotalMemoryInBytes = new AtomicLong(0);
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastUserMemoryReservation;
@@ -475,6 +476,9 @@ public class TaskContext
         Duration fullGcTime = getFullGcTime();
 
         long userMemory = taskMemoryContext.getUserMemory();
+        long systemMemory = taskMemoryContext.getSystemMemory();
+
+        peakTotalMemoryInBytes.accumulateAndGet(userMemory + systemMemory, Math::max);
 
         synchronized (cumulativeMemoryLock) {
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
@@ -512,7 +516,8 @@ public class TaskContext
                 cumulativeUserMemory.get(),
                 succinctBytes(userMemory),
                 succinctBytes(taskMemoryContext.getRevocableMemory()),
-                succinctBytes(taskMemoryContext.getSystemMemory()),
+                succinctBytes(systemMemory),
+                peakTotalMemoryInBytes.get(),
                 succinctNanos(totalScheduledTime),
                 succinctNanos(totalCpuTime),
                 succinctNanos(totalBlockedTime),

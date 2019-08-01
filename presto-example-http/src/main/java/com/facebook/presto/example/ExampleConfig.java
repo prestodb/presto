@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.example;
 
-import io.airlift.configuration.Config;
+import com.facebook.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
 

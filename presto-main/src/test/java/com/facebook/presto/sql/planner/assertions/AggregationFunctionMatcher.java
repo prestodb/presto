@@ -16,12 +16,12 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.OrderingScheme;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.OrderBy;
@@ -71,7 +71,7 @@ public class AggregationFunctionMatcher
 
     private static boolean verifyAggregation(FunctionManager functionManager, Aggregation aggregation, FunctionCall expectedCall)
     {
-        return functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName().equalsIgnoreCase(expectedCall.getName().getSuffix()) &&
+        return functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName().getFunctionName().equalsIgnoreCase(expectedCall.getName().getSuffix()) &&
                 aggregation.getArguments().size() == expectedCall.getArguments().size() &&
                 Streams.zip(
                         aggregation.getArguments().stream(),
@@ -92,11 +92,11 @@ public class AggregationFunctionMatcher
 
     private static boolean verifyAggregationOrderBy(OrderingScheme orderingScheme, OrderBy expectedSortOrder)
     {
-        if (orderingScheme.getOrderBy().size() != expectedSortOrder.getSortItems().size()) {
+        if (orderingScheme.getOrderByVariables().size() != expectedSortOrder.getSortItems().size()) {
             return false;
         }
         for (int i = 0; i < expectedSortOrder.getSortItems().size(); i++) {
-            VariableReferenceExpression orderingVariable = orderingScheme.getOrderBy().get(i);
+            VariableReferenceExpression orderingVariable = orderingScheme.getOrderByVariables().get(i);
             if (expectedSortOrder.getSortItems().get(i).getSortKey().equals(new SymbolReference(orderingVariable.getName())) &&
                     toSortOrder(expectedSortOrder.getSortItems().get(i)).equals(orderingScheme.getOrdering(orderingVariable))) {
                 continue;

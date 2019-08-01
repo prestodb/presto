@@ -31,7 +31,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-final class ColumnarTestUtils
+public final class ColumnarTestUtils
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
     private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager(TYPE_MANAGER);
@@ -81,12 +81,12 @@ final class ColumnarTestUtils
         }
         else if (expectedValue instanceof Slice[]) {
             // array or row
-            Block actual = block.getObject(position, Block.class);
+            Block actual = block.getBlock(position);
             assertBlock(actual, (Slice[]) expectedValue);
         }
         else if (expectedValue instanceof Slice[][]) {
             // map
-            Block actual = block.getObject(position, Block.class);
+            Block actual = block.getBlock(position);
             // a map is exposed as a block alternating key and value entries, so we need to flatten the expected values array
             assertBlock(actual, flattenMapEntries((Slice[][]) expectedValue));
         }

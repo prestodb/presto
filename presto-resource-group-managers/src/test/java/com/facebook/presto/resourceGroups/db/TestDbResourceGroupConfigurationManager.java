@@ -329,7 +329,7 @@ public class TestDbResourceGroupConfigurationManager
             fail("Expected unavailable configuration exception");
         }
         catch (Exception e) {
-            assertEquals(e.getMessage(), "Selectors cannot be fetched from database");
+            assertTrue(e.getMessage().startsWith("Resource group configuration cannot be fetched from database."));
         }
 
         try {
@@ -337,7 +337,7 @@ public class TestDbResourceGroupConfigurationManager
             fail("Expected unavailable configuration exception");
         }
         catch (Exception e) {
-            assertEquals(e.getMessage(), "Root groups cannot be fetched from database");
+            assertTrue(e.getMessage().startsWith("Resource group configuration cannot be fetched from database."));
         }
 
         manager.destroy();

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.event.QueryMonitor;
@@ -36,8 +39,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.facebook.presto.sql.SqlEnvironmentConfig;
-import com.facebook.presto.sql.SqlPath;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
@@ -45,8 +46,6 @@ import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -62,6 +61,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -70,6 +70,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryStateMachine.QUERY_STATE_LOG;
@@ -81,7 +82,6 @@ import static com.facebook.presto.util.StatementUtils.isTransactionControlStatem
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
-import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -95,12 +95,12 @@ public class SqlQueryManager
     private final QueryPreparer queryPreparer;
 
     private final EmbedVersion embedVersion;
-    private final ExecutorService queryExecutor;
+    private final ExecutorService unboundedExecutorService;
+    private final Executor boundedExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final ClusterMemoryManager memoryManager;
 
-    private final Optional<String> path;
     private final int maxQueryLength;
     private final Duration maxQueryCpuTime;
 
@@ -134,7 +134,6 @@ public class SqlQueryManager
             EmbedVersion embedVersion,
             NodeSchedulerConfig nodeSchedulerConfig,
             QueryManagerConfig queryManagerConfig,
-            SqlEnvironmentConfig sqlEnvironmentConfig,
             QueryMonitor queryMonitor,
             ResourceGroupManager<?> resourceGroupManager,
             ClusterMemoryManager memoryManager,
@@ -153,8 +152,9 @@ public class SqlQueryManager
         this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
 
-        this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
-        this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
+        this.unboundedExecutorService = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
+        this.boundedExecutor = new BoundedExecutor(unboundedExecutorService, queryManagerConfig.getQuerySubmissionMaxThreads());
+        this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) unboundedExecutorService);
 
         requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
@@ -174,7 +174,6 @@ public class SqlQueryManager
 
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
-        this.path = sqlEnvironmentConfig.getPath();
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
 
@@ -212,7 +211,7 @@ public class SqlQueryManager
     {
         queryTracker.stop();
         queryManagementExecutor.shutdownNow();
-        queryExecutor.shutdownNow();
+        unboundedExecutorService.shutdownNow();
     }
 
     @Override
@@ -300,7 +299,7 @@ public class SqlQueryManager
     public ListenableFuture<?> createQuery(QueryId queryId, SessionContext sessionContext, String query)
     {
         QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        queryExecutor.submit(embedVersion.embedVersion(() -> {
+        boundedExecutor.execute(embedVersion.embedVersion(() -> {
             try {
                 createQueryInternal(queryId, sessionContext, query, resourceGroupManager);
                 queryCreationFuture.set(null);
@@ -380,7 +379,6 @@ public class SqlQueryManager
                 session = Session.builder(new SessionPropertyManager())
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
-                        .setPath(new SqlPath(Optional.empty()))
                         .build();
             }
             QUERY_STATE_LOG.debug(e, "Query %s failed", session.getQueryId());
@@ -394,7 +392,7 @@ public class SqlQueryManager
                     locationFactory.createQueryLocation(queryId),
                     Optional.ofNullable(selectionContext).map(SelectionContext::getResourceGroupId),
                     queryType,
-                    queryExecutor,
+                    unboundedExecutorService,
                     e);
 
             try {
@@ -438,7 +436,7 @@ public class SqlQueryManager
 
         // start the query in the background
         try {
-            resourceGroupManager.submit(preparedQuery.getStatement(), queryExecution, selectionContext, queryExecutor);
+            resourceGroupManager.submit(preparedQuery.getStatement(), queryExecution, selectionContext, unboundedExecutorService);
         }
         catch (Throwable e) {
             failQuery(queryId, e);
@@ -494,6 +492,18 @@ public class SqlQueryManager
     public ThreadPoolExecutorMBean getManagementExecutor()
     {
         return queryManagementExecutorMBean;
+    }
+
+    @Managed
+    public long getRunningTaskCount()
+    {
+        return queryTracker.getRunningTaskCount();
+    }
+
+    @Managed
+    public long getQueriesKilledDueToTooManyTask()
+    {
+        return queryTracker.getQueriesKilledDueToTooManyTask();
     }
 
     /**

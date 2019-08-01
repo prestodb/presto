@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server.smile;
 
+import com.facebook.airlift.http.client.StaticBodyGenerator;
 import com.google.common.annotations.Beta;
-import io.airlift.http.client.StaticBodyGenerator;
 
 @Beta
 public class SmileBodyGenerator<T>

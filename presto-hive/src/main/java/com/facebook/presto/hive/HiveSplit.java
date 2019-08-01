@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.relation.RowExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +27,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -41,21 +39,20 @@ public class HiveSplit
     private final long start;
     private final long length;
     private final long fileSize;
-    private final Properties schema;
+    private final Storage storage;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HostAddress> addresses;
     private final String database;
     private final String table;
     private final String partitionName;
-    private final TupleDomain<Subfield> domainPredicate;
-    private final RowExpression remainingPredicate;
-    private final Map<String, HiveColumnHandle> predicateColumns;
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
     private final boolean forceLocalScheduling;
-    private final Map<Integer, HiveType> columnCoercions; // key: hiveColumnIndex
+    private final int partitionDataColumnCount;
+    private final Map<Integer, Column> partitionSchemaDifference; // key: hiveColumnIndex
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
+    private final Optional<byte[]> extraFileInfo;
 
     @JsonCreator
     public HiveSplit(
@@ -66,18 +63,17 @@ public class HiveSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("schema") Properties schema,
+            @JsonProperty("storage") Storage storage,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
-            @JsonProperty("domainPredicate") TupleDomain<Subfield> domainPredicate,
-            @JsonProperty("remainingPredicate") RowExpression remainingPredicate,
-            @JsonProperty("predicateColumns") Map<String, HiveColumnHandle> predicateColumns,
-            @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions,
+            @JsonProperty("partitionDataColumnCount") int partitionDataColumnCount,
+            @JsonProperty("partitionSchemaDifference") Map<Integer, Column> partitionSchemaDifference,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
-            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled)
+            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
+            @JsonProperty("extraFileInfo") Optional<byte[]> extraFileInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -86,16 +82,14 @@ public class HiveSplit
         requireNonNull(table, "table is null");
         requireNonNull(partitionName, "partitionName is null");
         requireNonNull(path, "path is null");
-        requireNonNull(schema, "schema is null");
+        requireNonNull(storage, "storage is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(addresses, "addresses is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
-        requireNonNull(columnCoercions, "columnCoercions is null");
+        requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
-        requireNonNull(domainPredicate, "domainPredicate is null");
-        requireNonNull(remainingPredicate, "remainingPredicate is null");
-        requireNonNull(predicateColumns, "predicateColumns is null");
+        requireNonNull(extraFileInfo, "extraFileInfo is null");
 
         this.database = database;
         this.table = table;
@@ -104,18 +98,17 @@ public class HiveSplit
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
-        this.schema = schema;
+        this.storage = storage;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
-        this.domainPredicate = domainPredicate;
-        this.remainingPredicate = remainingPredicate;
-        this.predicateColumns = predicateColumns;
-        this.columnCoercions = columnCoercions;
+        this.partitionDataColumnCount = partitionDataColumnCount;
+        this.partitionSchemaDifference = partitionSchemaDifference;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.extraFileInfo = extraFileInfo;
     }
 
     @JsonProperty
@@ -161,9 +154,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public Properties getSchema()
+    public Storage getStorage()
     {
-        return schema;
+        return storage;
     }
 
     @JsonProperty
@@ -192,33 +185,21 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public TupleDomain<Subfield> getDomainPredicate()
-    {
-        return domainPredicate;
-    }
-
-    @JsonProperty
-    public RowExpression getRemainingPredicate()
-    {
-        return remainingPredicate;
-    }
-
-    @JsonProperty
-    public Map<String, HiveColumnHandle> getPredicateColumns()
-    {
-        return predicateColumns;
-    }
-
-    @JsonProperty
     public boolean isForceLocalScheduling()
     {
         return forceLocalScheduling;
     }
 
     @JsonProperty
-    public Map<Integer, HiveType> getColumnCoercions()
+    public int getPartitionDataColumnCount()
     {
-        return columnCoercions;
+        return partitionDataColumnCount;
+    }
+
+    @JsonProperty
+    public Map<Integer, Column> getPartitionSchemaDifference()
+    {
+        return partitionSchemaDifference;
     }
 
     @JsonProperty
@@ -237,6 +218,12 @@ public class HiveSplit
     public boolean isS3SelectPushdownEnabled()
     {
         return s3SelectPushdownEnabled;
+    }
+
+    @JsonProperty
+    public Optional<byte[]> getExtraFileInfo()
+    {
+        return extraFileInfo;
     }
 
     @Override
@@ -264,8 +251,6 @@ public class HiveSplit
                 .addValue(start)
                 .addValue(length)
                 .addValue(fileSize)
-                .addValue(domainPredicate)
-                .addValue(remainingPredicate)
                 .addValue(s3SelectPushdownEnabled)
                 .toString();
     }

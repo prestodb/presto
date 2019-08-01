@@ -36,6 +36,8 @@ import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
+import static com.facebook.presto.plugin.geospatial.BingTileFunctions.MAX_LATITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileFunctions.MIN_LONGITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -60,8 +62,8 @@ public class TestBingTileFunctions
         for (Type type : plugin.getTypes()) {
             functionAssertions.getTypeRegistry().addType(type);
         }
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
-        functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
+        functionAssertions.getMetadata().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
         approxDistinct = functionManager.getAggregateFunctionImplementation(
                 functionManager.lookupFunction("approx_distinct", fromTypes(BING_TILE)));
@@ -90,14 +92,15 @@ public class TestBingTileFunctions
     @Test
     public void testBingTile()
     {
+        assertFunction("bing_tile_quadkey(bing_tile(''))", VARCHAR, "");
         assertFunction("bing_tile_quadkey(bing_tile('213'))", VARCHAR, "213");
         assertFunction("bing_tile_quadkey(bing_tile('123030123010121'))", VARCHAR, "123030123010121");
 
+        assertFunction("bing_tile_quadkey(bing_tile(0, 0, 0))", VARCHAR, "");
         assertFunction("bing_tile_quadkey(bing_tile(3, 5, 3))", VARCHAR, "213");
         assertFunction("bing_tile_quadkey(bing_tile(21845, 13506, 15))", VARCHAR, "123030123010121");
 
         // Invalid calls: corrupt quadkeys
-        assertInvalidFunction("bing_tile('')", "QuadKey must not be empty string");
         assertInvalidFunction("bing_tile('test')", "Invalid QuadKey digit sequence: test");
         assertInvalidFunction("bing_tile('12345')", "Invalid QuadKey digit sequence: 12345");
         assertInvalidFunction("bing_tile('101010101010101010101010101010100101010101001010')", "QuadKey must be 23 characters or less");
@@ -124,7 +127,7 @@ public class TestBingTileFunctions
         // Latitude out of range
         assertInvalidFunction("bing_tile_at(300.12, 60, 15)", "Latitude must be between -85.05112878 and 85.05112878");
         // Invalid zoom levels
-        assertInvalidFunction("bing_tile_at(30.12, 60, 0)", "Zoom level must be > 0");
+        assertInvalidFunction("bing_tile_at(30.12, 60, -1)", "Zoom level must be >= 0");
         assertInvalidFunction("bing_tile_at(30.12, 60, 40)", "Zoom level must be <= 23");
     }
 
@@ -381,8 +384,8 @@ public class TestBingTileFunctions
     @Test
     public void testBingTilePolygon()
     {
-        assertFunction("ST_AsText(bing_tile_polygon(bing_tile('123030123010121')))", VARCHAR, "POLYGON ((59.996337890625 30.11662158281937, 60.00732421875 30.11662158281937, 60.00732421875 30.12612436422458, 59.996337890625 30.12612436422458, 59.996337890625 30.11662158281937))");
-        assertFunction("ST_AsText(ST_Centroid(bing_tile_polygon(bing_tile('123030123010121'))))", VARCHAR, "POINT (60.0018310442288 30.121372968273892)");
+        assertFunction("ST_AsText(bing_tile_polygon(bing_tile('123030123010121')))", VARCHAR, "POLYGON ((59.996337890625 30.11662158281937, 59.996337890625 30.12612436422458, 60.00732421875 30.12612436422458, 60.00732421875 30.11662158281937, 59.996337890625 30.11662158281937))");
+        assertFunction("ST_AsText(ST_Centroid(bing_tile_polygon(bing_tile('123030123010121'))))", VARCHAR, "POINT (60.0018310546875 30.12137297352197)");
 
         // Check bottom right corner of a stack of tiles at different zoom levels
         assertFunction("ST_AsText(apply(bing_tile_polygon(bing_tile(1, 1, 1)), g -> ST_Point(ST_XMax(g), ST_YMin(g))))", VARCHAR, "POINT (180 -85.05112877980659)");
@@ -430,12 +433,13 @@ public class TestBingTileFunctions
     public void testGeometryToBingTiles()
             throws Exception
     {
+        assertGeometryToBingTiles("POINT (60 30.12)", 0, ImmutableList.of(""));
         assertGeometryToBingTiles("POINT (60 30.12)", 10, ImmutableList.of("1230301230"));
         assertGeometryToBingTiles("POINT (60 30.12)", 15, ImmutableList.of("123030123010121"));
         assertGeometryToBingTiles("POINT (60 30.12)", 16, ImmutableList.of("1230301230101212"));
 
-        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223"));
-        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10))", 6, ImmutableList.of("122220", "122222", "122221"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 0 0))", 6, ImmutableList.of("122220", "122222", "122221"));
 
         assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 3, ImmutableList.of("033", "211", "122"));
         assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 6, ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "033330", "033332", "211110", "211112", "033331", "033333", "211111", "122220", "122222", "122221"));
@@ -456,15 +460,21 @@ public class TestBingTileFunctions
         assertGeometryToBingTiles("POLYGON EMPTY", 10, emptyList());
         assertGeometryToBingTiles("GEOMETRYCOLLECTION EMPTY", 10, emptyList());
 
+        // Geometries at MIN_LONGITUDE/MAX_LATITUDE
+        assertGeometryToBingTiles("LINESTRING (-180 -79.19245, -180 -79.17133464081945)", 8, ImmutableList.of("22200000"));
+        assertGeometryToBingTiles(format("POINT (%s 0)", MIN_LONGITUDE), 5, ImmutableList.of("20000"));
+        assertGeometryToBingTiles(format("POINT (0 %s)", MAX_LATITUDE), 5, ImmutableList.of("10000"));
+        assertGeometryToBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MAX_LATITUDE), 5, ImmutableList.of("00000"));
+
         // Invalid input
         // Longitude out of range
         assertInvalidFunction("geometry_to_bing_tiles(ST_Point(600, 30.12), 10)", "Longitude span for the geometry must be in [-180.00, 180.00] range");
-        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((1000 10, -10 10, -20 -15))'), 10)", "Longitude span for the geometry must be in [-180.00, 180.00] range");
+        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((1000 10, -10 10, -20 -15, 1000 10))'), 10)", "Longitude span for the geometry must be in [-180.00, 180.00] range");
         // Latitude out of range
         assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 300.12), 10)", "Latitude span for the geometry must be in [-85.05, 85.05] range");
-        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((10 1000, -10 10, -20 -15))'), 10)", "Latitude span for the geometry must be in [-85.05, 85.05] range");
+        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((10 1000, -10 10, -20 -15, 10 1000))'), 10)", "Latitude span for the geometry must be in [-85.05, 85.05] range");
         // Invalid zoom levels
-        assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 30.12), 0)", "Zoom level must be > 0");
+        assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 30.12), -1)", "Zoom level must be >= 0");
         assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 30.12), 40)", "Zoom level must be <= 23");
 
         // Input rectangle too large

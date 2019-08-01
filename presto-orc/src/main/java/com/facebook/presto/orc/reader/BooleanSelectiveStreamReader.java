@@ -33,8 +33,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -52,6 +54,7 @@ public class BooleanSelectiveStreamReader
     private final StreamDescriptor streamDescriptor;
     @Nullable
     private final TupleDomainFilter filter;
+    private final boolean nonDeterministicFilter;
     private final boolean nullsAllowed;
     private final boolean outputRequired;
 
@@ -90,7 +93,8 @@ public class BooleanSelectiveStreamReader
         this.outputRequired = outputRequired;
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
 
-        nullsAllowed = this.filter == null || this.filter.testNull();
+        nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
+        nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
     }
 
     @Override
@@ -147,6 +151,7 @@ public class BooleanSelectiveStreamReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkArgument(positionCount > 0, "positionCount must be greater than zero");
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (!rowGroupOpen) {
@@ -159,12 +164,7 @@ public class BooleanSelectiveStreamReader
             ensureValuesCapacity(positionCount, nullsAllowed && presentStream != null);
         }
 
-        if (filter != null) {
-            ensureOutputPositionsCapacity(positionCount);
-        }
-        else {
-            outputPositions = positions;
-        }
+        outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
         // account memory used by values, nulls and outputPositions
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
@@ -196,7 +196,7 @@ public class BooleanSelectiveStreamReader
                 }
 
                 if (presentStream != null && !presentStream.nextBit()) {
-                    if (nullsAllowed) {
+                    if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                         if (outputRequired) {
                             nulls[outputPositionCount] = true;
                         }
@@ -217,7 +217,22 @@ public class BooleanSelectiveStreamReader
                         outputPositionCount++;
                     }
                 }
+
+                outputPositionCount -= filter.getPrecedingPositionsToFail();
+
                 streamPosition++;
+
+                int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
+                if (succeedingPositionsToFail > 0) {
+                    int positionsToSkip = 0;
+                    for (int j = 0; j < succeedingPositionsToFail; j++) {
+                        i++;
+                        int nextPosition = positions[i];
+                        positionsToSkip += 1 + nextPosition - streamPosition;
+                        streamPosition = nextPosition + 1;
+                    }
+                    skip(positionsToSkip);
+                }
             }
         }
 
@@ -230,14 +245,26 @@ public class BooleanSelectiveStreamReader
     {
         presentStream.skip(positions[positionCount - 1]);
 
-        if (nullsAllowed) {
+        if (nonDeterministicFilter) {
+            outputPositionCount = 0;
+            for (int i = 0; i < positionCount; i++) {
+                if (filter.testNull()) {
+                    outputPositionCount++;
+                }
+                else {
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+                    i += filter.getSucceedingPositionsToFail();
+                }
+            }
+        }
+        else if (nullsAllowed) {
             outputPositionCount = positionCount;
-            allNulls = true;
         }
         else {
             outputPositionCount = 0;
         }
 
+        allNulls = true;
         return positions[positionCount - 1] + 1;
     }
 
@@ -285,21 +312,10 @@ public class BooleanSelectiveStreamReader
 
     private void ensureValuesCapacity(int capacity, boolean recordNulls)
     {
-        if (values == null || values.length < capacity) {
-            values = new byte[capacity];
-        }
+        values = ensureCapacity(values, capacity);
 
         if (recordNulls) {
-            if (nulls == null || nulls.length < capacity) {
-                nulls = new boolean[capacity];
-            }
-        }
-    }
-
-    private void ensureOutputPositionsCapacity(int capacity)
-    {
-        if (outputPositions == null || outputPositions.length < capacity) {
-            outputPositions = new int[capacity];
+            nulls = ensureCapacity(nulls, capacity);
         }
     }
 
@@ -318,7 +334,7 @@ public class BooleanSelectiveStreamReader
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (allNulls) {
-            return new RunLengthEncodedBlock(NULL_BLOCK, outputPositionCount);
+            return new RunLengthEncodedBlock(NULL_BLOCK, positionCount);
         }
 
         boolean includeNulls = nullsAllowed && presentStream != null;
@@ -378,6 +394,11 @@ public class BooleanSelectiveStreamReader
         }
 
         return newLease(new ByteArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), values));
+    }
+
+    @Override
+    public void throwAnyError(int[] positions, int positionCount)
+    {
     }
 
     private BlockLease newLease(Block block)

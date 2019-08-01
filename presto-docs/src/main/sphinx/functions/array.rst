@@ -21,21 +21,31 @@ The ``||`` operator is used to concatenate an array with an array or an element 
 Array Functions
 ---------------
 
+.. function:: all_match(array(T), function(T,boolean)) -> boolean
+
+    Returns whether all elements of an array match the given predicate. Returns ``true`` if all the elements
+    match the predicate (a special case is when the array is empty); ``false`` if one or more elements don't
+    match; ``NULL`` if the predicate function returns ``NULL`` for one or more elements and ``true`` for all
+    other elements.
+
+.. function:: any_match(array(T), function(T,boolean)) -> boolean
+
+    Returns whether any elements of an array match the given predicate. Returns ``true`` if one or more
+    elements match the predicate; ``false`` if none of the elements matches (a special case is when the
+    array is empty); ``NULL`` if the predicate function returns ``NULL`` for one or more elements and ``false``
+    for all other elements.
+
 .. function:: array_distinct(x) -> array
 
     Remove duplicate values from the array ``x``.
 
-.. function:: array_intersect(x, y) -> array
-
-    Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
-
-.. function:: array_union(x, y) -> array
-
-    Returns an array of the elements in the union of ``x`` and ``y``, without duplicates.
-
 .. function:: array_except(x, y) -> array
 
     Returns an array of elements in ``x`` but not in ``y``, without duplicates.
+
+.. function:: array_intersect(x, y) -> array
+
+    Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
 
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
@@ -94,8 +104,12 @@ Array Functions
 
 .. function:: arrays_overlap(x, y) -> boolean
 
-    Tests if arrays ``x`` and ``y`` have any any non-null elements in common.
+    Tests if arrays ``x`` and ``y`` have any non-null elements in common.
     Returns null if there are no non-null elements in common but either array contains null.
+
+.. function:: array_union(x, y) -> array
+
+    Returns an array of the elements in the union of ``x`` and ``y``, without duplicates.
 
 .. function:: cardinality(x) -> bigint
 
@@ -106,6 +120,18 @@ Array Functions
 
     Concatenates the arrays ``array1``, ``array2``, ``...``, ``arrayN``.
     This function provides the same functionality as the SQL-standard concatenation operator (``||``).
+
+.. function:: combinations(array(T), n) -> array(array(T))
+
+    Returns n-element combinations of the input array.
+    If the input array has no duplicates, ``combinations`` returns n-element subsets. 
+    Order of subgroup is deterministic but unspecified. Order of elements within
+    a subgroup are deterministic but unspecified. ``n`` must not be greater than 5,
+    and the total size of subgroups generated must be smaller than 100000::
+
+        SELECT combinations(ARRAY['foo', 'bar', 'boo'],2); --[['foo', 'bar'], ['foo', 'boo']['bar', 'boo']]
+        SELECT combinations(ARRAY[1,2,3,4,5],3); --[[1,2,3], [1,2,4], [1,3,4], [2,3,4]]
+        SELECT combinations(ARRAY[1,2,2],2); --[[1,2],[1,2],[2,2]]
 
 .. function:: contains(x, element) -> boolean
 
@@ -138,6 +164,12 @@ Array Functions
         SELECT ngrams(ARRAY['foo', 'bar', 'baz', 'foo'], 4); -- [['foo', 'bar', 'baz', 'foo']]
         SELECT ngrams(ARRAY['foo', 'bar', 'baz', 'foo'], 5); -- [['foo', 'bar', 'baz', 'foo']]
         SELECT ngrams(ARRAY[1, 2, 3, 4], 2); -- [[1, 2], [2, 3], [3, 4]]
+
+.. function:: none_match(array(T), function(T,boolean)) -> boolean
+
+    Returns whether no elements of an array match the given predicate. Returns ``true`` if none of the elements
+    matches the predicate (a special case is when the array is empty); ``false`` if one or more elements match;
+    ``NULL`` if the predicate function returns ``NULL`` for one or more elements and ``false`` for all other elements.
 
 .. function:: reduce(array(T), initialState S, inputFunction(S,T,S), outputFunction(S,R)) -> R
 

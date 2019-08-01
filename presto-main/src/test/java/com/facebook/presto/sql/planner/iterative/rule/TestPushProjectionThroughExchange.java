@@ -14,17 +14,16 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.Assignments;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
@@ -33,8 +32,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.FIRST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 
@@ -47,7 +45,7 @@ public class TestPushProjectionThroughExchange
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p ->
                         p.project(
-                                assignment(p.variable("x"), new LongLiteral("3")),
+                                assignment(p.variable("x"), constant(3L, BIGINT)),
                                 p.values(p.variable("a"))))
                 .doesNotFire();
     }
@@ -63,8 +61,8 @@ public class TestPushProjectionThroughExchange
 
                     return p.project(
                             Assignments.builder()
-                                    .put(a, castToRowExpression(asSymbolReference(a)))
-                                    .put(b, castToRowExpression(asSymbolReference(b)))
+                                    .put(a, a)
+                                    .put(b, b)
                                     .build(),
                             p.exchange(e -> e
                                     .addSource(p.values(a, b, c))
@@ -86,8 +84,8 @@ public class TestPushProjectionThroughExchange
                     VariableReferenceExpression x = p.variable("x");
                     return p.project(
                             assignment(
-                                    x, new LongLiteral("3"),
-                                    c2, new SymbolReference("c")),
+                                    x, constant(3L, BIGINT),
+                                    c2, c),
                             p.exchange(e -> e
                                     .addSource(
                                             p.values(a))
@@ -123,9 +121,9 @@ public class TestPushProjectionThroughExchange
                     VariableReferenceExpression hTimes5 = p.variable("h_times_5");
                     return p.project(
                             Assignments.builder()
-                                    .put(aTimes5, castToRowExpression(new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("a"), new LongLiteral("5"))))
-                                    .put(bTimes5, castToRowExpression(new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("b"), new LongLiteral("5"))))
-                                    .put(hTimes5, castToRowExpression(new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("h"), new LongLiteral("5"))))
+                                    .put(aTimes5, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT)))
+                                    .put(bTimes5, p.binaryOperation(MULTIPLY, b, constant(5L, BIGINT)))
+                                    .put(hTimes5, p.binaryOperation(MULTIPLY, h, constant(5L, BIGINT)))
                                     .build(),
                             p.exchange(e -> e
                                     .addSource(
@@ -164,12 +162,12 @@ public class TestPushProjectionThroughExchange
                     VariableReferenceExpression bTimes5 = p.variable("b_times_5");
                     VariableReferenceExpression hTimes5 = p.variable("h_times_5");
                     VariableReferenceExpression sortVariable = p.variable("sortVariable");
-                    OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(sortVariable), ImmutableMap.of(sortVariable, SortOrder.ASC_NULLS_FIRST));
+                    OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(new Ordering(sortVariable, SortOrder.ASC_NULLS_FIRST)));
                     return p.project(
                             Assignments.builder()
-                                    .put(aTimes5, castToRowExpression(new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("a"), new LongLiteral("5"))))
-                                    .put(bTimes5, castToRowExpression(new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("b"), new LongLiteral("5"))))
-                                    .put(hTimes5, castToRowExpression(new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("h"), new LongLiteral("5"))))
+                                    .put(aTimes5, p.binaryOperation(MULTIPLY, a, constant(5L, BIGINT)))
+                                    .put(bTimes5, p.binaryOperation(MULTIPLY, b, constant(5L, BIGINT)))
+                                    .put(hTimes5, p.binaryOperation(MULTIPLY, h, constant(5L, BIGINT)))
                                     .build(),
                             p.exchange(e -> e
                                     .addSource(
@@ -177,6 +175,7 @@ public class TestPushProjectionThroughExchange
                                     .addInputsSet(a, b, h, sortVariable)
                                     .singleDistributionPartitioningScheme(
                                             ImmutableList.of(a, b, h, sortVariable))
+                                    .setEnsureSourceOrdering(true)
                                     .orderingScheme(orderingScheme)));
                 })
                 .matches(

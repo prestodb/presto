@@ -23,5 +23,5 @@ import com.facebook.presto.spi.api.Experimental;
 @Experimental
 public interface FunctionHandle
 {
-    CatalogSchemaName getCatalogSchemaName();
+    CatalogSchemaName getFunctionNamespace();
 }

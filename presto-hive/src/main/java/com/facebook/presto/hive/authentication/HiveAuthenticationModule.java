@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.hive.authentication;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import java.util.function.Predicate;
 
+import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHiveMetastoreAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.noHdfsAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.noHiveMetastoreAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.simpleImpersonatingHdfsAuthenticationModule;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
 
 public class HiveAuthenticationModule
         extends AbstractConfigurationAwareModule

@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.DefunctConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.Tag;
 import com.mongodb.TagSet;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -37,7 +37,6 @@ public class MongoClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private static final Splitter PORT_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
-    private static final Splitter USER_SPLITTER = Splitter.onPattern("[:@]").trimResults().omitEmptyStrings();
     private static final Splitter TAGSET_SPLITTER = Splitter.on('&').trimResults().omitEmptyStrings();
     private static final Splitter TAG_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
 
@@ -135,9 +134,17 @@ public class MongoClientConfig
     {
         ImmutableList.Builder<MongoCredential> builder = ImmutableList.builder();
         for (String userPass : userPasses) {
-            List<String> values = USER_SPLITTER.splitToList(userPass);
-            checkArgument(values.size() == 3, "Invalid Credential format. Requires user:password@collection");
-            builder.add(createCredential(values.get(0), values.get(2), values.get(1).toCharArray()));
+            int atPos = userPass.lastIndexOf('@');
+            checkArgument(atPos > 0, "Invalid credential format. Required user:password@collection");
+            String userAndPassword = userPass.substring(0, atPos);
+            String collection = userPass.substring(atPos + 1);
+
+            int colonPos = userAndPassword.indexOf(':');
+            checkArgument(colonPos > 0, "Invalid credential format. Required user:password@collection");
+            String user = userAndPassword.substring(0, colonPos);
+            String password = userAndPassword.substring(colonPos + 1);
+
+            builder.add(createCredential(user, collection, password.toCharArray()));
         }
         return builder.build();
     }

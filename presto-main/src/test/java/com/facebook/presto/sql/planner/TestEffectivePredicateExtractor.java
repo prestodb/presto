@@ -19,22 +19,23 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -53,7 +54,6 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -71,14 +71,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
+import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.count;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -149,8 +150,6 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testAggregation()
     {
-        FunctionCall functionCall = new FunctionCall(QualifiedName.of("count"), ImmutableList.of());
-        FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction("count", ImmutableList.of());
         PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
                         and(
@@ -243,7 +242,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                1, new OrderingScheme(ImmutableList.of(AV), ImmutableMap.of(AV, SortOrder.ASC_NULLS_LAST)), TopNNode.Step.PARTIAL);
+                1, new OrderingScheme(ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_LAST))), TopNNode.Step.PARTIAL);
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
@@ -265,7 +264,7 @@ public class TestEffectivePredicateExtractor
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
                 1,
-                false);
+                FINAL);
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
@@ -286,7 +285,8 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                new OrderingScheme(ImmutableList.of(AV), ImmutableMap.of(AV, SortOrder.ASC_NULLS_LAST)));
+                new OrderingScheme(ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_LAST))),
+                false);
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
@@ -309,9 +309,7 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, bigintLiteral(10)))),
                 new WindowNode.Specification(
                         ImmutableList.of(AV),
-                        Optional.of(new OrderingScheme(
-                                ImmutableList.of(AV),
-                                ImmutableMap.of(AV, SortOrder.ASC_NULLS_LAST)))),
+                        Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_LAST))))),
                 ImmutableMap.of(),
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -388,13 +386,13 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testUnion()
     {
-        ImmutableListMultimap<VariableReferenceExpression, VariableReferenceExpression> variableMapping = ImmutableListMultimap.of(AV, BV, AV, CV, AV, EV);
         PlanNode node = new UnionNode(newId(),
                 ImmutableList.of(
                         filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
                         filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
                         filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))),
-                variableMapping);
+                ImmutableList.of(AV),
+                ImmutableMap.of(AV, ImmutableList.of(BV, CV, EV)));
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 

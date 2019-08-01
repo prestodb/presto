@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -49,6 +49,8 @@ public class QueryManagerConfig
     private int maxQueryLength = 1_000_000;
     private int maxStageCount = 100;
     private int stageCountWarningThreshold = 50;
+    private int maxTotalRunningTaskCount = Integer.MAX_VALUE;
+    private int maxQueryRunningTaskCount = Integer.MAX_VALUE;
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
@@ -67,6 +69,8 @@ public class QueryManagerConfig
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
+
+    private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -231,6 +235,34 @@ public class QueryManagerConfig
     public QueryManagerConfig setStageCountWarningThreshold(int stageCountWarningThreshold)
     {
         this.stageCountWarningThreshold = stageCountWarningThreshold;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTotalRunningTaskCount()
+    {
+        return maxTotalRunningTaskCount;
+    }
+
+    @Config("experimental.max-total-running-task-count")
+    @ConfigDescription("Maximal allowed running task from all queries")
+    public QueryManagerConfig setMaxTotalRunningTaskCount(int maxTotalRunningTaskCount)
+    {
+        this.maxTotalRunningTaskCount = maxTotalRunningTaskCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxQueryRunningTaskCount()
+    {
+        return maxQueryRunningTaskCount;
+    }
+
+    @Config("experimental.max-query-running-task-count")
+    @ConfigDescription("Maximal allowed running task for single query only if experimental.max-total-running-task-count is violated")
+    public QueryManagerConfig setMaxQueryRunningTaskCount(int maxQueryRunningTaskCount)
+    {
+        this.maxQueryRunningTaskCount = maxQueryRunningTaskCount;
         return this;
     }
 
@@ -407,6 +439,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setRequiredWorkersMaxWait(Duration requiredWorkersMaxWait)
     {
         this.requiredWorkersMaxWait = requiredWorkersMaxWait;
+        return this;
+    }
+
+    @Min(1)
+    public int getQuerySubmissionMaxThreads()
+    {
+        return querySubmissionMaxThreads;
+    }
+
+    @Config("query-manager.query-submission-max-threads")
+    public QueryManagerConfig setQuerySubmissionMaxThreads(int querySubmissionMaxThreads)
+    {
+        this.querySubmissionMaxThreads = querySubmissionMaxThreads;
         return this;
     }
 

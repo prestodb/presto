@@ -28,9 +28,9 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -51,6 +51,11 @@ class QueryAssertions
     public QueryAssertions(Session session)
     {
         runner = new LocalQueryRunner(session);
+    }
+
+    public QueryRunner getQueryRunner()
+    {
+        return runner;
     }
 
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)

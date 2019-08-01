@@ -166,7 +166,7 @@ public class RowType
     @Override
     public Block getObject(Block block, int position)
     {
-        return block.getObject(position, Block.class);
+        return block.getBlock(position);
     }
 
     @Override
@@ -229,8 +229,8 @@ public class RowType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        Block leftRow = leftBlock.getObject(leftPosition, Block.class);
-        Block rightRow = rightBlock.getObject(rightPosition, Block.class);
+        Block leftRow = leftBlock.getBlock(leftPosition);
+        Block rightRow = rightBlock.getBlock(rightPosition);
 
         for (int i = 0; i < leftRow.getPositionCount(); i++) {
             checkElementNotNull(leftRow.isNull(i));
@@ -247,8 +247,8 @@ public class RowType
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        Block leftRow = leftBlock.getObject(leftPosition, Block.class);
-        Block rightRow = rightBlock.getObject(rightPosition, Block.class);
+        Block leftRow = leftBlock.getBlock(leftPosition);
+        Block rightRow = rightBlock.getBlock(rightPosition);
 
         for (int i = 0; i < leftRow.getPositionCount(); i++) {
             checkElementNotNull(leftRow.isNull(i));
@@ -269,7 +269,7 @@ public class RowType
     @Override
     public long hash(Block block, int position)
     {
-        Block arrayBlock = block.getObject(position, Block.class);
+        Block arrayBlock = block.getBlock(position);
         long result = 1;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             Type elementType = fields.get(i).getType();

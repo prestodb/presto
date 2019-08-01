@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
@@ -24,21 +24,7 @@ import java.util.Optional;
 
 public class SqlEnvironmentConfig
 {
-    private Optional<String> path = Optional.empty();
     private Optional<TimeZoneKey> forcedSessionTimeZone = Optional.empty();
-
-    @NotNull
-    public Optional<String> getPath()
-    {
-        return path;
-    }
-
-    @Config("sql.path")
-    public SqlEnvironmentConfig setPath(String path)
-    {
-        this.path = Optional.ofNullable(path);
-        return this;
-    }
 
     @NotNull
     public Optional<TimeZoneKey> getForcedSessionTimeZone()

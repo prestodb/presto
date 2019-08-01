@@ -14,16 +14,13 @@
 package com.facebook.presto.verifier.framework;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestVerifierConfig
 {
@@ -31,25 +28,6 @@ public class TestVerifierConfig
     public void testDefault()
     {
         assertRecordedDefaults(recordDefaults(VerifierConfig.class)
-                .setAdditionalJdbcDriverPath(null)
-                .setControlJdbcDriverClass(null)
-                .setTestJdbcDriverClass(null)
-                .setControlJdbcUrl(null)
-                .setTestJdbcUrl(null)
-                .setControlTimeout(new Duration(10, MINUTES))
-                .setTestTimeout(new Duration(30, MINUTES))
-                .setMetadataTimeout(new Duration(3, MINUTES))
-                .setChecksumTimeout(new Duration(20, MINUTES))
-                .setControlTablePrefix("tmp_verifier_control")
-                .setTestTablePrefix("tmp_verifier_test")
-                .setControlCatalogOverride(null)
-                .setControlSchemaOverride(null)
-                .setControlUsernameOverride(null)
-                .setControlPasswordOverride(null)
-                .setTestCatalogOverride(null)
-                .setTestSchemaOverride(null)
-                .setTestUsernameOverride(null)
-                .setTestPasswordOverride(null)
                 .setWhitelist(null)
                 .setBlacklist(null)
                 .setSourceQuerySupplier("mysql")
@@ -62,8 +40,10 @@ public class TestVerifierConfig
                 .setQueryRepetitions(1)
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
-                .setRunTearDownOnResultMismatch(false)
-                .setFailureResolverEnabled(true)
+                .setRunTeardownOnResultMismatch(false)
+                .setRunTeardownForDeterminismAnalysis(false)
+                .setMaxDeterminismAnalysisRuns(2)
+                .setEnableLimitQueryDeterminismAnalyzer(true)
                 .setVerificationResubmissionLimit(2));
     }
 
@@ -71,25 +51,6 @@ public class TestVerifierConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("additional-jdbc-driver-path", "/path/to/file")
-                .put("control.jdbc-driver-class", "ControlDriver")
-                .put("test.jdbc-driver-class", "TestDriver")
-                .put("control.jdbc-url", "jdbc:presto://proxy.presto.fbinfra.net")
-                .put("test.jdbc-url", "jdbc:presto://proxy.presto.fbinfra.net")
-                .put("control.timeout", "1h")
-                .put("test.timeout", "2h")
-                .put("metadata.timeout", "3h")
-                .put("checksum.timeout", "4h")
-                .put("control.table-prefix", "local.control")
-                .put("test.table-prefix", "local.test")
-                .put("control.catalog-override", "control_catalog")
-                .put("control.schema-override", "control_schema")
-                .put("control.username-override", "control_username")
-                .put("control.password-override", "control_password")
-                .put("test.catalog-override", "test_catalog")
-                .put("test.schema-override", "test_schema")
-                .put("test.username-override", "test_username")
-                .put("test.password-override", "test_password")
                 .put("whitelist", "a,b,c")
                 .put("blacklist", "b,d,f")
                 .put("source-query.supplier", "custom-supplier")
@@ -103,29 +64,12 @@ public class TestVerifierConfig
                 .put("relative-error-margin", "2e-5")
                 .put("absolute-error-margin", "1e-14")
                 .put("run-teardown-on-result-mismatch", "true")
-                .put("failure-resolver.enabled", "false")
+                .put("run-teardown-for-determinism-analysis", "true")
+                .put("max-determinism-analysis-runs", "3")
+                .put("enable-limit-query-determinism-analyzer", "false")
                 .put("verification-resubmission.limit", "1")
                 .build();
         VerifierConfig expected = new VerifierConfig()
-                .setAdditionalJdbcDriverPath("/path/to/file")
-                .setControlJdbcDriverClass("ControlDriver")
-                .setTestJdbcDriverClass("TestDriver")
-                .setControlJdbcUrl("jdbc:presto://proxy.presto.fbinfra.net")
-                .setTestJdbcUrl("jdbc:presto://proxy.presto.fbinfra.net")
-                .setControlTimeout(new Duration(1, HOURS))
-                .setTestTimeout(new Duration(2, HOURS))
-                .setMetadataTimeout(new Duration(3, HOURS))
-                .setChecksumTimeout(new Duration(4, HOURS))
-                .setControlTablePrefix("local.control")
-                .setTestTablePrefix("local.test")
-                .setControlCatalogOverride("control_catalog")
-                .setControlSchemaOverride("control_schema")
-                .setControlUsernameOverride("control_username")
-                .setControlPasswordOverride("control_password")
-                .setTestCatalogOverride("test_catalog")
-                .setTestSchemaOverride("test_schema")
-                .setTestUsernameOverride("test_username")
-                .setTestPasswordOverride("test_password")
                 .setWhitelist("a,b,c")
                 .setBlacklist("b,d,f")
                 .setSourceQuerySupplier("custom-supplier")
@@ -138,8 +82,10 @@ public class TestVerifierConfig
                 .setQueryRepetitions(3)
                 .setRelativeErrorMargin(2e-5)
                 .setAbsoluteErrorMargin(1e-14)
-                .setRunTearDownOnResultMismatch(true)
-                .setFailureResolverEnabled(false)
+                .setRunTeardownOnResultMismatch(true)
+                .setRunTeardownForDeterminismAnalysis(true)
+                .setMaxDeterminismAnalysisRuns(3)
+                .setEnableLimitQueryDeterminismAnalyzer(false)
                 .setVerificationResubmissionLimit(1);
 
         assertFullMapping(properties, expected);

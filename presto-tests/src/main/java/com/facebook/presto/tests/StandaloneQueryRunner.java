@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.testing.Closeables;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.AllNodes;
@@ -34,7 +35,6 @@ import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.Closeables;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
@@ -75,7 +75,7 @@ public final class StandaloneQueryRunner
 
         refreshNodes();
 
-        server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+        server.getMetadata().registerBuiltInFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
 
         SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);

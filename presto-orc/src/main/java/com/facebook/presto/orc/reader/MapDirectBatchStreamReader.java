@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -23,6 +24,7 @@ import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.io.Closer;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -30,12 +32,16 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.BatchStreamReaders.createStreamReader;
+import static com.facebook.presto.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackLengthNulls;
+import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.Math.toIntExact;
@@ -46,6 +52,7 @@ public class MapDirectBatchStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapDirectBatchStreamReader.class).instanceSize();
 
+    private final MapType type;
     private final StreamDescriptor streamDescriptor;
 
     private final BatchStreamReader keyStreamReader;
@@ -64,11 +71,15 @@ public class MapDirectBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapDirectBatchStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public MapDirectBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, MapType.class::isInstance);
+        this.type = (MapType) type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.keyStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
-        this.valueStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone);
+        this.keyStreamReader = createStreamReader(this.type.getKeyType(), streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
+        this.valueStreamReader = createStreamReader(this.type.getValueType(), streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone, systemMemoryContext);
     }
 
     @Override
@@ -79,7 +90,7 @@ public class MapDirectBatchStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -111,7 +122,7 @@ public class MapDirectBatchStreamReader
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
+            lengthStream.next(offsetVector, nextBatchSize);
         }
         else {
             nullVector = new boolean[nextBatchSize];
@@ -120,7 +131,8 @@ public class MapDirectBatchStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize, offsetVector, 0, nullVector);
+                lengthStream.next(offsetVector, nextBatchSize - nullValues);
+                unpackLengthNulls(offsetVector, nullVector, nextBatchSize - nullValues);
             }
         }
 
@@ -139,8 +151,8 @@ public class MapDirectBatchStreamReader
         if (entryCount > 0) {
             keyStreamReader.prepareNextRead(entryCount);
             valueStreamReader.prepareNextRead(entryCount);
-            keys = keyStreamReader.readBlock(keyType);
-            values = valueStreamReader.readBlock(valueType);
+            keys = keyStreamReader.readBlock();
+            values = valueStreamReader.readBlock();
         }
         else {
             keys = keyType.createBlockBuilder(null, 0).build();
@@ -149,19 +161,14 @@ public class MapDirectBatchStreamReader
 
         Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, offsetVector);
 
-        // Convert the length values in the offsetVector to offset values in-place
-        int currentLength = offsetVector[0];
-        offsetVector[0] = 0;
-        for (int i = 1; i < offsetVector.length; i++) {
-            int lastLength = offsetVector[i];
-            offsetVector[i] = offsetVector[i - 1] + currentLength;
-            currentLength = lastLength;
-        }
+        convertLengthVectorToOffsetVector(offsetVector);
+
+        Block block = mapType.createBlockFromKeyValue(nextBatchSize, Optional.ofNullable(nullVector), offsetVector, keyValueBlock[0], keyValueBlock[1]);
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return mapType.createBlockFromKeyValue(Optional.ofNullable(nullVector), offsetVector, keyValueBlock[0], keyValueBlock[1]);
+        return block;
     }
 
     private static Block[] createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)
@@ -259,6 +266,18 @@ public class MapDirectBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
+        try (Closer closer = Closer.create()) {
+            closer.register(keyStreamReader::close);
+            closer.register(valueStreamReader::close);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override

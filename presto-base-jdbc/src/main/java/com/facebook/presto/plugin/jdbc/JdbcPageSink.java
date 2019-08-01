@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.ConnectorPageSink;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -22,7 +24,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 
@@ -67,10 +68,10 @@ public class JdbcPageSink
     private final List<Type> columnTypes;
     private int batchSize;
 
-    public JdbcPageSink(JdbcOutputTableHandle handle, JdbcClient jdbcClient)
+    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
     {
         try {
-            connection = jdbcClient.getConnection(handle);
+            connection = jdbcClient.getConnection(JdbcIdentity.from(session), handle);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);

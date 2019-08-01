@@ -15,30 +15,27 @@ package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.StaticFunctionHandle;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.TestingWriterTarget;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -57,22 +54,17 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestVerifyNoOriginalExpression
         extends BasePlanTest
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final VariableReferenceExpression VARIABLE_REFERENCE_EXPRESSION = new VariableReferenceExpression("expr", BIGINT);
-    private static final CallExpression COMPARISON_CALL_EXPRESSION = new CallExpression(
-            "LESS_THAN",
-            new StaticFunctionHandle(new Signature(
-                    "LESS_THAN",
-                    FunctionKind.SCALAR,
-                    new TypeSignature("boolean"))),
-            BooleanType.BOOLEAN,
-            ImmutableList.of(VARIABLE_REFERENCE_EXPRESSION, VARIABLE_REFERENCE_EXPRESSION));
     private static final ComparisonExpression COMPARISON_EXPRESSION = new ComparisonExpression(
             ComparisonExpression.Operator.EQUAL,
             new SymbolReference("count"),
@@ -81,6 +73,7 @@ public class TestVerifyNoOriginalExpression
     private Metadata metadata;
     private PlanBuilder builder;
     private ValuesNode valuesNode;
+    private CallExpression comparisonCallExpression;
 
     @BeforeClass
     public void setup()
@@ -88,12 +81,17 @@ public class TestVerifyNoOriginalExpression
         metadata = getQueryRunner().getMetadata();
         builder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), metadata);
         valuesNode = builder.values();
+        comparisonCallExpression = new CallExpression(
+                "LESS_THAN",
+                metadata.getFunctionManager().resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT)),
+                BooleanType.BOOLEAN,
+                ImmutableList.of(VARIABLE_REFERENCE_EXPRESSION, VARIABLE_REFERENCE_EXPRESSION));
     }
 
     @Test
     public void testValidateForJoin()
     {
-        RowExpression predicate = COMPARISON_CALL_EXPRESSION;
+        RowExpression predicate = comparisonCallExpression;
         validateJoin(predicate, null, true);
     }
 
@@ -120,8 +118,9 @@ public class TestVerifyNoOriginalExpression
                 originalStartValue,
                 originalEndValue);
         WindowNode.Function function = new WindowNode.Function(
-                COMPARISON_CALL_EXPRESSION,
-                frame);
+                comparisonCallExpression,
+                frame,
+                false);
         ImmutableList<VariableReferenceExpression> partitionBy = ImmutableList.of(VARIABLE_REFERENCE_EXPRESSION);
         Optional<OrderingScheme> orderingScheme = Optional.empty();
         ImmutableMap<VariableReferenceExpression, WindowNode.Function> functions = ImmutableMap.of(VARIABLE_REFERENCE_EXPRESSION, function);
@@ -135,7 +134,7 @@ public class TestVerifyNoOriginalExpression
     @Test
     public void testValidateSpatialJoin()
     {
-        RowExpression filter = COMPARISON_CALL_EXPRESSION;
+        RowExpression filter = comparisonCallExpression;
         validateSpatialJoinWithFilter(filter);
     }
 
@@ -164,14 +163,12 @@ public class TestVerifyNoOriginalExpression
         ImmutableList<VariableReferenceExpression> groupingKeys = ImmutableList.of(VARIABLE_REFERENCE_EXPRESSION);
         int groupingSetCount = 1;
         ImmutableMap<VariableReferenceExpression, SortOrder> orderings = ImmutableMap.of(VARIABLE_REFERENCE_EXPRESSION, SortOrder.ASC_NULLS_FIRST);
-        OrderingScheme orderingScheme = new OrderingScheme(
-                groupingKeys,
-                orderings);
+        OrderingScheme orderingScheme = new OrderingScheme(groupingKeys.stream().map(variable -> new Ordering(variable, orderings.get(variable))).collect(toImmutableList()));
         ImmutableMap<VariableReferenceExpression, AggregationNode.Aggregation> aggregations = ImmutableMap.of(
                 VARIABLE_REFERENCE_EXPRESSION,
                 new AggregationNode.Aggregation(
-                        COMPARISON_CALL_EXPRESSION,
-                        Optional.of(COMPARISON_CALL_EXPRESSION),
+                        comparisonCallExpression,
+                        Optional.of(comparisonCallExpression),
                         Optional.of(orderingScheme),
                         false,
                         Optional.of(new VariableReferenceExpression("orderkey", BIGINT))));
@@ -212,7 +209,7 @@ public class TestVerifyNoOriginalExpression
         TableFinishNode tableFinishNode = new TableFinishNode(
                 new PlanNodeId("1"),
                 valuesNode,
-                new TestingWriterTarget(),
+                Optional.of(new TestingWriterTarget()),
                 VARIABLE_REFERENCE_EXPRESSION,
                 Optional.empty(),
                 Optional.empty());

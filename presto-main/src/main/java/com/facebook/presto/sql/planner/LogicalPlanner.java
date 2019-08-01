@@ -32,8 +32,12 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -49,19 +53,16 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Cast;
@@ -92,10 +93,11 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -202,7 +204,7 @@ public class LogicalPlanner
                 PlanNodeSearcher.searchFrom(root).where(node ->
                     (node instanceof JoinNode) || (node instanceof SemiJoinNode)).matches()) {
             StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-            CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
+            CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session);
             return StatsAndCosts.create(root, statsProvider, costProvider);
         }
         return StatsAndCosts.empty();
@@ -298,7 +300,7 @@ public class LogicalPlanner
                         AggregationNode.Step.SINGLE,
                         Optional.empty(),
                         Optional.empty()),
-                new StatisticsWriterNode.WriteStatisticsReference(targetTable),
+                targetTable,
                 variableAllocator.newVariable("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
                 tableStatisticAggregation.getDescriptor());
@@ -329,7 +331,7 @@ public class LogicalPlanner
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new CreateName(destination.getCatalogName(), tableMetadata, newTableLayout),
+                new CreateName(new ConnectorId(destination.getCatalogName()), tableMetadata, newTableLayout),
                 columnNames,
                 newTableLayout,
                 statisticsMetadata);
@@ -392,7 +394,7 @@ public class LogicalPlanner
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new InsertReference(insert.getTarget()),
+                new InsertReference(insert.getTarget(), metadata.getTableMetadata(session, insert.getTarget()).getTable()),
                 visibleTableColumnNames,
                 newTableLayout,
                 statisticsMetadata);
@@ -409,7 +411,7 @@ public class LogicalPlanner
         PlanNode source = plan.getRoot();
 
         if (!analysis.isCreateTableAsSelectWithData()) {
-            source = new LimitNode(idAllocator.getNextId(), source, 0L, false);
+            source = new LimitNode(idAllocator.getNextId(), source, 0L, FINAL);
         }
 
         // todo this should be checked in analysis
@@ -443,32 +445,27 @@ public class LogicalPlanner
 
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap);
 
-            StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(variableAllocator, metadata.getFunctionManager());
-
-            // partial aggregation is run within the TableWriteOperator to calculate the statistics for
-            // the data consumed by the TableWriteOperator
-            // final aggregation is run within the TableFinishOperator to summarize collected statistics
-            // by the partial aggregation from all of the writer nodes
-            StatisticAggregations partialAggregation = aggregations.getPartialAggregation();
-
-            PlanNode writerNode = new TableWriterNode(
-                    idAllocator.getNextId(),
-                    source,
-                    target,
-                    variableAllocator.newVariable("partialrows", BIGINT),
-                    variableAllocator.newVariable("fragment", VARBINARY),
-                    variableAllocator.newVariable("tablecommitcontext", VARBINARY),
-                    plan.getFieldMappings(),
-                    columnNames,
-                    partitioningScheme,
-                    Optional.of(partialAggregation),
-                    Optional.of(result.getDescriptor().map(aggregations.getMappings()::get)));
+            StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionManager());
 
             TableFinishNode commitNode = new TableFinishNode(
                     idAllocator.getNextId(),
-                    writerNode,
-                    target,
+                    new TableWriterNode(
+                            idAllocator.getNextId(),
+                            source,
+                            Optional.of(target),
+                            variableAllocator.newVariable("rows", BIGINT),
+                            variableAllocator.newVariable("fragments", VARBINARY),
+                            variableAllocator.newVariable("commitcontext", VARBINARY),
+                            plan.getFieldMappings(),
+                            columnNames,
+                            partitioningScheme,
+                            // partial aggregation is run within the TableWriteOperator to calculate the statistics for
+                            // the data consumed by the TableWriteOperator
+                            Optional.of(aggregations.getPartialAggregation())),
+                    Optional.of(target),
                     variableAllocator.newVariable("rows", BIGINT),
+                    // final aggregation is run within the TableFinishOperator to summarize collected statistics
+                    // by the partial aggregation from all of the writer nodes
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
@@ -480,16 +477,15 @@ public class LogicalPlanner
                 new TableWriterNode(
                         idAllocator.getNextId(),
                         source,
-                        target,
-                        variableAllocator.newVariable("partialrows", BIGINT),
-                        variableAllocator.newVariable("fragment", VARBINARY),
-                        variableAllocator.newVariable("tablecommitcontext", VARBINARY),
+                        Optional.of(target),
+                        variableAllocator.newVariable("rows", BIGINT),
+                        variableAllocator.newVariable("fragments", VARBINARY),
+                        variableAllocator.newVariable("commitcontext", VARBINARY),
                         plan.getFieldMappings(),
                         columnNames,
                         partitioningScheme,
-                        Optional.empty(),
                         Optional.empty()),
-                target,
+                Optional.of(target),
                 variableAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
@@ -501,10 +497,12 @@ public class LogicalPlanner
         DeleteNode deleteNode = new QueryPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session)
                 .plan(node);
 
+        TableHandle handle = analysis.getTableHandle(node.getTable());
+        DeleteHandle deleteHandle = new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable());
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 deleteNode,
-                deleteNode.getTarget(),
+                Optional.of(deleteHandle),
                 variableAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());

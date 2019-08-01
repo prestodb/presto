@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
@@ -41,6 +42,7 @@ public class RaptorPageSinkProvider
     private final PageSorter pageSorter;
     private final TemporalFunction temporalFunction;
     private final DataSize maxBufferSize;
+    private final int maxAllowedFilesPerWriter;
 
     @Inject
     public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, TemporalFunction temporalFunction, StorageManagerConfig config)
@@ -49,6 +51,7 @@ public class RaptorPageSinkProvider
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
         this.maxBufferSize = config.getMaxBufferSize();
+        this.maxAllowedFilesPerWriter = config.getMaxAllowedFilesPerWriter();
     }
 
     @Override
@@ -58,6 +61,7 @@ public class RaptorPageSinkProvider
 
         RaptorOutputTableHandle handle = (RaptorOutputTableHandle) tableHandle;
         return new RaptorPageSink(
+                new FileSystemContext(session),
                 pageSorter,
                 storageManager,
                 temporalFunction,
@@ -69,7 +73,8 @@ public class RaptorPageSinkProvider
                 handle.getBucketCount(),
                 toColumnIds(handle.getBucketColumnHandles()),
                 handle.getTemporalColumnHandle(),
-                maxBufferSize);
+                maxBufferSize,
+                maxAllowedFilesPerWriter);
     }
 
     @Override
@@ -79,6 +84,7 @@ public class RaptorPageSinkProvider
 
         RaptorInsertTableHandle handle = (RaptorInsertTableHandle) tableHandle;
         return new RaptorPageSink(
+                new FileSystemContext(session),
                 pageSorter,
                 storageManager,
                 temporalFunction,
@@ -90,7 +96,8 @@ public class RaptorPageSinkProvider
                 handle.getBucketCount(),
                 toColumnIds(handle.getBucketColumnHandles()),
                 handle.getTemporalColumnHandle(),
-                maxBufferSize);
+                maxBufferSize,
+                maxAllowedFilesPerWriter);
     }
 
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)

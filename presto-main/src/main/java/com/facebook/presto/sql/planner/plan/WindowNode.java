@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.OrderingScheme;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -67,7 +67,7 @@ public class WindowNode
         requireNonNull(hashVariable, "hashVariable is null");
         checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         Optional<OrderingScheme> orderingScheme = specification.getOrderingScheme();
-        checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderBy().size()), "Cannot have sorted more symbols than those requested");
+        checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderByVariables().size()), "Cannot have sorted more symbols than those requested");
         checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(specification.getPartitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
 
         this.source = source;
@@ -342,14 +342,17 @@ public class WindowNode
     {
         private final CallExpression functionCall;
         private final Frame frame;
+        private final boolean ignoreNulls;
 
         @JsonCreator
         public Function(
                 @JsonProperty("functionCall") CallExpression functionCall,
-                @JsonProperty("frame") Frame frame)
+                @JsonProperty("frame") Frame frame,
+                @JsonProperty("ignoreNulls") boolean ignoreNulls)
         {
             this.functionCall = requireNonNull(functionCall, "functionCall is null");
             this.frame = requireNonNull(frame, "Frame is null");
+            this.ignoreNulls = ignoreNulls;
         }
 
         @JsonProperty
@@ -373,7 +376,7 @@ public class WindowNode
         @Override
         public int hashCode()
         {
-            return Objects.hash(functionCall, frame);
+            return Objects.hash(functionCall, frame, ignoreNulls);
         }
 
         @Override
@@ -387,7 +390,13 @@ public class WindowNode
             }
             Function other = (Function) obj;
             return Objects.equals(this.functionCall, other.functionCall) &&
-                    Objects.equals(this.frame, other.frame);
+                    Objects.equals(this.frame, other.frame) &&
+                    Objects.equals(this.ignoreNulls, other.ignoreNulls);
+        }
+
+        public boolean isIgnoreNulls()
+        {
+            return ignoreNulls;
         }
     }
 }

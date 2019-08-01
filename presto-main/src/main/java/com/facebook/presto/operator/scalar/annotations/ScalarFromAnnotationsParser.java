@@ -99,7 +99,6 @@ public final class ScalarFromAnnotationsParser
     private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor)
     {
         ScalarImplementationHeader header = scalar.getHeader();
-        checkArgument(!header.getName().isEmpty());
 
         Map<SpecializedSignature, ParametricScalarImplementation.Builder> signatures = new HashMap<>();
         for (Method method : scalar.getMethods()) {

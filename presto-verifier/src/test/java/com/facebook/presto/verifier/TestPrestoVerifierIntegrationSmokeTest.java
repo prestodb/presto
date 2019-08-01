@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.verifier;
 
+import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.google.common.io.CharSink;
 import io.airlift.airline.Cli;
 import io.airlift.airline.Help;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import org.jdbi.v3.core.Handle;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 
+import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.verifier.VerifierTestUtil.getHandle;
 import static com.facebook.presto.verifier.VerifierTestUtil.insertSourceQuery;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupMySql;
@@ -37,7 +38,6 @@ import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.testing.Closeables.closeQuietly;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createFile;
@@ -76,8 +76,8 @@ public class TestPrestoVerifierIntegrationSmokeTest
         insertSourceQuery(handle, SUITE, "query_2", "SELECT * FROM table1 CROSS JOIN table2");
     }
 
-    @AfterClass
-    public void teardown()
+    @AfterClass(alwaysRun = true)
+    public void destroy()
     {
         closeQuietly(queryRunner, mySqlServer, handle);
     }
@@ -90,13 +90,16 @@ public class TestPrestoVerifierIntegrationSmokeTest
         configFile = createFile(Paths.get(configDirectory.getAbsolutePath(), "config.properties")).toFile();
         CharSink sink = asCharSink(configFile, UTF_8);
 
-        String gateway = queryRunner.getServer().getBaseUrl().toString().replace("http", "jdbc:presto");
+        String host = queryRunner.getServer().getAddress().getHost();
+        int port = queryRunner.getServer().getAddress().getPort();
         jsonLogFile = Paths.get(configDirectory.getAbsolutePath(), "json.log").toFile();
         humanReadableLogFile = Paths.get(configDirectory.getAbsolutePath(), "human-readable.log").toFile();
         sink.write(format(
                 "test-id=%s\n" +
-                        "control.jdbc-url=%s\n" +
-                        "test.jdbc-url=%s\n" +
+                        "control.host=%s\n" +
+                        "control.jdbc-port=%s\n" +
+                        "test.host=%s\n" +
+                        "test.jdbc-port=%s\n" +
                         "control.table-prefix=local.tmp_verifier_c\n" +
                         "test.table-prefix=local.tmp_verifier_t\n" +
                         "source-query.database=%s\n" +
@@ -107,8 +110,10 @@ public class TestPrestoVerifierIntegrationSmokeTest
                         "human-readable.log-file=%s\n" +
                         "max-concurrency=50\n",
                 TEST_ID,
-                gateway,
-                gateway,
+                host,
+                port,
+                host,
+                port,
                 mySqlServer.getJdbcUrl(XDB),
                 SUITE,
                 jsonLogFile.getAbsolutePath(),

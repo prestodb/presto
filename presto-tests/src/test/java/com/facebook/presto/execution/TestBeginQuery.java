@@ -14,8 +14,12 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.Connector;
@@ -43,6 +47,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -214,7 +219,13 @@ public class TestBeginQuery
         @Override
         public ConnectorPageSourceProvider getPageSourceProvider()
         {
-            return (transactionHandle, session, split, columns) -> new FixedPageSource(ImmutableList.of());
+            return new ConnectorPageSourceProvider() {
+                @Override
+                public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns)
+                {
+                    return new FixedPageSource(ImmutableList.of());
+                }
+            };
         }
 
         @Override

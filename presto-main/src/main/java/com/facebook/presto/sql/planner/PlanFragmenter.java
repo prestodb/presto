@@ -19,7 +19,6 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.PartitioningMetadata;
@@ -36,9 +35,12 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -46,9 +48,6 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -57,18 +56,20 @@ import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -85,11 +86,12 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
-import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
@@ -109,7 +111,9 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MAT
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.ensureSourceOrderingGatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -130,7 +134,7 @@ import static java.util.function.Function.identity;
  */
 public class PlanFragmenter
 {
-    private static final String TOO_MANY_STAGES_MESSAGE = "If the query contains multiple DISTINCTs, please set the 'use_mark_distinct' session property to false. " +
+    public static final String TOO_MANY_STAGES_MESSAGE = "If the query contains multiple DISTINCTs, please set the 'use_mark_distinct' session property to false. " +
             "If the query contains multiple CTEs that are referenced more than once, please create temporary table(s) for one or more of the CTEs.";
 
     private final Metadata metadata;
@@ -217,7 +221,7 @@ public class PlanFragmenter
                  * We currently only support recoverable grouped execution if the following statements hold true:
                  *   - Current session enables recoverable grouped execution
                  *   - Parent sub plan contains TableFinishNode
-                 *   - Current sub plan's root is TableWriterNode
+                 *   - Current sub plan's root is TableWriterMergeNode or TableWriterNode
                  *   - Input connectors supports split source rewind
                  *   - Output connectors supports partition commit
                  *   - Bucket node map uses dynamic scheduling
@@ -225,7 +229,7 @@ public class PlanFragmenter
                  */
                 boolean recoverable = isRecoverableGroupedExecutionEnabled(session) &&
                         parentContainsTableFinish &&
-                        fragment.getRoot() instanceof TableWriterNode &&
+                        (fragment.getRoot() instanceof TableWriterMergeNode || fragment.getRoot() instanceof TableWriterNode) &&
                         properties.isRecoveryEligible();
                 if (recoverable) {
                     fragment = fragment.withRecoverableGroupedExecution(properties.getCapableTableScanNodes(), properties.getTotalLifespans());
@@ -497,7 +501,7 @@ public class PlanFragmenter
                     .map(PlanFragment::getId)
                     .collect(toImmutableList());
 
-            return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputVariables(), exchange.getOrderingScheme(), exchange.getType());
+            return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputVariables(), exchange.isEnsureSourceOrdering(), exchange.getOrderingScheme(), exchange.getType());
         }
 
         private PlanNode createRemoteMaterializedExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
@@ -536,7 +540,7 @@ public class PlanFragmenter
                 if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
                     throw new PrestoException(
                             NOT_SUPPORTED,
-                            format("Catalog \"%s\" does not support temporary tables. The exchange cannot be materialized.", connectorId.getCatalogName()),
+                            format("Temporary table cannot be created in catalog \"%s\": %s", connectorId.getCatalogName(), e.getMessage()),
                             e);
                 }
                 throw e;
@@ -575,15 +579,15 @@ public class PlanFragmenter
         {
             ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
             ImmutableMap.Builder<VariableReferenceExpression, RowExpression> constants = ImmutableMap.builder();
-            for (ArgumentBinding argumentBinding : partitioning.getArguments()) {
+            for (RowExpression argument : partitioning.getArguments()) {
+                checkArgument(argument instanceof ConstantExpression || argument instanceof VariableReferenceExpression, format("Expect argument to be ConstantExpression or VariableReferenceExpression, get %s (%s)", argument.getClass(), argument));
                 VariableReferenceExpression variable;
-                if (argumentBinding.isConstant()) {
-                    ConstantExpression constant = argumentBinding.getConstant();
-                    variable = variableAllocator.newVariable("constant_partition", constant.getType());
-                    constants.put(variable, constant);
+                if (argument instanceof ConstantExpression) {
+                    variable = variableAllocator.newVariable("constant_partition", argument.getType());
+                    constants.put(variable, argument);
                 }
                 else {
-                    variable = argumentBinding.getVariableReference();
+                    variable = (VariableReferenceExpression) argument;
                 }
                 variables.add(variable);
             }
@@ -690,56 +694,79 @@ public class PlanFragmenter
                     .map(columnNameToVariable::get)
                     .collect(toImmutableList());
 
-            InsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
             List<String> outputColumnNames = outputs.stream()
                     .map(variableToColumnMap::get)
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
-            SchemaTableName temporaryTableName = metadata.getTableMetadata(session, tableHandle).getTable();
-            InsertHandle insertHandle = new InsertHandle(insertTableHandle, new SchemaTableName(temporaryTableName.getSchemaName(), temporaryTableName.getTableName()));
+            SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
+            InsertReference insertReference = new InsertReference(tableHandle, schemaTableName);
+
+            PartitioningScheme partitioningScheme = new PartitioningScheme(
+                    Partitioning.create(partitioningHandle, partitioningVariables),
+                    outputs,
+                    Optional.empty(),
+                    false,
+                    Optional.empty());
+
+            ExchangeNode writerRemoteSource = new ExchangeNode(
+                    idAllocator.getNextId(),
+                    REPARTITION,
+                    REMOTE_STREAMING,
+                    partitioningScheme,
+                    sources,
+                    inputs,
+                    false,
+                    Optional.empty());
+
+            ExchangeNode writerSource;
+            if (getTaskPartitionedWriterCount(session) == 1) {
+                writerSource = gatheringExchange(
+                        idAllocator.getNextId(),
+                        LOCAL,
+                        writerRemoteSource);
+            }
+            else {
+                writerSource = partitionedExchange(
+                        idAllocator.getNextId(),
+                        LOCAL,
+                        writerRemoteSource,
+                        partitioningScheme);
+            }
+
+            TableWriterNode tableWriter = new TableWriterNode(
+                    idAllocator.getNextId(),
+                    writerSource,
+                    Optional.of(insertReference),
+                    variableAllocator.newVariable("partialrows", BIGINT),
+                    variableAllocator.newVariable("partialfragments", VARBINARY),
+                    variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
+                    outputs,
+                    outputColumnNames,
+                    Optional.of(partitioningScheme),
+                    Optional.empty());
+
+            PlanNode tableWriterMerge = tableWriter;
+            if (isTableWriterMergeOperatorEnabled(session)) {
+                tableWriterMerge = new TableWriterMergeNode(
+                        idAllocator.getNextId(),
+                        gatheringExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                tableWriter),
+                        variableAllocator.newVariable("intermediaterows", BIGINT),
+                        variableAllocator.newVariable("intermediatefragments", VARBINARY),
+                        variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
+                        Optional.empty());
+            }
 
             return new TableFinishNode(
                     idAllocator.getNextId(),
-                    gatheringExchange(
+                    ensureSourceOrderingGatheringExchange(
                             idAllocator.getNextId(),
-                            LOCAL,
-                            gatheringExchange(
-                                    idAllocator.getNextId(),
-                                    REMOTE_STREAMING,
-                                    new TableWriterNode(
-                                            idAllocator.getNextId(),
-                                            gatheringExchange(
-                                                    idAllocator.getNextId(),
-                                                    LOCAL,
-                                                    new ExchangeNode(
-                                                            idAllocator.getNextId(),
-                                                            REPARTITION,
-                                                            REMOTE_STREAMING,
-                                                            new PartitioningScheme(
-                                                                    Partitioning.create(partitioningHandle, partitioningVariables),
-                                                                    outputs,
-                                                                    Optional.empty(),
-                                                                    false,
-                                                                    Optional.empty()),
-                                                            sources,
-                                                            inputs,
-                                                            Optional.empty())),
-                                            insertHandle,
-                                            variableAllocator.newVariable("partialrows", BIGINT),
-                                            variableAllocator.newVariable("fragment", VARBINARY),
-                                            variableAllocator.newVariable("tablecommitcontext", VARBINARY),
-                                            outputs,
-                                            outputColumnNames,
-                                            Optional.of(new PartitioningScheme(
-                                                    Partitioning.create(partitioningHandle, partitioningVariables),
-                                                    outputs,
-                                                    Optional.empty(),
-                                                    false,
-                                                    Optional.empty())),
-                                            Optional.empty(),
-                                            Optional.empty()))),
-                    insertHandle,
+                            REMOTE_STREAMING,
+                            tableWriterMerge),
+                    Optional.of(insertReference),
                     variableAllocator.newVariable("rows", BIGINT),
                     Optional.empty(),
                     Optional.empty());
@@ -1033,13 +1060,10 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitTableWriter(TableWriterNode node, Void context)
         {
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
-            // TODO (#13098): Remove partitioning and task writer count check after we have TableWriterMergeOperator
-            boolean recoveryEligible = properties.isRecoveryEligible() && (node.getPartitioningScheme().isPresent() || getTaskWriterCount(session) == 1);
-            if (node.getTarget() instanceof CreateHandle) {
-                recoveryEligible &= metadata.getConnectorCapabilities(session, ((CreateHandle) node.getTarget()).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
-            }
-            else if (node.getTarget() instanceof InsertHandle) {
-                recoveryEligible &= metadata.getConnectorCapabilities(session, ((InsertHandle) node.getTarget()).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
+            boolean recoveryEligible = properties.isRecoveryEligible();
+            WriterTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            if (target instanceof CreateName || target instanceof InsertReference) {
+                recoveryEligible &= metadata.getConnectorCapabilities(session, target.getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
             }
             else {
                 recoveryEligible = false;
@@ -1060,13 +1084,16 @@ public class PlanFragmenter
                 return GroupedExecutionProperties.notCapable();
             }
             List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
-            boolean recoveryEligible = metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE);
-            boolean useful = isGroupedExecutionForEligibleTableScansEnabled(session);
             if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
-                return new GroupedExecutionProperties(false, useful, ImmutableList.of(), 1, recoveryEligible);
+                return GroupedExecutionProperties.notCapable();
             }
             else {
-                return new GroupedExecutionProperties(true, useful, ImmutableList.of(node.getId()), partitionHandles.size(), recoveryEligible);
+                return new GroupedExecutionProperties(
+                        true,
+                        isGroupedExecutionForEligibleTableScansEnabled(session),
+                        ImmutableList.of(node.getId()),
+                        partitionHandles.size(),
+                        metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE));
             }
         }
 

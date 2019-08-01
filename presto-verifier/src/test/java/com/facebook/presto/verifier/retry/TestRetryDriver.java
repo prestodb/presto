@@ -13,25 +13,26 @@
  */
 package com.facebook.presto.verifier.retry;
 
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.verifier.framework.QueryException;
-import com.facebook.presto.verifier.framework.QueryOrigin;
+import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.retry.RetryDriver.RetryOperation;
-import io.airlift.log.Logging;
 import io.airlift.units.Duration;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.SocketTimeoutException;
 import java.util.Optional;
 
+import static com.facebook.airlift.log.Level.DEBUG;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
-import static io.airlift.log.Level.DEBUG;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestRetryDriver
 {
     private static class MockOperation
@@ -63,47 +64,60 @@ public class TestRetryDriver
         Logging.initialize().setLevel(RetryDriver.class.getName(), DEBUG);
     }
 
-    private static final QueryOrigin QUERY_ORIGIN = forMain(CONTROL);
-    private static final QueryException RETRYABLE_EXCEPTION = QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN);
-    private static final QueryException NON_RETRYABLE_EXCEPTION = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), false, Optional.empty(), QUERY_ORIGIN);
-    private static final RetryDriver RETRY_DRIVER = new RetryDriver(
-            new RetryConfig()
-                    .setMaxAttempts(5)
-                    .setMinBackoffDelay(new Duration(10, MILLISECONDS))
-                    .setMaxBackoffDelay(new Duration(100, MILLISECONDS))
-                    .setScaleFactor(2),
-            QueryException::isRetryable);
+    private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
+    private static final QueryException RETRYABLE_EXCEPTION = QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_STAGE);
+    private static final QueryException NON_RETRYABLE_EXCEPTION = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), false, Optional.empty(), QUERY_STAGE);
+
+    private VerificationContext verificationContext;
+    private RetryDriver<QueryException> retryDriver;
+
+    @BeforeMethod
+    public void setup()
+    {
+        verificationContext = new VerificationContext();
+        retryDriver = new RetryDriver<>(
+                new RetryConfig()
+                        .setMaxAttempts(5)
+                        .setMinBackoffDelay(new Duration(10, MILLISECONDS))
+                        .setMaxBackoffDelay(new Duration(100, MILLISECONDS))
+                        .setScaleFactor(2),
+                QueryException::isRetryable,
+                QueryException.class,
+                verificationContext::addException);
+    }
 
     @Test
     public void testSuccess()
     {
         assertEquals(
-                RETRY_DRIVER.run("test", new VerificationContext(), new MockOperation(5, RETRYABLE_EXCEPTION)),
+                retryDriver.run("test", new MockOperation(5, RETRYABLE_EXCEPTION)),
                 Integer.valueOf(5));
     }
 
     @Test(expectedExceptions = QueryException.class)
     public void testMaxAttemptsExceeded()
     {
-        RETRY_DRIVER.run("test", new VerificationContext(), new MockOperation(6, RETRYABLE_EXCEPTION));
+        retryDriver.run("test", new MockOperation(6, RETRYABLE_EXCEPTION));
     }
 
     @Test(expectedExceptions = QueryException.class)
     public void testNonRetryableFailure()
     {
-        RETRY_DRIVER.run("test", new VerificationContext(), new MockOperation(3, NON_RETRYABLE_EXCEPTION));
+        retryDriver.run("test", new MockOperation(3, NON_RETRYABLE_EXCEPTION));
     }
 
     @Test(timeOut = 5000)
     public void testBackoffTimeCapped()
     {
-        RetryDriver retryDriver = new RetryDriver(
+        RetryDriver retryDriver = new RetryDriver<>(
                 new RetryConfig()
                         .setMaxAttempts(5)
                         .setMinBackoffDelay(new Duration(10, MILLISECONDS))
                         .setMaxBackoffDelay(new Duration(100, MILLISECONDS))
                         .setScaleFactor(1000),
-                QueryException::isRetryable);
-        retryDriver.run("test", new VerificationContext(), new MockOperation(5, RETRYABLE_EXCEPTION));
+                QueryException::isRetryable,
+                QueryException.class,
+                verificationContext::addException);
+        retryDriver.run("test", new MockOperation(5, RETRYABLE_EXCEPTION));
     }
 }

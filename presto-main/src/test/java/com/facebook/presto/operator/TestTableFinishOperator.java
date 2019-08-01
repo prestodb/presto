@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.TableFinishOperator.LifespanCommitter;
 import com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
@@ -23,15 +25,15 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.JsonCodec;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.AfterClass;
@@ -44,11 +46,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.operator.TableWriterOperator.STATS_START_CHANNEL;
+import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -57,8 +61,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -266,7 +269,7 @@ public class TestTableFinishOperator
 
     private static byte[] getTableCommitContextBytes(Lifespan lifespan, int stageId, int taskId, boolean lifespanCommitRequired, boolean lastPage)
     {
-        return TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(lifespan, stageId, taskId, lifespanCommitRequired, lastPage));
+        return TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(lifespan, new TaskId("query", stageId, 0, taskId), lifespanCommitRequired, lastPage));
     }
 
     private static class TestingTableFinisher
@@ -303,9 +306,10 @@ public class TestTableFinishOperator
         private List<Collection<Slice>> fragmentsList = new ArrayList<>();
 
         @Override
-        public void commitLifespan(Collection<Slice> fragments)
+        public ListenableFuture<Void> commitLifespan(Collection<Slice> fragments)
         {
             fragmentsList.add(fragments);
+            return immediateFuture(null);
         }
 
         public List<Collection<Slice>> getCommittedFragments()

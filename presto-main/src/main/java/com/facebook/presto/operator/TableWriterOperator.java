@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -26,7 +30,6 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.util.AutoCloseableCloser;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -34,7 +37,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 
@@ -43,17 +45,17 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
+import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
+import static com.facebook.presto.operator.TableWriterUtils.createStatisticsPage;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.allAsList;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
@@ -62,18 +64,13 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class TableWriterOperator
         implements Operator
 {
-    public static final int ROW_COUNT_CHANNEL = 0;
-    public static final int FRAGMENT_CHANNEL = 1;
-    public static final int CONTEXT_CHANNEL = 2;
-    public static final int STATS_START_CHANNEL = 3;
-
     public static class TableWriterOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final PageSinkManager pageSinkManager;
-        private final WriterTarget target;
+        private final ExecutionWriterTarget target;
         private final List<Integer> columnChannels;
         private final Session session;
         private final OperatorFactory statisticsAggregationOperatorFactory;
@@ -86,7 +83,7 @@ public class TableWriterOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 PageSinkManager pageSinkManager,
-                WriterTarget writerTarget,
+                ExecutionWriterTarget writerTarget,
                 List<Integer> columnChannels,
                 Session session,
                 OperatorFactory statisticsAggregationOperatorFactory,
@@ -284,7 +281,7 @@ public class TableWriterOperator
             if (aggregationOutput == null) {
                 return null;
             }
-            return createStatisticsPage(aggregationOutput);
+            return createStatisticsPage(types, aggregationOutput, createTableCommitContext(false));
         }
 
         if (state != State.FINISHING) {
@@ -304,35 +301,6 @@ public class TableWriterOperator
         }
 
         state = State.FINISHED;
-        return new Page(positionCount, outputBlocks);
-    }
-
-    // Statistics page layout:
-    //
-    // row     fragments     context     stats1     stats2 ...
-    // null       null          X          X          X
-    // null       null          X          X          X
-    // null       null          X          X          X
-    // null       null          X          X          X
-    // ...
-    private Page createStatisticsPage(Page aggregationOutput)
-    {
-        int positionCount = aggregationOutput.getPositionCount();
-        Block[] outputBlocks = new Block[types.size()];
-        for (int channel = 0; channel < types.size(); channel++) {
-            if (channel < STATS_START_CHANNEL) {
-                // Include table commit context into statistics page to allow TableFinishOperator publish correct statistics for recoverable grouped execution.
-                if (channel == CONTEXT_CHANNEL) {
-                    outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), getTableCommitContext(false), positionCount);
-                }
-                else {
-                    outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
-                }
-            }
-            else {
-                outputBlocks[channel] = aggregationOutput.getBlock(channel - STATS_START_CHANNEL);
-            }
-        }
         return new Page(positionCount, outputBlocks);
     }
 
@@ -366,17 +334,16 @@ public class TableWriterOperator
             VARBINARY.writeSlice(fragmentBuilder, fragment);
         }
 
-        return new Page(positionCount, rowsBuilder.build(), fragmentBuilder.build(), RunLengthEncodedBlock.create(VARBINARY, getTableCommitContext(true), positionCount));
+        return new Page(positionCount, rowsBuilder.build(), fragmentBuilder.build(), RunLengthEncodedBlock.create(VARBINARY, createTableCommitContext(true), positionCount));
     }
 
-    private Slice getTableCommitContext(boolean lastPage)
+    private Slice createTableCommitContext(boolean lastPage)
     {
         TaskId taskId = operatorContext.getDriverContext().getPipelineContext().getTaskId();
         return wrappedBuffer(tableCommitContextCodec.toJsonBytes(
                 new TableCommitContext(
                         operatorContext.getDriverContext().getLifespan(),
-                        taskId.getStageId().getId(),
-                        taskId.getId(),
+                        taskId,
                         partitionCommitRequired,
                         lastPage)));
     }

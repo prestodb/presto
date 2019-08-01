@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,48 +32,35 @@ import static java.util.Objects.requireNonNull;
 public class StageInfo
 {
     private final StageId stageId;
-    private final StageState state;
     private final URI self;
     private final Optional<PlanFragment> plan;
-    private final List<Type> types;
-    private final StageStats stageStats;
-    private final List<TaskInfo> tasks;
+
+    private final StageExecutionInfo latestAttemptExecutionInfo;
+    private final List<StageExecutionInfo> previousAttemptsExecutionInfos;
+
     private final List<StageInfo> subStages;
-    private final Optional<ExecutionFailureInfo> failureCause;
 
     @JsonCreator
     public StageInfo(
             @JsonProperty("stageId") StageId stageId,
-            @JsonProperty("state") StageState state,
             @JsonProperty("self") URI self,
             @JsonProperty("plan") Optional<PlanFragment> plan,
-            @JsonProperty("types") List<Type> types,
-            @JsonProperty("stageStats") StageStats stageStats,
-            @JsonProperty("tasks") List<TaskInfo> tasks,
-            @JsonProperty("subStages") List<StageInfo> subStages,
-            @JsonProperty("failureCause") Optional<ExecutionFailureInfo> failureCause)
+            @JsonProperty("latestAttemptExecutionInfo") StageExecutionInfo latestAttemptExecutionInfo,
+            @JsonProperty("previousAttemptsExecutionInfos") List<StageExecutionInfo> previousAttemptsExecutionInfos,
+            @JsonProperty("subStages") List<StageInfo> subStages)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
-        this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
         this.plan = requireNonNull(plan, "plan is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.stageStats = requireNonNull(stageStats, "stageStats is null");
-        this.tasks = ImmutableList.copyOf(requireNonNull(tasks, "tasks is null"));
+        this.latestAttemptExecutionInfo = requireNonNull(latestAttemptExecutionInfo, "latestAttemptExecutionInfo is null");
+        this.previousAttemptsExecutionInfos = ImmutableList.copyOf(requireNonNull(previousAttemptsExecutionInfos, "previousAttemptsExecutionInfos is null"));
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
-        this.failureCause = requireNonNull(failureCause, "failureCause is null");
     }
 
     @JsonProperty
     public StageId getStageId()
     {
         return stageId;
-    }
-
-    @JsonProperty
-    public StageState getState()
-    {
-        return state;
     }
 
     @JsonProperty
@@ -90,21 +76,15 @@ public class StageInfo
     }
 
     @JsonProperty
-    public List<Type> getTypes()
+    public StageExecutionInfo getLatestAttemptExecutionInfo()
     {
-        return types;
+        return latestAttemptExecutionInfo;
     }
 
     @JsonProperty
-    public StageStats getStageStats()
+    public List<StageExecutionInfo> getPreviousAttemptsExecutionInfos()
     {
-        return stageStats;
-    }
-
-    @JsonProperty
-    public List<TaskInfo> getTasks()
-    {
-        return tasks;
+        return previousAttemptsExecutionInfos;
     }
 
     @JsonProperty
@@ -113,15 +93,9 @@ public class StageInfo
         return subStages;
     }
 
-    @JsonProperty
-    public Optional<ExecutionFailureInfo> getFailureCause()
-    {
-        return failureCause;
-    }
-
     public boolean isFinalStageInfo()
     {
-        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
+        return latestAttemptExecutionInfo.isFinal();
     }
 
     @Override
@@ -129,7 +103,7 @@ public class StageInfo
     {
         return toStringHelper(this)
                 .add("stageId", stageId)
-                .add("state", state)
+                .add("state", latestAttemptExecutionInfo.getState())
                 .toString();
     }
 

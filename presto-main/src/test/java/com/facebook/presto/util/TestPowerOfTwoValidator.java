@@ -13,94 +13,43 @@
  */
 package com.facebook.presto.util;
 
-import org.apache.bval.jsr.ApacheValidationProvider;
 import org.testng.annotations.Test;
 
-import javax.validation.ConstraintValidatorContext;
-import javax.validation.ConstraintViolation;
-import javax.validation.Validation;
-import javax.validation.Validator;
-
-import java.util.Set;
-
-import static io.airlift.testing.Assertions.assertInstanceOf;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static com.facebook.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static com.facebook.airlift.testing.ValidationAssertions.assertValidates;
 
 public class TestPowerOfTwoValidator
 {
-    private static final Validator VALIDATOR = Validation.byProvider(ApacheValidationProvider.class).configure().buildValidatorFactory().getValidator();
-
     @Test
     public void testValidator()
     {
-        PowerOfTwoValidator validator = new PowerOfTwoValidator();
-        validator.initialize(new MockPowerOfTwo());
-
-        assertTrue(validator.isValid(1, new MockContext()));
-        assertTrue(validator.isValid(2, new MockContext()));
-        assertTrue(validator.isValid(64, new MockContext()));
-        assertFalse(validator.isValid(0, new MockContext()));
-        assertFalse(validator.isValid(3, new MockContext()));
-        assertFalse(validator.isValid(99, new MockContext()));
-        assertFalse(validator.isValid(-1, new MockContext()));
-        assertFalse(validator.isValid(-2, new MockContext()));
-        assertFalse(validator.isValid(-4, new MockContext()));
+        assertValid(1);
+        assertValid(2);
+        assertValid(64);
+        assertInvalid(0);
+        assertInvalid(3);
+        assertInvalid(99);
+        assertInvalid(-1);
+        assertInvalid(-2);
+        assertInvalid(-4);
     }
 
     @Test
     public void testAllowsNullPowerOfTwoAnnotation()
     {
-        VALIDATOR.validate(new NullPowerOfTwoAnnotation());
+        assertValidates(new NullPowerOfTwoAnnotation());
     }
 
-    @Test
-    public void testPassesValidation()
+    private static void assertValid(int value)
     {
-        ConstrainedPowerOfTwo object = new ConstrainedPowerOfTwo(128);
-        Set<ConstraintViolation<ConstrainedPowerOfTwo>> violations = VALIDATOR.validate(object);
-        assertTrue(violations.isEmpty());
+        assertValidates(new ConstrainedPowerOfTwo(value));
     }
 
-    @Test
-    public void testFailsValidation()
+    private static void assertInvalid(int value)
     {
-        ConstrainedPowerOfTwo object = new ConstrainedPowerOfTwo(11);
-        Set<ConstraintViolation<ConstrainedPowerOfTwo>> violations = VALIDATOR.validate(object);
-        assertEquals(violations.size(), 2);
-
-        for (ConstraintViolation<ConstrainedPowerOfTwo> violation : violations) {
-            assertInstanceOf(violation.getConstraintDescriptor().getAnnotation(), PowerOfTwo.class);
-        }
-    }
-
-    private static class MockContext
-            implements ConstraintValidatorContext
-    {
-        @Override
-        public void disableDefaultConstraintViolation()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public String getDefaultConstraintMessageTemplate()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ConstraintViolationBuilder buildConstraintViolationWithTemplate(String s)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public <T> T unwrap(Class<T> type)
-        {
-            throw new UnsupportedOperationException();
-        }
+        Object object = new ConstrainedPowerOfTwo(value);
+        assertFailsValidation(object, "unboxed", "is not a power of two", PowerOfTwo.class);
+        assertFailsValidation(object, "boxed", "is not a power of two", PowerOfTwo.class);
     }
 
     @SuppressWarnings("UnusedDeclaration")
@@ -114,13 +63,13 @@ public class TestPowerOfTwoValidator
         }
 
         @PowerOfTwo
-        public int getConstrainedByPowerOfTwoUnboxed()
+        public int getUnboxed()
         {
             return value;
         }
 
         @PowerOfTwo
-        public Integer getConstrainedByPowerOfTwoBoxed()
+        public Integer getBoxed()
         {
             return value;
         }
@@ -130,7 +79,7 @@ public class TestPowerOfTwoValidator
     public static class NullPowerOfTwoAnnotation
     {
         @PowerOfTwo
-        public static Integer getConstrainedByPowerOfTwo()
+        public Integer getNull()
         {
             return null;
         }
