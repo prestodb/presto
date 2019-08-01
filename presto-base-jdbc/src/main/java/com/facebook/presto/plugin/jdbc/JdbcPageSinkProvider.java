@@ -41,13 +41,13 @@ public class JdbcPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkProperties pageSinkProperties)
     {
         checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Jdbc connector does not support partition commit");
-        return new JdbcPageSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
+        return new JdbcPageSink(session, (JdbcOutputTableHandle) tableHandle, jdbcClient);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkProperties pageSinkProperties)
     {
         checkArgument(!pageSinkProperties.isPartitionCommitRequired(), "Jdbc connector does not support partition commit");
-        return new JdbcPageSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
+        return new JdbcPageSink(session, (JdbcOutputTableHandle) tableHandle, jdbcClient);
     }
 }

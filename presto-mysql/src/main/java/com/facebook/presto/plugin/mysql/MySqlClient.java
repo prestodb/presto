@@ -19,7 +19,9 @@ import com.facebook.presto.plugin.jdbc.ConnectionFactory;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -86,10 +88,10 @@ public class MySqlClient
     }
 
     @Override
-    public Set<String> getSchemaNames()
+    public Set<String> getSchemaNames(JdbcIdentity identity)
     {
         // for MySQL, we need to list catalogs instead of schemas
-        try (Connection connection = connectionFactory.openConnection();
+        try (Connection connection = connectionFactory.openConnection(identity);
                 ResultSet resultSet = connection.getMetaData().getCatalogs()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -186,10 +188,10 @@ public class MySqlClient
     }
 
     @Override
-    public void createTable(ConnectorTableMetadata tableMetadata)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         try {
-            createTable(tableMetadata, null, tableMetadata.getTable().getTableName());
+            createTable(tableMetadata, session, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
             if (SQL_STATE_ER_TABLE_EXISTS_ERROR.equals(e.getSQLState())) {
@@ -200,9 +202,9 @@ public class MySqlClient
     }
 
     @Override
-    public void renameColumn(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        try (Connection connection = connectionFactory.openConnection()) {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
             if (metadata.storesUpperCaseIdentifiers()) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
@@ -224,10 +226,10 @@ public class MySqlClient
     }
 
     @Override
-    protected void renameTable(String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
+    protected void renameTable(JdbcIdentity identity, String catalogName, SchemaTableName oldTable, SchemaTableName newTable)
     {
         // MySQL doesn't support specifying the catalog name in a rename; by setting the
         // catalogName parameter to null it will be omitted in the alter table statement.
-        super.renameTable(null, oldTable, newTable);
+        super.renameTable(identity, null, oldTable, newTable);
     }
 }

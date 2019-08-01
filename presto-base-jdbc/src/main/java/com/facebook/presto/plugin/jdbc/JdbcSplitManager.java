@@ -42,6 +42,6 @@ public class JdbcSplitManager
             SplitSchedulingContext splitSchedulingContext)
     {
         JdbcTableLayoutHandle layoutHandle = (JdbcTableLayoutHandle) layout;
-        return jdbcClient.getSplits(layoutHandle);
+        return jdbcClient.getSplits(JdbcIdentity.from(session), layoutHandle);
     }
 }
