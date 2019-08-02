@@ -137,6 +137,7 @@
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
+        <module>presto-datasketches</module>
     </modules>
 
     <dependencyManagement>
@@ -366,6 +367,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-elasticsearch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-datasketches</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
