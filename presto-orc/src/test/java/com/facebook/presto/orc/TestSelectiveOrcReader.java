@@ -16,7 +16,10 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
+import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTimestamp;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
@@ -42,7 +45,10 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
@@ -92,9 +98,9 @@ public class TestSelectiveOrcReader
                 .map(Integer::byteValue)
                 .collect(toList());
         List<Map<Integer, TupleDomainFilter>> filters = ImmutableList.of(
-                ImmutableMap.of(0, TupleDomainFilter.BytesValues.of(new byte[][] {{1}, {17}}, false)),
+                ImmutableMap.of(0, BytesValues.of(new byte[][] {{1}, {17}}, false)),
                 ImmutableMap.of(0, TupleDomainFilter.IS_NULL));
-        tester.testRoundTrip(TINYINT, byteValues, ImmutableList.of(ImmutableMap.of(0, TupleDomainFilter.BytesValues.of(new byte[][] {{1}, {17}}, false))));
+        tester.testRoundTrip(TINYINT, byteValues, ImmutableList.of(ImmutableMap.of(0, BytesValues.of(new byte[][] {{1}, {17}}, false))));
         tester.testRoundTripTypes(ImmutableList.of(TINYINT, TINYINT), ImmutableList.of(byteValues, reverse(byteValues)), filters);
     }
 
@@ -109,7 +115,7 @@ public class TestSelectiveOrcReader
         tester.testRoundTrip(
                 TINYINT,
                 newArrayList(limit(repeatEach(4, cycle(byteValues)), 30_000)),
-                ImmutableList.of(ImmutableMap.of(0, TupleDomainFilter.BytesRange.of(new byte[] {1}, true, new byte[] {14}, true, true))));
+                ImmutableList.of(ImmutableMap.of(0, BytesRange.of(new byte[] {1}, true, new byte[] {14}, true, true))));
     }
 
     @Test
@@ -212,6 +218,10 @@ public class TestSelectiveOrcReader
                 .map(SqlDate::new)
                 .collect(toList());
 
+        List<SqlTimestamp> timestamps = longValues.stream()
+                .map(timestamp -> sqlTimestampOf(timestamp, SESSION))
+                .collect(toList());
+
         tester.testRoundTrip(BIGINT, longValues, ImmutableList.of(ImmutableMap.of(0, filter)));
 
         tester.testRoundTrip(INTEGER, intValues, ImmutableList.of(ImmutableMap.of(0, filter)));
@@ -220,18 +230,24 @@ public class TestSelectiveOrcReader
 
         tester.testRoundTrip(DATE, dateValues, ImmutableList.of(ImmutableMap.of(0, filter)));
 
+        tester.testRoundTrip(TIMESTAMP, timestamps, ImmutableList.of(ImmutableMap.of(0, filter)));
+
         List<Integer> reversedIntValues = new ArrayList<>(intValues);
         Collections.reverse(reversedIntValues);
 
         List<SqlDate> reversedDateValues = new ArrayList<>(dateValues);
         Collections.reverse(reversedDateValues);
 
-        tester.testRoundTripTypes(ImmutableList.of(BIGINT, INTEGER, SMALLINT, DATE),
+        List<SqlTimestamp> reversedTimestampValues = new ArrayList<>(timestamps);
+        Collections.reverse(reversedTimestampValues);
+
+        tester.testRoundTripTypes(ImmutableList.of(BIGINT, INTEGER, SMALLINT, DATE, TIMESTAMP),
                 ImmutableList.of(
                         longValues,
                         reversedIntValues,
                         shortValues,
-                        reversedDateValues),
+                        reversedDateValues,
+                        reversedTimestampValues),
                 ImmutableList.of(
                         ImmutableMap.of(0, filter),
                         ImmutableMap.of(1, filter),

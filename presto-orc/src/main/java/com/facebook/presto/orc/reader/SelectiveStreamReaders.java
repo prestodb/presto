@@ -56,7 +56,10 @@ public final class SelectiveStreamReaders
             case STRING:
             case VARCHAR:
             case CHAR:
+                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
             case TIMESTAMP:
+                checkArgument(requiredSubfields.isEmpty(), "Primitive type stream reader doesn't support subfields");
+                return new TimestampSelectiveStreamReader(streamDescriptor, filter, hiveStorageTimeZone, outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             case LIST:
             case STRUCT:
             case MAP:
