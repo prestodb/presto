@@ -13,12 +13,25 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.BlockAssertions.Encoding;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockAssertions.Encoding.DICTIONARY;
+import static com.facebook.presto.block.BlockAssertions.Encoding.RUN_LENGTH;
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
+import static com.facebook.presto.block.BlockAssertions.createAllNullsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRandomBlockForType;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public final class PageAssertions
@@ -35,5 +48,95 @@ public final class PageAssertions
         for (int i = 0; i < actualPage.getChannelCount(); i++) {
             assertBlockEquals(types.get(i), actualPage.getBlock(i), expectedPage.getBlock(i));
         }
+    }
+
+    public static Page createPageWithRandomData(List<Type> types, int positionCount, boolean allowNulls)
+    {
+        return createPageWithRandomData(types, positionCount, true, false, allowNulls, false, ImmutableList.of());
+    }
+
+    public static Page createDictionaryPageWithRandomData(List<Type> types, int positionCount, boolean allowNulls)
+    {
+        return createPageWithRandomData(types, positionCount, true, false, allowNulls, false, ImmutableList.of(DICTIONARY));
+    }
+
+    public static Page createRlePageWithRandomData(List<Type> types, int positionCount, boolean allowNulls)
+    {
+        return createPageWithRandomData(types, positionCount, true, false, allowNulls, false, ImmutableList.of(RUN_LENGTH));
+    }
+
+    public static Page createPageWithRandomData(
+            List<Type> types,
+            int positionCount,
+            boolean addPreComputedHashBlock,
+            boolean addNullBlock,
+            boolean allowNulls,
+            boolean useBlockView,
+            List<Encoding> wrappings)
+    {
+        int channelCount = types.size();
+        int preComputedChannelCount = (addPreComputedHashBlock ? 1 : 0);
+        int nullChannelCount = (addNullBlock ? 1 : 0);
+
+        Block[] blocks = new Block[channelCount + preComputedChannelCount + nullChannelCount];
+
+        if (addPreComputedHashBlock) {
+            blocks[0] = BlockAssertions.createRandomLongsBlock(positionCount, false);
+        }
+
+        for (int i = 0; i < channelCount; i++) {
+            blocks[i + preComputedChannelCount] = createRandomBlockForType(types.get(i), positionCount, allowNulls, useBlockView, wrappings);
+        }
+
+        if (addNullBlock) {
+            blocks[channelCount + preComputedChannelCount] = createAllNullsBlock(BIGINT, positionCount);
+        }
+
+        return new Page(positionCount, blocks);
+    }
+
+    public static Page mergePages(List<Type> types, List<Page> pages)
+    {
+        PageBuilder pageBuilder = new PageBuilder(types);
+        int totalPositionCount = 0;
+        for (Page page : pages) {
+            verify(page.getChannelCount() == types.size(), format("Number of channels in page %d is not equal to number of types %d", page.getChannelCount(), types.size()));
+
+            for (int i = 0; i < types.size(); i++) {
+                BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
+                Block block = page.getBlock(i);
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    if (block.isNull(position)) {
+                        blockBuilder.appendNull();
+                    }
+                    else {
+                        block.writePositionTo(position, blockBuilder);
+                    }
+                }
+            }
+            totalPositionCount += page.getPositionCount();
+        }
+        pageBuilder.declarePositions(totalPositionCount);
+        return pageBuilder.build();
+    }
+
+    /**
+     * Create a new types list that prepends the BIGINT type in front if addPreComputedHashBlock is true, and append the BIGINT type at the end if addNullBlock is true.
+     */
+    public static List<Type> updateBlockTypesWithHashBlockAndNullBlock(List<Type> types, boolean addPreComputedHashBlock, boolean addNullBlock)
+    {
+        ImmutableList.Builder<Type> newTypes = ImmutableList.builder();
+
+        if (addPreComputedHashBlock) {
+            newTypes.add(BIGINT);
+        }
+
+        newTypes.addAll(types);
+
+        if (addNullBlock) {
+            newTypes.add(BIGINT);
+        }
+
+        return newTypes.build();
     }
 }
