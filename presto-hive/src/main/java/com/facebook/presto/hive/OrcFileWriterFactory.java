@@ -174,7 +174,8 @@ public class OrcFileWriterFactory
                                 getOrcStreamBufferSize(session),
                                 false,
                                 fileSystem.open(path),
-                                readStats);
+                                readStats,
+                                false);
                     }
                     catch (IOException e) {
                         throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);

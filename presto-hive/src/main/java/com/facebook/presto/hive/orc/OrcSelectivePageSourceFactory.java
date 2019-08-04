@@ -106,6 +106,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDista
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
+import static com.facebook.presto.hive.HiveSessionProperties.isBlockCacheEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
@@ -296,7 +297,8 @@ public class OrcSelectivePageSourceFactory
                     streamBufferSize,
                     lazyReadSmallRanges,
                     inputStream,
-                    stats);
+                    stats,
+                    isBlockCacheEnabled(session));
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||

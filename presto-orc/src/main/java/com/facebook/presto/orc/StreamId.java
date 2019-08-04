@@ -25,12 +25,23 @@ public final class StreamId
     private final int column;
     private final int sequence;
     private final StreamKind streamKind;
+    // Optional label used for recording access stats. Not considered in equality.
+    private final String label;
 
     public StreamId(Stream stream)
     {
         this.column = stream.getColumn();
         this.sequence = stream.getSequence();
         this.streamKind = stream.getStreamKind();
+        label = null;
+    }
+
+    public StreamId(Stream stream, String label)
+    {
+        this.column = stream.getColumn();
+        this.sequence = stream.getSequence();
+        this.streamKind = stream.getStreamKind();
+        this.label = label;
     }
 
     public StreamId(int column, int sequence, StreamKind streamKind)
@@ -38,6 +49,7 @@ public final class StreamId
         this.column = column;
         this.sequence = sequence;
         this.streamKind = streamKind;
+        this.label = null;
     }
 
     public int getColumn()
@@ -53,6 +65,11 @@ public final class StreamId
     public StreamKind getStreamKind()
     {
         return streamKind;
+    }
+
+    public String getLabel()
+    {
+        return label;
     }
 
     @Override

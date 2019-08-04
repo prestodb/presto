@@ -220,7 +220,8 @@ public class SortingFileWriter
                         new DataSize(8, MEGABYTE),
                         false,
                         fileSystem.open(file),
-                        new FileFormatDataSourceStats());
+                        new FileFormatDataSourceStats(),
+                        false);
                 closer.register(dataSource);
                 iterators.add(new TempFileReader(types, dataSource));
             }

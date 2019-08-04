@@ -16,6 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.concurrent.ExecutorServiceAdapter;
 import com.facebook.airlift.event.client.EventClient;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.orc.CacheStats;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
@@ -130,6 +132,8 @@ public class HiveClientModule
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).as(generatedNameOf(FileFormatDataSourceStats.class, connectorId));
+        binder.bind(CacheStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(CacheStats.class).as(generatedNameOf(CacheStats.class, connectorId));
 
         Multibinder<HiveBatchPageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HiveBatchPageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(OrcBatchPageSourceFactory.class).in(Scopes.SINGLETON);

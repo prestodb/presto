@@ -47,6 +47,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockS
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isBlockCacheEnabled;
+
 import static com.facebook.presto.hive.orc.OrcBatchPageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static java.util.Objects.requireNonNull;
@@ -131,6 +133,7 @@ public class DwrfBatchPageSourceFactory
                         getOrcMaxMergeDistance(session),
                         getOrcTinyStripeThreshold(session),
                         getOrcMaxReadBlockSize(session),
-                        isOrcZstdJniDecompressionEnabled(session))));
+                        isOrcZstdJniDecompressionEnabled(session)),
+                isBlockCacheEnabled(session)));
     }
 }
