@@ -60,7 +60,10 @@ public final class SelectiveStreamReaders
                 checkArgument(requiredSubfields.isEmpty(), "Primitive type stream reader doesn't support subfields");
                 return new LongSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext);
             }
-            case FLOAT:
+            case FLOAT: {
+                checkArgument(requiredSubfields.isEmpty(), "Float type stream reader doesn't support subfields");
+                return new FloatSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+            }
             case DOUBLE:
             case BINARY:
             case STRING:

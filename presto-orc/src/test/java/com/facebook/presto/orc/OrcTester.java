@@ -727,6 +727,11 @@ public class OrcTester
                         return false;
                     }
                 }
+                else if (type == REAL) {
+                    if (!filter.testFloat(((Number) value).floatValue())) {
+                        return false;
+                    }
+                }
                 else if (type == TIMESTAMP) {
                     if (!filter.testLong(((SqlTimestamp) value).getMillisUtc())) {
                         return false;

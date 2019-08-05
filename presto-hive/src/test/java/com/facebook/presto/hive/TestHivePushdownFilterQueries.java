@@ -44,9 +44,12 @@ public class TestHivePushdownFilterQueries
             "   CASE WHEN linenumber % 6 = 0 THEN null ELSE CAST(month(shipdate) AS TINYINT) END AS ship_month, " +
             "   CASE WHEN linenumber % 3 = 0 THEN null ELSE CAST(shipdate AS TIMESTAMP) END AS ship_timestamp, \n" +
             "   CASE WHEN orderkey % 3 = 0 THEN null ELSE CAST(commitdate AS TIMESTAMP) END AS commit_timestamp, \n" +
+            "   CASE WHEN orderkey % 5 = 0 THEN null ELSE CAST(discount AS REAL) END AS discount_real, \n" +
+            "   CASE WHEN orderkey % 7 = 0 THEN null ELSE CAST(tax AS REAL) END AS tax_real, \n" +
             "   CASE WHEN orderkey % 11 = 0 THEN null ELSE (orderkey, partkey, suppkey) END AS keys, \n" +
             "   CASE WHEN orderkey % 13 = 0 THEN null ELSE ((orderkey, partkey), (suppkey,), CASE WHEN orderkey % 17 = 0 THEN null ELSE (orderkey, partkey) END) END AS nested_keys, \n" +
-            "   CASE WHEN orderkey % 17 = 0 THEN null ELSE (shipmode = 'AIR', returnflag = 'R') END as flags\n" +
+            "   CASE WHEN orderkey % 17 = 0 THEN null ELSE (shipmode = 'AIR', returnflag = 'R') END as flags, \n" +
+            "   CASE WHEN orderkey % 19 = 0 THEN null ELSE (CAST(discount AS REAL), CAST(tax AS REAL)) END as reals \n" +
             "FROM lineitem)\n";
 
     protected TestHivePushdownFilterQueries()
@@ -64,7 +67,7 @@ public class TestHivePushdownFilterQueries
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, keys, nested_keys, flags) AS " +
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, tax_real, keys, nested_keys, flags, reals) AS " +
                         "SELECT linenumber, orderkey, partkey, suppkey, " +
                         "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
                         "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
@@ -72,9 +75,12 @@ public class TestHivePushdownFilterQueries
                         "   IF (linenumber % 6 = 0, null, CAST(month(shipdate) AS TINYINT)) AS ship_month, " +
                         "   IF (linenumber % 3 = 0, null, CAST(shipdate AS TIMESTAMP)) AS ship_timestamp, " +
                         "   IF (orderkey % 3 = 0, null, CAST(commitdate AS TIMESTAMP)) AS commit_timestamp, " +
+                        "   IF (orderkey % 5 = 0, null, CAST(discount AS REAL)) AS discount_real, " +
+                        "   IF (orderkey % 7 = 0, null, CAST(tax AS REAL)) AS tax_real, " +
                         "   IF (orderkey % 11 = 0, null, ARRAY[orderkey, partkey, suppkey]), " +
                         "   IF (orderkey % 13 = 0, null, ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], IF (orderkey % 17 = 0, null, ARRAY[orderkey, partkey])]), " +
-                        "   IF (orderkey % 17 = 0, null, ARRAY[shipmode = 'AIR', returnflag = 'R']) " +
+                        "   IF (orderkey % 17 = 0, null, ARRAY[shipmode = 'AIR', returnflag = 'R']), " +
+                        "   IF (orderkey % 19 = 0, null, ARRAY[CAST(discount AS REAL), CAST(tax AS REAL)]) " +
                         "FROM lineitem");
 
         return queryRunner;
@@ -168,6 +174,28 @@ public class TestHivePushdownFilterQueries
         assertQueryReturnsEmptyResult("SELECT commit_timestamp, ship_timestamp FROM lineitem_ex WHERE year(ship_timestamp) - year(commit_timestamp) > 1");
 
         assertQueryUsingH2Cte("SELECT commit_timestamp, ship_timestamp, orderkey FROM lineitem_ex WHERE year(commit_timestamp) > 1993 and year(ship_timestamp) > 1993 and year(ship_timestamp) - year(commit_timestamp) = 1");
+    }
+
+    @Test
+    public void testFloats()
+    {
+        assertQueryUsingH2Cte("SELECT discount_real, tax_real FROM lineitem_ex");
+
+        assertFilterProject("tax_real IS NOT NULL", "count(*)");
+
+        assertFilterProject("tax_real IS NULL", "count(*)");
+
+        assertFilterProject("tax_real > 0.1", "count(*)");
+
+        assertFilterProject("tax_real < 0.03", "discount_real, tax_real");
+
+        assertFilterProject("tax_real < 0.05  AND discount_real > 0.05", "discount_real");
+
+        assertFilterProject("tax_real = discount_real", "discount_real");
+
+        assertFilterProject("discount_real > 0.01 AND tax_real > 0.01 AND (discount_real + tax_real) < 0.08", "discount_real");
+
+        assertFilterProject("reals[1] > 0.01", "count(*)");
     }
 
     @Test

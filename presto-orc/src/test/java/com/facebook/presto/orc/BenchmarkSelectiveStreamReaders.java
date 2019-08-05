@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
@@ -64,6 +65,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -192,7 +194,8 @@ public class BenchmarkSelectiveStreamReaders
                 "smallint",
                 "tinyint",
                 "date",
-                "timestamp"
+                "timestamp",
+                "real"
         })
         private String typeSignature;
 
@@ -222,7 +225,8 @@ public class BenchmarkSelectiveStreamReaders
                 "smallint",
                 "tinyint",
                 "date",
-                "timestamp"
+                "timestamp",
+                "real"
         })
         private String typeSignature;
 
@@ -254,6 +258,10 @@ public class BenchmarkSelectiveStreamReaders
 
             if (type == TINYINT || type == BIGINT || type == INTEGER || type == SMALLINT || type == DATE || type == TIMESTAMP) {
                 return Optional.of(BigintRange.of(0, Long.MAX_VALUE, true));
+            }
+
+            if (type == REAL) {
+                return Optional.of(FloatRange.of(0, true, true, Integer.MAX_VALUE, true, true, true));
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + type);
@@ -296,6 +304,10 @@ public class BenchmarkSelectiveStreamReaders
 
             if (getType() == TIMESTAMP) {
                 return new SqlTimestamp(random.nextLong(), TimeZoneKey.UTC_KEY);
+            }
+
+            if (getType() == REAL) {
+                return random.nextFloat();
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + getType());

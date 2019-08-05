@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.google.common.collect.AbstractIterator;
@@ -43,6 +44,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -206,6 +208,32 @@ public class TestSelectiveOrcReader
             throws Exception
     {
         testRoundTripNumeric(concat(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123)), BigintRange.of(123, 123, true));
+    }
+
+    @Test
+    public void testFloats()
+            throws Exception
+    {
+        List<Map<Integer, TupleDomainFilter>> filters = ImmutableList.of(
+                ImmutableMap.of(0, FloatRange.of(0.0f, false, true, 100.0f, false, true, true)),
+                ImmutableMap.of(0, FloatRange.of(-100.0f, false, true, 0.0f, false, true, false)),
+                ImmutableMap.of(0, IS_NULL));
+
+        tester.testRoundTrip(REAL, ImmutableList.copyOf(repeatEach(10, ImmutableList.of(-100.0f, 0.0f, 100.0f))), filters);
+        tester.testRoundTrip(REAL, ImmutableList.copyOf(repeatEach(10, ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY))));
+
+        List<Float> floatValues = ImmutableList.of(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f);
+        tester.testRoundTripTypes(
+                ImmutableList.of(REAL, REAL),
+                ImmutableList.of(
+                        ImmutableList.copyOf(limit(repeatEach(4, cycle(floatValues)), 100)),
+                        ImmutableList.copyOf(limit(repeatEach(4, cycle(floatValues)), 100))),
+                ImmutableList.of(
+                        ImmutableMap.of(
+                                0, FloatRange.of(1.0f, false, true, 7.0f, false, true, true),
+                                1, FloatRange.of(3.0f, false, true, 9.0f, false, true, false)),
+                        ImmutableMap.of(
+                                1, FloatRange.of(1.0f, false, true, 7.0f, false, true, true))));
     }
 
     private void testRoundTripNumeric(Iterable<? extends Number> values, TupleDomainFilter filter)
