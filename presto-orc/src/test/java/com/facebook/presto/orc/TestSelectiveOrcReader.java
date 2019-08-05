@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -198,6 +199,28 @@ public class TestSelectiveOrcReader
         testRoundTripNumeric(concat(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123)), BigintRange.of(123, 123, true));
     }
 
+    //Tests for Float type
+    @Test
+    public void testFloatSequence()
+            throws Exception
+    {
+        tester.testRoundTrip(REAL, floatSequence(0.0f, 0.1f, 30_000));
+    }
+
+    @Test
+    public void testFloatNaNInfinity()
+            throws Exception
+    {
+        tester.testRoundTrip(REAL, ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY));
+        tester.testRoundTrip(REAL, ImmutableList.of(-1000.0f, Float.NEGATIVE_INFINITY, 1.23f));
+        tester.testRoundTrip(REAL, ImmutableList.of(0.0f, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY));
+
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, -0.0f, 1.0f));
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, -1.0f, Float.POSITIVE_INFINITY));
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, 1.0f));
+        tester.testRoundTrip(REAL, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY));
+    }
+
     private void testRoundTripNumeric(Iterable<? extends Number> values, TupleDomainFilter filter)
             throws Exception
     {
@@ -311,5 +334,16 @@ public class TestSelectiveOrcReader
                 return value;
             }
         };
+    }
+
+    private static List<Float> floatSequence(float start, float step, int items)
+    {
+        ImmutableList.Builder<Float> values = ImmutableList.builder();
+        float nextValue = start;
+        for (int i = 0; i < items; i++) {
+            values.add(nextValue);
+            nextValue += step;
+        }
+        return values.build();
     }
 }
