@@ -48,6 +48,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestJdbcPrestoAction
 {
     private static final QueryOrigin QUERY_ORIGIN = forMain(CONTROL);

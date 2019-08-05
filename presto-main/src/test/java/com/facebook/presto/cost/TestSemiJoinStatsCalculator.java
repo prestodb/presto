@@ -15,7 +15,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.cost.PlanNodeStatsAssertion.assertThat;
@@ -52,7 +52,7 @@ public class TestSemiJoinStatsCalculator
     private VariableReferenceExpression unknown = new VariableReferenceExpression("unknown", BIGINT);
     private VariableReferenceExpression fractionalNdv = new VariableReferenceExpression("fractionalNdv", BIGINT);
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
             throws Exception
     {
