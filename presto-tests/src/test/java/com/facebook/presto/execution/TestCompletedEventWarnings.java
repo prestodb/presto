@@ -26,7 +26,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -39,6 +39,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestCompletedEventWarnings
 {
     private static final int EXPECTED_EVENTS = 3;
@@ -46,7 +47,7 @@ public class TestCompletedEventWarnings
     private QueryRunner queryRunner;
     private EventsBuilder generatedEvents;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
             throws Exception
     {

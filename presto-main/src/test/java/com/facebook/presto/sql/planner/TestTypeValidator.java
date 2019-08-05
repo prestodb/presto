@@ -46,7 +46,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -69,7 +69,6 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.R
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 
-@Test(singleThreaded = true)
 public class TestTypeValidator
 {
     private static final TableHandle TEST_TABLE_HANDLE = new TableHandle(
@@ -90,7 +89,7 @@ public class TestTypeValidator
     private VariableReferenceExpression variableD;
     private VariableReferenceExpression variableE;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
     {
         variableAllocator = new PlanVariableAllocator();

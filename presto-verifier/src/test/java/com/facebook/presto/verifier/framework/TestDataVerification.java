@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -59,11 +58,6 @@ public class TestDataVerification
 
     private static StandaloneQueryRunner queryRunner;
 
-    private VerifierConfig verifierConfig;
-    private PrestoAction prestoAction;
-    private QueryRewriter queryRewriter;
-    private ChecksumValidator checksumValidator;
-
     @BeforeClass
     public void setupClass()
             throws Exception
@@ -71,34 +65,29 @@ public class TestDataVerification
         queryRunner = setupPresto();
     }
 
-    @BeforeMethod
-    public void setup()
+    private DataVerification createVerification(String controlQuery, String testQuery)
     {
         String jdbcUrl = getJdbcUrl(queryRunner);
         RetryConfig retryConfig = new RetryConfig();
-        verifierConfig = new VerifierConfig()
+        VerifierConfig verifierConfig = new VerifierConfig()
                 .setControlJdbcUrl(jdbcUrl)
                 .setTestJdbcUrl(jdbcUrl)
                 .setTestId(TEST_ID)
                 .setFailureResolverEnabled(false);
-        prestoAction = new JdbcPrestoAction(
+        PrestoAction prestoAction = new JdbcPrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
                 verifierConfig,
                 retryConfig,
                 retryConfig);
-        queryRewriter = new QueryRewriter(
+        QueryRewriter queryRewriter = new QueryRewriter(
                 new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN)),
                 prestoAction,
                 ImmutableList.of(),
                 verifierConfig);
-        checksumValidator = new ChecksumValidator(
+        ChecksumValidator checksumValidator = new ChecksumValidator(
                 new SimpleColumnValidator(),
                 new FloatingPointColumnValidator(verifierConfig),
                 new OrderableArrayColumnValidator());
-    }
-
-    private DataVerification createVerification(String controlQuery, String testQuery)
-    {
         QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, "test-user", Optional.empty(), ImmutableMap.of());
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, configuration, configuration);
         return new DataVerification((verification, e) -> false, prestoAction, sourceQuery, queryRewriter, ImmutableList.of(), verifierConfig, checksumValidator);
