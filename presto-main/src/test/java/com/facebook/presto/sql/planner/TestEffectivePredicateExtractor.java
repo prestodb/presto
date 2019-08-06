@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -149,8 +148,6 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testAggregation()
     {
-        FunctionCall functionCall = new FunctionCall(QualifiedName.of("count"), ImmutableList.of());
-        FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction("count", ImmutableList.of());
         PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
                         and(
