@@ -189,24 +189,29 @@ class TaskList extends React.Component {
                 ]}
                    defaultSort={{column: 'id', direction: 'asc'}}>
                 <Thead>
-                <Th column="id">ID</Th>
-                <Th column="host">Host</Th>
-                <Th column="state">State</Th>
-                <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
-                                                 title="Pending splits"/></Th>
-                <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
-                                                 title="Running splits"/></Th>
-                <Th column="splitsBlocked"><span className="glyphicon glyphicon-bookmark" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
-                                                 title="Blocked splits"/></Th>
-                <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
-                                              title="Completed splits"/></Th>
-                <Th column="rows">Rows</Th>
-                <Th column="rowsSec">Rows/s</Th>
-                <Th column="bytes">Bytes</Th>
-                <Th column="bytesSec">Bytes/s</Th>
-                <Th column="elapsedTime">Elapsed</Th>
-                <Th column="cpuTime">CPU Time</Th>
-                <Th column="bufferedBytes">Buffered</Th>
+                    <Th column="id">ID</Th>
+                    <Th column="host">Host</Th>
+                    <Th column="state">State</Th>
+                    <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}
+                                                     data-toggle="tooltip" data-placement="top"
+                                                     title="Pending splits"/></Th>
+                    <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}
+                                                     data-toggle="tooltip" data-placement="top"
+                                                     title="Running splits"/></Th>
+                    <Th column="splitsBlocked"><span className="glyphicon glyphicon-bookmark"
+                                                     style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip"
+                                                     data-placement="top"
+                                                     title="Blocked splits"/></Th>
+                    <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}
+                                                  data-toggle="tooltip" data-placement="top"
+                                                  title="Completed splits"/></Th>
+                    <Th column="rows">Rows</Th>
+                    <Th column="rowsSec">Rows/s</Th>
+                    <Th column="bytes">Bytes</Th>
+                    <Th column="bytesSec">Bytes/s</Th>
+                    <Th column="elapsedTime">Elapsed</Th>
+                    <Th column="cpuTime">CPU Time</Th>
+                    <Th column="bufferedBytes">Buffered</Th>
                 </Thead>
                 {renderedTasks}
             </Table>
