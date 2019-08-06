@@ -151,19 +151,6 @@ public class PagesSpatialIndexSupplier
         return new Envelope(envelope.getXMin() - radius, envelope.getXMax() + radius, envelope.getYMin() - radius, envelope.getYMax() + radius);
     }
 
-    private long computeMemorySizeInBytes(AbstractNode root)
-    {
-        if (root.getLevel() == 0) {
-            return ABSTRACT_NODE_INSTANCE_SIZE + ENVELOPE_INSTANCE_SIZE + root.getChildBoundables().stream().mapToLong(child -> computeMemorySizeInBytes((ItemBoundable) child)).sum();
-        }
-        return ABSTRACT_NODE_INSTANCE_SIZE + ENVELOPE_INSTANCE_SIZE + root.getChildBoundables().stream().mapToLong(child -> computeMemorySizeInBytes((AbstractNode) child)).sum();
-    }
-
-    private long computeMemorySizeInBytes(ItemBoundable item)
-    {
-        return ENVELOPE_INSTANCE_SIZE + ((GeometryWithPosition) item.getItem()).getEstimatedMemorySizeInBytes();
-    }
-
     private static void accelerateGeometry(OGCGeometry ogcGeometry, Operator relateOperator)
     {
         // Recurse into GeometryCollections
@@ -175,6 +162,19 @@ public class PagesSpatialIndexSupplier
             }
             relateOperator.accelerateGeometry(esriGeometry, null, Geometry.GeometryAccelerationDegree.enumMild);
         }
+    }
+
+    private long computeMemorySizeInBytes(AbstractNode root)
+    {
+        if (root.getLevel() == 0) {
+            return ABSTRACT_NODE_INSTANCE_SIZE + ENVELOPE_INSTANCE_SIZE + root.getChildBoundables().stream().mapToLong(child -> computeMemorySizeInBytes((ItemBoundable) child)).sum();
+        }
+        return ABSTRACT_NODE_INSTANCE_SIZE + ENVELOPE_INSTANCE_SIZE + root.getChildBoundables().stream().mapToLong(child -> computeMemorySizeInBytes((AbstractNode) child)).sum();
+    }
+
+    private long computeMemorySizeInBytes(ItemBoundable item)
+    {
+        return ENVELOPE_INSTANCE_SIZE + ((GeometryWithPosition) item.getItem()).getEstimatedMemorySizeInBytes();
     }
 
     // doesn't include memory used by channels and addresses which are shared with PagesIndex
