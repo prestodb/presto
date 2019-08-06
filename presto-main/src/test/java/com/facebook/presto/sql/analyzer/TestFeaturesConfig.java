@@ -116,7 +116,7 @@ public class TestFeaturesConfig
                 .setLegacyUnnestArrayRows(false)
                 .setJsonSerdeCodeGenerationEnabled(false)
                 .setPushLimitThroughOuterJoin(true)
-                .setMaxConcurrentMaterializations(10)
+                .setMaxConcurrentMaterializations(3)
                 .setPushdownSubfieldsEnabled(false));
     }
 
