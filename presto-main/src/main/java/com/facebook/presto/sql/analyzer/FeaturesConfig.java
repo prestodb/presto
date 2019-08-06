@@ -132,7 +132,7 @@ public class FeaturesConfig
     private boolean legacyUnnestArrayRows;
 
     private boolean jsonSerdeCodeGenerationEnabled;
-    private int maxConcurrentMaterializations = 10;
+    private int maxConcurrentMaterializations = 3;
 
     private boolean pushdownSubfieldsEnabled;
 
