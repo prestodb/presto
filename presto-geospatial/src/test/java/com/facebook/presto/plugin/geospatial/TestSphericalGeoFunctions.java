@@ -254,6 +254,32 @@ public class TestSphericalGeoFunctions
         // Invalid polygon (contains pole)
         assertInvalidFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText('POLYGON((0 85, 135 85, -70 85, -10 85, 0 85))')), to_spherical_geography(ST_GeometryFromText('POINT (-10 80)')))", "When applied to SphericalGeography inputs, ST_Contains only supports polygons which do not enclose poles.");
 
+        // Test edge cases (pun slightly intended)
+        // (see http://geomalgorithms.com/a03-_inclusion.html)
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "10 30", true);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "20 30 ", true);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "20 10 ", true);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "10 10 ", true);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "20 10 ", true);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "20 10 ", true);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "10 17 ", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "20 19 ", true);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "17 10 ", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "18 30.079534371237855", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "12 20 ", true);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "11 10.5 ", true);
+
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "7 10 ", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "10 8.2 ", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "8 30 ", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "10 45 ", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "20 31 ", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "27 30 ", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "23.44 10 ", false);
+        assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "20 -7.9", false);
+
+        // test points that line up with corners
+
         // small, simple 4-sided polygons
         assertContains("10 10, 10 30, 20 30, 20 10", "50 41", false);
         assertContains("10 10, 10 30, 20 30, 20 10, 10 10", "15 40", false);
@@ -264,12 +290,13 @@ public class TestSphericalGeoFunctions
         assertContains("-10 10, -10 30, -20 30, -25 8, -10 10", "-15 35", false);
 
         // based on flight routes from salt lake city -> buffalo -> ft. lauderdale -> salt lake city
-        assertContains(saltBuffFort, buffalo, true);
         assertContains(saltBuffFort, wichita, true);
+        assertContains(saltBuffFort, grandRapids, true);
+        assertContains(saltBuffFort, fortLauderdale, true);
         assertContains(saltBuffFort, newYork, false);
         assertContains(saltBuffFort, santiago, false);
         assertContains(saltBuffFort, oklahomaCity, false);
-        assertContains(saltBuffFort, grandRapids, true);
+        assertContains(saltBuffFort, buffalo, true);
 
         // based on flight routes from LA -> melbourne -> sydney -> SF -> LA
         assertContains(losAngMelSydSanFran, sydney, true);

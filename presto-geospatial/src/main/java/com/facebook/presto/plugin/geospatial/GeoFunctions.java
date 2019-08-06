@@ -1634,27 +1634,60 @@ public final class GeoFunctions
 
     private static boolean liesInRange(double point, double rangeStart, double rangeEnd)
     {
-        return point >= rangeStart && point <= rangeEnd;
+        // strictly exclusive
+        System.out.println(format("range start: %s, range end: %s", rangeStart, rangeEnd));
+        System.out.println(format("first: %s, second: %s", point >= rangeStart, point < rangeEnd));
+        //if (haveSameLongitude(rangeStart, rangeEnd)) {
+        //    return false;
+        //}
+        return point > rangeStart && point < rangeEnd;
     }
 
-    private static boolean edgeCrosses(double edgeStart, double edgeEnd, double longitude)
+    private static boolean haveSameSign(double x, double y)
     {
-        double start = min(edgeStart, edgeEnd);
-        double end = max(edgeStart, edgeEnd);
-        double distanceVia0 = end - start;
-        double distanceVia180 = start - MIN_LONGITUDE + MAX_LONGITUDE - end;
-        if (distanceVia0 < distanceVia180) {
-            return liesInRange(longitude, start, end);
+        // for the purposes of this function, 0 is considered positive
+        // e.g. haveSameSign(5, 0) --> true; haveSameSign(0, 0) --> true
+        // haveSameSign(-5, 0) --> false
+        if (min(x, y) >= 0) {
+            return true;
         }
-        else {
-            return liesInRange(longitude, MIN_LONGITUDE, start) || liesInRange(longitude, end, MAX_LONGITUDE);
+        return x * y > 0;
+    }
+
+    private static boolean haveSameLongitude(double x, double y)
+    {
+        if (x == y) {
+            return true;
         }
+        if ((x == 180.0 || y == 180.0) && (x == -180.0 && y == -180.0)) {
+            return true;
+        }
+        return false;
     }
 
     private static boolean edgeCrossesLongitude(double edgeStart, double edgeEnd, double longitude)
     {
+        if (edgeStart == longitude) {
+            return true;
+        }
+        if (edgeEnd == longitude) {
+            return false;
+        }
+
         double start = min(edgeStart, edgeEnd);
         double end = max(edgeStart, edgeEnd);
+
+        //if (edgeEnd.getX() == longitude) {
+        //    return false;
+        //}
+
+        if (haveSameLongitude(edgeEnd, longitude)) {
+            return false;
+        }
+        if (haveSameLongitude(edgeStart, longitude)) {
+            return true;
+        }
+
         double distanceVia0 = end - start;
         double distanceVia180 = start - MIN_LONGITUDE + MAX_LONGITUDE - end;
         if (distanceVia0 < distanceVia180) {
@@ -1665,18 +1698,39 @@ public final class GeoFunctions
         }
     }
 
-    private static boolean edgeIntersectsTestEdge(Point arcStart, Point arcEnd, Point longitudeStart, Point longitudeEnd)
+    private static boolean edgeIntersectsTestEdge(Point edgeStart, Point edgeEnd, Point testEdgeStart, Point testEdgeEnd)
     {
-        // y of longstart must be lower than y of longend
-        double longitude = longitudeStart.getX();
-        boolean arcCrossesLongitude = edgeCrossesLongitude(arcStart.getX(), arcEnd.getX(), longitude);
+        double longitude = testEdgeStart.getX();
+        boolean edgeCrossesLongitude = edgeCrossesLongitude(edgeStart.getX(), edgeEnd.getX(), longitude);
+        System.out.println(format("edgeIntersectsTestEdge | edge: (%s, %s) -> (%s, %s)", edgeStart.getX(), edgeStart.getY(), edgeEnd.getX(), edgeEnd.getY()));
+        System.out.println(format("edgeIntersectsTestEdge | edgeCrossesLongitude: %s", edgeCrossesLongitude));
 
-        if (arcCrossesLongitude) {
-            double edgeLatitude = getArcLatitudeAtLongitude(arcStart, arcEnd, longitude);
-            boolean inRange = liesInRange(edgeLatitude, longitudeStart.getY() - 0.5, longitudeEnd.getY() + 0.5);
+        if (edgeCrossesLongitude) {
+            // if this point is a vertex
+            if (edgeStart.equals(testEdgeStart)) {
+                return true;
+            }
+            // y of longstart must be lower than y of longend
+            Point edgeStartUpwardDirection = edgeStart;
+            Point edgeEndUpwardDirection = edgeEnd;
+            if (edgeStart.getY() > edgeEnd.getY()) {
+                edgeStartUpwardDirection = edgeEnd;
+                edgeEndUpwardDirection = edgeStart;
+            }
+            double edgeLatitude = getArcLatitudeAtLongitude(edgeStartUpwardDirection, edgeEndUpwardDirection, longitude);
+            if (edgeLatitude == -1000.0) {
+                //return liesInRange(testEdgeStart.getY(), edgeStart.getY(), edgeEnd.getY());
+                //return liesInRange(edgeStart.getY(), testEdgeStart.getY(), testEdgeEnd.getY());
+                return liesInRange(edgeEndUpwardDirection.getY(), testEdgeStart.getY(), testEdgeEnd.getY());
+            }
+            boolean inRange = liesInRange(edgeLatitude, testEdgeStart.getY(), testEdgeEnd.getY()) && testEdgeStart.getY() < edgeLatitude;
+            System.out.println(format("edgeIntersectsTestEdge | computed latitude: %s", edgeLatitude));
+            System.out.println(format("edgeIntersectsTestEdge | inRange: %s", inRange));
+            System.out.println("");
             return inRange;
         }
         else {
+            System.out.println("");
             return false;
         }
     }
@@ -1701,6 +1755,7 @@ public final class GeoFunctions
             testEdgeStart = testEdgeEnd;
             testEdgeEnd = point;
         }
+        System.out.println(format("point: (%s, %s)", point.getX(), point.getY()));
 
         int numPaths = polygon.getPathCount();
         for (int i = 0; i < numPaths; i++) {
@@ -1709,9 +1764,6 @@ public final class GeoFunctions
             for (int j = pathStartIndex; j < pathEndIndex - 1; j++) {
                 Point edgeStart = polygon.getPoint(j);
                 Point edgeEnd = polygon.getPoint(j + 1);
-                if (edgeStart.equals(point)) {
-                    return 1;
-                }
                 if (edgeIntersectsTestEdge(edgeStart, edgeEnd, testEdgeStart, testEdgeEnd)) {
                     intersectionSum++;
                 }
@@ -1924,9 +1976,16 @@ public final class GeoFunctions
             // calculate the latitude at the given arbitrary longitude
             // on that circle
 
-            double phi = toRadians(point.getY());
             double pointLongitude = toRadians(point.getX());
+            if (haveSameLongitude(point.getX(), toDegrees(previousLongitude))) {
+                if (!haveSameLongitude(point.getX(), longitude)) {
+                    return MAX_LATITUDE;
+                }
+                return -1000; //addab change me
+            }
+
             double deltaLongitude = pointLongitude - previousLongitude;
+            double phi = toRadians(point.getY());
             double cos = Math.cos(phi);
             double sin = Math.sin(phi);
 
