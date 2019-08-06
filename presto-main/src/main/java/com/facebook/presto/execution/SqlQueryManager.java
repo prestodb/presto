@@ -45,6 +45,7 @@ import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -62,6 +63,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -95,7 +97,8 @@ public class SqlQueryManager
     private final QueryPreparer queryPreparer;
 
     private final EmbedVersion embedVersion;
-    private final ExecutorService queryExecutor;
+    private final ExecutorService unboundedExecutorService;
+    private final Executor boundedExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final ClusterMemoryManager memoryManager;
@@ -153,8 +156,9 @@ public class SqlQueryManager
         this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
 
-        this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
-        this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
+        this.unboundedExecutorService = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
+        this.boundedExecutor = new BoundedExecutor(unboundedExecutorService, queryManagerConfig.getQuerySubmissionMaxThreads());
+        this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) unboundedExecutorService);
 
         requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
@@ -212,7 +216,7 @@ public class SqlQueryManager
     {
         queryTracker.stop();
         queryManagementExecutor.shutdownNow();
-        queryExecutor.shutdownNow();
+        unboundedExecutorService.shutdownNow();
     }
 
     @Override
@@ -300,7 +304,7 @@ public class SqlQueryManager
     public ListenableFuture<?> createQuery(QueryId queryId, SessionContext sessionContext, String query)
     {
         QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
-        queryExecutor.submit(embedVersion.embedVersion(() -> {
+        boundedExecutor.execute(embedVersion.embedVersion(() -> {
             try {
                 createQueryInternal(queryId, sessionContext, query, resourceGroupManager);
                 queryCreationFuture.set(null);
@@ -394,7 +398,7 @@ public class SqlQueryManager
                     locationFactory.createQueryLocation(queryId),
                     Optional.ofNullable(selectionContext).map(SelectionContext::getResourceGroupId),
                     queryType,
-                    queryExecutor,
+                    unboundedExecutorService,
                     e);
 
             try {
@@ -438,7 +442,7 @@ public class SqlQueryManager
 
         // start the query in the background
         try {
-            resourceGroupManager.submit(preparedQuery.getStatement(), queryExecution, selectionContext, queryExecutor);
+            resourceGroupManager.submit(preparedQuery.getStatement(), queryExecution, selectionContext, unboundedExecutorService);
         }
         catch (Throwable e) {
             failQuery(queryId, e);

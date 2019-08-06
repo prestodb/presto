@@ -68,6 +68,8 @@ public class QueryManagerConfig
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
 
+    private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
+
     @Min(1)
     public int getScheduleSplitBatchSize()
     {
@@ -407,6 +409,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setRequiredWorkersMaxWait(Duration requiredWorkersMaxWait)
     {
         this.requiredWorkersMaxWait = requiredWorkersMaxWait;
+        return this;
+    }
+
+    @Min(1)
+    public int getQuerySubmissionMaxThreads()
+    {
+        return querySubmissionMaxThreads;
+    }
+
+    @Config("query-manager.query-submission-max-threads")
+    public QueryManagerConfig setQuerySubmissionMaxThreads(int querySubmissionMaxThreads)
+    {
+        this.querySubmissionMaxThreads = querySubmissionMaxThreads;
         return this;
     }
 
