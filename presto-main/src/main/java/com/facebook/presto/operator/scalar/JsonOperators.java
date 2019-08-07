@@ -35,6 +35,7 @@ import java.io.IOException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.function.FunctionFeature.CAN_RETURN_NULL_FOR_NON_NULL_INPUT;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
@@ -77,7 +78,7 @@ public final class JsonOperators
     {
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, features = {CAN_RETURN_NULL_FOR_NON_NULL_INPUT})
     @SqlNullable
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -94,7 +95,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, features = {CAN_RETURN_NULL_FOR_NON_NULL_INPUT})
     @SqlNullable
     @SqlType(BIGINT)
     public static Long castToBigint(@SqlType(JSON) Slice json)
@@ -110,7 +111,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, features = {CAN_RETURN_NULL_FOR_NON_NULL_INPUT})
     @SqlNullable
     @SqlType(INTEGER)
     public static Long castToInteger(@SqlType(JSON) Slice json)
@@ -132,7 +133,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, features = {CAN_RETURN_NULL_FOR_NON_NULL_INPUT})
     @SqlNullable
     @SqlType(SMALLINT)
     public static Long castToSmallint(@SqlType(JSON) Slice json)
@@ -154,7 +155,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, features = {CAN_RETURN_NULL_FOR_NON_NULL_INPUT})
     @SqlNullable
     @SqlType(TINYINT)
     public static Long castToTinyint(@SqlType(JSON) Slice json)
@@ -176,7 +177,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, features = {CAN_RETURN_NULL_FOR_NON_NULL_INPUT})
     @SqlNullable
     @SqlType(DOUBLE)
     public static Double castToDouble(@SqlType(JSON) Slice json)
@@ -192,7 +193,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, features = {CAN_RETURN_NULL_FOR_NON_NULL_INPUT})
     @SqlNullable
     @SqlType(REAL)
     public static Long castToReal(@SqlType(JSON) Slice json)
@@ -208,7 +209,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, features = {CAN_RETURN_NULL_FOR_NON_NULL_INPUT})
     @SqlNullable
     @SqlType(BOOLEAN)
     public static Boolean castToBoolean(@SqlType(JSON) Slice json)
@@ -224,7 +225,7 @@ public final class JsonOperators
         }
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST)
     @LiteralParameters("x")
     @SqlType(JSON)
     public static Slice castFromVarchar(@SqlType("varchar(x)") Slice value)

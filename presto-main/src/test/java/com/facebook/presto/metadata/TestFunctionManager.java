@@ -24,6 +24,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -41,19 +42,23 @@ import java.util.List;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.function.FunctionFeature.CAN_RETURN_NULL_FOR_NON_NULL_INPUT;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.tryGetOperatorType;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static com.facebook.presto.type.JsonType.JSON;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.String.format;
@@ -311,6 +316,30 @@ public class TestFunctionManager
                         functionSignature(ImmutableList.of("integer"), "integer"))
                 .forParameters("unknown")
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
+    }
+
+    @Test
+    public void testResolveFunctionFeatures()
+    {
+        TypeRegistry typeManager = new TypeRegistry();
+        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionResolution functionResolution = new FunctionResolution(functionManager);
+
+        assertTrue(functionManager.getFunctionMetadata(functionResolution.tryFunction(BOOLEAN)).hasFeature(CAN_RETURN_NULL_FOR_NON_NULL_INPUT));
+        assertTrue(functionManager.getFunctionMetadata(functionResolution.tryFunction(BIGINT)).hasFeature(CAN_RETURN_NULL_FOR_NON_NULL_INPUT));
+
+        assertFalse(functionManager.getFunctionMetadata(
+                functionManager.lookupCast(CastType.CAST, BIGINT.getTypeSignature(), VARCHAR.getTypeSignature())).hasFeature(CAN_RETURN_NULL_FOR_NON_NULL_INPUT));
+        assertTrue(functionManager.getFunctionMetadata(
+                functionManager.lookupCast(CastType.TRY_CAST, BIGINT.getTypeSignature(), VARCHAR.getTypeSignature())).hasFeature(CAN_RETURN_NULL_FOR_NON_NULL_INPUT));
+
+        assertTrue(functionManager.getFunctionMetadata(
+                functionManager.lookupCast(CastType.CAST, JSON.getTypeSignature(), VARCHAR.getTypeSignature())).hasFeature(CAN_RETURN_NULL_FOR_NON_NULL_INPUT));
+        assertFalse(functionManager.getFunctionMetadata(
+                functionManager.lookupCast(CastType.CAST, VARCHAR.getTypeSignature(), JSON.getTypeSignature())).hasFeature(CAN_RETURN_NULL_FOR_NON_NULL_INPUT));
+
+        assertTrue(functionManager.getFunctionMetadata(
+                functionManager.lookupCast(CastType.JSON_TO_ARRAY_CAST, parseTypeSignature(StandardTypes.VARCHAR), new ArrayType(BIGINT).getTypeSignature())).hasFeature(CAN_RETURN_NULL_FOR_NON_NULL_INPUT));
     }
 
     private FunctionManager createFunctionManager(TypeRegistry typeManager)

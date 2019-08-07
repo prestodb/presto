@@ -30,9 +30,14 @@ import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.function.FunctionFeature.CAN_RETURN_NULL_FOR_NON_NULL_INPUT;
 
 @Description("internal try function for desugaring TRY")
-@ScalarFunction(value = "$internal$try", hidden = true, deterministic = false)
+@ScalarFunction(
+        value = "$internal$try",
+        hidden = true,
+        deterministic = false,
+        features = {CAN_RETURN_NULL_FOR_NON_NULL_INPUT})
 public final class TryFunction
 {
     private TryFunction() {}

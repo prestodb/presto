@@ -25,4 +25,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public @interface ScalarOperator
 {
     OperatorType value();
+
+    FunctionFeature[] features() default {};
 }

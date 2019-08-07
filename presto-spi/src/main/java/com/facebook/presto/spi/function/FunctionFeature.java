@@ -13,25 +13,16 @@
  */
 package com.facebook.presto.spi.function;
 
+import java.util.EnumSet;
 import java.util.Set;
 
-public interface SqlFunction
+import static java.util.Collections.emptySet;
+
+public enum FunctionFeature
 {
-    Signature getSignature();
+    CAN_RETURN_NULL_FOR_NON_NULL_INPUT; // Can return null even all inputs are not null
 
-    boolean isHidden();
-
-    boolean isDeterministic();
-
-    default boolean isCalledOnNullInput()
-    {
-        return false;
-    }
-
-    default Set<FunctionFeature> getFunctionFeatures()
-    {
-        return FunctionFeature.DEFAULT;
-    }
-
-    String getDescription();
+    public static final Set<FunctionFeature> NONE = emptySet();
+    // TODO remove CAN_RETURN_NULL_FOR_NON_NULL_INPUT from default list.
+    public static final Set<FunctionFeature> DEFAULT = EnumSet.of(CAN_RETURN_NULL_FOR_NON_NULL_INPUT);
 }

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -79,15 +80,36 @@ public class ScalarImplementationHeader
 
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            builder.add(new ScalarImplementationHeader(baseName, new ScalarHeader(description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput())));
+            builder.add(new ScalarImplementationHeader(
+                    baseName,
+                    new ScalarHeader(
+                            description,
+                            Arrays.asList(scalarFunction.features()),
+                            scalarFunction.hidden(),
+                            scalarFunction.deterministic(),
+                            scalarFunction.calledOnNullInput())));
 
             for (String alias : scalarFunction.alias()) {
-                builder.add(new ScalarImplementationHeader(alias, new ScalarHeader(description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.calledOnNullInput())));
+                builder.add(new ScalarImplementationHeader(
+                        alias,
+                        new ScalarHeader(
+                                description,
+                                Arrays.asList(scalarFunction.features()),
+                                scalarFunction.hidden(),
+                                scalarFunction.deterministic(),
+                                scalarFunction.calledOnNullInput())));
             }
         }
 
         if (scalarOperator != null) {
-            builder.add(new ScalarImplementationHeader(scalarOperator.value(), new ScalarHeader(description, true, true, scalarOperator.value().isCalledOnNullInput())));
+            builder.add(new ScalarImplementationHeader(
+                    scalarOperator.value(),
+                    new ScalarHeader(
+                            description,
+                            Arrays.asList(scalarOperator.features()),
+                            true,
+                            true,
+                            scalarOperator.value().isCalledOnNullInput())));
         }
 
         List<ScalarImplementationHeader> result = builder.build();

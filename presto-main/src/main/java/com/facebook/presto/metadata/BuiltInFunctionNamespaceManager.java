@@ -710,6 +710,7 @@ public class BuiltInFunctionNamespaceManager
                     signature.getArgumentTypes(),
                     signature.getReturnType(),
                     signature.getKind(),
+                    function.getFunctionFeatures(),
                     function.isDeterministic(),
                     function.isCalledOnNullInput());
         }
@@ -719,6 +720,7 @@ public class BuiltInFunctionNamespaceManager
                     signature.getArgumentTypes(),
                     signature.getReturnType(),
                     signature.getKind(),
+                    function.getFunctionFeatures(),
                     function.isDeterministic(),
                     function.isCalledOnNullInput());
         }

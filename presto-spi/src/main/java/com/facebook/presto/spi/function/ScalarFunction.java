@@ -16,6 +16,7 @@ package com.facebook.presto.spi.function;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+import static com.facebook.presto.spi.function.FunctionFeature.CAN_RETURN_NULL_FOR_NON_NULL_INPUT;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -33,4 +34,7 @@ public @interface ScalarFunction
     boolean deterministic() default true;
 
     boolean calledOnNullInput() default false;
+
+    // TODO remove CAN_RETURN_NULL_FOR_NON_NULL_INPUT from default list
+    FunctionFeature[] features() default {CAN_RETURN_NULL_FOR_NON_NULL_INPUT};
 }

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SingleRowBlockWriter;
+import com.facebook.presto.spi.function.FunctionFeature;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.RowType.Field;
@@ -38,10 +39,12 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.FunctionFeature.CAN_RETURN_NULL_FOR_NON_NULL_INPUT;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -56,6 +59,7 @@ import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.lang.String.format;
 
 public class JsonToRowCast
@@ -71,6 +75,12 @@ public class JsonToRowCast
                 ImmutableList.of(),
                 parseTypeSignature("T"),
                 ImmutableList.of(parseTypeSignature(StandardTypes.JSON)));
+    }
+
+    @Override
+    public Set<FunctionFeature> getFunctionFeatures()
+    {
+        return immutableEnumSet(CAN_RETURN_NULL_FOR_NON_NULL_INPUT);
     }
 
     @Override

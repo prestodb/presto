@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.function.FunctionFeature;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.OperatorType;
@@ -21,6 +22,10 @@ import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.List;
+import java.util.Set;
+
+import static com.google.common.collect.Sets.immutableEnumSet;
+import static java.util.Collections.emptySet;
 
 public abstract class SqlOperator
         extends SqlScalarFunction
@@ -57,6 +62,15 @@ public abstract class SqlOperator
     public final boolean isCalledOnNullInput()
     {
         return operatorType.isCalledOnNullInput();
+    }
+
+    @Override
+    public Set<FunctionFeature> getFunctionFeatures()
+    {
+        if (operatorType.isCanReturnNullOnNonNullInput()) {
+            return immutableEnumSet(FunctionFeature.CAN_RETURN_NULL_FOR_NON_NULL_INPUT);
+        }
+        return emptySet();
     }
 
     @Override

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -33,16 +34,18 @@ public class FunctionMetadata
     private final FunctionKind functionKind;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
+    private final Set<FunctionFeature> functionFeatures;
 
     public FunctionMetadata(
             FullyQualifiedName name,
             List<TypeSignature> argumentTypes,
             TypeSignature returnType,
             FunctionKind functionKind,
+            Set<FunctionFeature> functionFeatures,
             boolean deterministic,
             boolean calledOnNullInput)
     {
-        this(name, Optional.empty(), argumentTypes, returnType, functionKind, deterministic, calledOnNullInput);
+        this(name, Optional.empty(), argumentTypes, returnType, functionKind, functionFeatures, deterministic, calledOnNullInput);
     }
 
     public FunctionMetadata(
@@ -50,10 +53,11 @@ public class FunctionMetadata
             List<TypeSignature> argumentTypes,
             TypeSignature returnType,
             FunctionKind functionKind,
+            Set<FunctionFeature> functionFeatures,
             boolean deterministic,
             boolean calledOnNullInput)
     {
-        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, returnType, functionKind, deterministic, calledOnNullInput);
+        this(operatorType.getFunctionName(), Optional.of(operatorType), argumentTypes, returnType, functionKind, functionFeatures, deterministic, calledOnNullInput);
     }
 
     private FunctionMetadata(
@@ -62,6 +66,7 @@ public class FunctionMetadata
             List<TypeSignature> argumentTypes,
             TypeSignature returnType,
             FunctionKind functionKind,
+            Set<FunctionFeature> functionFeatures,
             boolean deterministic,
             boolean calledOnNullInput)
     {
@@ -70,6 +75,7 @@ public class FunctionMetadata
         this.argumentTypes = unmodifiableList(new ArrayList<>(requireNonNull(argumentTypes, "argumentTypes is null")));
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
+        this.functionFeatures = requireNonNull(functionFeatures, "functionFeatures is null");
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
     }
@@ -97,6 +103,11 @@ public class FunctionMetadata
     public Optional<OperatorType> getOperatorType()
     {
         return operatorType;
+    }
+
+    public boolean hasFeature(FunctionFeature feature)
+    {
+        return functionFeatures.contains(feature);
     }
 
     public boolean isDeterministic()

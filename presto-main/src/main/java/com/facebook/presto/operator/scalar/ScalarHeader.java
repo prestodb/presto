@@ -13,7 +13,12 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.function.FunctionFeature;
+
 import java.util.Optional;
+import java.util.Set;
+
+import static com.google.common.collect.Sets.immutableEnumSet;
 
 public class ScalarHeader
 {
@@ -21,10 +26,12 @@ public class ScalarHeader
     private final boolean hidden;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
+    private final Set<FunctionFeature> functionFeatures;
 
-    public ScalarHeader(Optional<String> description, boolean hidden, boolean deterministic, boolean calledOnNullInput)
+    public ScalarHeader(Optional<String> description, Iterable<FunctionFeature> functionFeatures, boolean hidden, boolean deterministic, boolean calledOnNullInput)
     {
         this.description = description;
+        this.functionFeatures = immutableEnumSet(functionFeatures);
         this.hidden = hidden;
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
@@ -33,6 +40,11 @@ public class ScalarHeader
     public Optional<String> getDescription()
     {
         return description;
+    }
+
+    public Set<FunctionFeature> getFunctionFeatures()
+    {
+        return functionFeatures;
     }
 
     public boolean isHidden()

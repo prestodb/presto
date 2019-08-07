@@ -24,38 +24,40 @@ import static java.util.stream.Collectors.toMap;
 
 public enum OperatorType
 {
-    ADD("+", false),
-    SUBTRACT("-", false),
-    MULTIPLY("*", false),
-    DIVIDE("/", false),
-    MODULUS("%", false),
-    NEGATION("-", false),
-    EQUAL("=", false),
-    NOT_EQUAL("<>", false),
-    LESS_THAN("<", false),
-    LESS_THAN_OR_EQUAL("<=", false),
-    GREATER_THAN(">", false),
-    GREATER_THAN_OR_EQUAL(">=", false),
-    BETWEEN("BETWEEN", false),
-    CAST("CAST", false),
-    SUBSCRIPT("[]", false),
-    HASH_CODE("HASH CODE", false),
-    SATURATED_FLOOR_CAST("SATURATED FLOOR CAST", false),
-    IS_DISTINCT_FROM("IS DISTINCT FROM", true),
-    XX_HASH_64("XX HASH 64", false),
-    INDETERMINATE("INDETERMINATE", true);
+    ADD("+", false, false),
+    SUBTRACT("-", false, false),
+    MULTIPLY("*", false, false),
+    DIVIDE("/", false, false),
+    MODULUS("%", false, false),
+    NEGATION("-", false, false),
+    EQUAL("=", false, false),
+    NOT_EQUAL("<>", false, false),
+    LESS_THAN("<", false, false),
+    LESS_THAN_OR_EQUAL("<=", false, false),
+    GREATER_THAN(">", false, false),
+    GREATER_THAN_OR_EQUAL(">=", false, false),
+    BETWEEN("BETWEEN", false, false),
+    CAST("CAST", false, true),
+    SUBSCRIPT("[]", false, true),
+    HASH_CODE("HASH CODE", false, false),
+    SATURATED_FLOOR_CAST("SATURATED FLOOR CAST", false, false),
+    IS_DISTINCT_FROM("IS DISTINCT FROM", true, false),
+    XX_HASH_64("XX HASH 64", false, false),
+    INDETERMINATE("INDETERMINATE", true, false);
 
     private static final Map<FullyQualifiedName, OperatorType> OPERATOR_TYPES = Arrays.stream(OperatorType.values()).collect(toMap(OperatorType::getFunctionName, Function.identity()));
 
     private final String operator;
     private final FullyQualifiedName functionName;
     private final boolean calledOnNullInput;
+    private final boolean canReturnNullOnNonNullInput; //default behavior for the operator, can be overwritten for each implementation.
 
-    OperatorType(String operator, boolean calledOnNullInput)
+    OperatorType(String operator, boolean calledOnNullInput, boolean canReturnNullOnNonNullInput)
     {
         this.operator = operator;
         this.functionName = FullyQualifiedName.of("presto.default.$operator$" + name());
         this.calledOnNullInput = calledOnNullInput;
+        this.canReturnNullOnNonNullInput = canReturnNullOnNonNullInput;
     }
 
     public String getOperator()
@@ -71,6 +73,11 @@ public enum OperatorType
     public boolean isCalledOnNullInput()
     {
         return calledOnNullInput;
+    }
+
+    public boolean isCanReturnNullOnNonNullInput()
+    {
+        return canReturnNullOnNonNullInput;
     }
 
     public static Optional<OperatorType> tryGetOperatorType(FullyQualifiedName operatorName)

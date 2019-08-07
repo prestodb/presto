@@ -19,11 +19,13 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.FunctionFeature;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
@@ -65,6 +67,12 @@ public class ParametricScalar
     public boolean isCalledOnNullInput()
     {
         return details.isCalledOnNullInput();
+    }
+
+    @Override
+    public Set<FunctionFeature> getFunctionFeatures()
+    {
+        return details.getFunctionFeatures();
     }
 
     @Override

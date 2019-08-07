@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
+import com.facebook.presto.spi.function.FunctionFeature;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -28,11 +29,14 @@ import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.spi.function.FunctionFeature.CAN_RETURN_NULL_FOR_NON_NULL_INPUT;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.lang.invoke.MethodHandles.catchException;
 import static java.lang.invoke.MethodHandles.constant;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -66,6 +70,12 @@ public class TryCastFunction
     public boolean isDeterministic()
     {
         return true;
+    }
+
+    @Override
+    public Set<FunctionFeature> getFunctionFeatures()
+    {
+        return immutableEnumSet(CAN_RETURN_NULL_FOR_NON_NULL_INPUT);
     }
 
     @Override

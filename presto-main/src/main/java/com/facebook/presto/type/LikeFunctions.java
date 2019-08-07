@@ -53,7 +53,7 @@ public final class LikeFunctions
 
     private LikeFunctions() {}
 
-    @ScalarFunction(value = "like", hidden = true)
+    @ScalarFunction(value = "like", hidden = true, features = {})
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
@@ -62,7 +62,7 @@ public final class LikeFunctions
     }
 
     // TODO: this should not be callable from SQL
-    @ScalarFunction(value = "like", hidden = true)
+    @ScalarFunction(value = "like", hidden = true, features = {})
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
@@ -94,7 +94,7 @@ public final class LikeFunctions
         return likePattern(pattern.toStringUtf8(), '0', false);
     }
 
-    @ScalarFunction(hidden = true)
+    @ScalarFunction(hidden = true, features = {})
     @LiteralParameters({"x", "y"})
     @SqlType(LikePatternType.NAME)
     public static Regex likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
