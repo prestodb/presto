@@ -279,12 +279,7 @@ Approximate Aggregate Functions
     Computes an approximate histogram with up to ``buckets`` number of buckets
     for all ``value``\ s with a per-item weight of ``weight``.  The keys of the
     returned map are roughly the center of the bin, and the entry is the total
-    weight of the bin.  The algorithm is based loosely on:
-
-    .. code-block:: none
-
-        Yael Ben-Haim and Elad Tom-Tov, "A streaming parallel decision tree algorithm",
-        J. Machine Learning Research 11 (2010), pp. 849--872.
+    weight of the bin.  The algorithm is based loosely on [BenHaimTomTov2010]_.
 
     ``buckets`` must be a ``bigint``. ``value`` and ``weight`` must be numeric.
 
@@ -447,3 +442,8 @@ Statistical Aggregate Functions
 .. function:: var_samp(x) -> double
 
     Returns the sample variance of all input values.
+
+--------------------------
+
+ .. [BenHaimTomTov2010] Yael Ben-Haim and Elad Tom-Tov, "A streaming parallel decision tree algorithm",
+    J. Machine Learning Research 11 (2010), pp. 849--872.
