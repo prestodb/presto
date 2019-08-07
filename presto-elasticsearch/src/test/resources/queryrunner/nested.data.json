@@ -1,0 +1,25 @@
+{
+    "tableName": "data",
+    "schemaName": "nested",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
+    "index": "data",
+    "type": "doc",
+    "columns": [
+            {
+                "name": "name",
+                "type": "varchar",
+                "jsonPath": "name",
+                "jsonType": "varchar",
+                "ordinalPosition": "0"
+            },
+            {
+              "name": "fields",
+              "type": "row(fielda integer, fieldb varchar)",
+              "jsonPath": "fields",
+              "jsonType": "varchar",
+              "ordinalPosition": "1"
+            }
+        ]
+}

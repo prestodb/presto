@@ -17,6 +17,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
@@ -31,6 +32,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static org.elasticsearch.client.Requests.refreshRequest;
 
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -89,5 +91,29 @@ public class TestElasticsearchIntegrationSmokeTest
                 .row("shippriority", "bigint", "", "")
                 .row("comment", "varchar", "", "").build();
         assertEquals(actualResult, expectedColumns, format("%s != %s", actualResult, expectedColumns));
+    }
+
+    @Test
+    public void testNestedFields()
+    {
+        String indexName = "data";
+        embeddedElasticsearchNode.getClient()
+                .prepareIndex(indexName, "doc")
+                .setSource(ImmutableMap.<String, Object>builder()
+                        .put("name", "nestfield")
+                        .put("fields.fielda", 32)
+                        .put("fields.fieldb", "valueb")
+                        .build())
+                .get();
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQuery(
+                "SELECT name, fields.fielda, fields.fieldb FROM nested.data",
+                "VALUES ('nestfield', 32, 'valueb')");
     }
 }
