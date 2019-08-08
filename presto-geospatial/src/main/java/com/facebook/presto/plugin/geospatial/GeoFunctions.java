@@ -1628,7 +1628,7 @@ public final class GeoFunctions
     private static boolean liesInRange(double point, double rangeStart, double rangeEnd)
     {
         // strictly exclusive
-        return point > rangeStart && point < rangeEnd;
+        return Double.compare(point, rangeStart) > 0 && Double.compare(point, rangeEnd) < 0;
     }
 
     private static boolean haveSameSign(double x, double y)
