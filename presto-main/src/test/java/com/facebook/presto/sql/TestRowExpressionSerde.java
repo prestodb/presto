@@ -54,7 +54,7 @@ import io.airlift.json.JsonModule;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -93,7 +93,7 @@ public class TestRowExpressionSerde
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private JsonCodec<RowExpression> codec;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
             throws Exception
     {
