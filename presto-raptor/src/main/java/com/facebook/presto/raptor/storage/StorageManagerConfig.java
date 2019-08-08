@@ -34,8 +34,8 @@ import java.io.File;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.DISABLED;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
+import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
@@ -56,8 +56,8 @@ public class StorageManagerConfig
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
     private boolean orcLazyReadSmallRanges = true;
-    private OrcOptimizedWriterStage orcOptimizedWriterStage = DISABLED;
-    private CompressionKind orcCompressionKind = SNAPPY;
+    private OrcOptimizedWriterStage orcOptimizedWriterStage = ENABLED;
+    private CompressionKind orcCompressionKind = ZSTD;
     private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
     private int recoveryThreads = 10;
     private int organizationThreads = 5;
