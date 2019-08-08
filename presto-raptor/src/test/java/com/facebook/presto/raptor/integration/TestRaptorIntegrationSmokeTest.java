@@ -62,7 +62,11 @@ public class TestRaptorIntegrationSmokeTest
     @SuppressWarnings("unused")
     public TestRaptorIntegrationSmokeTest()
     {
-        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "DISABLED")));
+        this(() -> createRaptorQueryRunner(
+                ImmutableMap.of(),
+                true,
+                false,
+                ImmutableMap.of("storage.orc.compression-kind", "SNAPPY", "storage.orc.optimized-writer-stage", "DISABLED")));
     }
 
     protected TestRaptorIntegrationSmokeTest(QueryRunnerSupplier supplier)
