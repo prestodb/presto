@@ -144,7 +144,6 @@ public final class GeoFunctions
     private static final float MAX_LATITUDE = 90;
     private static final float MIN_LONGITUDE = -180;
     private static final float MAX_LONGITUDE = 180;
-    private static final double ERROR_LATITUDE_RADIANS = 0.0087; // ~ 0.5 degrees
 
     private static final EnumSet<Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
             Type.Point, Type.Polyline, Type.Polygon, Type.MultiPoint);
@@ -1619,17 +1618,11 @@ public final class GeoFunctions
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "When applied to SphericalGeography inputs, ST_Contains only supports points which are not poles.");
         }
 
-        if (containsEitherPole(polygon)) {
+        if (containsPole(polygon)) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "When applied to SphericalGeography inputs, ST_Contains only supports polygons which do not enclose poles.");
         }
 
-        int k = getNumberIntersectionsWithPolygon(polygon, point);
-        if (k % 2 == 1) {
-            return true;
-        }
-        else {
-            return false;
-        }
+        return getNumberIntersectionsWithPolygon(polygon, point) % 2 == 1;
     }
 
     private static boolean liesInRange(double point, double rangeStart, double rangeEnd)
@@ -1673,10 +1666,6 @@ public final class GeoFunctions
         double start = min(edgeStart, edgeEnd);
         double end = max(edgeStart, edgeEnd);
 
-        //if (edgeEnd.getX() == longitude) {
-        //    return false;
-        //}
-
         if (haveSameLongitude(edgeEnd, longitude)) {
             return false;
         }
@@ -1689,9 +1678,7 @@ public final class GeoFunctions
         if (distanceVia0 < distanceVia180) {
             return liesInRange(longitude, start, end);
         }
-        else {
-            return liesInRange(longitude, MIN_LONGITUDE, start) || liesInRange(longitude, end, MAX_LONGITUDE);
-        }
+        return liesInRange(longitude, MIN_LONGITUDE, start) || liesInRange(longitude, end, MAX_LONGITUDE);
     }
 
     private static boolean isVerticalEdge(Point edgeStart, Point edgeEnd)
@@ -1701,35 +1688,29 @@ public final class GeoFunctions
 
     private static boolean edgeIntersectsTestEdge(Point edgeStart, Point edgeEnd, Point testEdgeStart, Point testEdgeEnd)
     {
-        double longitude = testEdgeStart.getX();
-        boolean edgeCrossesLongitude = edgeCrossesLongitude(edgeStart.getX(), edgeEnd.getX(), longitude);
-
-        if (edgeCrossesLongitude) {
-            // if this point is a vertex
-            if (edgeStart.equals(testEdgeStart) || edgeEnd.equals(testEdgeStart)) {
-                return false;
-            }
-
-            // y of longstart must be lower than y of longend
-            Point edgeStartUpwardDirection = edgeStart;
-            Point edgeEndUpwardDirection = edgeEnd;
-            if (edgeStart.getY() > edgeEnd.getY()) {
-                edgeStartUpwardDirection = edgeEnd;
-                edgeEndUpwardDirection = edgeStart;
-            }
-            double edgeLatitude = getArcLatitudeAtLongitude(edgeStartUpwardDirection, edgeEndUpwardDirection, longitude);
-            boolean inRange = liesInRange(edgeLatitude, testEdgeStart.getY(), testEdgeEnd.getY()) && testEdgeStart.getY() < edgeLatitude;
-            return testEdgeStart.getY() < edgeLatitude && inRange;
-        }
-        else {
+        // if this edge never crosses the longitude of the test edge, they can't possibly intersect
+        if (!edgeCrossesLongitude(edgeStart.getX(), edgeEnd.getX(), testEdgeStart.getX())) {
             return false;
         }
+
+        // otherwise, calculate the edge's latitude at the point's longitude
+        double edgeLatitude = getArcLatitudeAtLongitude(edgeStart, edgeEnd, testEdgeStart.getX());
+        boolean inRange = liesInRange(edgeLatitude, testEdgeStart.getY(), testEdgeEnd.getY()) &&
+                (testEdgeStart.getY() < edgeLatitude);
+        return testEdgeStart.getY() < edgeLatitude && inRange;
     }
 
     private static double getArcLatitudeAtLongitude(Point start, Point end, double longitude)
     {
-        SphericalExcessCalculator calculator = new SphericalExcessCalculator(start);
-        return calculator.computeExtrapolatedLatitudeThroughPoint(end, longitude);
+        // y of longstart must be lower than y of longend
+        Point startUpwardDirection = start;
+        Point endUpwardDirection = end;
+        if (start.getY() > end.getY()) {
+            startUpwardDirection = end;
+            endUpwardDirection = start;
+        }
+        SphericalExcessCalculator calculator = new SphericalExcessCalculator(startUpwardDirection);
+        return calculator.computeExtrapolatedLatitudeThroughPoint(endUpwardDirection, longitude);
     }
 
     private static Point getExternalPoint(double longitude)
@@ -1741,11 +1722,7 @@ public final class GeoFunctions
     {
         int intersectionSum = 0;
         Point testEdgeStart = point;
-        Point testEdgeEnd = getExternalPoint(point.getX());
-        if (point.getY() > testEdgeEnd.getY()) {
-            testEdgeStart = testEdgeEnd;
-            testEdgeEnd = point;
-        }
+        Point testEdgeEnd = new Point(point.getX(), MAX_LATITUDE);
 
         int numPaths = polygon.getPathCount();
         Boolean excludeEdgeStartPoint = false;
@@ -1811,22 +1788,16 @@ public final class GeoFunctions
         return intersectionSum;
     }
 
-    private static boolean containsEitherPole(Polygon polygon)
+    private static boolean containsPole(Polygon polygon)
     {
-        boolean containsEitherPole = false;
         int numPaths = polygon.getPathCount();
         for (int i = 0; i < numPaths; i++) {
-            if (pathContainsEitherPole(polygon, polygon.getPathStart(i), polygon.getPathEnd(i))) {
+            SphericalExcessCalculator calculator = initializeSphericalExcessCalculator(polygon, polygon.getPathStart(i), polygon.getPathEnd(i));
+            if (calculator.containsPole()) {
                 return true;
             }
         }
         return false;
-    }
-
-    private static boolean pathContainsEitherPole(Polygon polygon, int start, int end)
-    {
-        SphericalExcessCalculator calculator = initializeSphericalExcessCalculator(polygon, start, end);
-        return calculator.containsEitherPole();
     }
 
     private static double computeSphericalExcess(Polygon polygon, int start, int end)
@@ -1995,8 +1966,7 @@ public final class GeoFunctions
                 }
             }
 
-            double longitudeShift = previousLongitude - expectedLongitude; // actual - expected
-            return longitudeShift;
+            return previousLongitude - expectedLongitude; // actual - expected
         }
 
         public double computeExtrapolatedLatitudeThroughPoint(Point point, double longitude)
@@ -2094,7 +2064,7 @@ public final class GeoFunctions
             return sphericalExcess;
         }
 
-        public boolean containsEitherPole()
+        public boolean containsPole()
         {
             if (!done) {
                 computeSphericalExcess();
