@@ -32,6 +32,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -60,15 +61,15 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, String schemaName, String tableName)
+    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
         DatabaseMetaData metadata = connection.getMetaData();
-        String escape = metadata.getSearchStringEscape();
+        Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
         return metadata.getTables(
                 connection.getCatalog(),
-                escapeNamePattern(schemaName, escape),
-                escapeNamePattern(tableName, escape),
+                escapeNamePattern(schemaName, escape).orElse(null),
+                escapeNamePattern(tableName, escape).orElse(null),
                 new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE"});
     }
 

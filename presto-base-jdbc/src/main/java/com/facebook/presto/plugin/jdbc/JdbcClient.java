@@ -40,7 +40,7 @@ public interface JdbcClient
 
     Set<String> getSchemaNames(JdbcIdentity identity);
 
-    List<SchemaTableName> getTableNames(JdbcIdentity identity, @Nullable String schema);
+    List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema);
 
     @Nullable
     JdbcTableHandle getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName);
