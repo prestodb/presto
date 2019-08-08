@@ -16,10 +16,12 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.OrcBatchRecordReader;
+import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -66,6 +68,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -119,6 +122,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.PETABYTE;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -709,7 +713,14 @@ public class OrcStorageManager
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
-                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
+                OrcDataSink sink;
+                try {
+                    sink = new OutputStreamOrcDataSink(new FileOutputStream(stagingFile));
+                }
+                catch (FileNotFoundException e) {
+                    throw new PrestoException(RAPTOR_ERROR, format("Failed to find staging file %s", stagingFile), e);
+                }
+                writer = new OrcFileWriter(columnIds, columnTypes, sink, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
             }
         }
     }

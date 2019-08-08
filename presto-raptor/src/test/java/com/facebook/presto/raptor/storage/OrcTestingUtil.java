@@ -21,6 +21,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -30,6 +31,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -104,9 +106,10 @@ final class OrcTestingUtil
     }
 
     public static FileWriter createFileWriter(List<Long> columnIds, List<Type> columnTypes, File file)
+            throws IOException
     {
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        return new OrcFileWriter(columnIds, columnTypes, file, true, true, new OrcWriterStats(), typeManager, ZSTD);
+        return new OrcFileWriter(columnIds, columnTypes, new OutputStreamOrcDataSink(new FileOutputStream(file)), true, true, new OrcWriterStats(), typeManager, ZSTD);
     }
 }

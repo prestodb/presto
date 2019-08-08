@@ -19,6 +19,7 @@ import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -45,6 +46,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.math.BigDecimal;
 import java.util.BitSet;
 import java.util.List;
@@ -660,8 +663,17 @@ public class TestOrcFileRewriter
     }
 
     private static FileWriter createFileWriter(List<Long> columnIds, List<Type> columnTypes, File file, boolean writeMetadata)
+            throws FileNotFoundException
     {
-        return new OrcFileWriter(columnIds, columnTypes, file, writeMetadata, true, new OrcWriterStats(), new TypeRegistry(), ZSTD);
+        return new OrcFileWriter(
+                columnIds,
+                columnTypes,
+                new OutputStreamOrcDataSink(new FileOutputStream(file)),
+                writeMetadata,
+                true,
+                new OrcWriterStats(),
+                new TypeRegistry(),
+                ZSTD);
     }
 
     private static FileRewriter createFileRewriter()

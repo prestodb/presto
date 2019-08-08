@@ -13,24 +13,20 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
-import org.apache.hadoop.fs.FileSystem;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
@@ -40,7 +36,6 @@ import java.util.Map;
 
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.HASHED;
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_WRITER_DATA_ERROR;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.DEFAULT_STORAGE_TIMEZONE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -60,7 +55,7 @@ public class OrcFileWriter
     private long rowCount;
     private long uncompressedSize;
 
-    public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, File target, boolean validate, OrcWriterStats stats, TypeManager typeManager, CompressionKind compression)
+    public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, OrcDataSink target, boolean validate, OrcWriterStats stats, TypeManager typeManager, CompressionKind compression)
     {
         this(columnIds, columnTypes, target, true, validate, stats, typeManager, compression);
     }
@@ -69,7 +64,7 @@ public class OrcFileWriter
     OrcFileWriter(
             List<Long> columnIds,
             List<Type> columnTypes,
-            File target,
+            OrcDataSink target,
             boolean writeMetadata,
             boolean validate,
             OrcWriterStats stats,
@@ -85,32 +80,27 @@ public class OrcFileWriter
                 .collect(toImmutableList());
         List<String> columnNames = columnIds.stream().map(Object::toString).collect(toImmutableList());
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
-            Map<String, String> userMetadata = ImmutableMap.of();
-            if (writeMetadata) {
-                ImmutableMap.Builder<Long, TypeSignature> columnTypesMap = ImmutableMap.builder();
-                for (int i = 0; i < columnIds.size(); i++) {
-                    columnTypesMap.put(columnIds.get(i), columnTypes.get(i).getTypeSignature());
-                }
-                userMetadata = ImmutableMap.of(OrcFileMetadata.KEY, METADATA_CODEC.toJson(new OrcFileMetadata(columnTypesMap.build())));
+        Map<String, String> userMetadata = ImmutableMap.of();
+        if (writeMetadata) {
+            ImmutableMap.Builder<Long, TypeSignature> columnTypesMap = ImmutableMap.builder();
+            for (int i = 0; i < columnIds.size(); i++) {
+                columnTypesMap.put(columnIds.get(i), columnTypes.get(i).getTypeSignature());
             }
+            userMetadata = ImmutableMap.of(OrcFileMetadata.KEY, METADATA_CODEC.toJson(new OrcFileMetadata(columnTypesMap.build())));
+        }
 
-            orcWriter = new OrcWriter(
-                    new OutputStreamOrcDataSink(new FileOutputStream(target)),
-                    columnNames,
-                    storageTypes,
-                    ORC,
-                    requireNonNull(compression, "compression is null"),
-                    DEFAULT_OPTION,
-                    userMetadata,
-                    DEFAULT_STORAGE_TIMEZONE,
-                    validate,
-                    HASHED,
-                    stats);
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to create writer", e);
-        }
+        orcWriter = new OrcWriter(
+                target,
+                columnNames,
+                storageTypes,
+                ORC,
+                requireNonNull(compression, "compression is null"),
+                DEFAULT_OPTION,
+                userMetadata,
+                DEFAULT_STORAGE_TIMEZONE,
+                validate,
+                HASHED,
+                stats);
     }
 
     @Override
