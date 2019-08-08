@@ -1635,11 +1635,6 @@ public final class GeoFunctions
     private static boolean liesInRange(double point, double rangeStart, double rangeEnd)
     {
         // strictly exclusive
-        System.out.println(format("range start: %s, range end: %s", rangeStart, rangeEnd));
-        System.out.println(format("first: %s, second: %s", point >= rangeStart, point < rangeEnd));
-        //if (haveSameLongitude(rangeStart, rangeEnd)) {
-        //    return false;
-        //}
         return point > rangeStart && point < rangeEnd;
     }
 
@@ -1656,10 +1651,11 @@ public final class GeoFunctions
 
     private static boolean haveSameLongitude(double x, double y)
     {
-        if (x == y) {
+        if (Double.compare(x, y) == 0) {
             return true;
         }
-        if ((x == 180.0 || y == 180.0) && (x == -180.0 && y == -180.0)) {
+        if ((Double.compare(x, 180.0) == 0 || Double.compare(y, 180.0) == 0) &&
+                (Double.compare(x, -180.0) == 0 && Double.compare(y, -180.0) == 0)) {
             return true;
         }
         return false;
@@ -1667,11 +1663,11 @@ public final class GeoFunctions
 
     private static boolean edgeCrossesLongitude(double edgeStart, double edgeEnd, double longitude)
     {
-        if (edgeStart == longitude) {
+        if (Double.compare(edgeStart, longitude) == 0) {
             return true;
         }
-        if (edgeEnd == longitude) {
-            return false;
+        if (Double.compare(edgeEnd, longitude) == 0) {
+            return true;
         }
 
         double start = min(edgeStart, edgeEnd);
@@ -1698,18 +1694,22 @@ public final class GeoFunctions
         }
     }
 
+    private static boolean isVerticalEdge(Point edgeStart, Point edgeEnd)
+    {
+        return haveSameLongitude(edgeStart.getX(), edgeEnd.getX());
+    }
+
     private static boolean edgeIntersectsTestEdge(Point edgeStart, Point edgeEnd, Point testEdgeStart, Point testEdgeEnd)
     {
         double longitude = testEdgeStart.getX();
         boolean edgeCrossesLongitude = edgeCrossesLongitude(edgeStart.getX(), edgeEnd.getX(), longitude);
-        System.out.println(format("edgeIntersectsTestEdge | edge: (%s, %s) -> (%s, %s)", edgeStart.getX(), edgeStart.getY(), edgeEnd.getX(), edgeEnd.getY()));
-        System.out.println(format("edgeIntersectsTestEdge | edgeCrossesLongitude: %s", edgeCrossesLongitude));
 
         if (edgeCrossesLongitude) {
             // if this point is a vertex
-            if (edgeStart.equals(testEdgeStart)) {
-                return true;
+            if (edgeStart.equals(testEdgeStart) || edgeEnd.equals(testEdgeStart)) {
+                return false;
             }
+
             // y of longstart must be lower than y of longend
             Point edgeStartUpwardDirection = edgeStart;
             Point edgeEndUpwardDirection = edgeEnd;
@@ -1718,19 +1718,10 @@ public final class GeoFunctions
                 edgeEndUpwardDirection = edgeStart;
             }
             double edgeLatitude = getArcLatitudeAtLongitude(edgeStartUpwardDirection, edgeEndUpwardDirection, longitude);
-            if (edgeLatitude == -1000.0) {
-                //return liesInRange(testEdgeStart.getY(), edgeStart.getY(), edgeEnd.getY());
-                //return liesInRange(edgeStart.getY(), testEdgeStart.getY(), testEdgeEnd.getY());
-                return liesInRange(edgeEndUpwardDirection.getY(), testEdgeStart.getY(), testEdgeEnd.getY());
-            }
             boolean inRange = liesInRange(edgeLatitude, testEdgeStart.getY(), testEdgeEnd.getY()) && testEdgeStart.getY() < edgeLatitude;
-            System.out.println(format("edgeIntersectsTestEdge | computed latitude: %s", edgeLatitude));
-            System.out.println(format("edgeIntersectsTestEdge | inRange: %s", inRange));
-            System.out.println("");
-            return inRange;
+            return testEdgeStart.getY() < edgeLatitude && inRange;
         }
         else {
-            System.out.println("");
             return false;
         }
     }
@@ -1743,7 +1734,7 @@ public final class GeoFunctions
 
     private static Point getExternalPoint(double longitude)
     {
-        return new Point(longitude, 90.0);
+        return new Point(longitude, MAX_LATITUDE);
     }
 
     private static int getNumberIntersectionsWithPolygon(Polygon polygon, Point point)
@@ -1755,25 +1746,64 @@ public final class GeoFunctions
             testEdgeStart = testEdgeEnd;
             testEdgeEnd = point;
         }
-        System.out.println(format("point: (%s, %s)", point.getX(), point.getY()));
 
         int numPaths = polygon.getPathCount();
+        Boolean excludeEdgeStartPoint = false;
         for (int i = 0; i < numPaths; i++) {
             int pathStartIndex = polygon.getPathStart(i);
             int pathEndIndex = polygon.getPathEnd(i);
             for (int j = pathStartIndex; j < pathEndIndex - 1; j++) {
                 Point edgeStart = polygon.getPoint(j);
                 Point edgeEnd = polygon.getPoint(j + 1);
+
+                // all vertices are excluded
+                if (edgeStart.equals(point) || edgeEnd.equals(point)) {
+                    return 0;
+                }
+
+                // if this is a vertical edge, it can only add an even (and
+                // therefore uninformative) number of crossings, so don't bother checking
+                if (isVerticalEdge(edgeStart, edgeEnd)) {
+                    excludeEdgeStartPoint = false;
+                    continue;
+                }
+
+                // if the previous edge and the current edge share a vertex,
+                // skip checking it this time to avoid double counting
+                // (if we didn't do this, consider the case of an upside down
+                // triangle with an external point directly below its tip)
+                if (excludeEdgeStartPoint) {
+                    if (haveSameLongitude(edgeStart.getX(), point.getX())) {
+                        continue;
+                    }
+                }
+
+                // the garden variety case
                 if (edgeIntersectsTestEdge(edgeStart, edgeEnd, testEdgeStart, testEdgeEnd)) {
                     intersectionSum++;
                 }
+
+                excludeEdgeStartPoint = true;
             }
-            // check last edge that closes the loop back at the starting point
+            // check last edge which closes the loop back at the starting point
             Point lastEdgeStart = polygon.getPoint(pathEndIndex - 1);
             Point lastEdgeEnd = polygon.getPoint(pathStartIndex);
-            if (lastEdgeStart.equals(point)) {
-                return 1;
+            if (lastEdgeStart.equals(point) || lastEdgeEnd.equals(point)) {
+                return 0;
             }
+
+            if (excludeEdgeStartPoint) {
+                if (haveSameLongitude(lastEdgeStart.getX(), point.getX())) {
+                    continue;
+                }
+            }
+
+            // if this is a vertical edge, it can only add an even (and
+            // therefore uninformative) number of crossings, so don't bother checking
+            if (isVerticalEdge(lastEdgeStart, lastEdgeEnd)) {
+                continue;
+            }
+
             if (edgeIntersectsTestEdge(lastEdgeStart, lastEdgeEnd, testEdgeStart, testEdgeEnd)) {
                 intersectionSum++;
             }
