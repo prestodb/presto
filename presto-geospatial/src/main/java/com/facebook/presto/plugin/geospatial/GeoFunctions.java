@@ -1765,9 +1765,6 @@ public final class GeoFunctions
             // check last edge which closes the loop back at the starting point
             Point lastEdgeStart = polygon.getPoint(pathEndIndex - 1);
             Point lastEdgeEnd = polygon.getPoint(pathStartIndex);
-            if (lastEdgeStart.equals(point) || lastEdgeEnd.equals(point)) {
-                return 0;
-            }
 
             if (excludeEdgeStartPoint) {
                 if (haveSameLongitude(lastEdgeStart.getX(), point.getX())) {
