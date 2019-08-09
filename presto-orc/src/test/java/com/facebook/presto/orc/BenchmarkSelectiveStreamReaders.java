@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
@@ -64,6 +65,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
@@ -189,13 +191,17 @@ public class BenchmarkSelectiveStreamReaders
         @SuppressWarnings("unused")
         @Param({
                 "boolean",
+
                 "integer",
                 "bigint",
                 "smallint",
                 "tinyint",
+
                 "date",
                 "timestamp",
-                "real"
+
+                "real",
+                "double"
         })
         private String typeSignature;
 
@@ -220,13 +226,17 @@ public class BenchmarkSelectiveStreamReaders
         @SuppressWarnings("unused")
         @Param({
                 "boolean",
+
                 "integer",
                 "bigint",
                 "smallint",
                 "tinyint",
+
                 "date",
                 "timestamp",
-                "real"
+
+                "real",
+                "double"
         })
         private String typeSignature;
 
@@ -262,6 +272,10 @@ public class BenchmarkSelectiveStreamReaders
 
             if (type == REAL) {
                 return Optional.of(FloatRange.of(0, true, true, Integer.MAX_VALUE, true, true, true));
+            }
+
+            if (type == DOUBLE) {
+                return Optional.of(DoubleRange.of(.5, false, false, 2, false, false, false));
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + type);
@@ -308,6 +322,10 @@ public class BenchmarkSelectiveStreamReaders
 
             if (getType() == REAL) {
                 return random.nextFloat();
+            }
+
+            if (getType() == DOUBLE) {
+                return random.nextDouble();
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + getType());
