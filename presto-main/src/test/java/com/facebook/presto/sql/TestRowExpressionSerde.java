@@ -38,6 +38,7 @@ import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.type.TypeDeserializer;
@@ -265,7 +266,12 @@ public class TestRowExpressionSerde
 
     private RowExpression translate(Expression expression, boolean optimize)
     {
-        return SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, optimize);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION);
+        if (optimize) {
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata.getFunctionManager(), TEST_SESSION.toConnectorSession());
+            return optimizer.optimize(rowExpression);
+        }
+        return rowExpression;
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
