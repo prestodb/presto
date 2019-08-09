@@ -94,12 +94,12 @@ public class TestDomainTranslator
         Map<String, RowExpression> expressions = ImmutableMap.<String, RowExpression>builder()
                 .put("c_bigint", C_BIGINT)
                 .put("c_bigint_array[5]", arraySubscript(C_BIGINT_ARRAY, 5))
-                .put("c_bigint_to_bigint_map[5]", mapSubscript(C_BIGINT_TO_BIGINT_MAP, constant(5, BIGINT)))
+                .put("c_bigint_to_bigint_map[5]", mapSubscript(C_BIGINT_TO_BIGINT_MAP, constant(5L, BIGINT)))
                 .put("c_varchar_to_bigint_map[\"foo\"]", mapSubscript(C_VARCHAR_TO_BIGINT_MAP, constant(Slices.utf8Slice("foo"), VARCHAR)))
                 .put("c_struct.a", dereference(C_STRUCT, 0))
                 .put("c_struct.b.x", dereference(dereference(C_STRUCT, 1), 0))
                 .put("c_struct.c[5]", arraySubscript(dereference(C_STRUCT, 2), 5))
-                .put("c_struct.d[5]", mapSubscript(dereference(C_STRUCT, 3), constant(5, BIGINT)))
+                .put("c_struct.d[5]", mapSubscript(dereference(C_STRUCT, 3), constant(5L, BIGINT)))
                 .put("c_struct.e[\"foo\"]", mapSubscript(dereference(C_STRUCT, 4), constant(Slices.utf8Slice("foo"), VARCHAR)))
                 .build();
 
@@ -122,7 +122,7 @@ public class TestDomainTranslator
     private RowExpression dereference(RowExpression base, int field)
     {
         Type fieldType = base.getType().getTypeParameters().get(field);
-        return specialForm(DEREFERENCE, fieldType, ImmutableList.of(base, new ConstantExpression(field, INTEGER)));
+        return specialForm(DEREFERENCE, fieldType, ImmutableList.of(base, new ConstantExpression((long) field, INTEGER)));
     }
 
     private RowExpression arraySubscript(RowExpression arrayExpression, int index)
@@ -132,7 +132,7 @@ public class TestDomainTranslator
         return call(SUBSCRIPT.name(),
                 operator(SUBSCRIPT, arrayType, elementType),
                 elementType,
-                ImmutableList.of(arrayExpression, constant(index, INTEGER)));
+                ImmutableList.of(arrayExpression, constant((long) index, INTEGER)));
     }
 
     private RowExpression mapSubscript(RowExpression mapExpression, RowExpression keyExpression)

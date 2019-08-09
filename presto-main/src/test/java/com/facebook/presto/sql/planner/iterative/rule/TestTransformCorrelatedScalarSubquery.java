@@ -51,8 +51,8 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 public class TestTransformCorrelatedScalarSubquery
         extends BaseRuleTest
 {
-    private static final ImmutableList<List<RowExpression>> ONE_ROW = ImmutableList.of(ImmutableList.of(constant(1, BIGINT)));
-    private static final ImmutableList<List<RowExpression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(constant(1, BIGINT)), ImmutableList.of(constant(2, BIGINT)));
+    private static final ImmutableList<List<RowExpression>> ONE_ROW = ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)));
+    private static final ImmutableList<List<RowExpression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(constant(1L, BIGINT)), ImmutableList.of(constant(2L, BIGINT)));
 
     private Rule rule = new TransformCorrelatedScalarSubquery();
 
@@ -82,7 +82,7 @@ public class TestTransformCorrelatedScalarSubquery
                 .on(p -> p.lateral(
                         ImmutableList.of(),
                         p.values(p.variable("a")),
-                        p.values(ImmutableList.of(p.variable("b")), ImmutableList.of(constantExpressions(BIGINT, 1)))))
+                        p.values(ImmutableList.of(p.variable("b")), ImmutableList.of(constantExpressions(BIGINT, 1L)))))
                 .doesNotFire();
     }
 

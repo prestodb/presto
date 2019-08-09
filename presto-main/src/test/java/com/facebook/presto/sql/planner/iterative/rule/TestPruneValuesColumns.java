@@ -39,8 +39,8 @@ public class TestPruneValuesColumns
                                 p.values(
                                         ImmutableList.of(p.variable("unused"), p.variable("x")),
                                         ImmutableList.of(
-                                                constantExpressions(BIGINT, 1, 2),
-                                                constantExpressions(BIGINT, 3, 4)))))
+                                                constantExpressions(BIGINT, 1L, 2L),
+                                                constantExpressions(BIGINT, 3L, 4L)))))
                 .matches(
                         project(
                                 ImmutableMap.of("y", PlanMatchPattern.expression("x")),
