@@ -29,6 +29,7 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.Type;
@@ -71,6 +72,9 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -127,6 +131,7 @@ public class TestExpressionInterpreter
             .put("unbound_boolean", BOOLEAN)
             .put("unbound_date", DATE)
             .put("unbound_time", TIME)
+            .put("unbound_array", new ArrayType(BIGINT))
             .put("unbound_timestamp", TIMESTAMP)
             .put("unbound_interval", INTERVAL_DAY_TIME)
             .put("unbound_pattern", VARCHAR)
@@ -1311,6 +1316,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("'abc' LIKE bound_pattern", "false");
 
         assertOptimizedEquals("unbound_string LIKE bound_pattern", "unbound_string LIKE bound_pattern");
+        assertDoNotOptimize("unbound_string LIKE bound_pattern", SERIALIZABLE);
 
         assertOptimizedEquals("unbound_string LIKE unbound_pattern ESCAPE unbound_string", "unbound_string LIKE unbound_pattern ESCAPE unbound_string");
     }
@@ -1328,9 +1334,10 @@ public class TestExpressionInterpreter
     @Test
     public void testLambda()
     {
+        assertDoNotOptimize("transform(unbound_array, x -> x + x)", OPTIMIZED);
         assertOptimizedEquals("transform(ARRAY[1, 5], x -> x + x)", "transform(ARRAY[1, 5], x -> x + x)");
         assertOptimizedEquals("transform(sequence(1, 5), x -> x + x)", "transform(sequence(1, 5), x -> x + x)");
-        evaluate("transform(ARRAY[1, 5], x -> x + x)", true);
+        assertEquals(evaluate("reduce(ARRAY[1, 5], 0, (x, y) -> x + y, x -> x)", true), 6L);
     }
 
     @Test
@@ -1542,7 +1549,7 @@ public class TestExpressionInterpreter
             return value;
         });
         RowExpression rowExpression = TRANSLATOR.translate(parsedExpression, SYMBOL_TYPES);
-        Object rowExpressionResult = new RowExpressionInterpreter(rowExpression, METADATA, TEST_SESSION.toConnectorSession(), true).optimize(symbol -> {
+        Object rowExpressionResult = new RowExpressionInterpreter(rowExpression, METADATA, TEST_SESSION.toConnectorSession(), OPTIMIZED).optimize(symbol -> {
             Object value = symbolConstant(symbol);
             if (value == null) {
                 return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
@@ -1552,6 +1559,23 @@ public class TestExpressionInterpreter
 
         assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
         return expressionResult;
+    }
+
+    private static void assertDoNotOptimize(@Language("SQL") String expression, Level optimizationLevel)
+    {
+        assertRoundTrip(expression);
+
+        Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
+
+        RowExpression rowExpression = TRANSLATOR.translate(parsedExpression, SYMBOL_TYPES);
+        Object rowExpressionResult = new RowExpressionInterpreter(rowExpression, METADATA, TEST_SESSION.toConnectorSession(), optimizationLevel).optimize(symbol -> {
+            Object value = symbolConstant(symbol);
+            if (value == null) {
+                return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
+            }
+            return value;
+        });
+        assertEquals(rowExpressionResult, rowExpression);
     }
 
     private static Object symbolConstant(Symbol symbol)

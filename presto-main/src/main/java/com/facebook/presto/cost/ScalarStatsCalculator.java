@@ -58,6 +58,7 @@ import java.util.OptionalDouble;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
 import static com.facebook.presto.spi.function.OperatorType.MODULUS;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
 import static com.facebook.presto.util.MoreMath.max;
@@ -121,7 +122,7 @@ public class ScalarStatsCalculator
                 return computeArithmeticBinaryStatistics(call, context);
             }
 
-            Object value = new RowExpressionInterpreter(call, metadata, session.toConnectorSession(), true).optimize();
+            Object value = new RowExpressionInterpreter(call, metadata, session.toConnectorSession(), OPTIMIZED).optimize();
 
             if (value == null) {
                 return nullStatsEstimate();
