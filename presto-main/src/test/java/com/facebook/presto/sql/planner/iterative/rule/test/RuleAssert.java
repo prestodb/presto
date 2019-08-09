@@ -40,7 +40,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
+import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
@@ -109,6 +109,21 @@ public class RuleAssert
         plan = planProvider.apply(builder);
         types = builder.getTypes();
         return this;
+    }
+
+    public PlanNode get()
+    {
+        RuleApplication ruleApplication = applyRule();
+        TypeProvider types = ruleApplication.types;
+
+        if (!ruleApplication.wasRuleApplied()) {
+            fail(String.format(
+                    "%s did not fire for:\n%s",
+                    rule.getClass().getName(),
+                    formatPlan(plan, types)));
+        }
+
+        return ruleApplication.getTransformedPlan();
     }
 
     public void doesNotFire()
