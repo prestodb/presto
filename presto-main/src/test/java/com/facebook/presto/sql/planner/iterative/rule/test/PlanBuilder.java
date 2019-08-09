@@ -850,8 +850,7 @@ public class PlanBuilder
                 ImmutableMap.of(),
                 metadata.getFunctionManager(),
                 metadata.getTypeManager(),
-                session,
-                false);
+                session);
     }
 
     public static RowExpression castToRowExpression(String sql)

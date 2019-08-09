@@ -589,7 +589,7 @@ public class TranslateExpressions
 
     private RowExpression toRowExpression(Expression expression, Session session, Map<NodeRef<Expression>, Type> types)
     {
-        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), session, false);
+        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), session);
     }
 
     private RowExpression removeOriginalExpression(RowExpression expression, Rule.Context context)
