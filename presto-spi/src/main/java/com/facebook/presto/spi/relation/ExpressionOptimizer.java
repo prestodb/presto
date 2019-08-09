@@ -25,12 +25,16 @@ public interface ExpressionOptimizer
     enum Level
     {
         /**
-         * SERIALIZABLE guarantees the optimized RowExpression can be serialized and deserialized
+         * SERIALIZABLE guarantees the optimized RowExpression can be serialized and deserialized.
          */
         SERIALIZABLE,
         /**
-         * MOST_OPTIMIZED removes all redundancy in a RowExpression but can end up with non-serializable objects (e.g., Regex).
+         * OPTIMIZED removes all redundancy in a RowExpression but can end up with non-serializable objects (e.g., Regex).
          */
-        MOST_OPTIMIZED
+        OPTIMIZED,
+        /**
+         * MOST_EVALUATE attempt to evaluate the RowExpression into a constant, even though it can be non-deterministic.
+         */
+        EVALUATED
     }
 }
