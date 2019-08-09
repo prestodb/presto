@@ -62,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -115,6 +116,9 @@ public class QueryStateMachine
 
     private final AtomicLong peakTaskUserMemory = new AtomicLong();
     private final AtomicLong peakTaskTotalMemory = new AtomicLong();
+
+    private final AtomicInteger currentRunningTaskCount = new AtomicInteger();
+    private final AtomicInteger peakRunningTaskCount = new AtomicInteger();
 
     private final QueryStateTimer queryStateTimer;
 
@@ -275,6 +279,28 @@ public class QueryStateMachine
     public long getPeakTaskUserMemory()
     {
         return peakTaskUserMemory.get();
+    }
+
+    public int getCurrentRunningTaskCount()
+    {
+        return currentRunningTaskCount.get();
+    }
+
+    public int incrementCurrentRunningTaskCount()
+    {
+        int runningTaskCount = currentRunningTaskCount.incrementAndGet();
+        peakRunningTaskCount.accumulateAndGet(runningTaskCount, Math::max);
+        return runningTaskCount;
+    }
+
+    public int decrementCurrentRunningTaskCount()
+    {
+        return currentRunningTaskCount.decrementAndGet();
+    }
+
+    public int getPeakRunningTaskCount()
+    {
+        return peakRunningTaskCount.get();
     }
 
     public WarningCollector getWarningCollector()
@@ -541,6 +567,7 @@ public class QueryStateMachine
 
                 totalTasks,
                 runningTasks,
+                getPeakRunningTaskCount(),
                 completedTasks,
 
                 totalDrivers,
@@ -1018,6 +1045,7 @@ public class QueryStateMachine
                 queryStats.getTotalTasks(),
                 queryStats.getRunningTasks(),
                 queryStats.getCompletedTasks(),
+                queryStats.getPeakRunningTasks(),
                 queryStats.getTotalDrivers(),
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),

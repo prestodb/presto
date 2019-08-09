@@ -155,6 +155,7 @@ public class TestQueryStats
             9,
             10,
             11,
+            11,
 
             12,
             13,
@@ -231,6 +232,7 @@ public class TestQueryStats
 
         assertEquals(actual.getTotalTasks(), 9);
         assertEquals(actual.getRunningTasks(), 10);
+        assertEquals(actual.getPeakRunningTasks(), 11);
         assertEquals(actual.getCompletedTasks(), 11);
 
         assertEquals(actual.getTotalDrivers(), 12);
