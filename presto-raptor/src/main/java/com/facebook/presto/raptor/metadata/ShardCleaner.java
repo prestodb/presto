@@ -16,7 +16,9 @@ package com.facebook.presto.raptor.metadata;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
+import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +26,9 @@ import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -32,7 +37,7 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
-import java.io.File;
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,6 +55,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
 import static com.facebook.presto.raptor.metadata.ShardDao.CLEANABLE_SHARDS_BATCH_SIZE;
 import static com.facebook.presto.raptor.metadata.ShardDao.CLEANUP_TRANSACTIONS_BATCH_SIZE;
 import static com.google.common.collect.Sets.difference;
@@ -68,6 +74,7 @@ import static java.util.stream.Collectors.toSet;
 public class ShardCleaner
 {
     private static final Logger log = Logger.get(ShardCleaner.class);
+    private static final Configuration CONFIGURATION = new Configuration();
 
     private final ShardDao dao;
     private final String currentNode;
@@ -83,6 +90,7 @@ public class ShardCleaner
     private final Duration backupCleanTime;
     private final ScheduledExecutorService scheduler;
     private final ExecutorService backupExecutor;
+    private final RawLocalFileSystem localFileSystem;  // TODO: inject FileSystem once HDFS environment is ready
     private final Duration maxCompletedTransactionAge;
 
     private final AtomicBoolean started = new AtomicBoolean();
@@ -153,6 +161,12 @@ public class ShardCleaner
         this.backupCleanTime = requireNonNull(backupCleanTime, "backupCleanTime is null");
         this.scheduler = newScheduledThreadPool(2, daemonThreadsNamed("shard-cleaner-%s"));
         this.backupExecutor = newFixedThreadPool(backupDeletionThreads, daemonThreadsNamed("shard-cleaner-backup-%s"));
+        try {
+            this.localFileSystem = new SyncingFileSystem(CONFIGURATION);
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
+        }
         this.maxCompletedTransactionAge = requireNonNull(maxCompletedTransactionAge, "maxCompletedTransactionAge is null");
     }
 
@@ -368,6 +382,7 @@ public class ShardCleaner
 
     @VisibleForTesting
     synchronized void cleanLocalShardsImmediately(Set<UUID> local)
+            throws IOException
     {
         // get shards assigned to the local node
         Set<UUID> assigned = dao.getNodeShards(currentNode, null).stream()
@@ -387,6 +402,7 @@ public class ShardCleaner
 
     @VisibleForTesting
     synchronized void cleanLocalShards()
+            throws IOException
     {
         // find all files on the local node
         Set<UUID> local = getLocalShards();
@@ -513,8 +529,9 @@ public class ShardCleaner
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    private static void deleteFile(File file)
+    private void deleteFile(Path file)
+            throws IOException
     {
-        file.delete();
+        localFileSystem.delete(file, false);
     }
 }

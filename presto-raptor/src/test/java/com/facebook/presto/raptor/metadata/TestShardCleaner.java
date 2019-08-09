@@ -22,6 +22,7 @@ import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
+import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -387,14 +388,14 @@ public class TestShardCleaner
 
     private boolean shardFileExists(UUID uuid)
     {
-        return storageService.getStorageFile(uuid).exists();
+        return new File(storageService.getStorageFile(uuid).toString()).exists();
     }
 
     private void createShardFile(UUID uuid)
             throws IOException
     {
-        File file = storageService.getStorageFile(uuid);
-        storageService.createParents(file);
+        File file = new File(storageService.getStorageFile(uuid).toString());
+        storageService.createParents(new Path(file.toURI()));
         assertTrue(file.createNewFile());
     }
 

@@ -17,6 +17,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -44,6 +46,8 @@ public class FileStorageService
     private static final Pattern HEX_DIRECTORY = Pattern.compile("[0-9a-f]{2}");
     private static final String FILE_EXTENSION = ".orc";
 
+    private final RawLocalFileSystem localFileSystem = new RawLocalFileSystem();
+
     private final File baseStorageDir;
     private final File baseStagingDir;
     private final File baseQuarantineDir;
@@ -67,9 +71,9 @@ public class FileStorageService
     public void start()
     {
         deleteStagingFilesAsync();
-        createParents(new File(baseStagingDir, "."));
-        createParents(new File(baseStorageDir, "."));
-        createParents(new File(baseQuarantineDir, "."));
+        createDirectory(new Path(baseStagingDir.toURI()));
+        createDirectory(new Path(baseStorageDir.toURI()));
+        createDirectory(new Path(baseQuarantineDir.toURI()));
     }
 
     @Override
@@ -86,23 +90,23 @@ public class FileStorageService
     }
 
     @Override
-    public File getStorageFile(UUID shardUuid)
+    public Path getStorageFile(UUID shardUuid)
     {
-        return getFileSystemPath(baseStorageDir, shardUuid);
+        return new Path(getFileSystemPath(baseStorageDir, shardUuid).toString());
     }
 
     @Override
-    public File getStagingFile(UUID shardUuid)
+    public Path getStagingFile(UUID shardUuid)
     {
         String name = getFileSystemPath(new File("/"), shardUuid).getName();
-        return new File(baseStagingDir, name);
+        return new Path(baseStagingDir.toString(), name);
     }
 
     @Override
-    public File getQuarantineFile(UUID shardUuid)
+    public Path getQuarantineFile(UUID shardUuid)
     {
         String name = getFileSystemPath(new File("/"), shardUuid).getName();
-        return new File(baseQuarantineDir, name);
+        return new Path(baseQuarantineDir.toString(), name);
     }
 
     @Override
@@ -122,12 +126,9 @@ public class FileStorageService
     }
 
     @Override
-    public void createParents(File file)
+    public void createParents(Path file)
     {
-        File dir = file.getParentFile();
-        if (!dir.mkdirs() && !dir.isDirectory()) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed creating directories: " + dir);
-        }
+        createDirectory(file.getParent());
     }
 
     /**
@@ -183,6 +184,14 @@ public class FileStorageService
             Files.deleteIfExists(file.toPath());
         }
         Files.deleteIfExists(dir.toPath());
+    }
+
+    private void createDirectory(Path file)
+    {
+        File directory = localFileSystem.pathToFile(file);
+        if (!directory.mkdirs() && !directory.isDirectory()) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed creating directories: " + directory);
+        }
     }
 
     private static List<File> listFiles(File dir, FileFilter filter)

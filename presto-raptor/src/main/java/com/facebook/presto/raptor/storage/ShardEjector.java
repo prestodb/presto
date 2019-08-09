@@ -18,12 +18,17 @@ import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
+import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -31,7 +36,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.io.File;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,6 +51,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.filterKeys;
@@ -63,6 +69,7 @@ import static java.util.stream.Collectors.toSet;
 public class ShardEjector
 {
     private static final Logger log = Logger.get(ShardEjector.class);
+    private static final Configuration CONFIGURATION = new Configuration();
 
     private final String currentNode;
     private final NodeSupplier nodeSupplier;
@@ -71,6 +78,7 @@ public class ShardEjector
     private final Duration interval;
     private final Optional<BackupStore> backupStore;
     private final ScheduledExecutorService executor;
+    private final RawLocalFileSystem localFileSystem;  // TODO: inject FileSystem once HDFS environment is ready
 
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -112,6 +120,12 @@ public class ShardEjector
         this.interval = requireNonNull(interval, "interval is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
         this.executor = newScheduledThreadPool(1, daemonThreadsNamed("shard-ejector-" + connectorId));
+        try {
+            this.localFileSystem = new SyncingFileSystem(CONFIGURATION);
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
+        }
     }
 
     @PostConstruct
@@ -166,6 +180,7 @@ public class ShardEjector
 
     @VisibleForTesting
     void process()
+            throws IOException
     {
         checkState(backupStore.isPresent(), "backup store must be present");
 
@@ -242,8 +257,8 @@ public class ShardEjector
             shardManager.replaceShardAssignment(shard.getTableId(), shardUuid, target, false);
 
             // delete local file
-            File file = storageService.getStorageFile(shardUuid);
-            if (file.exists() && !file.delete()) {
+            Path file = storageService.getStorageFile(shardUuid);
+            if (localFileSystem.exists(file) && !localFileSystem.delete(file, false)) {
                 log.warn("Failed to delete shard file: %s", file);
             }
         }

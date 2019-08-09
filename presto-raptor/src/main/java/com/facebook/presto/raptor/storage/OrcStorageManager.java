@@ -36,6 +36,7 @@ import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage;
+import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
@@ -59,6 +60,9 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.PreDestroy;
@@ -98,6 +102,7 @@ import static com.facebook.presto.raptor.RaptorColumnHandle.isShardRowIdColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isShardUuidColumn;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_DISK_FULL;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_TIMEOUT;
 import static com.facebook.presto.raptor.storage.OrcPageSource.BUCKET_NUMBER_COLUMN;
@@ -144,6 +149,7 @@ public class OrcStorageManager
     // TODO: do not limit the max size of blocks to read for now; enable the limit when the Hive connector is ready
     public static final DataSize HUGE_MAX_READ_BLOCK_SIZE = new DataSize(1, PETABYTE);
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
+    private static final Configuration CONFIGURATION = new Configuration();
 
     private static final long MAX_ROWS = 1_000_000_000;
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
@@ -165,6 +171,7 @@ public class OrcStorageManager
     private final ExecutorService deletionExecutor;
     private final ExecutorService commitExecutor;
     private final FileRewriter fileRewriter;
+    private final RawLocalFileSystem localFileSystem;  // TODO: inject FileSystem once HDFS environment is ready
     private final OrcWriterStats stats = new OrcWriterStats();
 
     @Inject
@@ -236,6 +243,12 @@ public class OrcStorageManager
         this.compression = requireNonNull(compression, "compression is null");
         this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
         this.fileRewriter = new OrcPageFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
+        try {
+            this.localFileSystem = new SyncingFileSystem(CONFIGURATION);
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
+        }
     }
 
     @PreDestroy
@@ -344,12 +357,13 @@ public class OrcStorageManager
             throw new PrestoException(RAPTOR_ERROR, "Backup does not exist after write");
         }
 
-        File stagingFile = storageService.getStagingFile(shardUuid);
-        File storageFile = storageService.getStorageFile(shardUuid);
+        File stagingFile = localFileSystem.pathToFile(storageService.getStagingFile(shardUuid));
+        File storageFile = localFileSystem.pathToFile(storageService.getStorageFile(shardUuid));
 
-        storageService.createParents(storageFile);
+        storageService.createParents(new Path(storageFile.toURI()));
 
         try {
+            // Do not use FileSystem::moveXXX which does a copy and delete
             Files.move(stagingFile.toPath(), storageFile.toPath(), ATOMIC_MOVE);
         }
         catch (IOException e) {
@@ -360,7 +374,7 @@ public class OrcStorageManager
     @VisibleForTesting
     OrcDataSource openShard(UUID shardUuid, ReaderAttributes readerAttributes)
     {
-        File file = storageService.getStorageFile(shardUuid).getAbsoluteFile();
+        File file = localFileSystem.pathToFile(storageService.getStorageFile(shardUuid)).getAbsoluteFile();
 
         if (!file.exists() && backupStore.isPresent()) {
             try {
@@ -425,8 +439,8 @@ public class OrcStorageManager
         }
 
         UUID newShardUuid = UUID.randomUUID();
-        File input = storageService.getStorageFile(shardUuid);
-        File output = storageService.getStagingFile(newShardUuid);
+        File input = localFileSystem.pathToFile(storageService.getStorageFile(shardUuid));
+        File output = localFileSystem.pathToFile(storageService.getStagingFile(newShardUuid));
 
         OrcFileInfo info = rewriteFile(columns, input, output, rowsToDelete);
         long rowCount = info.getRowCount();
@@ -642,7 +656,7 @@ public class OrcStorageManager
 
                 shardRecorder.recordCreatedShard(transactionId, shardUuid);
 
-                File stagingFile = storageService.getStagingFile(shardUuid);
+                File stagingFile = localFileSystem.pathToFile(storageService.getStagingFile(shardUuid));
                 futures.add(backupManager.submit(shardUuid, stagingFile));
 
                 Set<String> nodes = ImmutableSet.of(nodeId);
@@ -710,8 +724,8 @@ public class OrcStorageManager
         {
             if (writer == null) {
                 shardUuid = UUID.randomUUID();
-                File stagingFile = storageService.getStagingFile(shardUuid);
-                storageService.createParents(stagingFile);
+                File stagingFile = localFileSystem.pathToFile(storageService.getStagingFile(shardUuid));
+                storageService.createParents(new Path(stagingFile.toURI()));
                 stagingFiles.add(stagingFile);
                 OrcDataSink sink;
                 try {
