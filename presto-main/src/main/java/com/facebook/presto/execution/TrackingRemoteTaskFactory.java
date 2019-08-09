@@ -25,15 +25,17 @@ import com.google.common.collect.Multimap;
 
 import java.util.OptionalInt;
 
+import static com.facebook.presto.execution.TaskState.PLANNED;
+import static com.facebook.presto.execution.TaskState.RUNNING;
 import static java.util.Objects.requireNonNull;
 
-public class MemoryTrackingRemoteTaskFactory
+public class TrackingRemoteTaskFactory
         implements RemoteTaskFactory
 {
     private final RemoteTaskFactory remoteTaskFactory;
     private final QueryStateMachine stateMachine;
 
-    public MemoryTrackingRemoteTaskFactory(RemoteTaskFactory remoteTaskFactory, QueryStateMachine stateMachine)
+    public TrackingRemoteTaskFactory(RemoteTaskFactory remoteTaskFactory, QueryStateMachine stateMachine)
     {
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
@@ -60,20 +62,22 @@ public class MemoryTrackingRemoteTaskFactory
                 partitionedSplitCountTracker,
                 summarizeTaskInfo);
 
-        task.addStateChangeListener(new UpdatePeakMemory(stateMachine));
+        task.addStateChangeListener(new UpdateQueryStats(stateMachine));
         return task;
     }
 
-    private static final class UpdatePeakMemory
+    private static final class UpdateQueryStats
             implements StateChangeListener<TaskStatus>
     {
         private final QueryStateMachine stateMachine;
         private long previousUserMemory;
         private long previousSystemMemory;
+        private TaskState state;
 
-        public UpdatePeakMemory(QueryStateMachine stateMachine)
+        public UpdateQueryStats(QueryStateMachine stateMachine)
         {
             this.stateMachine = stateMachine;
+            this.state = PLANNED;
         }
 
         @Override
@@ -87,6 +91,14 @@ public class MemoryTrackingRemoteTaskFactory
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
             stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, currentUserMemory, currentTotalMemory);
+
+            if (state == PLANNED && newStatus.getState() == RUNNING) {
+                stateMachine.incrementCurrentRunningTaskCount();
+            }
+            else if (state == RUNNING && newStatus.getState().isDone()) {
+                stateMachine.decrementCurrentRunningTaskCount();
+            }
+            state = newStatus.getState();
         }
     }
 }
