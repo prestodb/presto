@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -157,6 +158,10 @@ public final class LiteralInterpreter
         }
         if (type instanceof IntervalYearMonthType) {
             return new SqlIntervalYearMonth(((Long) node.getValue()).intValue());
+        }
+        if (type.getJavaType().equals(Slice.class)) {
+            // DO NOT ever remove toBase64. Calling toString directly on Slice whose base is not byte[] will cause JVM to crash.
+            return "'" + VarbinaryFunctions.toBase64((Slice) node.getValue()).toStringUtf8() + "'";
         }
 
         // We should not fail at the moment; just return the raw value (block, regex, etc) to the user
