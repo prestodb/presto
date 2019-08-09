@@ -48,7 +48,7 @@ public class TestRemoveTrivialFilters
                         p.expression("FALSE"),
                         p.values(
                                 ImmutableList.of(p.variable("a")),
-                                ImmutableList.of(constantExpressions(BIGINT, 1)))))
+                                ImmutableList.of(constantExpressions(BIGINT, 1L)))))
                 .matches(values("a"));
     }
 }

@@ -547,7 +547,7 @@ public class RowExpressionInterpreter
                                 DEREFERENCE,
                                 node.getType(),
                                 toRowExpression(base, node.getArguments().get(0)),
-                                toRowExpression(index, node.getArguments().get(1)));
+                                toRowExpression((long) index, node.getArguments().get(1)));
                     }
                     return interpretDereference(base, node.getType(), index);
                 }

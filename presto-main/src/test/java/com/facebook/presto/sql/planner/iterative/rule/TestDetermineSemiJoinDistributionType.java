@@ -82,10 +82,10 @@ public class TestDetermineSemiJoinDistributionType
                         p.semiJoin(
                                 p.values(
                                         ImmutableList.of(p.variable("A1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 10), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 10L), constantExpressions(BIGINT, 11L))),
                                 p.values(
                                         ImmutableList.of(p.variable("B1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
                                 p.variable("A1"),
                                 p.variable("B1"),
                                 p.variable("output"),
