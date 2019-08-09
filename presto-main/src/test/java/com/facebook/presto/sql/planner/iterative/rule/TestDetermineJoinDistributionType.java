@@ -94,10 +94,10 @@ public class TestDetermineJoinDistributionType
                                 joinType,
                                 p.values(
                                         ImmutableList.of(p.variable("A1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 10), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 10L), constantExpressions(BIGINT, 11L))),
                                 p.values(
                                         ImmutableList.of(p.variable("B1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
@@ -130,10 +130,10 @@ public class TestDetermineJoinDistributionType
                                 joinType,
                                 p.values(
                                         ImmutableList.of(p.variable("A1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 10), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 10L), constantExpressions(BIGINT, 11L))),
                                 p.values(
                                         ImmutableList.of(p.variable("B1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
@@ -156,11 +156,11 @@ public class TestDetermineJoinDistributionType
                                 INNER,
                                 p.values(
                                         ImmutableList.of(p.variable("A1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 10), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 10L), constantExpressions(BIGINT, 11L))),
                                 p.enforceSingleRow(
                                         p.values(
                                                 ImmutableList.of(p.variable("B1")),
-                                                ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11)))),
+                                                ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L)))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty()))
@@ -189,10 +189,10 @@ public class TestDetermineJoinDistributionType
                                 joinType,
                                 p.values(
                                         ImmutableList.of(p.variable("A1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 10), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 10L), constantExpressions(BIGINT, 11L))),
                                 p.values(
                                         ImmutableList.of(p.variable("B1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
                                 ImmutableList.of(),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.of(castToRowExpression("A1 * B1 > 100"))))
@@ -215,10 +215,10 @@ public class TestDetermineJoinDistributionType
                                 INNER,
                                 p.values(
                                         ImmutableList.of(p.variable("A1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 10), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 10L), constantExpressions(BIGINT, 11L))),
                                 p.values(
                                         ImmutableList.of(p.variable("B1")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 50), constantExpressions(BIGINT, 11))),
+                                        ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty(),

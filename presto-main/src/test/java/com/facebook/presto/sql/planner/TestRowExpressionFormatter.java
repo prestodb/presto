@@ -137,7 +137,7 @@ public class TestRowExpressionFormatter
         assertEquals(format(constantExpression), "VARBINARY 12 34 56");
 
         // color
-        constantExpression = constant(256, COLOR);
+        constantExpression = constant(256L, COLOR);
         assertEquals(format(constantExpression), "COLOR 256");
 
         // long and short decimals
@@ -211,7 +211,7 @@ public class TestRowExpressionFormatter
         RowExpression subscriptExpression = call(SUBSCRIPT.name(),
                 functionManager.resolveOperator(SUBSCRIPT, fromTypes(arrayType, elementType)),
                 elementType,
-                ImmutableList.of(C_BIGINT_ARRAY, constant(0, INTEGER)));
+                ImmutableList.of(C_BIGINT_ARRAY, constant(0L, INTEGER)));
         callExpression = subscriptExpression;
         assertEquals(format(callExpression), "c_bigint_array[INTEGER 0]");
 
@@ -220,7 +220,7 @@ public class TestRowExpressionFormatter
             CAST.name(),
             functionManager.lookupCast(CastType.CAST, TINYINT.getTypeSignature(), BIGINT.getTypeSignature()),
             BIGINT,
-            constant(1, TINYINT));
+            constant(1L, TINYINT));
         assertEquals(format(callExpression), "CAST(TINYINT 1 AS bigint)");
 
         // between
@@ -229,8 +229,8 @@ public class TestRowExpressionFormatter
                 functionManager.resolveOperator(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
                 BOOLEAN,
                 subscriptExpression,
-                constant(1, BIGINT),
-                constant(5, BIGINT));
+                constant(1L, BIGINT),
+                constant(5L, BIGINT));
         assertEquals(format(callExpression), "c_bigint_array[INTEGER 0] BETWEEN (BIGINT 1) AND (BIGINT 5)");
 
         // other
@@ -238,7 +238,7 @@ public class TestRowExpressionFormatter
                 HASH_CODE.name(),
                 functionManager.resolveOperator(HASH_CODE, fromTypes(BIGINT)),
                 BIGINT,
-                constant(1, BIGINT));
+                constant(1L, BIGINT));
         assertEquals(format(callExpression), "HASH_CODE(BIGINT 1)");
     }
 
@@ -288,7 +288,7 @@ public class TestRowExpressionFormatter
         expression1 = call(SUBSCRIPT.name(),
                 functionManager.resolveOperator(SUBSCRIPT, fromTypes(arrayType, elementType)),
                 elementType,
-                ImmutableList.of(C_BIGINT_ARRAY, constant(5, INTEGER)));
+                ImmutableList.of(C_BIGINT_ARRAY, constant(5L, INTEGER)));
         expression2 = call(
                 NEGATION.name(),
                 functionManager.resolveOperator(NEGATION, fromTypes(expression1.getType())),

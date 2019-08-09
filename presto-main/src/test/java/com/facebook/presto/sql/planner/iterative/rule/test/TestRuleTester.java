@@ -39,7 +39,7 @@ public class TestRuleTester
                                     Assignments.of(p.variable("y"), variable("x", BIGINT)),
                                     p.values(
                                             ImmutableList.of(p.variable("x")),
-                                            ImmutableList.of(constantExpressions(BIGINT, 1)))))
+                                            ImmutableList.of(constantExpressions(BIGINT, 1L)))))
                     .matches(
                             values(ImmutableList.of("different"), ImmutableList.of()));
         }

@@ -90,7 +90,7 @@ public class TestPruneCountAggregationOverScalar
                                 .globalGrouping()
                                 .source(p.values(
                                         ImmutableList.of(p.variable("orderkey")),
-                                        ImmutableList.of(constantExpressions(BIGINT, 1))))))
+                                        ImmutableList.of(constantExpressions(BIGINT, 1L))))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
     }
 

@@ -77,15 +77,15 @@ public class TestSubfieldExtractor
     {
         assertSubfieldExtract(C_BIGINT, "c_bigint");
         assertSubfieldExtract(arraySubscript(C_BIGINT_ARRAY, 5), "c_bigint_array[5]");
-        assertSubfieldExtract(mapSubscript(C_BIGINT_TO_BIGINT_MAP, constant(5, BIGINT)), "c_bigint_to_bigint_map[5]");
+        assertSubfieldExtract(mapSubscript(C_BIGINT_TO_BIGINT_MAP, constant(5L, BIGINT)), "c_bigint_to_bigint_map[5]");
         assertSubfieldExtract(mapSubscript(C_VARCHAR_TO_BIGINT_MAP, constant(Slices.utf8Slice("foo"), VARCHAR)), "c_varchar_to_bigint_map[\"foo\"]");
         assertSubfieldExtract(dereference(C_STRUCT, 0), "c_struct.a");
         assertSubfieldExtract(dereference(dereference(C_STRUCT, 1), 0), "c_struct.b.x");
         assertSubfieldExtract(arraySubscript(dereference(C_STRUCT, 2), 5), "c_struct.c[5]");
-        assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 3), constant(5, BIGINT)), "c_struct.d[5]");
+        assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 3), constant(5L, BIGINT)), "c_struct.d[5]");
         assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 4), constant(Slices.utf8Slice("foo"), VARCHAR)), "c_struct.e[\"foo\"]");
 
-        assertEquals(subfieldExtractor.extract(constant(2, INTEGER)), Optional.empty());
+        assertEquals(subfieldExtractor.extract(constant(2L, INTEGER)), Optional.empty());
     }
 
     private void assertSubfieldExtract(RowExpression expression, String subfield)
@@ -96,7 +96,7 @@ public class TestSubfieldExtractor
     private RowExpression dereference(RowExpression base, int field)
     {
         Type fieldType = base.getType().getTypeParameters().get(field);
-        return specialForm(DEREFERENCE, fieldType, ImmutableList.of(base, new ConstantExpression(field, INTEGER)));
+        return specialForm(DEREFERENCE, fieldType, ImmutableList.of(base, new ConstantExpression((long) field, INTEGER)));
     }
 
     private RowExpression arraySubscript(RowExpression arrayExpression, int index)
@@ -106,7 +106,7 @@ public class TestSubfieldExtractor
         return call(SUBSCRIPT.name(),
                 operator(SUBSCRIPT, arrayType, elementType),
                 elementType,
-                ImmutableList.of(arrayExpression, constant(index, INTEGER)));
+                ImmutableList.of(arrayExpression, constant((long) index, INTEGER)));
     }
 
     private RowExpression mapSubscript(RowExpression mapExpression, RowExpression keyExpression)

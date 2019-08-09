@@ -28,6 +28,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class TestValuesNodeStats
         extends BaseStatsCalculatorTest
@@ -41,7 +42,7 @@ public class TestValuesNodeStats
                         ImmutableList.of(pb.variable("a", BIGINT), pb.variable("b", DOUBLE)),
                         ImmutableList.of(
                                 ImmutableList.of(call(ADD.name(), resolution.arithmeticFunction(ADD, BIGINT, BIGINT), BIGINT, constantExpressions(BIGINT, 3L, 3L)), constant(13.5, DOUBLE)),
-                                ImmutableList.of(constant(55, BIGINT), constantNull(DOUBLE)),
+                                ImmutableList.of(constant(55L, BIGINT), constantNull(DOUBLE)),
                                 ImmutableList.of(constant(6L, BIGINT), constant(13.5, DOUBLE)))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
@@ -68,9 +69,9 @@ public class TestValuesNodeStats
                 .values(
                         ImmutableList.of(pb.variable("v", createVarcharType(30))),
                         ImmutableList.of(
-                                constantExpressions(VARCHAR, "Alice"),
-                                constantExpressions(VARCHAR, "has"),
-                                constantExpressions(VARCHAR, "a cat"),
+                                constantExpressions(VARCHAR, utf8Slice("Alice")),
+                                constantExpressions(VARCHAR, utf8Slice("has")),
+                                constantExpressions(VARCHAR, utf8Slice("a cat")),
                                 ImmutableList.of(constantNull(VARCHAR)))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
@@ -98,7 +99,7 @@ public class TestValuesNodeStats
                 .values(
                         ImmutableList.of(pb.variable("a", BIGINT)),
                         ImmutableList.of(
-                                ImmutableList.of(call(ADD.name(), resolution.arithmeticFunction(ADD, BIGINT, BIGINT), BIGINT, constant(3, BIGINT), constantNull(BIGINT))))))
+                                ImmutableList.of(call(ADD.name(), resolution.arithmeticFunction(ADD, BIGINT, BIGINT), BIGINT, constant(3L, BIGINT), constantNull(BIGINT))))))
                 .check(outputStats -> outputStats.equalTo(bigintNullAStats));
 
         tester().assertStatsFor(pb -> pb

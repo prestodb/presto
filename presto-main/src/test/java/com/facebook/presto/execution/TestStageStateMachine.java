@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -327,7 +328,7 @@ public class TestStageStateMachine
                 new PlanFragmentId(0),
                 new ValuesNode(valuesNodeId,
                         ImmutableList.of(variable),
-                        ImmutableList.of(ImmutableList.of(constant("foo", VARCHAR)))),
+                        ImmutableList.of(ImmutableList.of(constant(Slices.utf8Slice("foo"), VARCHAR)))),
                 ImmutableSet.of(variable),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(valuesNodeId),

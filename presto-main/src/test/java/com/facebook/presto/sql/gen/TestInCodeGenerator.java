@@ -44,9 +44,9 @@ public class TestInCodeGenerator
     {
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         List<RowExpression> values = new ArrayList<>();
-        values.add(constant(Integer.MIN_VALUE, INTEGER));
-        values.add(constant(Integer.MAX_VALUE, INTEGER));
-        values.add(constant(3, INTEGER));
+        values.add(constant((long) Integer.MIN_VALUE, INTEGER));
+        values.add(constant((long) Integer.MAX_VALUE, INTEGER));
+        values.add(constant(3L, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
         values.add(constant(null, INTEGER));
@@ -59,11 +59,11 @@ public class TestInCodeGenerator
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
         for (int i = 6; i <= 32; ++i) {
-            values.add(constant(i, INTEGER));
+            values.add(constant((long) i, INTEGER));
         }
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
-        values.add(constant(33, INTEGER));
+        values.add(constant(33L, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), SET_CONTAINS);
     }
 
@@ -138,9 +138,9 @@ public class TestInCodeGenerator
     public void testVarchar()
     {
         List<RowExpression> values = new ArrayList<>();
-        values.add(constant(Slices.utf8Slice("1"), DOUBLE));
-        values.add(constant(Slices.utf8Slice("2"), DOUBLE));
-        values.add(constant(Slices.utf8Slice("3"), DOUBLE));
+        values.add(constant(Slices.utf8Slice("1"), VARCHAR));
+        values.add(constant(Slices.utf8Slice("2"), VARCHAR));
+        values.add(constant(Slices.utf8Slice("3"), VARCHAR));
         assertEquals(checkSwitchGenerationCase(VARCHAR, values), HASH_SWITCH);
 
         values.add(constant(null, VARCHAR));
