@@ -29,7 +29,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -147,8 +146,7 @@ public final class SqlToRowExpressionTranslator
             Map<VariableReferenceExpression, Integer> layout,
             FunctionManager functionManager,
             TypeManager typeManager,
-            Session session,
-            boolean optimize)
+            Session session)
     {
         Visitor visitor = new Visitor(
                 types,
@@ -157,14 +155,7 @@ public final class SqlToRowExpressionTranslator
                 functionManager,
                 session);
         RowExpression result = visitor.process(expression, null);
-
         requireNonNull(result, "translated expression is null");
-
-        if (optimize) {
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(functionManager, session.toConnectorSession());
-            return optimizer.optimize(result);
-        }
-
         return result;
     }
 

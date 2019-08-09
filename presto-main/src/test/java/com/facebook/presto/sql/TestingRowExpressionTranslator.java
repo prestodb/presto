@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableMap;
@@ -68,13 +69,14 @@ public class TestingRowExpressionTranslator
                 ImmutableMap.of(),
                 metadata.getFunctionManager(),
                 metadata.getTypeManager(),
-                TEST_SESSION,
-                false);
+                TEST_SESSION);
     }
 
     public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, true);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION);
+        ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata.getFunctionManager(), TEST_SESSION.toConnectorSession());
+        return optimizer.optimize(rowExpression);
     }
 
     Expression simplifyExpression(Expression expression)

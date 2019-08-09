@@ -31,6 +31,7 @@ import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableList;
@@ -607,7 +608,9 @@ public class BenchmarkDecimalOperators
             Expression expression = createExpression(value, metadata, TypeProvider.copyOf(symbolTypes));
 
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, metadata, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
-            return SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION, true);
+            RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION);
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata.getFunctionManager(), TEST_SESSION.toConnectorSession());
+            return optimizer.optimize(rowExpression);
         }
 
         private Object generateRandomValue(Type type)

@@ -31,6 +31,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingSession;
@@ -180,7 +181,9 @@ public class PageProcessorBenchmark
         Expression expression = createExpression(value, METADATA, TypeProvider.copyOf(symbolTypes));
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
-        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, METADATA.getFunctionManager(), METADATA.getTypeManager(), TEST_SESSION, true);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, METADATA.getFunctionManager(), METADATA.getTypeManager(), TEST_SESSION);
+        ExpressionOptimizer optimizer = new ExpressionOptimizer(METADATA.getFunctionManager(), TEST_SESSION.toConnectorSession());
+        return optimizer.optimize(rowExpression);
     }
 
     private static Page createPage(List<? extends Type> types, boolean dictionary)
