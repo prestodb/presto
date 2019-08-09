@@ -179,8 +179,6 @@ public final class KleinbergBurstDetectionFunction
         {
             return parent;
         }
-
-
     };
 
     /**
