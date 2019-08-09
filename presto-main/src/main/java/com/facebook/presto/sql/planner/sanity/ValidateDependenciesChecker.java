@@ -24,7 +24,6 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
@@ -94,24 +93,22 @@ public final class ValidateDependenciesChecker
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        validate(plan, types, metadata.getTypeManager());
+        validate(plan, types);
     }
 
-    public static void validate(PlanNode plan, TypeProvider types, TypeManager typeManager)
+    public static void validate(PlanNode plan, TypeProvider types)
     {
-        plan.accept(new Visitor(types, typeManager), ImmutableSet.of());
+        plan.accept(new Visitor(types), ImmutableSet.of());
     }
 
     private static class Visitor
             extends InternalPlanVisitor<Void, Set<VariableReferenceExpression>>
     {
         private final TypeProvider types;
-        private final TypeManager typeManager;
 
-        public Visitor(TypeProvider types, TypeManager typeManager)
+        public Visitor(TypeProvider types)
         {
             this.types = requireNonNull(types, "types is null");
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override
@@ -737,17 +734,7 @@ public final class ValidateDependenciesChecker
 
         private void checkDependencies(Collection<VariableReferenceExpression> inputs, Collection<VariableReferenceExpression> required, String message, Object... parameters)
         {
-            // If a variable can be assigned into another type directly, CAST is usually implicitly removed.
-            // For example, we can assign input VARCHAR(3) to output VARCHAR(5)
-            // the reference variable in the assignment will have type VARCHAR(5) while the input is VARCHAR(3).
-            for (VariableReferenceExpression target : required) {
-                checkArgument(
-                        inputs.stream()
-                                .anyMatch(input -> input.getName().equalsIgnoreCase(target.getName()) &&
-                                        typeManager.isTypeOnlyCoercion(input.getType(), target.getType())),
-                        message,
-                        parameters);
-            }
+            checkArgument(ImmutableSet.copyOf(inputs).containsAll(required), message, parameters);
         }
     }
 }
