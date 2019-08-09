@@ -202,7 +202,7 @@ public class TestOrcStorageManager
         ShardInfo shardInfo = Iterables.getOnlyElement(shards);
 
         UUID shardUuid = shardInfo.getShardUuid();
-        File file = storageService.getStorageFile(shardUuid);
+        File file = new File(storageService.getStorageFile(shardUuid).toString());
         File backupFile = fileBackupStore.getBackupFile(shardUuid);
 
         assertEquals(recordedShards.get(0).getTransactionId(), TRANSACTION_ID);
@@ -357,7 +357,7 @@ public class TestOrcStorageManager
         assertEquals(shardInfo.getRowCount(), 1);
 
         // check that storage file is same as backup file
-        File storageFile = storageService.getStorageFile(shardInfo.getShardUuid());
+        File storageFile = new File(storageService.getStorageFile(shardInfo.getShardUuid()).toString());
         File backupFile = fileBackupStore.getBackupFile(shardInfo.getShardUuid());
         assertFileEquals(storageFile, backupFile);
 

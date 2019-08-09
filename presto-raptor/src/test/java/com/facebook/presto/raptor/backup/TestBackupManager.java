@@ -149,7 +149,7 @@ public class TestBackupManager
             assertEquals(e.getMessage(), "Backup is corrupt after write: " + CORRUPTION_UUID);
         }
 
-        File quarantineBase = storageService.getQuarantineFile(CORRUPTION_UUID);
+        File quarantineBase = new File(storageService.getQuarantineFile(CORRUPTION_UUID).toString());
         assertFile(new File(quarantineBase.getPath() + ".original"));
         assertFile(new File(quarantineBase.getPath() + ".restored"));
 
@@ -159,7 +159,7 @@ public class TestBackupManager
 
     private void assertEmptyStagingDirectory()
     {
-        File staging = storageService.getStagingFile(randomUUID()).getParentFile();
+        File staging = new File(storageService.getStagingFile(randomUUID()).getParent().toString());
         assertEquals(staging.list(), new String[] {});
     }
 

@@ -15,11 +15,14 @@ package com.facebook.presto.raptor.backup;
 
 import com.facebook.presto.raptor.storage.BackupStats;
 import com.facebook.presto.raptor.storage.StorageService;
+import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -36,6 +39,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -47,10 +51,12 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 public class BackupManager
 {
     private static final Logger log = Logger.get(BackupManager.class);
+    private static final Configuration CONFIGURATION = new Configuration();
 
     private final Optional<BackupStore> backupStore;
     private final StorageService storageService;
     private final ExecutorService executorService;
+    private final RawLocalFileSystem localFileSystem;  // TODO: inject FileSystem once HDFS environment is ready
 
     private final AtomicInteger pendingBackups = new AtomicInteger();
     private final BackupStats stats = new BackupStats();
@@ -68,6 +74,13 @@ public class BackupManager
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.executorService = newFixedThreadPool(backupThreads, daemonThreadsNamed("background-shard-backup-%s"));
+        try {
+            localFileSystem = new SyncingFileSystem(CONFIGURATION);
+        }
+        catch (IOException e) {
+            stats.incrementBackupFailure();
+            throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
+        }
     }
 
     @PreDestroy
@@ -115,13 +128,13 @@ public class BackupManager
                 backupStore.get().backupShard(uuid, source);
                 stats.addCopyShardDataRate(new DataSize(source.length(), BYTE), Duration.nanosSince(start));
 
-                File restored = new File(storageService.getStagingFile(uuid) + ".validate");
+                File restored = new File(localFileSystem.pathToFile(storageService.getStagingFile(uuid)) + ".validate");
                 backupStore.get().restoreShard(uuid, restored);
 
                 if (!filesEqual(source, restored)) {
                     stats.incrementBackupCorruption();
 
-                    File quarantineBase = storageService.getQuarantineFile(uuid);
+                    File quarantineBase = localFileSystem.pathToFile(storageService.getQuarantineFile(uuid));
                     File quarantineOriginal = new File(quarantineBase.getPath() + ".original");
                     File quarantineRestored = new File(quarantineBase.getPath() + ".restored");
 

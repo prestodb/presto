@@ -21,6 +21,7 @@ import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import io.airlift.units.Duration;
+import org.apache.hadoop.fs.Path;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
@@ -95,7 +96,7 @@ public class TestShardRecovery
             throws Exception
     {
         UUID shardUuid = UUID.randomUUID();
-        File file = storageService.getStorageFile(shardUuid);
+        File file = new File(storageService.getStorageFile(shardUuid).toString());
         File tempFile = createTempFile("tmp", null, temporary);
 
         Files.write("test data", tempFile, UTF_8);
@@ -129,8 +130,8 @@ public class TestShardRecovery
         assertTrue(Files.equal(tempFile, backupFile));
 
         // write corrupt storage file with wrong length
-        File storageFile = storageService.getStorageFile(shardUuid);
-        storageService.createParents(storageFile);
+        File storageFile = new File(storageService.getStorageFile(shardUuid).toString());
+        storageService.createParents(new Path(storageFile.toURI()));
 
         Files.write("bad data", storageFile, UTF_8);
 
@@ -145,7 +146,7 @@ public class TestShardRecovery
         assertTrue(Files.equal(storageFile, tempFile));
 
         // verify quarantine exists
-        List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
+        List<String> quarantined = listFiles(new File(storageService.getQuarantineFile(shardUuid).getParent().toString()));
         assertEquals(quarantined.size(), 1);
         assertTrue(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt"));
     }
@@ -167,8 +168,8 @@ public class TestShardRecovery
         assertTrue(Files.equal(tempFile, backupFile));
 
         // write corrupt storage file with wrong data
-        File storageFile = storageService.getStorageFile(shardUuid);
-        storageService.createParents(storageFile);
+        File storageFile = new File(storageService.getStorageFile(shardUuid).toString());
+        storageService.createParents(new Path(storageFile.toURI()));
 
         Files.write("test xata", storageFile, UTF_8);
 
@@ -183,7 +184,7 @@ public class TestShardRecovery
         assertTrue(Files.equal(storageFile, tempFile));
 
         // verify quarantine exists
-        List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
+        List<String> quarantined = listFiles(new File(storageService.getQuarantineFile(shardUuid).getParent().toString()));
         assertEquals(quarantined.size(), 1);
         assertTrue(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt"));
     }
@@ -195,8 +196,8 @@ public class TestShardRecovery
         UUID shardUuid = UUID.randomUUID();
 
         // write storage file
-        File storageFile = storageService.getStorageFile(shardUuid);
-        storageService.createParents(storageFile);
+        File storageFile = new File(storageService.getStorageFile(shardUuid).toString());
+        storageService.createParents(new Path(storageFile.toURI()));
 
         Files.write("test data", storageFile, UTF_8);
 
@@ -232,7 +233,7 @@ public class TestShardRecovery
         }
 
         // verify quarantine exists
-        List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
+        List<String> quarantined = listFiles(new File(storageService.getQuarantineFile(shardUuid).getParent().toString()));
         assertEquals(quarantined.size(), 1);
         assertTrue(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt"));
     }

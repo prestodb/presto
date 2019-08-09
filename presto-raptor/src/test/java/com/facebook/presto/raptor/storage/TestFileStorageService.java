@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -70,9 +71,9 @@ public class TestFileStorageService
         File staging = new File(temporary, format("staging/%s.orc", uuid));
         File storage = new File(temporary, format("storage/70/1e/%s.orc", uuid));
         File quarantine = new File(temporary, format("quarantine/%s.orc", uuid));
-        assertEquals(store.getStagingFile(uuid), staging);
-        assertEquals(store.getStorageFile(uuid), storage);
-        assertEquals(store.getQuarantineFile(uuid), quarantine);
+        assertEquals(new File(store.getStagingFile(uuid).toString()), staging);
+        assertEquals(new File(store.getStorageFile(uuid).toString()), storage);
+        assertEquals(new File(store.getQuarantineFile(uuid).toString()), quarantine);
     }
 
     @Test
@@ -87,8 +88,8 @@ public class TestFileStorageService
         assertDirectory(storage);
         assertDirectory(quarantine);
 
-        File file = store.getStagingFile(randomUUID());
-        store.createParents(file);
+        File file = new File(store.getStagingFile(randomUUID()).toString());
+        store.createParents(new Path(file.toURI()));
         assertFalse(file.exists());
         assertTrue(file.createNewFile());
         assertFile(file);
@@ -111,8 +112,8 @@ public class TestFileStorageService
                 .build();
 
         for (UUID shard : shards) {
-            File file = store.getStorageFile(shard);
-            store.createParents(file);
+            File file = new File(store.getStorageFile(shard).toString());
+            store.createParents(new Path(file.toURI()));
             assertTrue(file.createNewFile());
         }
 
