@@ -326,6 +326,13 @@ public final class LogicalRowExpressions
         return convertToNormalForm(expression, OR);
     }
 
+    public RowExpression convertToSmallestNormalForm(RowExpression expression)
+    {
+        RowExpression conjunctiveNormalForm = convertToConjunctiveNormalForm(expression);
+        RowExpression disjunctiveNormalForm = convertToDisjunctiveNormalForm(expression);
+        return numOfSubPredicates(conjunctiveNormalForm) > numOfSubPredicates(disjunctiveNormalForm) ? disjunctiveNormalForm : conjunctiveNormalForm;
+    }
+
     public RowExpression convertToNormalForm(RowExpression expression, Form clauseJoiner)
     {
         return pushNegationToLeaves(expression).accept(new ConvertNormalFormVisitor(), rootContext(clauseJoiner));
@@ -621,6 +628,16 @@ public final class LogicalRowExpressions
                 .map(predicate -> isConjunctionOrDisjunction(predicate) ?
                         extractPredicates(predicate) : singletonList(predicate))
                 .collect(toList());
+    }
+
+    private int numOfSubPredicates(RowExpression expression)
+    {
+        if (expression instanceof SpecialFormExpression) {
+            return getSubPredicates((SpecialFormExpression) expression).stream()
+                    .mapToInt(List::size)
+                    .sum();
+        }
+        return 1;
     }
 
     /**
