@@ -238,6 +238,7 @@ import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.relation.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -1254,6 +1255,9 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings, context, source);
                 }
             }
+            catch (PrestoException e) {
+                throw e;
+            }
             catch (RuntimeException e) {
                 throw new PrestoException(COMPILER_ERROR, "Compiler failed", e);
             }
@@ -1262,7 +1266,7 @@ public class LocalExecutionPlanner
         private RowExpression bindChannels(RowExpression expression, Map<VariableReferenceExpression, Integer> sourceLayout)
         {
             Type type = expression.getType();
-            Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), true).optimize();
+            Object value = new RowExpressionInterpreter(expression, metadata, session.toConnectorSession(), OPTIMIZED).optimize();
             if (value instanceof RowExpression) {
                 RowExpression optimized = (RowExpression) value;
                 // building channel info

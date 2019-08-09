@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.FunctionType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -244,6 +245,10 @@ public final class LiteralEncoder
 
     public static boolean isSupportedLiteralType(Type type)
     {
+        if (type instanceof FunctionType) {
+            // FunctionType contains compiled lambda thus not serializable.
+            return false;
+        }
         if (type instanceof ArrayType) {
             return isSupportedLiteralType(((ArrayType) type).getElementType());
         }

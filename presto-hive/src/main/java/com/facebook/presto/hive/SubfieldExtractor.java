@@ -79,7 +79,7 @@ public final class SubfieldExtractor
 
                 RowExpression indexExpression = expressionOptimizer.optimize(
                         dereferenceExpression.getArguments().get(1),
-                        ExpressionOptimizer.Level.MOST_OPTIMIZED,
+                        ExpressionOptimizer.Level.OPTIMIZED,
                         connectorSession);
 
                 if (indexExpression instanceof ConstantExpression) {
@@ -100,7 +100,7 @@ public final class SubfieldExtractor
                 List<RowExpression> arguments = ((CallExpression) expression).getArguments();
                 RowExpression indexExpression = expressionOptimizer.optimize(
                         arguments.get(1),
-                        ExpressionOptimizer.Level.MOST_OPTIMIZED,
+                        ExpressionOptimizer.Level.OPTIMIZED,
                         connectorSession);
 
                 if (indexExpression instanceof ConstantExpression) {

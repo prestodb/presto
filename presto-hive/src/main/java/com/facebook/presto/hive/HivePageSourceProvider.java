@@ -52,7 +52,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
-import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.MOST_OPTIMIZED;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -180,7 +180,7 @@ public class HivePageSourceProvider
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .collect(toImmutableList());
 
-        RowExpression optimizedRemainingPredicate = rowExpressionService.getExpressionOptimizer().optimize(layout.getRemainingPredicate(), MOST_OPTIMIZED, session);
+        RowExpression optimizedRemainingPredicate = rowExpressionService.getExpressionOptimizer().optimize(layout.getRemainingPredicate(), OPTIMIZED, session);
 
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
