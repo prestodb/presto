@@ -65,6 +65,8 @@ public final class SelectiveStreamReaders
                 return new FloatSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             }
             case DOUBLE:
+                checkArgument(requiredSubfields.isEmpty(), "Double stream reader doesn't support subfields");
+                return new DoubleSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             case BINARY:
             case STRING:
             case VARCHAR:

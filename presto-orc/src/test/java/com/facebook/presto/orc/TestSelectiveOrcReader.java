@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -46,6 +47,7 @@ import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
@@ -149,6 +151,46 @@ public class TestSelectiveOrcReader
                 TINYINT,
                 byteValues,
                 ImmutableList.of(ImmutableMap.of(0, BigintRange.of(4, 14, true))));
+    }
+
+    @Test
+    public void testDoubleSequence()
+            throws Exception
+    {
+        List<Map<Integer, TupleDomainFilter>> filters = ImmutableList.of(
+                ImmutableMap.of(0, DoubleRange.of(0, false, false, 1_000, false, false, false)),
+                ImmutableMap.of(0, IS_NULL),
+                ImmutableMap.of(0, IS_NOT_NULL));
+
+        tester.testRoundTrip(DOUBLE, doubleSequence(0, 0.1, 30_000), filters);
+        tester.testRoundTripTypes(
+                ImmutableList.of(DOUBLE, DOUBLE),
+                ImmutableList.of(
+                        doubleSequence(0, 0.1, 10_000),
+                        doubleSequence(0, 0.1, 10_000)),
+                ImmutableList.of(
+                        ImmutableMap.of(
+                                0, DoubleRange.of(1.0, false, true, 7.0, false, true, true),
+                                1, DoubleRange.of(3.0, false, true, 9.0, false, true, false))));
+    }
+
+    @Test
+    public void testDoubleNaNInfinity()
+            throws Exception
+    {
+        List<Map<Integer, TupleDomainFilter>> filters = ImmutableList.of(
+                ImmutableMap.of(0, DoubleRange.of(0, false, false, 1_000, false, false, false)),
+                ImmutableMap.of(0, IS_NULL),
+                ImmutableMap.of(0, IS_NOT_NULL));
+
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(1000.0, -1.0, Double.POSITIVE_INFINITY), filters);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(-1000.0, Double.NEGATIVE_INFINITY, 1.0), filters);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(0.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), filters);
+
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, 1.0), filters);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, Double.POSITIVE_INFINITY), filters);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, 1.0), filters);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), filters);
     }
 
     @Test
@@ -398,5 +440,13 @@ public class TestSelectiveOrcReader
                 return value;
             }
         };
+    }
+
+    private static List<Double> doubleSequence(double start, double step, int items)
+    {
+        return IntStream.range(0, items)
+                .mapToDouble(i -> start + i * step)
+                .boxed()
+                .collect(ImmutableList.toImmutableList());
     }
 }
