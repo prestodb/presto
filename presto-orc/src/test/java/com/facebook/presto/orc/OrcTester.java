@@ -1524,10 +1524,10 @@ public class OrcTester
         String columnTypes = types.stream()
                 .map(OrcTester::getJavaObjectInspector)
                 .map(ObjectInspector::getTypeName)
-                .collect(Collectors.joining(", "));
+                .collect(Collectors.joining(","));
 
         Properties orderTableProperties = new Properties();
-        orderTableProperties.setProperty("columns", String.join(", ", makeColumnNames(types.size())));
+        orderTableProperties.setProperty("columns", String.join(",", makeColumnNames(types.size())));
         orderTableProperties.setProperty("columns.types", columnTypes);
         return orderTableProperties;
     }

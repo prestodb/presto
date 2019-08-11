@@ -2128,7 +2128,7 @@ public abstract class AbstractTestHiveClient
         assertEmptyFile(TEXTFILE);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .*SequenceFile.*EOFException")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .* not a SequenceFile")
     public void testEmptySequenceFile()
             throws Exception
     {

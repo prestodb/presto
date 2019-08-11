@@ -15,7 +15,7 @@ package com.facebook.presto.hive;
 
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
-import parquet.hadoop.ParquetWriter;
+import org.apache.parquet.hadoop.ParquetWriter;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
 

@@ -26,7 +26,6 @@ import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Date;
 import org.apache.hadoop.hive.metastore.api.DateColumnStatsData;
-import org.apache.hadoop.hive.metastore.api.Decimal;
 import org.apache.hadoop.hive.metastore.api.DecimalColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.DoubleColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.LongColumnStatsData;
@@ -34,7 +33,6 @@ import org.apache.hadoop.hive.metastore.api.StringColumnStatsData;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -42,6 +40,7 @@ import java.util.OptionalLong;
 
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreDecimal;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
 import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
@@ -146,9 +145,9 @@ public class TestThriftMetastoreUtil
     {
         DecimalColumnStatsData decimalColumnStatsData = new DecimalColumnStatsData();
         BigDecimal low = new BigDecimal("0");
-        decimalColumnStatsData.setLowValue(new Decimal(ByteBuffer.wrap(low.unscaledValue().toByteArray()), (short) low.scale()));
+        decimalColumnStatsData.setLowValue(toMetastoreDecimal(low));
         BigDecimal high = new BigDecimal("100");
-        decimalColumnStatsData.setHighValue(new Decimal(ByteBuffer.wrap(high.unscaledValue().toByteArray()), (short) high.scale()));
+        decimalColumnStatsData.setHighValue(toMetastoreDecimal(high));
         decimalColumnStatsData.setNumNulls(1);
         decimalColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DECIMAL_TYPE_NAME, decimalStats(decimalColumnStatsData));
