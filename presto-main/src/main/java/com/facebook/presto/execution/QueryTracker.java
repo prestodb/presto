@@ -35,12 +35,16 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.facebook.presto.sql.planner.PlanFragmenter.TOO_MANY_STAGES_MESSAGE;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -51,6 +55,12 @@ public class QueryTracker<T extends TrackedQuery>
     private static final Logger log = Logger.get(QueryTracker.class);
 
     private final int maxQueryHistory;
+    private final int maxTotalRunningTaskCount;
+    private final int maxQueryRunningTaskCount;
+
+    private final AtomicInteger runningTaskCount = new AtomicInteger();
+    private final AtomicLong queriesKilledDueToTooManyTask = new AtomicLong();
+
     private final Duration minQueryExpireAge;
 
     private final ConcurrentMap<QueryId, T> queries = new ConcurrentHashMap<>();
@@ -69,6 +79,8 @@ public class QueryTracker<T extends TrackedQuery>
         this.minQueryExpireAge = queryManagerConfig.getMinQueryExpireAge();
         this.maxQueryHistory = queryManagerConfig.getMaxQueryHistory();
         this.clientTimeout = queryManagerConfig.getClientTimeout();
+        this.maxTotalRunningTaskCount = queryManagerConfig.getMaxTotalRunningTaskCount();
+        this.maxQueryRunningTaskCount = queryManagerConfig.getMaxQueryRunningTaskCount();
 
         this.queryManagementExecutor = requireNonNull(queryManagementExecutor, "queryManagementExecutor is null");
     }
@@ -89,6 +101,15 @@ public class QueryTracker<T extends TrackedQuery>
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query timeout limits");
+            }
+
+            try {
+                if (maxTotalRunningTaskCount != Integer.MAX_VALUE && maxQueryRunningTaskCount != Integer.MAX_VALUE) {
+                    enforceTaskLimits();
+                }
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing running task limits");
             }
 
             try {
@@ -167,6 +188,16 @@ public class QueryTracker<T extends TrackedQuery>
                 .ifPresent(expirationQueue::add);
     }
 
+    public long getRunningTaskCount()
+    {
+        return runningTaskCount.get();
+    }
+
+    public long getQueriesKilledDueToTooManyTask()
+    {
+        return queriesKilledDueToTooManyTask.get();
+    }
+
     /**
      * Enforce query max runtime/execution time limits
      */
@@ -186,6 +217,39 @@ public class QueryTracker<T extends TrackedQuery>
             if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
                 query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
             }
+        }
+    }
+
+    /**
+     *  When cluster reaches max tasks limit and also a single query
+     *  exceeds a threshold,  kill this query
+     */
+    private void enforceTaskLimits()
+    {
+        int totalRunningTaskCount = 0;
+        int highestRunningTaskCount = 0;
+        Optional<T> highestRunningTaskQuery = Optional.empty();
+        for (T query : queries.values()) {
+            if (query.isDone()) {
+                continue;
+            }
+            int runningTaskCount = query.getRunningTaskCount();
+            totalRunningTaskCount += runningTaskCount;
+            if (runningTaskCount > highestRunningTaskCount) {
+                highestRunningTaskCount = runningTaskCount;
+                highestRunningTaskQuery = Optional.of(query);
+            }
+        }
+
+        runningTaskCount.set(totalRunningTaskCount);
+
+        if (totalRunningTaskCount > maxTotalRunningTaskCount &&
+                highestRunningTaskCount > maxQueryRunningTaskCount &&
+                highestRunningTaskQuery.isPresent()) {
+            highestRunningTaskQuery.get().fail(new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(
+                    "Query killed because the cluster is overloaded with too many tasks (%s) and this query was running with the highest number of tasks (%s). %s Otherwise, please try again later.",
+                    totalRunningTaskCount, highestRunningTaskCount, TOO_MANY_STAGES_MESSAGE)));
+            queriesKilledDueToTooManyTask.incrementAndGet();
         }
     }
 
@@ -291,6 +355,8 @@ public class QueryTracker<T extends TrackedQuery>
         DateTime getLastHeartbeat();
 
         Optional<DateTime> getEndTime();
+
+        int getRunningTaskCount();
 
         void fail(Throwable cause);
 

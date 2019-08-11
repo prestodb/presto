@@ -266,6 +266,12 @@ public class MockQueryExecution
     }
 
     @Override
+    public int getRunningTaskCount()
+    {
+        return getQueryInfo().getQueryStats().getRunningTasks();
+    }
+
+    @Override
     public DataSize getUserMemoryReservation()
     {
         return memoryUsage;

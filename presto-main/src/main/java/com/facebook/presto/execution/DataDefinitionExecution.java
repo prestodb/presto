@@ -157,6 +157,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public int getRunningTaskCount()
+    {
+        return stateMachine.getCurrentRunningTaskCount();
+    }
+
+    @Override
     public void start()
     {
         try {
