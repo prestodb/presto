@@ -326,6 +326,12 @@ public class SqlQueryExecution
     }
 
     @Override
+    public int getRunningTaskCount()
+    {
+        return stateMachine.getCurrentRunningTaskCount();
+    }
+
+    @Override
     public void start()
     {
         if (stateMachine.transitionToWaitingForResources()) {

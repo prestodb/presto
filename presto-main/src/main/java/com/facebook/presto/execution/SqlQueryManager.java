@@ -496,6 +496,18 @@ public class SqlQueryManager
         return queryManagementExecutorMBean;
     }
 
+    @Managed
+    public long getRunningTaskCount()
+    {
+        return queryTracker.getRunningTaskCount();
+    }
+
+    @Managed
+    public long getQueriesKilledDueToTooManyTask()
+    {
+        return queryTracker.getQueriesKilledDueToTooManyTask();
+    }
+
     /**
      * Enforce memory limits at the query level
      */
