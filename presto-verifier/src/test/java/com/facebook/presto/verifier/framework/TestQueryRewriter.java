@@ -163,7 +163,7 @@ public class TestQueryRewriter
             List<String> expectedTeardownTemplates)
     {
         for (ClusterType cluster : ClusterType.values()) {
-            QueryBundle bundle = queryRewriter.rewriteQuery(query, cluster, CONFIGURATION, new VerificationContext());
+            QueryBundle bundle = queryRewriter.rewriteQuery(query, cluster);
 
             String tableName = bundle.getTableName().toString();
             assertTrue(tableName.startsWith(prefix + "_"));
@@ -176,7 +176,7 @@ public class TestQueryRewriter
 
     private void assertTableName(QueryRewriter queryRewriter, @Language("SQL") String query, String expectedPrefix)
     {
-        QueryBundle bundle = queryRewriter.rewriteQuery(query, CONTROL, CONFIGURATION, new VerificationContext());
+        QueryBundle bundle = queryRewriter.rewriteQuery(query, CONTROL);
         assertTrue(bundle.getTableName().toString().startsWith(expectedPrefix));
     }
 
@@ -200,6 +200,9 @@ public class TestQueryRewriter
                 sqlParser,
                 new JdbcPrestoAction(
                         new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
+                        CONFIGURATION,
+                        CONFIGURATION,
+                        new VerificationContext(),
                         config,
                         new RetryConfig(),
                         new RetryConfig()),

@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
-import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUMN_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
@@ -50,20 +49,21 @@ public class DataVerification
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
             List<FailureResolver> failureResolvers,
-            VerifierConfig config,
+            VerificationContext verificationContext,
+            VerifierConfig verifierConfig,
             ChecksumValidator checksumValidator)
     {
-        super(verificationResubmitter, prestoAction, sourceQuery, queryRewriter, failureResolvers, config);
+        super(verificationResubmitter, prestoAction, sourceQuery, queryRewriter, failureResolvers, verificationContext, verifierConfig);
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
     }
 
     @Override
     public VerificationResult verify(QueryBundle control, QueryBundle test)
     {
-        List<Column> controlColumns = getColumns(control.getTableName(), CONTROL);
-        List<Column> testColumns = getColumns(test.getTableName(), TEST);
-        ChecksumQueryAndResult controlChecksum = computeChecksum(control, controlColumns, CONTROL);
-        ChecksumQueryAndResult testChecksum = computeChecksum(test, testColumns, TEST);
+        List<Column> controlColumns = getColumns(control.getTableName());
+        List<Column> testColumns = getColumns(test.getTableName());
+        ChecksumQueryAndResult controlChecksum = computeChecksum(control, controlColumns);
+        ChecksumQueryAndResult testChecksum = computeChecksum(test, testColumns);
         return new VerificationResult(
                 controlChecksum.getQueryId(),
                 testChecksum.getQueryId(),
@@ -79,20 +79,20 @@ public class DataVerification
     @Override
     protected Optional<Boolean> isDeterministic(QueryBundle control, ChecksumResult firstChecksum)
     {
-        List<Column> columns = getColumns(control.getTableName(), CONTROL);
+        List<Column> columns = getColumns(control.getTableName());
 
         QueryBundle secondRun = null;
         QueryBundle thirdRun = null;
         try {
-            secondRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL, getConfiguration(CONTROL), getVerificationContext());
+            secondRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
             setupAndRun(secondRun, CONTROL);
-            if (!match(columns, columns, firstChecksum, computeChecksum(secondRun, columns, CONTROL).getResult()).isMatched()) {
+            if (!match(columns, columns, firstChecksum, computeChecksum(secondRun, columns).getResult()).isMatched()) {
                 return Optional.of(false);
             }
 
-            thirdRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL, getConfiguration(CONTROL), getVerificationContext());
+            thirdRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
             setupAndRun(thirdRun, CONTROL);
-            if (!match(columns, columns, firstChecksum, computeChecksum(thirdRun, columns, CONTROL).getResult()).isMatched()) {
+            if (!match(columns, columns, firstChecksum, computeChecksum(thirdRun, columns).getResult()).isMatched()) {
                 return Optional.of(false);
             }
 
@@ -147,26 +147,19 @@ public class DataVerification
                 mismatchedColumns);
     }
 
-    private List<Column> getColumns(QualifiedName tableName, ClusterType cluster)
+    private List<Column> getColumns(QualifiedName tableName)
     {
         return getPrestoAction()
-                .execute(
-                        new ShowColumns(tableName),
-                        getConfiguration(cluster),
-                        forDescribe(),
-                        getVerificationContext(),
-                        Column::fromResultSet)
+                .execute(new ShowColumns(tableName), forDescribe(), Column::fromResultSet)
                 .getResults();
     }
 
-    private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns, ClusterType cluster)
+    private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns)
     {
         Query checksumQuery = checksumValidator.generateChecksumQuery(bundle.getTableName(), columns);
         QueryResult<ChecksumResult> queryResult = getPrestoAction().execute(
                 checksumQuery,
-                getConfiguration(cluster),
                 forChecksum(),
-                getVerificationContext(),
                 ChecksumResult::fromResultSet);
         return new ChecksumQueryAndResult(
                 queryResult.getQueryStats().getQueryId(),

@@ -25,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 
-import javax.inject.Inject;
-
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
@@ -51,6 +49,8 @@ public class JdbcPrestoAction
     private static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
 
     private final SqlExceptionClassifier exceptionClassifier;
+    private final Map<ClusterType, QueryConfiguration> configurations;
+    private final VerificationContext context;
 
     private final Map<ClusterType, String> clusterUrls;
     private final Duration controlTimeout;
@@ -61,14 +61,21 @@ public class JdbcPrestoAction
     private final RetryDriver networkRetry;
     private final RetryDriver prestoRetry;
 
-    @Inject
     public JdbcPrestoAction(
             SqlExceptionClassifier exceptionClassifier,
+            QueryConfiguration controlConfiguration,
+            QueryConfiguration testConfiguration,
+            VerificationContext context,
             VerifierConfig config,
             @ForClusterConnection RetryConfig networkRetryConfig,
             @ForPresto RetryConfig prestoRetryConfig)
     {
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
+        this.configurations = ImmutableMap.of(
+                CONTROL, controlConfiguration,
+                TEST, testConfiguration);
+        this.context = requireNonNull(context, "context is null");
+
         this.clusterUrls = ImmutableMap.of(
                 CONTROL, config.getControlJdbcUrl(),
                 TEST, config.getTestJdbcUrl());
@@ -82,32 +89,18 @@ public class JdbcPrestoAction
     }
 
     @Override
-    public QueryStats execute(
-            Statement statement,
-            QueryConfiguration configuration,
-            QueryOrigin queryOrigin,
-            VerificationContext context)
+    public QueryStats execute(Statement statement, QueryOrigin queryOrigin)
     {
-        return execute(statement, configuration, queryOrigin, context, Optional.empty()).getQueryStats();
+        return execute(statement, queryOrigin, Optional.empty()).getQueryStats();
     }
 
     @Override
-    public <R> QueryResult<R> execute(
-            Statement statement,
-            QueryConfiguration configuration,
-            QueryOrigin queryOrigin,
-            VerificationContext context,
-            ResultSetConverter<R> converter)
+    public <R> QueryResult<R> execute(Statement statement, QueryOrigin queryOrigin, ResultSetConverter<R> converter)
     {
-        return execute(statement, configuration, queryOrigin, context, Optional.of(converter));
+        return execute(statement, queryOrigin, Optional.of(converter));
     }
 
-    private <R> QueryResult<R> execute(
-            Statement statement,
-            QueryConfiguration configuration,
-            QueryOrigin queryOrigin,
-            VerificationContext context,
-            Optional<ResultSetConverter<R>> converter)
+    private <R> QueryResult<R> execute(Statement statement, QueryOrigin queryOrigin, Optional<ResultSetConverter<R>> converter)
     {
         return prestoRetry.run(
                 "presto",
@@ -115,19 +108,15 @@ public class JdbcPrestoAction
                 () -> networkRetry.run(
                         "presto-cluster-connection",
                         context,
-                        () -> executeOnce(statement, configuration, queryOrigin, converter)));
+                        () -> executeOnce(statement, queryOrigin, converter)));
     }
 
-    private <R> QueryResult<R> executeOnce(
-            Statement statement,
-            QueryConfiguration configuration,
-            QueryOrigin queryOrigin,
-            Optional<ResultSetConverter<R>> converter)
+    private <R> QueryResult<R> executeOnce(Statement statement, QueryOrigin queryOrigin, Optional<ResultSetConverter<R>> converter)
     {
         String query = formatSql(statement, Optional.empty());
         ProgressMonitor progressMonitor = new ProgressMonitor();
 
-        try (PrestoConnection connection = getConnection(configuration, queryOrigin)) {
+        try (PrestoConnection connection = getConnection(queryOrigin)) {
             try (java.sql.Statement jdbcStatement = connection.createStatement()) {
                 PrestoStatement prestoStatement = jdbcStatement.unwrap(PrestoStatement.class);
                 prestoStatement.setProgressMonitor(progressMonitor);
@@ -175,11 +164,10 @@ public class JdbcPrestoAction
         }
     }
 
-    private PrestoConnection getConnection(
-            QueryConfiguration configuration,
-            QueryOrigin queryOrigin)
+    private PrestoConnection getConnection(QueryOrigin queryOrigin)
             throws SQLException
     {
+        QueryConfiguration configuration = configurations.get(queryOrigin.getCluster());
         PrestoConnection connection = DriverManager.getConnection(
                 clusterUrls.get(queryOrigin.getCluster()),
                 configuration.getUsername().orElse(null),

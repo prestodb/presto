@@ -56,6 +56,7 @@ public class TestJdbcPrestoAction
 
     private static StandaloneQueryRunner queryRunner;
 
+    private VerificationContext verificationContext;
     private PrestoAction prestoAction;
 
     @BeforeClass
@@ -69,8 +70,12 @@ public class TestJdbcPrestoAction
     public void setup()
     {
         String jdbcUrl = getJdbcUrl(queryRunner);
+        verificationContext = new VerificationContext();
         prestoAction = new JdbcPrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
+                CONFIGURATION,
+                CONFIGURATION,
+                verificationContext,
                 new VerifierConfig()
                         .setControlJdbcUrl(jdbcUrl)
                         .setTestJdbcUrl(jdbcUrl),
@@ -84,17 +89,13 @@ public class TestJdbcPrestoAction
         assertEquals(
                 prestoAction.execute(
                         sqlParser.createStatement("SELECT 1", new ParsingOptions(AS_DECIMAL)),
-                        CONFIGURATION,
-                        QUERY_ORIGIN,
-                        new VerificationContext()).getState(),
+                        QUERY_ORIGIN).getState(),
                 FINISHED.name());
 
         assertEquals(
                 prestoAction.execute(
                         sqlParser.createStatement("CREATE TABLE test_table (x int)", new ParsingOptions(AS_DECIMAL)),
-                        CONFIGURATION,
-                        QUERY_ORIGIN,
-                        new VerificationContext()).getState(),
+                        QUERY_ORIGIN).getState(),
                 FINISHED.name());
     }
 
@@ -103,9 +104,7 @@ public class TestJdbcPrestoAction
     {
         QueryResult<Integer> result = prestoAction.execute(
                 sqlParser.createStatement("SELECT x FROM (VALUES (1), (2), (3)) t(x)", new ParsingOptions(AS_DECIMAL)),
-                CONFIGURATION,
                 QUERY_ORIGIN,
-                new VerificationContext(),
                 resultSet -> resultSet.getInt("x") * resultSet.getInt("x"));
         assertEquals(result.getQueryStats().getState(), FINISHED.name());
         assertEquals(result.getResults(), ImmutableList.of(1, 4, 9));
@@ -114,13 +113,10 @@ public class TestJdbcPrestoAction
     @Test
     public void testQueryFailed()
     {
-        VerificationContext context = new VerificationContext();
         try {
             prestoAction.execute(
                     sqlParser.createStatement("SELECT * FROM test_table", new ParsingOptions(AS_DECIMAL)),
-                    CONFIGURATION,
-                    QUERY_ORIGIN,
-                    context);
+                    QUERY_ORIGIN);
             fail("Expect QueryException");
         }
         catch (QueryException qe) {
@@ -130,7 +126,7 @@ public class TestJdbcPrestoAction
             assertTrue(qe.getQueryStats().isPresent());
             assertEquals(qe.getQueryStats().get().getState(), FAILED.name());
 
-            QueryFailure queryFailure = getOnlyElement(context.getQueryFailures());
+            QueryFailure queryFailure = getOnlyElement(verificationContext.getQueryFailures());
             assertEquals(queryFailure.getQueryStage(), MAIN.name());
             assertEquals(queryFailure.getErrorCode(), "PRESTO(SYNTAX_ERROR)");
             assertFalse(queryFailure.isRetryable());

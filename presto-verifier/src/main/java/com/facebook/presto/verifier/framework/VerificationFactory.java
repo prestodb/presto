@@ -28,27 +28,27 @@ import static java.util.Objects.requireNonNull;
 public class VerificationFactory
 {
     private final SqlParser sqlParser;
-    private final PrestoAction prestoAction;
-    private final QueryRewriter queryRewriter;
+    private final PrestoActionFactory prestoActionFactory;
+    private final QueryRewriterFactory queryRewriterFactory;
     private final ChecksumValidator checksumValidator;
     private final List<FailureResolver> failureResolvers;
-    private final VerifierConfig config;
+    private final VerifierConfig verifierConfig;
 
     @Inject
     public VerificationFactory(
             SqlParser sqlParser,
-            PrestoAction prestoAction,
-            QueryRewriter queryRewriter,
+            PrestoActionFactory prestoActionFactory,
+            QueryRewriterFactory queryRewriterFactory,
             ChecksumValidator checksumValidator,
             List<FailureResolver> failureResolvers,
-            VerifierConfig config)
+            VerifierConfig verifierConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
-        this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
+        this.prestoActionFactory = requireNonNull(prestoActionFactory, "prestoActionFactory is null");
+        this.queryRewriterFactory = requireNonNull(queryRewriterFactory, "queryRewriterFactory is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
-        this.config = requireNonNull(config, "config is null");
+        this.verifierConfig = requireNonNull(verifierConfig, "config is null");
     }
 
     public Verification get(VerificationResubmitter verificationResubmitter, SourceQuery sourceQuery)
@@ -56,7 +56,21 @@ public class VerificationFactory
         QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
         switch (queryType.getCategory()) {
             case DATA_PRODUCING:
-                return new DataVerification(verificationResubmitter, prestoAction, sourceQuery, queryRewriter, failureResolvers, config, checksumValidator);
+                VerificationContext verificationContext = new VerificationContext();
+                PrestoAction prestoAction = prestoActionFactory.create(
+                        sourceQuery.getControlConfiguration(),
+                        sourceQuery.getTestConfiguration(),
+                        verificationContext);
+                QueryRewriter queryRewriter = queryRewriterFactory.create(prestoAction);
+                return new DataVerification(
+                        verificationResubmitter,
+                        prestoAction,
+                        sourceQuery,
+                        queryRewriter,
+                        failureResolvers,
+                        verificationContext,
+                        verifierConfig,
+                        checksumValidator);
             default:
                 throw new IllegalStateException(format("Unsupported query type: %s", queryType));
         }
