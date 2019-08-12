@@ -53,6 +53,7 @@ public class VerifierQueryEvent
     private final String errorCode;
     private final String errorMessage;
 
+    private final QueryFailure finalQueryFailure;
     private final List<QueryFailure> queryFailures;
 
     public VerifierQueryEvent(
@@ -67,6 +68,7 @@ public class VerifierQueryEvent
             QueryInfo testQueryInfo,
             Optional<String> errorCode,
             Optional<String> errorMessage,
+            Optional<QueryFailure> finalQueryFailure,
             List<QueryFailure> queryFailures)
     {
         this.suite = requireNonNull(suite, "suite is null");
@@ -80,6 +82,7 @@ public class VerifierQueryEvent
         this.testQueryInfo = requireNonNull(testQueryInfo, "testQueryInfo is null");
         this.errorCode = errorCode.orElse(null);
         this.errorMessage = errorMessage.orElse(null);
+        this.finalQueryFailure = finalQueryFailure.orElse(null);
         this.queryFailures = ImmutableList.copyOf(queryFailures);
     }
 
@@ -147,6 +150,12 @@ public class VerifierQueryEvent
     public String getErrorMessage()
     {
         return errorMessage;
+    }
+
+    @EventField
+    public QueryFailure getFinalQueryFailure()
+    {
+        return finalQueryFailure;
     }
 
     @EventField
