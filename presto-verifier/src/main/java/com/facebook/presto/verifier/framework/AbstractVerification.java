@@ -17,7 +17,7 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
-import com.facebook.presto.verifier.event.FailureInfo;
+import com.facebook.presto.verifier.event.QueryFailure;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
@@ -315,7 +315,7 @@ public abstract class AbstractVerification
             Optional<String> checksumQuery,
             Optional<QueryBundle> queryBundle,
             Optional<QueryStats> queryStats,
-            List<FailureInfo> allFailures)
+            List<QueryFailure> allFailures)
     {
         return new QueryInfo(
                 configuration.getCatalog(),

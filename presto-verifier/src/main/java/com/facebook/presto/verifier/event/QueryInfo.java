@@ -38,7 +38,7 @@ public class QueryInfo
     private final String checksumQuery;
     private final Double cpuTimeSecs;
     private final Double wallTimeSecs;
-    private final List<FailureInfo> allFailures;
+    private final List<QueryFailure> allFailures;
 
     public QueryInfo(
             String catalog,
@@ -52,7 +52,7 @@ public class QueryInfo
             Optional<String> checksumQuery,
             Optional<Double> cpuTimeSecs,
             Optional<Double> wallTimeSecs,
-            List<FailureInfo> allFailures)
+            List<QueryFailure> allFailures)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -135,7 +135,7 @@ public class QueryInfo
     }
 
     @EventField
-    public List<FailureInfo> getAllFailures()
+    public List<QueryFailure> getAllFailures()
     {
         return allFailures;
     }
