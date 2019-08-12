@@ -289,6 +289,7 @@ public class OrcTester
     public static OrcTester quickSelectiveOrcTester()
     {
         OrcTester orcTester = new OrcTester();
+        orcTester.listTestsEnabled = true;
         orcTester.nullTestsEnabled = true;
         orcTester.skipBatchTestsEnabled = true;
         orcTester.formats = ImmutableSet.of(ORC_12, ORC_11, DWRF);
