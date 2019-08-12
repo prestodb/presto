@@ -17,10 +17,14 @@ import com.google.common.collect.ImmutableMap;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.OVERRIDE;
+import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.SUBSTITUTE;
 import static java.util.Objects.requireNonNull;
 
 public class QueryConfiguration
@@ -48,6 +52,17 @@ public class QueryConfiguration
 
     public QueryConfiguration applyOverrides(QueryConfigurationOverrides overrides)
     {
+        Map<String, String> sessionProperties = this.sessionProperties;
+        if (overrides.getSessionPropertiesOverrideStrategy() == OVERRIDE) {
+            sessionProperties = overrides.getSessionPropertiesOverride();
+        }
+        else if (overrides.getSessionPropertiesOverrideStrategy() == SUBSTITUTE) {
+            sessionProperties = new HashMap<>(sessionProperties);
+            for (Entry<String, String> entry : overrides.getSessionPropertiesOverride().entrySet()) {
+                sessionProperties.put(entry.getKey(), entry.getValue());
+            }
+        }
+
         return new QueryConfiguration(
                 overrides.getCatalogOverride().orElse(catalog),
                 overrides.getSchemaOverride().orElse(schema),

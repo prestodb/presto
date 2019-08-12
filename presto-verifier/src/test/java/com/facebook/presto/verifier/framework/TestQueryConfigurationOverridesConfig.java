@@ -18,6 +18,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.NO_ACTION;
+import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.SUBSTITUTE;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -31,7 +33,9 @@ public class TestQueryConfigurationOverridesConfig
                 .setCatalogOverride(null)
                 .setSchemaOverride(null)
                 .setUsernameOverride(null)
-                .setPasswordOverride(null));
+                .setPasswordOverride(null)
+                .setSessionPropertiesOverrideStrategy(NO_ACTION)
+                .setSessionPropertiesOverride(null));
     }
 
     @Test
@@ -42,12 +46,16 @@ public class TestQueryConfigurationOverridesConfig
                 .put("schema-override", "_schema")
                 .put("username-override", "_username")
                 .put("password-override", "_password")
+                .put("session-properties-override-strategy", "SUBSTITUTE")
+                .put("session-properties-override", "{\"key\": \"value\"}")
                 .build();
         QueryConfigurationOverridesConfig expected = new QueryConfigurationOverridesConfig()
                 .setCatalogOverride("_catalog")
                 .setSchemaOverride("_schema")
                 .setUsernameOverride("_username")
-                .setPasswordOverride("_password");
+                .setPasswordOverride("_password")
+                .setSessionPropertiesOverrideStrategy(SUBSTITUTE)
+                .setSessionPropertiesOverride("{\"key\": \"value\"}");
 
         assertFullMapping(properties, expected);
     }
