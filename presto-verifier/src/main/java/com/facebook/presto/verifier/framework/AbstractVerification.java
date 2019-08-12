@@ -17,7 +17,6 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
-import com.facebook.presto.verifier.event.QueryFailure;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
@@ -279,18 +278,17 @@ public abstract class AbstractVerification
                         verificationResult.map(VerificationResult::getControlChecksumQueryId),
                         verificationResult.map(VerificationResult::getControlChecksumQuery),
                         control,
-                        controlStats,
-                        verificationContext.getAllFailures(CONTROL)),
+                        controlStats),
                 buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
                         verificationResult.map(VerificationResult::getTestChecksumQueryId),
                         verificationResult.map(VerificationResult::getTestChecksumQuery),
                         test,
-                        testStats,
-                        verificationContext.getAllFailures(TEST)),
+                        testStats),
                 errorCode,
-                Optional.ofNullable(errorMessage));
+                Optional.ofNullable(errorMessage),
+                verificationContext.getQueryFailures());
     }
 
     private Optional<String> resolveFailure(QueryStats controlStats, QueryException queryException)
@@ -313,8 +311,7 @@ public abstract class AbstractVerification
             Optional<String> checksumQueryId,
             Optional<String> checksumQuery,
             Optional<QueryBundle> queryBundle,
-            Optional<QueryStats> queryStats,
-            List<QueryFailure> allFailures)
+            Optional<QueryStats> queryStats)
     {
         return new QueryInfo(
                 configuration.getCatalog(),
@@ -327,8 +324,7 @@ public abstract class AbstractVerification
                 queryBundle.map(QueryBundle::getTeardownQueries).map(AbstractVerification::formatSqls),
                 checksumQuery,
                 millisToSeconds(queryStats.map(QueryStats::getCpuTimeMillis)),
-                millisToSeconds(queryStats.map(QueryStats::getWallTimeMillis)),
-                allFailures);
+                millisToSeconds(queryStats.map(QueryStats::getWallTimeMillis)));
     }
 
     protected static String formatSql(Statement statement)

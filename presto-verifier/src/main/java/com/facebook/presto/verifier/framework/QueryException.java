@@ -16,12 +16,14 @@ package com.facebook.presto.verifier.framework;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.verifier.event.QueryFailure;
 import com.google.common.base.Function;
 
 import java.util.Optional;
 
 import static com.facebook.presto.verifier.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -108,5 +110,15 @@ public class QueryException
     public String getErrorCode()
     {
         return format("%s(%s)", type.name(), type.descriptionGenerator.apply(this));
+    }
+
+    public QueryFailure toQueryFailure()
+    {
+        return new QueryFailure(
+                queryOrigin.getCluster(),
+                queryOrigin.getStage(),
+                getErrorCode(),
+                queryStats.map(QueryStats::getQueryId),
+                getStackTraceAsString(this));
     }
 }

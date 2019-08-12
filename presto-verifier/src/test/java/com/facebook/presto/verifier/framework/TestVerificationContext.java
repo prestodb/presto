@@ -35,24 +35,24 @@ public class TestVerificationContext
         VerificationContext context = new VerificationContext();
         QueryException queryException = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), false, Optional.empty(), QUERY_ORIGIN);
 
-        context.recordFailure(queryException);
-        context.recordFailure(queryException);
+        context.addException(queryException);
+        context.addException(queryException);
 
-        List<QueryFailure> allFailures = context.getAllFailures(CONTROL);
-        assertEquals(allFailures.size(), 1);
-        assertEquals(allFailures.get(0).getErrorCode(), "PRESTO(REMOTE_HOST_GONE)");
+        List<QueryFailure> queryFailures = context.getQueryFailures();
+        assertEquals(queryFailures.size(), 1);
+        assertEquals(queryFailures.get(0).getErrorCode(), "PRESTO(REMOTE_HOST_GONE)");
     }
 
     @Test
     public void testMultipleExceptions()
     {
         VerificationContext context = new VerificationContext();
-        context.recordFailure(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN));
-        context.recordFailure(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN));
+        context.addException(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN));
+        context.addException(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN));
 
-        List<QueryFailure> allFailures = context.getAllFailures(CONTROL);
-        assertEquals(allFailures.size(), 2);
-        assertEquals(allFailures.get(0).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
-        assertEquals(allFailures.get(1).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
+        List<QueryFailure> queryFailures = context.getQueryFailures();
+        assertEquals(queryFailures.size(), 2);
+        assertEquals(queryFailures.get(0).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
+        assertEquals(queryFailures.get(1).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
     }
 }

@@ -57,7 +57,7 @@ public class RetryDriver
                 return operation.run();
             }
             catch (QueryException qe) {
-                context.recordFailure(qe);
+                context.addException(qe);
                 if (attempt >= maxAttempts || !retryPredicate.test(qe)) {
                     throw qe;
                 }

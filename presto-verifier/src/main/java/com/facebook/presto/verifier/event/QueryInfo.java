@@ -38,7 +38,6 @@ public class QueryInfo
     private final String checksumQuery;
     private final Double cpuTimeSecs;
     private final Double wallTimeSecs;
-    private final List<QueryFailure> allFailures;
 
     public QueryInfo(
             String catalog,
@@ -51,8 +50,7 @@ public class QueryInfo
             Optional<List<String>> teardownQueries,
             Optional<String> checksumQuery,
             Optional<Double> cpuTimeSecs,
-            Optional<Double> wallTimeSecs,
-            List<QueryFailure> allFailures)
+            Optional<Double> wallTimeSecs)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -65,7 +63,6 @@ public class QueryInfo
         this.checksumQuery = checksumQuery.orElse(null);
         this.cpuTimeSecs = cpuTimeSecs.orElse(null);
         this.wallTimeSecs = wallTimeSecs.orElse(null);
-        this.allFailures = requireNonNull(allFailures, "allFailures is null");
     }
 
     @EventField
@@ -132,11 +129,5 @@ public class QueryInfo
     public Double getWallTimeSecs()
     {
         return wallTimeSecs;
-    }
-
-    @EventField
-    public List<QueryFailure> getAllFailures()
-    {
-        return allFailures;
     }
 }

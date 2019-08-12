@@ -14,11 +14,13 @@
 package com.facebook.presto.verifier.event;
 
 import com.facebook.presto.verifier.framework.SkippedReason;
+import com.google.common.collect.ImmutableList;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -51,6 +53,8 @@ public class VerifierQueryEvent
     private final String errorCode;
     private final String errorMessage;
 
+    private final List<QueryFailure> queryFailures;
+
     public VerifierQueryEvent(
             String suite,
             String testId,
@@ -62,7 +66,8 @@ public class VerifierQueryEvent
             QueryInfo controlQueryInfo,
             QueryInfo testQueryInfo,
             Optional<String> errorCode,
-            Optional<String> errorMessage)
+            Optional<String> errorMessage,
+            List<QueryFailure> queryFailures)
     {
         this.suite = requireNonNull(suite, "suite is null");
         this.testId = requireNonNull(testId, "testId is null");
@@ -75,6 +80,7 @@ public class VerifierQueryEvent
         this.testQueryInfo = requireNonNull(testQueryInfo, "testQueryInfo is null");
         this.errorCode = errorCode.orElse(null);
         this.errorMessage = errorMessage.orElse(null);
+        this.queryFailures = ImmutableList.copyOf(queryFailures);
     }
 
     @EventField
@@ -141,5 +147,11 @@ public class VerifierQueryEvent
     public String getErrorMessage()
     {
         return errorMessage;
+    }
+
+    @EventField
+    public List<QueryFailure> getQueryFailures()
+    {
+        return queryFailures;
     }
 }
