@@ -46,6 +46,7 @@ public class VerificationContext
     {
         return failures.get(cluster).stream()
                 .map(exception -> new QueryFailure(
+                        exception.getQueryOrigin().getCluster(),
                         exception.getQueryOrigin().getStage(),
                         exception.getErrorCode(),
                         exception.getQueryStats().map(QueryStats::getQueryId),
