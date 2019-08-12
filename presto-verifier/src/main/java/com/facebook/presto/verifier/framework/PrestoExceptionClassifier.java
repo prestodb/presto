@@ -116,15 +116,15 @@ public class PrestoExceptionClassifier
                 .build();
     }
 
-    public QueryException createException(QueryOrigin queryOrigin, Optional<QueryStats> queryStats, SQLException cause)
+    public QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause)
     {
         Optional<Throwable> clusterConnectionExceptionCause = getClusterConnectionExceptionCause(cause);
         if (clusterConnectionExceptionCause.isPresent()) {
-            return QueryException.forClusterConnection(clusterConnectionExceptionCause.get(), queryOrigin);
+            return QueryException.forClusterConnection(clusterConnectionExceptionCause.get(), queryStage);
         }
 
         Optional<ErrorCodeSupplier> errorCode = Optional.ofNullable(errorByCode.get(cause.getErrorCode()));
-        return QueryException.forPresto(cause, errorCode, errorCode.isPresent() && retryableErrors.contains(errorCode.get()), queryStats, queryOrigin);
+        return QueryException.forPresto(cause, errorCode, errorCode.isPresent() && retryableErrors.contains(errorCode.get()), queryStats, queryStage);
     }
 
     public static boolean shouldResubmit(QueryException queryException)

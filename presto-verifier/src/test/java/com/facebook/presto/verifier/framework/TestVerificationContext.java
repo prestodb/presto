@@ -21,21 +21,20 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
-import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestVerificationContext
 {
-    private static final QueryOrigin QUERY_ORIGIN = forMain(CONTROL);
+    private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
 
     @Test
     public void testDuplicateExceptions()
     {
         VerificationContext context = new VerificationContext();
-        QueryException queryException = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), false, Optional.empty(), QUERY_ORIGIN);
+        QueryException queryException = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), false, Optional.empty(), QUERY_STAGE);
 
         context.addException(queryException);
         context.addException(queryException);
@@ -50,8 +49,8 @@ public class TestVerificationContext
     public void testMultipleExceptions()
     {
         VerificationContext context = new VerificationContext();
-        context.addException(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN));
-        context.addException(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN));
+        context.addException(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_STAGE));
+        context.addException(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_STAGE));
 
         List<QueryFailure> queryFailures = context.getQueryFailures();
         assertEquals(queryFailures.size(), 2);

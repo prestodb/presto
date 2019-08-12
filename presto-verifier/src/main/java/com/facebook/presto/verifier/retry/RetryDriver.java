@@ -68,8 +68,8 @@ public class RetryDriver
                 log.debug(
                         "Failed on executing %s(%s, %s) with attempt %d. Retry after %sms. Cause: %s",
                         callableName,
-                        qe.getQueryOrigin().getCluster(),
-                        qe.getQueryOrigin().getStage(),
+                        qe.getQueryStage().getTargetCluster(),
+                        qe.getQueryStage(),
                         attempt - 1,
                         delayMillis,
                         qe.getErrorCode());

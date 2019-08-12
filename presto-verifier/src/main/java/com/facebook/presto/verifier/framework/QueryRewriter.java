@@ -43,7 +43,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forRewrite;
+import static com.facebook.presto.verifier.framework.QueryStage.REWRITE;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -189,7 +189,7 @@ public class QueryRewriter
         else {
             zeroRowQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), Optional.of("0"));
         }
-        return prestoAction.execute(zeroRowQuery, forRewrite(), ResultSetConverter.DEFAULT).getColumnNames();
+        return prestoAction.execute(zeroRowQuery, REWRITE, ResultSetConverter.DEFAULT).getColumnNames();
     }
 
     private static String sanitizeColumnName(String columnName)

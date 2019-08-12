@@ -20,5 +20,5 @@ import java.util.Optional;
 
 public interface SqlExceptionClassifier
 {
-    QueryException createException(QueryOrigin queryOrigin, Optional<QueryStats> queryStats, SQLException cause);
+    QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause);
 }

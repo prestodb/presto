@@ -54,7 +54,7 @@ public class QueryException
     private final Optional<ErrorCodeSupplier> prestoErrorCode;
     private final boolean retryable;
     private final Optional<QueryStats> queryStats;
-    private final QueryOrigin queryOrigin;
+    private final QueryStage queryStage;
 
     private QueryException(
             Throwable cause,
@@ -62,24 +62,24 @@ public class QueryException
             Optional<ErrorCodeSupplier> prestoErrorCode,
             boolean retryable,
             Optional<QueryStats> queryStats,
-            QueryOrigin queryOrigin)
+            QueryStage queryStage)
     {
         super(cause);
         this.type = requireNonNull(type, "type is null");
         this.prestoErrorCode = requireNonNull(prestoErrorCode, "errorCode is null");
         this.retryable = retryable;
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
-        this.queryOrigin = requireNonNull(queryOrigin, "queryOrigin is null");
+        this.queryStage = requireNonNull(queryStage, "queryStage is null");
     }
 
-    public static QueryException forClusterConnection(Throwable cause, QueryOrigin queryOrigin)
+    public static QueryException forClusterConnection(Throwable cause, QueryStage queryStage)
     {
-        return new QueryException(cause, CLUSTER_CONNECTION, Optional.empty(), true, Optional.empty(), queryOrigin);
+        return new QueryException(cause, CLUSTER_CONNECTION, Optional.empty(), true, Optional.empty(), queryStage);
     }
 
-    public static QueryException forPresto(Throwable cause, Optional<ErrorCodeSupplier> prestoErrorCode, boolean retryable, Optional<QueryStats> queryStats, QueryOrigin queryOrigin)
+    public static QueryException forPresto(Throwable cause, Optional<ErrorCodeSupplier> prestoErrorCode, boolean retryable, Optional<QueryStats> queryStats, QueryStage queryStage)
     {
-        return new QueryException(cause, PRESTO, prestoErrorCode, retryable, queryStats, queryOrigin);
+        return new QueryException(cause, PRESTO, prestoErrorCode, retryable, queryStats, queryStage);
     }
 
     public Type getType()
@@ -102,9 +102,9 @@ public class QueryException
         return queryStats;
     }
 
-    public QueryOrigin getQueryOrigin()
+    public QueryStage getQueryStage()
     {
-        return queryOrigin;
+        return queryStage;
     }
 
     public String getErrorCode()
@@ -115,8 +115,7 @@ public class QueryException
     public QueryFailure toQueryFailure()
     {
         return new QueryFailure(
-                queryOrigin.getCluster(),
-                queryOrigin.getStage(),
+                queryStage,
                 getErrorCode(),
                 retryable,
                 queryStats.map(QueryStats::getQueryId),

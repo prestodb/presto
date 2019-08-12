@@ -51,18 +51,18 @@ public class TestVerificationManager
         }
 
         @Override
-        public QueryStats execute(Statement statement, QueryOrigin queryOrigin)
+        public QueryStats execute(Statement statement, QueryStage queryStage)
         {
-            throw QueryException.forPresto(new RuntimeException(), Optional.of(errorCode), false, Optional.empty(), queryOrigin);
+            throw QueryException.forPresto(new RuntimeException(), Optional.of(errorCode), false, Optional.empty(), queryStage);
         }
 
         @Override
         public <R> QueryResult<R> execute(
                 Statement statement,
-                QueryOrigin queryOrigin,
+                QueryStage queryStage,
                 ResultSetConverter<R> converter)
         {
-            throw QueryException.forPresto(new RuntimeException(), Optional.of(errorCode), false, Optional.empty(), queryOrigin);
+            throw QueryException.forPresto(new RuntimeException(), Optional.of(errorCode), false, Optional.empty(), queryStage);
         }
     }
 

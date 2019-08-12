@@ -37,12 +37,11 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.SETUP;
-import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.TEARDOWN;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forSetup;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forTeardown;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.forMain;
+import static com.facebook.presto.verifier.framework.QueryStage.forSetup;
+import static com.facebook.presto.verifier.framework.QueryStage.forTeardown;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY_TIMED_OUT;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
@@ -238,10 +237,10 @@ public abstract class AbstractVerification
             status = resolveMessage.isPresent() ? FAILED_RESOLVED : FAILED;
         }
 
-        controlStats = queryException.isPresent() && queryException.get().getQueryOrigin().equals(forMain(CONTROL)) ?
+        controlStats = queryException.isPresent() && queryException.get().getQueryStage() == CONTROL_MAIN ?
                 queryException.get().getQueryStats() :
                 controlStats;
-        testStats = queryException.isPresent() && queryException.get().getQueryOrigin().equals(forMain(TEST)) ?
+        testStats = queryException.isPresent() && queryException.get().getQueryStage() == TEST_MAIN ?
                 queryException.get().getQueryStats() :
                 testStats;
 
@@ -355,18 +354,18 @@ public abstract class AbstractVerification
         if (statsFromResult.isPresent()) {
             return QueryState.SUCCEEDED;
         }
-        if (!queryException.isPresent() || queryException.get().getQueryOrigin().getCluster() != cluster) {
+        if (!queryException.isPresent() || queryException.get().getQueryStage().getTargetCluster() != cluster) {
             return QueryState.NOT_RUN;
         }
-        if (queryException.get().getQueryOrigin().getStage() == SETUP) {
+        if (queryException.get().getQueryStage().isSetup()) {
             return QueryState.FAILED_TO_SETUP;
         }
-        if (queryException.get().getQueryOrigin().getStage() == MAIN) {
+        if (queryException.get().getQueryStage().isMain()) {
             return queryException.get().getPrestoErrorCode().map(errorCode -> errorCode == EXCEEDED_TIME_LIMIT).orElse(false) ?
                     QueryState.TIMED_OUT :
                     QueryState.FAILED;
         }
-        if (queryException.get().getQueryOrigin().getStage() == TEARDOWN) {
+        if (queryException.get().getQueryStage().isTeardown()) {
             return QueryState.FAILED_TO_TEARDOWN;
         }
         return QueryState.NOT_RUN;

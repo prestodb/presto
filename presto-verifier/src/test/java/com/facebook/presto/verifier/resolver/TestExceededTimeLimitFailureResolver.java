@@ -19,8 +19,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
-import static com.facebook.presto.verifier.framework.ClusterType.TEST;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static org.testng.Assert.assertEquals;
 
 public class TestExceededTimeLimitFailureResolver
@@ -42,7 +41,7 @@ public class TestExceededTimeLimitFailureResolver
                                 Optional.of(EXCEEDED_TIME_LIMIT),
                                 false,
                                 Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS / 2, CONTROL_PEAK_MEMORY_BYTES)),
-                                forMain(TEST))),
+                                TEST_MAIN)),
                 Optional.of("Auto Resolved: Test cluster has less computing resource"));
     }
 }
