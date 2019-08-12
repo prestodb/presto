@@ -133,4 +133,10 @@ public class LongSelectiveStreamReader
     {
         return currentReader.getBlockView(positions, positionCount);
     }
+
+    @Override
+    public void throwAnyError(int[] positions, int positionCount)
+    {
+        currentReader.throwAnyError(positions, positionCount);
+    }
 }

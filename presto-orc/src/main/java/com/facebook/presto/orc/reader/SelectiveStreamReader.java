@@ -64,5 +64,12 @@ public interface SelectiveStreamReader
      */
     BlockLease getBlockView(int[] positions, int positionCount);
 
+    /**
+     * Throws any error that occurred while reading specified positions.
+     *
+     * Used by list and map readers to raise "subscript out of bounds" error.
+     */
+    void throwAnyError(int[] positions, int positionCount);
+
     void close();
 }
