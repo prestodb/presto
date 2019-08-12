@@ -30,7 +30,8 @@ public enum QueryStage
 
     REWRITE(CONTROL),
     DESCRIBE(CONTROL),
-    CHECKSUM(CONTROL);
+    CHECKSUM(CONTROL),
+    DETERMINISM_ANALYSIS(CONTROL);
 
     private final ClusterType targetCluster;
 

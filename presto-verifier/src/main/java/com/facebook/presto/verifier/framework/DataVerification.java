@@ -85,13 +85,13 @@ public class DataVerification
         QueryBundle thirdRun = null;
         try {
             secondRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
-            setupAndRun(secondRun);
+            setupAndRun(secondRun, true);
             if (!match(columns, columns, firstChecksum, computeChecksum(secondRun, columns).getResult()).isMatched()) {
                 return Optional.of(false);
             }
 
             thirdRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
-            setupAndRun(thirdRun);
+            setupAndRun(thirdRun, true);
             if (!match(columns, columns, firstChecksum, computeChecksum(thirdRun, columns).getResult()).isMatched()) {
                 return Optional.of(false);
             }
