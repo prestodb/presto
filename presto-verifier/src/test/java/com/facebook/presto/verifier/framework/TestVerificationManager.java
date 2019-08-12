@@ -75,7 +75,7 @@ public class TestVerificationManager
     private static final String SUITE = "test-suite";
     private static final String NAME = "test-query";
     private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON));
-    private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration("test", "di", "user", Optional.empty(), Optional.empty());
+    private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration("test", "di", Optional.of("user"), Optional.empty(), Optional.empty());
     private static final SourceQuery SOURCE_QUERY = new SourceQuery(
             SUITE,
             NAME,

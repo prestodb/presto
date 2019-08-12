@@ -51,7 +51,7 @@ import static org.testng.Assert.fail;
 public class TestJdbcPrestoAction
 {
     private static final QueryOrigin QUERY_ORIGIN = forMain(CONTROL);
-    private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, "user", Optional.empty(), Optional.empty());
+    private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     private static StandaloneQueryRunner queryRunner;

@@ -87,7 +87,7 @@ public class TestDataVerification
                 new SimpleColumnValidator(),
                 new FloatingPointColumnValidator(verifierConfig),
                 new OrderableArrayColumnValidator());
-        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, "test-user", Optional.empty(), Optional.empty());
+        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, configuration, configuration);
         return new DataVerification((verification, e) -> false, prestoAction, sourceQuery, queryRewriter, ImmutableList.of(), verifierConfig, checksumValidator);
     }
