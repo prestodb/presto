@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.event;
 
+import com.facebook.presto.verifier.framework.ClusterType;
 import com.facebook.presto.verifier.framework.QueryOrigin.QueryStage;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
@@ -27,21 +28,30 @@ import static java.util.Objects.requireNonNull;
 @EventType("QueryFailure")
 public class QueryFailure
 {
+    private final String clusterType;
     private final String queryStage;
     private final String errorCode;
     private final String prestoQueryId;
     private final String stacktrace;
 
     public QueryFailure(
+            ClusterType clusterType,
             QueryStage queryStage,
             String errorCode,
             Optional<String> prestoQueryId,
             String stacktrace)
     {
-        this.queryStage = queryStage.name();
+        this.clusterType = requireNonNull(clusterType.name(), "cluster is null");
+        this.queryStage = requireNonNull(queryStage.name(), "queryStage is null");
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
         this.prestoQueryId = prestoQueryId.orElse(null);
         this.stacktrace = requireNonNull(stacktrace, "stacktrace is null");
+    }
+
+    @EventField
+    public String getClusterType()
+    {
+        return clusterType;
     }
 
     @EventField
