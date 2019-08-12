@@ -33,8 +33,8 @@ import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUM
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forChecksum;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forDescribe;
+import static com.facebook.presto.verifier.framework.QueryStage.CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -146,7 +146,7 @@ public class DataVerification
     private List<Column> getColumns(QualifiedName tableName)
     {
         return getPrestoAction()
-                .execute(new ShowColumns(tableName), forDescribe(), Column::fromResultSet)
+                .execute(new ShowColumns(tableName), DESCRIBE, Column::fromResultSet)
                 .getResults();
     }
 
@@ -155,7 +155,7 @@ public class DataVerification
         Query checksumQuery = checksumValidator.generateChecksumQuery(bundle.getTableName(), columns);
         QueryResult<ChecksumResult> queryResult = getPrestoAction().execute(
                 checksumQuery,
-                forChecksum(),
+                CHECKSUM,
                 ChecksumResult::fromResultSet);
         return new ChecksumQueryAndResult(
                 queryResult.getQueryStats().getQueryId(),

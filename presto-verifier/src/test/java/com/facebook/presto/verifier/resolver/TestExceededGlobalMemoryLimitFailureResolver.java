@@ -19,8 +19,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
-import static com.facebook.presto.verifier.framework.ClusterType.TEST;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -42,7 +41,7 @@ public class TestExceededGlobalMemoryLimitFailureResolver
                         Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                         false,
                         Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, 700L * 1024 * 1024 * 1024)),
-                        forMain(TEST)))
+                        TEST_MAIN))
                 .isPresent());
     }
 
@@ -57,7 +56,7 @@ public class TestExceededGlobalMemoryLimitFailureResolver
                                 Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                                 false,
                                 Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, 500L * 1024 * 1024 * 1024)),
-                                forMain(TEST))),
+                                TEST_MAIN)),
                 Optional.of("Auto Resolved: Control query uses more memory than test cluster limit"));
     }
 }

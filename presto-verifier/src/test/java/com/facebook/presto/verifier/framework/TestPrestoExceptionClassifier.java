@@ -36,14 +36,13 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 
 public class TestPrestoExceptionClassifier
 {
-    private static final QueryOrigin QUERY_ORIGIN = forMain(CONTROL);
+    private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
     private static final QueryStats QUERY_STATS = new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, Optional.empty());
 
     private final SqlExceptionClassifier classifier = new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of());
@@ -62,12 +61,12 @@ public class TestPrestoExceptionClassifier
     private void testNetworkException(SQLException sqlException)
     {
         assertQueryException(
-                classifier.createException(QUERY_ORIGIN, Optional.empty(), sqlException),
+                classifier.createException(QUERY_STAGE, Optional.empty(), sqlException),
                 CLUSTER_CONNECTION,
                 Optional.empty(),
                 true,
                 Optional.empty(),
-                QUERY_ORIGIN);
+                QUERY_STAGE);
     }
 
     @Test
@@ -87,12 +86,12 @@ public class TestPrestoExceptionClassifier
     {
         SQLException sqlException = new SQLException("", "", errorCode.toErrorCode().getCode(), new PrestoException(errorCode, errorCode.toErrorCode().getName()));
         assertQueryException(
-                classifier.createException(QUERY_ORIGIN, Optional.of(QUERY_STATS), sqlException),
+                classifier.createException(QUERY_STAGE, Optional.of(QUERY_STATS), sqlException),
                 PRESTO,
                 Optional.of(errorCode),
                 expectedRetryable,
                 Optional.of(QUERY_STATS),
-                QUERY_ORIGIN);
+                QUERY_STAGE);
     }
 
     @Test
@@ -100,12 +99,12 @@ public class TestPrestoExceptionClassifier
     {
         SQLException sqlException = new SQLException("", "", 0xabcd_1234, new RuntimeException());
         assertQueryException(
-                classifier.createException(QUERY_ORIGIN, Optional.of(QUERY_STATS), sqlException),
+                classifier.createException(QUERY_STAGE, Optional.of(QUERY_STATS), sqlException),
                 PRESTO,
                 Optional.empty(),
                 false,
                 Optional.of(QUERY_STATS),
-                QUERY_ORIGIN);
+                QUERY_STAGE);
     }
 
     private void assertQueryException(
@@ -114,12 +113,12 @@ public class TestPrestoExceptionClassifier
             Optional<ErrorCodeSupplier> prestoErrorCode,
             boolean retryable,
             Optional<QueryStats> queryStats,
-            QueryOrigin queryOrigin)
+            QueryStage queryStage)
     {
         assertEquals(queryException.getType(), type);
         assertEquals(queryException.getPrestoErrorCode(), prestoErrorCode);
         assertEquals(queryException.isRetryable(), retryable);
         assertEquals(queryException.getQueryStats(), queryStats);
-        assertEquals(queryException.getQueryOrigin(), queryOrigin);
+        assertEquals(queryException.getQueryStage(), queryStage);
     }
 }

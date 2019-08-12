@@ -22,9 +22,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
-import static com.facebook.presto.verifier.framework.ClusterType.TEST;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
-import static com.facebook.presto.verifier.framework.QueryOrigin.forSetup;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertFalse;
 
@@ -51,7 +50,7 @@ public class AbstractTestPrestoQueryFailureResolver
                         Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                         false,
                         Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_MEMORY_BYTES / 2)),
-                        forSetup(TEST)))
+                        TEST_SETUP))
                 .isPresent());
     }
 
@@ -60,7 +59,7 @@ public class AbstractTestPrestoQueryFailureResolver
     {
         assertFalse(failureResolver.resolve(
                 CONTROL_QUERY_STATS,
-                QueryException.forClusterConnection(new SocketTimeoutException(), forMain(TEST)))
+                QueryException.forClusterConnection(new SocketTimeoutException(), TEST_MAIN))
                 .isPresent());
     }
 
@@ -74,7 +73,7 @@ public class AbstractTestPrestoQueryFailureResolver
                         Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                         false,
                         Optional.empty(),
-                        forMain(TEST)))
+                        TEST_MAIN))
                 .isPresent());
     }
 
@@ -88,7 +87,7 @@ public class AbstractTestPrestoQueryFailureResolver
                         Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT),
                         false,
                         Optional.empty(),
-                        forMain(TEST)))
+                        TEST_MAIN))
                 .isPresent());
     }
 

@@ -38,7 +38,7 @@ public interface PrestoAction
         };
     }
 
-    QueryStats execute(Statement statement, QueryOrigin queryOrigin);
+    QueryStats execute(Statement statement, QueryStage queryStage);
 
-    <R> QueryResult<R> execute(Statement statement, QueryOrigin queryOrigin, ResultSetConverter<R> converter);
+    <R> QueryResult<R> execute(Statement statement, QueryStage queryStage, ResultSetConverter<R> converter);
 }
