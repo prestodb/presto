@@ -132,6 +132,7 @@ public class TestJdbcPrestoAction
             QueryFailure queryFailure = getOnlyElement(context.getQueryFailures());
             assertEquals(queryFailure.getQueryStage(), MAIN.name());
             assertEquals(queryFailure.getErrorCode(), "PRESTO(SYNTAX_ERROR)");
+            assertFalse(queryFailure.isRetryable());
             assertNotNull(queryFailure.getPrestoQueryId());
         }
     }

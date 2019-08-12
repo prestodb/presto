@@ -118,6 +118,7 @@ public class QueryException
                 queryOrigin.getCluster(),
                 queryOrigin.getStage(),
                 getErrorCode(),
+                retryable,
                 queryStats.map(QueryStats::getQueryId),
                 getStackTraceAsString(this));
     }
