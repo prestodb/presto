@@ -44,6 +44,17 @@ public interface TupleDomainFilter
 
     boolean testNull();
 
+    /**
+     * Used to apply is [not] null filters to complex types, e.g.
+     * a[1] is null AND a[3] is not null, where a is an array(array(T)).
+     *
+     * In these case, the exact values are not known, but it is known whether they are
+     * null or not. Furthermore, for some positions only nulls are allowed (a[1] is null),
+     * for others only non-nulls (a[3] is not null), and for the rest both are allowed
+     * (a[2] and a[N], where N > 3).
+     */
+    boolean testNonNull();
+
     boolean testLong(long value);
 
     boolean testDouble(double value);
@@ -83,6 +94,7 @@ public interface TupleDomainFilter
             this.deterministic = deterministic;
         }
 
+        @Override
         public boolean isDeterministic()
         {
             return deterministic;
@@ -92,6 +104,12 @@ public interface TupleDomainFilter
         public boolean testNull()
         {
             return nullAllowed;
+        }
+
+        @Override
+        public boolean testNonNull()
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -152,6 +170,12 @@ public interface TupleDomainFilter
         }
 
         @Override
+        public boolean testNonNull()
+        {
+            return false;
+        }
+
+        @Override
         public boolean testLong(long value)
         {
             return false;
@@ -203,6 +227,12 @@ public interface TupleDomainFilter
         }
 
         @Override
+        public boolean testNonNull()
+        {
+            return false;
+        }
+
+        @Override
         public boolean testLong(long value)
         {
             return false;
@@ -251,6 +281,12 @@ public interface TupleDomainFilter
         private IsNotNull()
         {
             super(true, false);
+        }
+
+        @Override
+        public boolean testNonNull()
+        {
+            return true;
         }
 
         @Override
@@ -1183,6 +1219,254 @@ public interface TupleDomainFilter
                     .add("filters", filters)
                     .add("nullAllowed", nullAllowed)
                     .toString();
+        }
+    }
+
+    abstract class BasePositionalFilter
+            implements TupleDomainFilter
+    {
+        // Index into filters array pointing to the next filter to apply
+        protected int filterIndex;
+
+        // Indices into filters array identifying boundaries of the outer rows
+        protected int[] offsets;
+
+        // Index into offsets array pointing to the next offset
+        private int offsetIndex;
+
+        private boolean[] failed;
+
+        // Number of positions from the start of the top-level position to fail;
+        // populated on first failure within a top-level position
+        private int precedingPositionsToFail;
+
+        // Number of positions to the end of the top-level position to fail;
+        // populated on first failure within a top-level position
+        private int succeedingPositionsToFail;
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return false;
+        }
+
+        public boolean[] getFailed()
+        {
+            return failed;
+        }
+
+        @Override
+        public int getPrecedingPositionsToFail()
+        {
+            return precedingPositionsToFail;
+        }
+
+        @Override
+        public int getSucceedingPositionsToFail()
+        {
+            return succeedingPositionsToFail;
+        }
+
+        protected void reset()
+        {
+            filterIndex = 0;
+            offsetIndex = 1;
+
+            if (failed == null || failed.length < offsets.length) {
+                failed = new boolean[offsets.length];
+            }
+            else {
+                Arrays.fill(failed, false);
+            }
+            failed[0] = false;
+            precedingPositionsToFail = 0;
+            succeedingPositionsToFail = 0;
+        }
+
+        protected void advance()
+        {
+            while (filterIndex == offsets[offsetIndex]) {
+                // start of the next top-level position
+                precedingPositionsToFail = 0;
+                succeedingPositionsToFail = 0;
+                failed[offsetIndex] = false;
+                offsetIndex++;
+            }
+        }
+
+        protected boolean recordTestResult(boolean result)
+        {
+            if (!result) {
+                failed[offsetIndex - 1] = true;
+                precedingPositionsToFail = filterIndex - offsets[offsetIndex - 1] - 1;
+                succeedingPositionsToFail = offsets[offsetIndex] - filterIndex;
+                filterIndex = offsets[offsetIndex];
+            }
+
+            return result;
+        }
+    }
+
+    class PositionalFilter
+            extends BasePositionalFilter
+    {
+        // Filters for individual positions being read; some may be null
+        private TupleDomainFilter[] filters;
+
+        public void setFilters(TupleDomainFilter[] filters, int[] offsets)
+        {
+            this.filters = requireNonNull(filters, "filters is null");
+            this.offsets = requireNonNull(offsets, "offsets is null");
+            reset();
+        }
+
+        @Override
+        public boolean testNull()
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testNull());
+        }
+
+        @Override
+        public boolean testNonNull()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean testLong(long value)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testLong(value));
+        }
+
+        @Override
+        public boolean testDouble(double value)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testDouble(value));
+        }
+
+        @Override
+        public boolean testFloat(float value)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testFloat(value));
+        }
+
+        @Override
+        public boolean testDecimal(long low, long high)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testDecimal(low, high));
+        }
+
+        @Override
+        public boolean testBoolean(boolean value)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testBoolean(value));
+        }
+
+        @Override
+        public boolean testBytes(byte[] buffer, int offset, int length)
+        {
+            advance();
+            TupleDomainFilter filter = filters[filterIndex++];
+            if (filter == null) {
+                return true;
+            }
+
+            return recordTestResult(filter.testBytes(buffer, offset, length));
+        }
+    }
+
+    class NullsFilter
+            extends BasePositionalFilter
+    {
+        private boolean[] nullsAllowed;
+        private boolean[] nonNullsAllowed;
+
+        public void setup(boolean[] nullsAllowed, boolean[] nonNullsAllowed, int[] offsets)
+        {
+            this.nullsAllowed = requireNonNull(nullsAllowed, "nullsAllowed is null");
+            this.nonNullsAllowed = requireNonNull(nonNullsAllowed, "nonNullsAllowed is null");
+            this.offsets = requireNonNull(offsets, "offsets is null");
+            reset();
+        }
+
+        @Override
+        public boolean testNull()
+        {
+            advance();
+            return recordTestResult(nullsAllowed[filterIndex++]);
+        }
+
+        @Override
+        public boolean testNonNull()
+        {
+            advance();
+            return recordTestResult(nonNullsAllowed[filterIndex++]);
+        }
+
+        public boolean testLong(long value)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testDouble(double value)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testFloat(float value)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testDecimal(long low, long high)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testBoolean(boolean value)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testBytes(byte[] buffer, int offset, int length)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }
