@@ -604,7 +604,12 @@ public class OperatorContext
         @Override
         public boolean trySetBytes(long bytes)
         {
-            return delegate.trySetBytes(bytes);
+            if (delegate.trySetBytes(bytes)) {
+                allocationListener.run();
+                return true;
+            }
+
+            return false;
         }
 
         @Override
@@ -658,6 +663,7 @@ public class OperatorContext
                 throw new UnsupportedOperationException("Called close on unclosable aggregated memory context");
             }
             delegate.close();
+            allocationListener.run();
         }
     }
 
