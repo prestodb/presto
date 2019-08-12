@@ -39,7 +39,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 import org.testng.annotations.Test;
@@ -59,6 +58,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
@@ -407,24 +407,9 @@ public class TestBackgroundHiveSplitLoader
         }
 
         @Override
-        public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Path path)
+        public Iterator<LocatedFileStatus> list(FileSystem fs, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy)
         {
-            return new RemoteIterator<LocatedFileStatus>()
-            {
-                private final Iterator<LocatedFileStatus> iterator = files.iterator();
-
-                @Override
-                public boolean hasNext()
-                {
-                    return iterator.hasNext();
-                }
-
-                @Override
-                public LocatedFileStatus next()
-                {
-                    return iterator.next();
-                }
-            };
+            return files.iterator();
         }
     }
 

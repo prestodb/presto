@@ -19,7 +19,6 @@ import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.hive.util.HiveFileIterator;
 import com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryNotAllowedException;
 import com.facebook.presto.hive.util.InternalHiveSplitFactory;
 import com.facebook.presto.hive.util.ResumableTask;
@@ -416,7 +415,7 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable)
     {
-        return stream(new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
+        return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -441,7 +440,7 @@ public class BackgroundHiveSplitLoader
         // list all files in the partition
         ArrayList<LocatedFileStatus> files = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(files, new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, FAIL));
+            Iterators.addAll(files, directoryLister.list(fileSystem, path, namenodeStats, FAIL));
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -509,7 +508,7 @@ public class BackgroundHiveSplitLoader
     private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
-        return stream(new HiveFileIterator(path, fileSystem, directoryLister, namenodeStats, RECURSE))
+        return stream(directoryLister.list(fileSystem, path, namenodeStats, RECURSE))
                 .map(file -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, file.getPath());
                     return splitFactory.createInternalHiveSplit(file, virtualBucketNumber, virtualBucketNumber, splittable);

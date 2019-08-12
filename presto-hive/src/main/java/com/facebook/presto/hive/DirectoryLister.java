@@ -16,12 +16,12 @@ package com.facebook.presto.hive;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 
-import java.io.IOException;
+import java.util.Iterator;
+
+import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy;
 
 public interface DirectoryLister
 {
-    RemoteIterator<LocatedFileStatus> list(FileSystem fs, Path path)
-            throws IOException;
+    Iterator<LocatedFileStatus> list(FileSystem fs, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy);
 }
