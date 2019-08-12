@@ -58,36 +58,43 @@ public interface TupleDomainFilter
             this.nullAllowed = nullAllowed;
         }
 
+        @Override
         public boolean testNull()
         {
             return nullAllowed;
         }
 
+        @Override
         public boolean testLong(long value)
         {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public boolean testDouble(double value)
         {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public boolean testFloat(float value)
         {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public boolean testDecimal(long low, long high)
         {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public boolean testBoolean(boolean value)
         {
             throw new UnsupportedOperationException();
         }
 
+        @Override
         public boolean testBytes(byte[] buffer, int offset, int length)
         {
             throw new UnsupportedOperationException();
