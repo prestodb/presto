@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -162,7 +163,7 @@ public class BooleanSelectiveStreamReader
         }
 
         if (filter != null) {
-            ensureOutputPositionsCapacity(positionCount);
+            outputPositions = ensureCapacity(outputPositions, positionCount);
         }
         else {
             outputPositions = positions;
@@ -310,21 +311,10 @@ public class BooleanSelectiveStreamReader
 
     private void ensureValuesCapacity(int capacity, boolean recordNulls)
     {
-        if (values == null || values.length < capacity) {
-            values = new byte[capacity];
-        }
+        values = ensureCapacity(values, capacity);
 
         if (recordNulls) {
-            if (nulls == null || nulls.length < capacity) {
-                nulls = new boolean[capacity];
-            }
-        }
-    }
-
-    private void ensureOutputPositionsCapacity(int capacity)
-    {
-        if (outputPositions == null || outputPositions.length < capacity) {
-            outputPositions = new int[capacity];
+            nulls = ensureCapacity(nulls, capacity);
         }
     }
 

@@ -37,6 +37,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -103,7 +104,7 @@ public class LongDictionarySelectiveStreamReader
         prepareNextRead(positionCount, presentStream != null && nullsAllowed);
 
         if (filter != null) {
-            ensureOutputPositionsCapacity(positionCount);
+            outputPositions = ensureCapacity(outputPositions, positionCount);
         }
         else {
             outputPositions = positions;
