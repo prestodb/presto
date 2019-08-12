@@ -38,6 +38,7 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.forMain;
 import static com.facebook.presto.verifier.framework.QueryStage.forSetup;
@@ -118,8 +119,8 @@ public abstract class AbstractVerification
         try {
             control = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
             test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST);
-            controlQueryStats = setupAndRun(control);
-            testQueryStats = setupAndRun(test);
+            controlQueryStats = setupAndRun(control, false);
+            testQueryStats = setupAndRun(test, false);
             verificationResult = verify(control, test);
 
             deterministic = verificationResult.getMatchResult().isMismatchPossiblyCausedByNonDeterminism() ?
@@ -171,12 +172,16 @@ public abstract class AbstractVerification
         return queryRewriter;
     }
 
-    protected QueryStats setupAndRun(QueryBundle bundle)
+    protected QueryStats setupAndRun(QueryBundle bundle, boolean determinismAnalysis)
     {
+        checkState(!determinismAnalysis || bundle.getCluster() == CONTROL, "Determinism analysis can only be run on control cluster");
+        QueryStage setupStage = determinismAnalysis ? DETERMINISM_ANALYSIS : forSetup(bundle.getCluster());
+        QueryStage mainStage = determinismAnalysis ? DETERMINISM_ANALYSIS : forMain(bundle.getCluster());
+
         for (Statement setupQuery : bundle.getSetupQueries()) {
-            prestoAction.execute(setupQuery, forSetup(bundle.getCluster()));
+            prestoAction.execute(setupQuery, setupStage);
         }
-        return getPrestoAction().execute(bundle.getQuery(), forMain(bundle.getCluster()));
+        return getPrestoAction().execute(bundle.getQuery(), mainStage);
     }
 
     protected void teardownSafely(@Nullable QueryBundle bundle)
