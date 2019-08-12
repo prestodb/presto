@@ -31,8 +31,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 
-import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -63,18 +61,17 @@ public class QueryRewriter
     private final List<Property> tablePropertyOverrides;
     private final Map<ClusterType, QualifiedName> prefixes;
 
-    @Inject
-    public QueryRewriter(SqlParser sqlParser, PrestoAction prestoAction, List<Property> tablePropertyOverrides, VerifierConfig config)
+    public QueryRewriter(SqlParser sqlParser, PrestoAction prestoAction, List<Property> tablePropertyOverrides, VerifierConfig verifierConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.tablePropertyOverrides = requireNonNull(tablePropertyOverrides, "tablePropertyOverrides is null");
         this.prefixes = ImmutableMap.of(
-                CONTROL, config.getControlTablePrefix(),
-                TEST, config.getTestTablePrefix());
+                CONTROL, verifierConfig.getControlTablePrefix(),
+                TEST, verifierConfig.getTestTablePrefix());
     }
 
-    public QueryBundle rewriteQuery(@Language("SQL") String query, ClusterType cluster, QueryConfiguration controlConfiguration, VerificationContext context)
+    public QueryBundle rewriteQuery(@Language("SQL") String query, ClusterType cluster)
     {
         Statement statement = sqlParser.createStatement(query, PARSING_OPTIONS);
         if (QueryType.of(statement).getCategory() != DATA_PRODUCING) {
@@ -128,7 +125,7 @@ public class QueryRewriter
                             false,
                             tablePropertyOverrides,
                             true,
-                            Optional.of(generateStorageColumnAliases((Query) statement, controlConfiguration, context)),
+                            Optional.of(generateStorageColumnAliases((Query) statement)),
                             Optional.empty()),
                     ImmutableList.of(new DropTable(temporaryTableName, true)));
         }
@@ -149,12 +146,12 @@ public class QueryRewriter
         return QualifiedName.of(parts);
     }
 
-    private List<Identifier> generateStorageColumnAliases(Query query, QueryConfiguration configuration, VerificationContext context)
+    private List<Identifier> generateStorageColumnAliases(Query query)
     {
         ImmutableList.Builder<Identifier> aliases = ImmutableList.builder();
         Set<String> usedAliases = new HashSet<>();
 
-        for (String columnName : getColumnNames(query, configuration, context)) {
+        for (String columnName : getColumnNames(query)) {
             columnName = sanitizeColumnName(columnName);
             String alias = columnName;
             int postfix = 1;
@@ -168,7 +165,7 @@ public class QueryRewriter
         return aliases.build();
     }
 
-    private List<String> getColumnNames(Query query, QueryConfiguration configuration, VerificationContext context)
+    private List<String> getColumnNames(Query query)
     {
         Query zeroRowQuery;
         if (query.getQueryBody() instanceof QuerySpecification) {
@@ -189,7 +186,7 @@ public class QueryRewriter
         else {
             zeroRowQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), Optional.of("0"));
         }
-        return prestoAction.execute(zeroRowQuery, configuration, forRewrite(), context, ResultSetConverter.DEFAULT).getColumnNames();
+        return prestoAction.execute(zeroRowQuery, forRewrite(), ResultSetConverter.DEFAULT).getColumnNames();
     }
 
     private static String sanitizeColumnName(String columnName)

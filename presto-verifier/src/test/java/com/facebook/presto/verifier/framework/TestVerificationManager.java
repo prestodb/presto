@@ -51,11 +51,7 @@ public class TestVerificationManager
         }
 
         @Override
-        public QueryStats execute(
-                Statement statement,
-                QueryConfiguration configuration,
-                QueryOrigin queryOrigin,
-                VerificationContext context)
+        public QueryStats execute(Statement statement, QueryOrigin queryOrigin)
         {
             throw QueryException.forPresto(new RuntimeException(), Optional.of(errorCode), false, Optional.empty(), queryOrigin);
         }
@@ -63,9 +59,7 @@ public class TestVerificationManager
         @Override
         public <R> QueryResult<R> execute(
                 Statement statement,
-                QueryConfiguration configuration,
                 QueryOrigin queryOrigin,
-                VerificationContext context,
                 ResultSetConverter<R> converter)
         {
             throw QueryException.forPresto(new RuntimeException(), Optional.of(errorCode), false, Optional.empty(), queryOrigin);
@@ -112,22 +106,22 @@ public class TestVerificationManager
         assertEquals(manager.getQueriesSubmitted().get(), 1);
     }
 
-    private static VerificationManager getVerificationManager(List<SourceQuery> sourceQueries, PrestoAction prestoAction, VerifierConfig config)
+    private static VerificationManager getVerificationManager(List<SourceQuery> sourceQueries, PrestoAction prestoAction, VerifierConfig verifierConfig)
     {
         return new VerificationManager(
                 () -> sourceQueries,
                 new VerificationFactory(
                         SQL_PARSER,
-                        prestoAction,
-                        new QueryRewriter(SQL_PARSER, prestoAction, ImmutableList.of(), config),
-                        new ChecksumValidator(new SimpleColumnValidator(), new FloatingPointColumnValidator(config), new OrderableArrayColumnValidator()),
+                        (controlConfiguration, testConfiguration, verificationContext) -> prestoAction,
+                        presto -> new QueryRewriter(SQL_PARSER, presto, ImmutableList.of(), verifierConfig),
+                        new ChecksumValidator(new SimpleColumnValidator(), new FloatingPointColumnValidator(verifierConfig), new OrderableArrayColumnValidator()),
                         ImmutableList.of(new ExceededGlobalMemoryLimitFailureResolver(), new ExceededTimeLimitFailureResolver()),
-                        config),
+                        verifierConfig),
                 SQL_PARSER,
                 ImmutableSet.of(),
                 ImmutableList.of(),
                 new QueryConfigurationOverridesConfig(),
                 new QueryConfigurationOverridesConfig(),
-                config);
+                verifierConfig);
     }
 }

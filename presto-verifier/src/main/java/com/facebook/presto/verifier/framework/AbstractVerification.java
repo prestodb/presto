@@ -65,12 +65,11 @@ public abstract class AbstractVerification
     private final SourceQuery sourceQuery;
     private final QueryRewriter queryRewriter;
     private final List<FailureResolver> failureResolvers;
+    private final VerificationContext verificationContext;
 
     private final String testId;
     private final boolean runTearDownOnResultMismatch;
     private final boolean failureResolverEnabled;
-
-    private final VerificationContext verificationContext = new VerificationContext();
 
     public AbstractVerification(
             VerificationResubmitter verificationResubmitter,
@@ -78,27 +77,24 @@ public abstract class AbstractVerification
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
             List<FailureResolver> failureResolvers,
-            VerifierConfig config)
+            VerificationContext verificationContext,
+            VerifierConfig verifierConfig)
     {
         this.verificationResubmitter = requireNonNull(verificationResubmitter, "verificationResubmitter is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
+        this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
-        this.testId = requireNonNull(config.getTestId(), "testId is null");
-        this.runTearDownOnResultMismatch = config.isRunTearDownOnResultMismatch();
-        this.failureResolverEnabled = config.isFailureResolverEnabled();
+        this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
+        this.runTearDownOnResultMismatch = verifierConfig.isRunTearDownOnResultMismatch();
+        this.failureResolverEnabled = verifierConfig.isFailureResolverEnabled();
     }
 
     protected abstract VerificationResult verify(QueryBundle control, QueryBundle test);
 
     protected abstract Optional<Boolean> isDeterministic(QueryBundle control, ChecksumResult firstChecksum);
-
-    protected VerificationContext getVerificationContext()
-    {
-        return verificationContext;
-    }
 
     @Override
     public SourceQuery getSourceQuery()
@@ -119,8 +115,8 @@ public abstract class AbstractVerification
         Optional<QueryStats> testQueryStats = Optional.empty();
 
         try {
-            control = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL, getConfiguration(CONTROL), getVerificationContext());
-            test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST, getConfiguration(TEST), getVerificationContext());
+            control = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
+            test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST);
             controlQueryStats = Optional.of(setupAndRun(control, CONTROL));
             testQueryStats = Optional.of(setupAndRun(test, TEST));
             verificationResult = verify(control, test);
@@ -187,7 +183,7 @@ public abstract class AbstractVerification
     protected void setup(QueryBundle control, ClusterType cluster)
     {
         for (Statement setupQuery : control.getSetupQueries()) {
-            prestoAction.execute(setupQuery, getConfiguration(cluster), forSetup(cluster), getVerificationContext());
+            prestoAction.execute(setupQuery, forSetup(cluster));
         }
     }
 
@@ -195,7 +191,7 @@ public abstract class AbstractVerification
     {
         for (Statement teardownQuery : control.getTeardownQueries()) {
             try {
-                prestoAction.execute(teardownQuery, getConfiguration(cluster), forTeardown(cluster), getVerificationContext());
+                prestoAction.execute(teardownQuery, forTeardown(cluster));
             }
             catch (Throwable t) {
                 log.warn("Failed to teardown %s: %s", cluster.name().toLowerCase(ENGLISH), formatSql(teardownQuery));
@@ -206,7 +202,7 @@ public abstract class AbstractVerification
     protected QueryStats setupAndRun(QueryBundle control, ClusterType cluster)
     {
         setup(control, cluster);
-        return getPrestoAction().execute(control.getQuery(), getConfiguration(cluster), forMain(cluster), getVerificationContext());
+        return getPrestoAction().execute(control.getQuery(), forMain(cluster));
     }
 
     private VerifierQueryEvent buildEvent(

@@ -67,6 +67,8 @@ public class TestDataVerification
     private DataVerification createVerification(String controlQuery, String testQuery)
     {
         String jdbcUrl = getJdbcUrl(queryRunner);
+        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
+        VerificationContext verificationContext = new VerificationContext();
         RetryConfig retryConfig = new RetryConfig();
         VerifierConfig verifierConfig = new VerifierConfig()
                 .setControlJdbcUrl(jdbcUrl)
@@ -75,6 +77,9 @@ public class TestDataVerification
                 .setFailureResolverEnabled(false);
         PrestoAction prestoAction = new JdbcPrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
+                configuration,
+                configuration,
+                verificationContext,
                 verifierConfig,
                 retryConfig,
                 retryConfig);
@@ -87,9 +92,16 @@ public class TestDataVerification
                 new SimpleColumnValidator(),
                 new FloatingPointColumnValidator(verifierConfig),
                 new OrderableArrayColumnValidator());
-        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, controlQuery, testQuery, configuration, configuration);
-        return new DataVerification((verification, e) -> false, prestoAction, sourceQuery, queryRewriter, ImmutableList.of(), verifierConfig, checksumValidator);
+        return new DataVerification(
+                (verification, e) -> false,
+                prestoAction,
+                sourceQuery,
+                queryRewriter,
+                ImmutableList.of(),
+                verificationContext,
+                verifierConfig,
+                checksumValidator);
     }
 
     @Test
