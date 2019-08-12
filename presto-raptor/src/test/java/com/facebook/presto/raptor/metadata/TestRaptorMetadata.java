@@ -35,6 +35,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
@@ -66,6 +67,7 @@ import static com.facebook.presto.raptor.RaptorTableProperties.ORGANIZED_PROPERT
 import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -107,7 +109,7 @@ public class TestRaptorMetadata
         NodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         shardManager = createShardManager(dbi, nodeSupplier, systemTicker());
-        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
+        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, new TypeRegistry());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -269,6 +271,24 @@ public class TestRaptorMetadata
         assertNotNull(columnMetadata);
         assertEquals(columnMetadata.getName(), "orderkey");
         assertEquals(columnMetadata.getType(), BIGINT);
+    }
+
+    @Test
+    public void testCreateTableWithUnsupportedType()
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        ConnectorTableMetadata raptorMetadata =
+                buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
+                    .column("orderkey", BIGINT)
+                    .column("rowtype", RowType.withDefaultFieldNames(ImmutableList.of(BIGINT))));
+
+        try {
+            metadata.createTable(SESSION, raptorMetadata, false);
+            fail();
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        }
     }
 
     @Test
@@ -760,6 +780,26 @@ public class TestRaptorMetadata
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+        }
+    }
+
+    @Test
+    public void testColumnWithInvalidType()
+    {
+        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        metadata.createTable(SESSION, getOrdersTable(), false);
+        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
+        List<RowType.Field> fields = (ImmutableList.of(new RowType.Field(Optional.of("field_1"), BIGINT)));
+
+        try {
+            metadata.addColumn(
+                    SESSION,
+                    raptorTableHandle,
+                    new ColumnMetadata("new_col", RowType.from(fields)));
+            fail();
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
         }
     }
 

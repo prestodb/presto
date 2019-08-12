@@ -83,7 +83,7 @@ public class TestShardOrganizerUtil
         createTablesWithRetry(dbi);
         dataDir = Files.createTempDir();
 
-        metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi));
+        metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), new TypeRegistry());
 
         metadataDao = dbi.onDemand(MetadataDao.class);
         shardManager = createShardManager(dbi);
