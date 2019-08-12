@@ -24,15 +24,19 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-@EventType("QueryInfo")
-public class FailureInfo
+@EventType("QueryFailure")
+public class QueryFailure
 {
     private final String queryStage;
     private final String errorCode;
     private final String prestoQueryId;
     private final String stacktrace;
 
-    public FailureInfo(QueryStage queryStage, String errorCode, Optional<String> prestoQueryId, String stacktrace)
+    public QueryFailure(
+            QueryStage queryStage,
+            String errorCode,
+            Optional<String> prestoQueryId,
+            String stacktrace)
     {
         this.queryStage = queryStage.name();
         this.errorCode = requireNonNull(errorCode, "errorCode is null");

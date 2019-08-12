@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.verifier.event.FailureInfo;
+import com.facebook.presto.verifier.event.QueryFailure;
 import org.testng.annotations.Test;
 
 import java.net.SocketTimeoutException;
@@ -38,7 +38,7 @@ public class TestVerificationContext
         context.recordFailure(queryException);
         context.recordFailure(queryException);
 
-        List<FailureInfo> allFailures = context.getAllFailures(CONTROL);
+        List<QueryFailure> allFailures = context.getAllFailures(CONTROL);
         assertEquals(allFailures.size(), 1);
         assertEquals(allFailures.get(0).getErrorCode(), "PRESTO(REMOTE_HOST_GONE)");
     }
@@ -50,7 +50,7 @@ public class TestVerificationContext
         context.recordFailure(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN));
         context.recordFailure(QueryException.forClusterConnection(new SocketTimeoutException(), QUERY_ORIGIN));
 
-        List<FailureInfo> allFailures = context.getAllFailures(CONTROL);
+        List<QueryFailure> allFailures = context.getAllFailures(CONTROL);
         assertEquals(allFailures.size(), 2);
         assertEquals(allFailures.get(0).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
         assertEquals(allFailures.get(1).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");

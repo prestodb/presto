@@ -17,7 +17,7 @@ import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.StandaloneQueryRunner;
-import com.facebook.presto.verifier.event.FailureInfo;
+import com.facebook.presto.verifier.event.QueryFailure;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -129,10 +129,10 @@ public class TestJdbcPrestoAction
             assertTrue(qe.getQueryStats().isPresent());
             assertEquals(qe.getQueryStats().get().getState(), FAILED.name());
 
-            FailureInfo failureInfo = getOnlyElement(context.getAllFailures(CONTROL));
-            assertEquals(failureInfo.getQueryStage(), MAIN.name());
-            assertEquals(failureInfo.getErrorCode(), "PRESTO(SYNTAX_ERROR)");
-            assertNotNull(failureInfo.getPrestoQueryId());
+            QueryFailure queryFailure = getOnlyElement(context.getAllFailures(CONTROL));
+            assertEquals(queryFailure.getQueryStage(), MAIN.name());
+            assertEquals(queryFailure.getErrorCode(), "PRESTO(SYNTAX_ERROR)");
+            assertNotNull(queryFailure.getPrestoQueryId());
         }
     }
 }

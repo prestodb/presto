@@ -14,7 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.verifier.event.FailureInfo;
+import com.facebook.presto.verifier.event.QueryFailure;
 import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
 
 import java.util.EnumMap;
@@ -43,10 +43,10 @@ public class VerificationContext
         failures.get(exception.getQueryOrigin().getCluster()).add(exception);
     }
 
-    public List<FailureInfo> getAllFailures(TargetCluster cluster)
+    public List<QueryFailure> getAllFailures(TargetCluster cluster)
     {
         return failures.get(cluster).stream()
-                .map(exception -> new FailureInfo(
+                .map(exception -> new QueryFailure(
                         exception.getQueryOrigin().getStage(),
                         exception.getErrorCode(),
                         exception.getQueryStats().map(QueryStats::getQueryId),
