@@ -34,6 +34,14 @@ public interface TupleDomainFilter
     TupleDomainFilter IS_NULL = new IsNull();
     TupleDomainFilter IS_NOT_NULL = new IsNotNull();
 
+    /**
+     * A filter becomes non-deterministic when applies to nested column,
+     * e.g. a[1] > 10 is non-deterministic because > 10 filter applies only to some
+     * positions, e.g. first entry in a set of entries that correspond to a single
+     * top-level position.
+     */
+    boolean isDeterministic();
+
     boolean testNull();
 
     boolean testLong(long value);
@@ -52,10 +60,17 @@ public interface TupleDomainFilter
             implements TupleDomainFilter
     {
         protected final boolean nullAllowed;
+        private final boolean deterministic;
 
-        private AbstractTupleDomainFilter(boolean nullAllowed)
+        private AbstractTupleDomainFilter(boolean deterministic, boolean nullAllowed)
         {
             this.nullAllowed = nullAllowed;
+            this.deterministic = deterministic;
+        }
+
+        public boolean isDeterministic()
+        {
+            return deterministic;
         }
 
         @Override
@@ -106,7 +121,7 @@ public interface TupleDomainFilter
     {
         private AlwaysFalse()
         {
-            super(false);
+            super(true, false);
         }
 
         @Override
@@ -157,7 +172,7 @@ public interface TupleDomainFilter
     {
         private IsNull()
         {
-            super(true);
+            super(true, true);
         }
 
         @Override
@@ -208,7 +223,7 @@ public interface TupleDomainFilter
     {
         private IsNotNull()
         {
-            super(false);
+            super(true, false);
         }
 
         @Override
@@ -261,7 +276,7 @@ public interface TupleDomainFilter
 
         private BooleanValue(boolean value, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             this.value = value;
         }
 
@@ -316,7 +331,7 @@ public interface TupleDomainFilter
 
         private BigintRange(long lower, long upper, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             checkArgument(lower <= upper, "lower must be less than or equal to upper");
             this.lower = lower;
             this.upper = upper;
@@ -396,7 +411,7 @@ public interface TupleDomainFilter
 
         private BigintValues(long[] values, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
 
             requireNonNull(values, "values is null");
             checkArgument(values.length > 1, "values must contain at least 2 entries");
@@ -491,7 +506,7 @@ public interface TupleDomainFilter
 
         private AbstractRange(boolean lowerUnbounded, boolean lowerExclusive, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             this.lowerUnbounded = lowerUnbounded;
             this.lowerExclusive = lowerExclusive;
             this.upperUnbounded = upperUnbounded;
@@ -766,7 +781,7 @@ public interface TupleDomainFilter
 
         private BytesRange(byte[] lower, boolean lowerExclusive, byte[] upper, boolean upperExclusive, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             this.lower = lower;
             this.upper = upper;
             this.lowerExclusive = lowerExclusive;
@@ -868,7 +883,7 @@ public interface TupleDomainFilter
 
         private BytesValues(byte[][] values, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
 
             requireNonNull(values, "values is null");
             checkArgument(values.length > 1, "values must contain at least 2 entries");
@@ -982,7 +997,7 @@ public interface TupleDomainFilter
 
         private BigintMultiRange(List<BigintRange> ranges, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             requireNonNull(ranges, "ranges is null");
             checkArgument(!ranges.isEmpty(), "ranges is empty");
 
@@ -1056,7 +1071,7 @@ public interface TupleDomainFilter
 
         private MultiRange(List<TupleDomainFilter> filters, boolean nullAllowed)
         {
-            super(nullAllowed);
+            super(true, nullAllowed);
             requireNonNull(filters, "filters is null");
             checkArgument(filters.size() > 1, "filters must contain at least 2 entries");
 

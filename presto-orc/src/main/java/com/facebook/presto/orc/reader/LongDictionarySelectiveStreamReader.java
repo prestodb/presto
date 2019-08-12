@@ -52,6 +52,7 @@ public class LongDictionarySelectiveStreamReader
     private final StreamDescriptor streamDescriptor;
     @Nullable
     private final TupleDomainFilter filter;
+    private final boolean nonDeterministicFilter;
     private final boolean nullsAllowed;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -87,7 +88,8 @@ public class LongDictionarySelectiveStreamReader
         this.filter = requireNonNull(filter, "filter is null").orElse(null);
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
 
-        nullsAllowed = this.filter == null || this.filter.testNull();
+        nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
+        nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
     }
 
     @Override
@@ -125,7 +127,7 @@ public class LongDictionarySelectiveStreamReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if (nullsAllowed) {
+                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                     if (outputRequired) {
                         nulls[outputPositionCount] = true;
                     }
