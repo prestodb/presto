@@ -27,7 +27,6 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.framework.PrestoAction.ResultSetConverter;
-import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
@@ -44,8 +43,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forRewrite;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
@@ -62,7 +61,7 @@ public class QueryRewriter
     private final SqlParser sqlParser;
     private final PrestoAction prestoAction;
     private final List<Property> tablePropertyOverrides;
-    private final Map<TargetCluster, QualifiedName> prefixes;
+    private final Map<ClusterType, QualifiedName> prefixes;
 
     @Inject
     public QueryRewriter(SqlParser sqlParser, PrestoAction prestoAction, List<Property> tablePropertyOverrides, VerifierConfig config)
@@ -75,7 +74,7 @@ public class QueryRewriter
                 TEST, config.getTestTablePrefix());
     }
 
-    public QueryBundle rewriteQuery(@Language("SQL") String query, TargetCluster cluster, QueryConfiguration controlConfiguration, VerificationContext context)
+    public QueryBundle rewriteQuery(@Language("SQL") String query, ClusterType cluster, QueryConfiguration controlConfiguration, VerificationContext context)
     {
         Statement statement = sqlParser.createStatement(query, PARSING_OPTIONS);
         if (QueryType.of(statement).getCategory() != DATA_PRODUCING) {

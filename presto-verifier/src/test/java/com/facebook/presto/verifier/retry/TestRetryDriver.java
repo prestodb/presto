@@ -25,7 +25,7 @@ import java.net.SocketTimeoutException;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 import static io.airlift.log.Level.DEBUG;
 import static java.util.Objects.requireNonNull;

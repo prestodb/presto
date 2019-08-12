@@ -36,9 +36,9 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 
 public class TestPrestoExceptionClassifier

@@ -20,7 +20,6 @@ import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
-import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
 import com.facebook.presto.verifier.resolver.FailureResolver;
 import com.google.common.collect.ImmutableMap;
 
@@ -29,12 +28,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUMN_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forChecksum;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forDescribe;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -148,7 +147,7 @@ public class DataVerification
                 mismatchedColumns);
     }
 
-    private List<Column> getColumns(QualifiedName tableName, TargetCluster cluster)
+    private List<Column> getColumns(QualifiedName tableName, ClusterType cluster)
     {
         return getPrestoAction()
                 .execute(
@@ -160,7 +159,7 @@ public class DataVerification
                 .getResults();
     }
 
-    private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns, TargetCluster cluster)
+    private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns, ClusterType cluster)
     {
         Query checksumQuery = checksumValidator.generateChecksumQuery(bundle.getTableName(), columns);
         QueryResult<ChecksumResult> queryResult = getPrestoAction().execute(

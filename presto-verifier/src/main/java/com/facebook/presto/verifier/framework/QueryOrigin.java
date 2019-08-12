@@ -15,23 +15,17 @@ package com.facebook.presto.verifier.framework;
 
 import java.util.Objects;
 
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.REWRITE;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.SETUP;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.TEARDOWN;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
 import static java.util.Objects.requireNonNull;
 
 public class QueryOrigin
 {
-    public enum TargetCluster
-    {
-        CONTROL,
-        TEST,
-    }
-
     public enum QueryStage
     {
         SETUP,
@@ -42,28 +36,28 @@ public class QueryOrigin
         CHECKSUM,
     }
 
-    private final TargetCluster cluster;
+    private final ClusterType cluster;
     private final QueryStage stage;
 
-    private QueryOrigin(TargetCluster cluster, QueryStage stage)
+    private QueryOrigin(ClusterType cluster, QueryStage stage)
     {
         this.cluster = requireNonNull(cluster, "cluster is null");
         this.stage = requireNonNull(stage, "stage is null");
     }
 
-    public static QueryOrigin forSetup(TargetCluster group)
+    public static QueryOrigin forSetup(ClusterType cluster)
     {
-        return new QueryOrigin(group, SETUP);
+        return new QueryOrigin(cluster, SETUP);
     }
 
-    public static QueryOrigin forMain(TargetCluster group)
+    public static QueryOrigin forMain(ClusterType cluster)
     {
-        return new QueryOrigin(group, MAIN);
+        return new QueryOrigin(cluster, MAIN);
     }
 
-    public static QueryOrigin forTeardown(TargetCluster group)
+    public static QueryOrigin forTeardown(ClusterType cluster)
     {
-        return new QueryOrigin(group, TEARDOWN);
+        return new QueryOrigin(cluster, TEARDOWN);
     }
 
     public static QueryOrigin forRewrite()
@@ -81,7 +75,7 @@ public class QueryOrigin
         return new QueryOrigin(CONTROL, CHECKSUM);
     }
 
-    public TargetCluster getCluster()
+    public ClusterType getCluster()
     {
         return cluster;
     }

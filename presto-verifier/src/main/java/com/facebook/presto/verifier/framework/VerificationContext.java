@@ -15,7 +15,6 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.event.QueryFailure;
-import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
 
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -23,14 +22,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class VerificationContext
 {
-    private Map<TargetCluster, Set<QueryException>> failures = new EnumMap<>(TargetCluster.class);
+    private Map<ClusterType, Set<QueryException>> failures = new EnumMap<>(ClusterType.class);
 
     public VerificationContext()
     {
@@ -43,7 +42,7 @@ public class VerificationContext
         failures.get(exception.getQueryOrigin().getCluster()).add(exception);
     }
 
-    public List<QueryFailure> getAllFailures(TargetCluster cluster)
+    public List<QueryFailure> getAllFailures(ClusterType cluster)
     {
         return failures.get(cluster).stream()
                 .map(exception -> new QueryFailure(
