@@ -56,6 +56,21 @@ public interface TupleDomainFilter
 
     boolean testBytes(byte[] buffer, int offset, int length);
 
+    /**
+     * When a filter applied to a nested column fails, the whole top-level position should
+     * fail. To enable this functionality, the filter keeps track of the boundaries of
+     * top-level positions and allows the caller to find out where the current top-level
+     * position started and how far it continues.
+     * @return number of positions from the start of the current top-level position up to
+     * the current position (excluding current position)
+     */
+    int getPrecedingPositionsToFail();
+
+    /**
+     * @return number of positions remaining until the end of the current top-level position
+     */
+    int getSucceedingPositionsToFail();
+
     abstract class AbstractTupleDomainFilter
             implements TupleDomainFilter
     {
@@ -113,6 +128,18 @@ public interface TupleDomainFilter
         public boolean testBytes(byte[] buffer, int offset, int length)
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getPrecedingPositionsToFail()
+        {
+            return 0;
+        }
+
+        @Override
+        public int getSucceedingPositionsToFail()
+        {
+            return 0;
         }
     }
 

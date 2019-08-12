@@ -148,7 +148,24 @@ public class LongDirectSelectiveStreamReader
                         outputPositionCount++;
                     }
                 }
+
                 streamPosition++;
+
+                if (filter != null) {
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+
+                    int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
+                    if (succeedingPositionsToFail > 0) {
+                        int positionsToSkip = 0;
+                        for (int j = 0; j < succeedingPositionsToFail; j++) {
+                            i++;
+                            int nextPosition = positions[i];
+                            positionsToSkip += 1 + nextPosition - streamPosition;
+                            streamPosition = nextPosition + 1;
+                        }
+                        skip(positionsToSkip);
+                    }
+                }
             }
         }
 
