@@ -67,18 +67,12 @@ public class VerificationManager
     private final Set<EventClient> eventClients;
     private final List<Predicate<SourceQuery>> customQueryFilters;
 
+    private final QueryConfigurationOverrides controlOverrides;
+    private final QueryConfigurationOverrides testOverrides;
+
     private final Optional<String> additionalJdbcDriverPath;
     private final Optional<String> controlJdbcDriverClass;
     private final Optional<String> testJdbcDriverClass;
-
-    private final Optional<String> controlCatalogOverride;
-    private final Optional<String> controlSchemaOverride;
-    private final Optional<String> controlUsernameOverride;
-    private final Optional<String> controlPasswordOverride;
-    private final Optional<String> testCatalogOverride;
-    private final Optional<String> testSchemaOverride;
-    private final Optional<String> testUsernameOverride;
-    private final Optional<String> testPasswordOverride;
 
     private final Optional<Set<String>> whitelist;
     private final Optional<Set<String>> blacklist;
@@ -100,6 +94,8 @@ public class VerificationManager
             SqlParser sqlParser,
             Set<EventClient> eventClients,
             List<Predicate<SourceQuery>> customQueryFilters,
+            @ForControl QueryConfigurationOverrides controlOverrides,
+            @ForTest QueryConfigurationOverrides testOverrides,
             VerifierConfig config)
     {
         this.sourceQuerySupplier = requireNonNull(sourceQuerySupplier, "sourceQuerySupplier is null");
@@ -108,18 +104,12 @@ public class VerificationManager
         this.eventClients = ImmutableSet.copyOf(eventClients);
         this.customQueryFilters = requireNonNull(customQueryFilters, "customQueryFilters is null");
 
+        this.controlOverrides = requireNonNull(controlOverrides, "controlOverrides is null");
+        this.testOverrides = requireNonNull(testOverrides, "testOverride is null");
+
         this.additionalJdbcDriverPath = requireNonNull(config.getAdditionalJdbcDriverPath(), "additionalJdbcDriverPath is null");
         this.controlJdbcDriverClass = requireNonNull(config.getControlJdbcDriverClass(), "controlJdbcDriverClass is null");
         this.testJdbcDriverClass = requireNonNull(config.getTestJdbcDriverClass(), "testJdbcDriverClass is null");
-
-        this.controlCatalogOverride = requireNonNull(config.getControlCatalogOverride(), "controlCatalogOverride is null");
-        this.controlSchemaOverride = requireNonNull(config.getControlSchemaOverride(), "controlSchemaOverride is null");
-        this.controlUsernameOverride = requireNonNull(config.getControlUsernameOverride(), "controlUsernameOverride is null");
-        this.controlPasswordOverride = requireNonNull(config.getControlPasswordOverride(), "controlPasswordOverride is null");
-        this.testCatalogOverride = requireNonNull(config.getTestCatalogOverride(), "testCatalogOverride is null");
-        this.testSchemaOverride = requireNonNull(config.getTestSchemaOverride(), "testSchemaOverride is null");
-        this.testUsernameOverride = requireNonNull(config.getTestUsernameOverride(), "testUsernameOverride is null");
-        this.testPasswordOverride = requireNonNull(config.getTestPasswordOverride(), "testPasswordOverride is null");
 
         this.whitelist = requireNonNull(config.getWhitelist(), "whitelist is null");
         this.blacklist = requireNonNull(config.getBlacklist(), "blacklist is null");
@@ -201,18 +191,8 @@ public class VerificationManager
                         sourceQuery.getName(),
                         sourceQuery.getControlQuery(),
                         sourceQuery.getTestQuery(),
-                        new QueryConfiguration(
-                                testCatalogOverride.orElse(sourceQuery.getTestConfiguration().getCatalog()),
-                                testSchemaOverride.orElse(sourceQuery.getTestConfiguration().getSchema()),
-                                testUsernameOverride.orElse(sourceQuery.getTestConfiguration().getUsername()),
-                                Optional.ofNullable(testPasswordOverride.orElse(sourceQuery.getTestConfiguration().getPassword().orElse(null))),
-                                sourceQuery.getTestConfiguration().getSessionProperties()),
-                        new QueryConfiguration(
-                                controlCatalogOverride.orElse(sourceQuery.getControlConfiguration().getCatalog()),
-                                controlSchemaOverride.orElse(sourceQuery.getControlConfiguration().getSchema()),
-                                controlUsernameOverride.orElse(sourceQuery.getControlConfiguration().getUsername()),
-                                Optional.ofNullable(controlPasswordOverride.orElse(sourceQuery.getControlConfiguration().getPassword().orElse(null))),
-                                sourceQuery.getControlConfiguration().getSessionProperties())))
+                        sourceQuery.getControlConfiguration().applyOverrides(controlOverrides),
+                        sourceQuery.getTestConfiguration().applyOverrides(testOverrides)))
                 .collect(toImmutableList());
     }
 

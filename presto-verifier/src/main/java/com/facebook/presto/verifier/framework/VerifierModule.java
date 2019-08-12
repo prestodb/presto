@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
@@ -66,6 +67,11 @@ public class VerifierModule
     protected final void setup(Binder binder)
     {
         configBinder(binder).bindConfig(VerifierConfig.class);
+        configBinder(binder).bindConfig(QueryConfigurationOverridesConfig.class, ForControl.class, "control");
+        configBinder(binder).bindConfig(QueryConfigurationOverridesConfig.class, ForTest.class, "test");
+        binder.bind(QueryConfigurationOverrides.class).annotatedWith(ForControl.class).to(Key.get(QueryConfigurationOverridesConfig.class, ForControl.class)).in(SINGLETON);
+        binder.bind(QueryConfigurationOverrides.class).annotatedWith(ForTest.class).to(Key.get(QueryConfigurationOverridesConfig.class, ForTest.class)).in(SINGLETON);
+
         configBinder(binder).bindConfig(RetryConfig.class, ForClusterConnection.class, "cluster-connection");
         configBinder(binder).bindConfig(RetryConfig.class, ForPresto.class, "presto");
 

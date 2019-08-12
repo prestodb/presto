@@ -20,7 +20,6 @@ import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.event.QueryFailure;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -52,7 +51,9 @@ import static org.testng.Assert.fail;
 public class TestJdbcPrestoAction
 {
     private static final QueryOrigin QUERY_ORIGIN = forMain(CONTROL);
+    private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, "user", Optional.empty(), Optional.empty());
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+
     private static StandaloneQueryRunner queryRunner;
 
     private PrestoAction prestoAction;
@@ -83,7 +84,7 @@ public class TestJdbcPrestoAction
         assertEquals(
                 prestoAction.execute(
                         sqlParser.createStatement("SELECT 1", new ParsingOptions(AS_DECIMAL)),
-                        new QueryConfiguration(CATALOG, SCHEMA, "user", Optional.empty(), ImmutableMap.of()),
+                        CONFIGURATION,
                         QUERY_ORIGIN,
                         new VerificationContext()).getState(),
                 FINISHED.name());
@@ -91,7 +92,7 @@ public class TestJdbcPrestoAction
         assertEquals(
                 prestoAction.execute(
                         sqlParser.createStatement("CREATE TABLE test_table (x int)", new ParsingOptions(AS_DECIMAL)),
-                        new QueryConfiguration(CATALOG, SCHEMA, "user", Optional.empty(), ImmutableMap.of()),
+                        CONFIGURATION,
                         QUERY_ORIGIN,
                         new VerificationContext()).getState(),
                 FINISHED.name());
@@ -102,7 +103,7 @@ public class TestJdbcPrestoAction
     {
         QueryResult<Integer> result = prestoAction.execute(
                 sqlParser.createStatement("SELECT x FROM (VALUES (1), (2), (3)) t(x)", new ParsingOptions(AS_DECIMAL)),
-                new QueryConfiguration(CATALOG, SCHEMA, "user", Optional.empty(), ImmutableMap.of()),
+                CONFIGURATION,
                 QUERY_ORIGIN,
                 new VerificationContext(),
                 resultSet -> resultSet.getInt("x") * resultSet.getInt("x"));
@@ -117,7 +118,7 @@ public class TestJdbcPrestoAction
         try {
             prestoAction.execute(
                     sqlParser.createStatement("SELECT * FROM test_table", new ParsingOptions(AS_DECIMAL)),
-                    new QueryConfiguration(CATALOG, SCHEMA, "user", Optional.empty(), ImmutableMap.of()),
+                    CONFIGURATION,
                     QUERY_ORIGIN,
                     context);
             fail("Expect QueryException");

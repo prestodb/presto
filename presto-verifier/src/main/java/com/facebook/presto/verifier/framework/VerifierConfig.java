@@ -47,15 +47,6 @@ public class VerifierConfig
     private QualifiedName controlTablePrefix = QualifiedName.of("tmp_verifier_control");
     private QualifiedName testTablePrefix = QualifiedName.of("tmp_verifier_test");
 
-    private Optional<String> controlCatalogOverride = Optional.empty();
-    private Optional<String> controlSchemaOverride = Optional.empty();
-    private Optional<String> controlUsernameOverride = Optional.empty();
-    private Optional<String> controlPasswordOverride = Optional.empty();
-    private Optional<String> testCatalogOverride = Optional.empty();
-    private Optional<String> testSchemaOverride = Optional.empty();
-    private Optional<String> testUsernameOverride = Optional.empty();
-    private Optional<String> testPasswordOverride = Optional.empty();
-
     private Optional<Set<String>> whitelist = Optional.empty();
     private Optional<Set<String>> blacklist = Optional.empty();
 
@@ -229,114 +220,6 @@ public class VerifierConfig
         this.testTablePrefix = testTablePrefix == null ?
                 null :
                 QualifiedName.of(Splitter.on(".").splitToList(testTablePrefix));
-        return this;
-    }
-
-    public Optional<String> getControlCatalogOverride()
-    {
-        return controlCatalogOverride;
-    }
-
-    @ConfigDescription("Overrides the control_catalog field in all queries in the suites")
-    @Config("control.catalog-override")
-    public VerifierConfig setControlCatalogOverride(String controlCatalogOverride)
-    {
-        this.controlCatalogOverride = Optional.ofNullable(controlCatalogOverride);
-        return this;
-    }
-
-    public Optional<String> getControlSchemaOverride()
-    {
-        return controlSchemaOverride;
-    }
-
-    @ConfigDescription("Overrides the control_schema field in all queries in the suites")
-    @Config("control.schema-override")
-    public VerifierConfig setControlSchemaOverride(String controlSchemaOverride)
-    {
-        this.controlSchemaOverride = Optional.ofNullable(controlSchemaOverride);
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getControlUsernameOverride()
-    {
-        return controlUsernameOverride;
-    }
-
-    @ConfigDescription("Username for control cluster")
-    @Config("control.username-override")
-    public VerifierConfig setControlUsernameOverride(String controlUsernameOverride)
-    {
-        this.controlUsernameOverride = Optional.ofNullable(controlUsernameOverride);
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getControlPasswordOverride()
-    {
-        return controlPasswordOverride;
-    }
-
-    @ConfigDescription("Password for control cluster")
-    @Config("control.password-override")
-    public VerifierConfig setControlPasswordOverride(String controlPasswordOverride)
-    {
-        this.controlPasswordOverride = Optional.ofNullable(controlPasswordOverride);
-        return this;
-    }
-
-    public Optional<String> getTestCatalogOverride()
-    {
-        return testCatalogOverride;
-    }
-
-    @ConfigDescription("Overrides the test_catalog field in all queries in the suites")
-    @Config("test.catalog-override")
-    public VerifierConfig setTestCatalogOverride(String testCatalogOverride)
-    {
-        this.testCatalogOverride = Optional.ofNullable(testCatalogOverride);
-        return this;
-    }
-
-    public Optional<String> getTestSchemaOverride()
-    {
-        return testSchemaOverride;
-    }
-
-    @ConfigDescription("Overrides the test_schema field in all queries in the suites")
-    @Config("test.schema-override")
-    public VerifierConfig setTestSchemaOverride(String testSchemaOverride)
-    {
-        this.testSchemaOverride = Optional.ofNullable(testSchemaOverride);
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getTestUsernameOverride()
-    {
-        return testUsernameOverride;
-    }
-
-    @ConfigDescription("Username for test cluster")
-    @Config("test.username-override")
-    public VerifierConfig setTestUsernameOverride(String testUsernameOverride)
-    {
-        this.testUsernameOverride = Optional.ofNullable(testUsernameOverride);
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getTestPasswordOverride()
-    {
-        return testPasswordOverride;
-    }
-
-    @ConfigDescription("Password for test cluster")
-    @Config("test.password-override")
-    public VerifierConfig setTestPasswordOverride(String testPasswordOverride)
-    {
-        this.testPasswordOverride = Optional.ofNullable(testPasswordOverride);
         return this;
     }
 

@@ -1,0 +1,73 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.verifier.framework;
+
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
+
+import java.util.Map;
+import java.util.Optional;
+
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+
+public class TestQueryConfiguration
+{
+    private static final String CATALOG = "catalog";
+    private static final String SCHEMA = "schema";
+    private static final String USERNAME = "username";
+    private static final String PASSWORD = "password";
+
+    private static final String CATALOG_OVERRIDE = "override_catalog";
+    private static final String SCHEMA_OVERRIDE = "override_schema";
+    private static final String USERNAME_OVERRIDE = "override_username";
+    private static final String PASSWORD_OVERRIDE = "override_password";
+
+    private static final Map<String, String> SESSION_PROPERTIES = ImmutableMap.of("property_1", "value_1", "property_2", "value_2");
+
+    private static final QueryConfiguration CONFIGURATION_1 = new QueryConfiguration(CATALOG, SCHEMA, USERNAME, Optional.of(PASSWORD), Optional.of(SESSION_PROPERTIES));
+    private static final QueryConfiguration CONFIGURATION_2 = new QueryConfiguration(CATALOG, SCHEMA, USERNAME, Optional.empty(), Optional.empty());
+
+    private static final QueryConfigurationOverrides OVERRIDES = new QueryConfigurationOverridesConfig()
+            .setCatalogOverride(CATALOG_OVERRIDE)
+            .setSchemaOverride(SCHEMA_OVERRIDE)
+            .setUsernameOverride(USERNAME_OVERRIDE)
+            .setPasswordOverride(PASSWORD_OVERRIDE);
+
+    @Test
+    public void testEmptyOverrides()
+    {
+        assertEquals(CONFIGURATION_1.applyOverrides(new QueryConfigurationOverridesConfig()), CONFIGURATION_1);
+        assertEquals(CONFIGURATION_2.applyOverrides(new QueryConfigurationOverridesConfig()), CONFIGURATION_2);
+    }
+
+    @Test
+    public void testOverrides()
+    {
+        assertEquals(
+                CONFIGURATION_1.applyOverrides(OVERRIDES),
+                new QueryConfiguration(
+                        CATALOG_OVERRIDE,
+                        SCHEMA_OVERRIDE,
+                        USERNAME_OVERRIDE,
+                        Optional.of(PASSWORD_OVERRIDE),
+                        Optional.of(SESSION_PROPERTIES)));
+        assertEquals(CONFIGURATION_2.applyOverrides(OVERRIDES),
+                new QueryConfiguration(
+                        CATALOG_OVERRIDE,
+                        SCHEMA_OVERRIDE,
+                        USERNAME_OVERRIDE,
+                        Optional.of(PASSWORD_OVERRIDE),
+                        Optional.empty()));
+    }
+}
