@@ -288,6 +288,7 @@ public abstract class AbstractVerification
                         testStats),
                 errorCode,
                 Optional.ofNullable(errorMessage),
+                queryException.map(QueryException::toQueryFailure),
                 verificationContext.getQueryFailures());
     }
 
