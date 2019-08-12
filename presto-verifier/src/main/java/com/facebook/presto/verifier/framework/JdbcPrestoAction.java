@@ -17,7 +17,6 @@ import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
 import com.facebook.presto.verifier.retry.ForPresto;
 import com.facebook.presto.verifier.retry.RetryConfig;
@@ -38,10 +37,10 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -53,7 +52,7 @@ public class JdbcPrestoAction
 
     private final SqlExceptionClassifier exceptionClassifier;
 
-    private final Map<TargetCluster, String> clusterUrls;
+    private final Map<ClusterType, String> clusterUrls;
     private final Duration controlTimeout;
     private final Duration testTimeout;
     private final Duration metadataTimeout;
@@ -208,8 +207,8 @@ public class JdbcPrestoAction
 
     private Duration getTimeout(QueryOrigin queryOrigin)
     {
-        TargetCluster cluster = queryOrigin.getCluster();
-        checkState(cluster == CONTROL || cluster == TEST, "Invalid TargetCluster: %s", cluster);
+        ClusterType cluster = queryOrigin.getCluster();
+        checkState(cluster == CONTROL || cluster == TEST, "Invalid ClusterType: %s", cluster);
 
         switch (queryOrigin.getStage()) {
             case SETUP:

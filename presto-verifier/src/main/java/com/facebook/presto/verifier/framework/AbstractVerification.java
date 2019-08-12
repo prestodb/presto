@@ -22,7 +22,6 @@ import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
-import com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster;
 import com.facebook.presto.verifier.resolver.FailureResolver;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -35,11 +34,11 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.MAIN;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.SETUP;
 import static com.facebook.presto.verifier.framework.QueryOrigin.QueryStage.TEARDOWN;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.CONTROL;
-import static com.facebook.presto.verifier.framework.QueryOrigin.TargetCluster.TEST;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forSetup;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forTeardown;
@@ -180,20 +179,20 @@ public abstract class AbstractVerification
         return queryRewriter;
     }
 
-    protected QueryConfiguration getConfiguration(TargetCluster cluster)
+    protected QueryConfiguration getConfiguration(ClusterType cluster)
     {
-        checkState(cluster == CONTROL || cluster == TEST, "Unexpected TargetCluster %s", cluster);
+        checkState(cluster == CONTROL || cluster == TEST, "Unexpected ClusterType %s", cluster);
         return cluster == CONTROL ? sourceQuery.getControlConfiguration() : sourceQuery.getTestConfiguration();
     }
 
-    protected void setup(QueryBundle control, TargetCluster cluster)
+    protected void setup(QueryBundle control, ClusterType cluster)
     {
         for (Statement setupQuery : control.getSetupQueries()) {
             prestoAction.execute(setupQuery, getConfiguration(cluster), forSetup(cluster), getVerificationContext());
         }
     }
 
-    protected void teardownSafely(QueryBundle control, TargetCluster cluster)
+    protected void teardownSafely(QueryBundle control, ClusterType cluster)
     {
         for (Statement teardownQuery : control.getTeardownQueries()) {
             try {
@@ -205,7 +204,7 @@ public abstract class AbstractVerification
         }
     }
 
-    protected QueryStats setupAndRun(QueryBundle control, TargetCluster cluster)
+    protected QueryStats setupAndRun(QueryBundle control, ClusterType cluster)
     {
         setup(control, cluster);
         return getPrestoAction().execute(control.getQuery(), getConfiguration(cluster), forMain(cluster), getVerificationContext());
@@ -367,7 +366,7 @@ public abstract class AbstractVerification
         return millis.map(value -> new Duration(value, MILLISECONDS).getValue(SECONDS));
     }
 
-    private static QueryState getQueryState(Optional<QueryStats> statsFromResult, Optional<QueryException> queryException, TargetCluster cluster)
+    private static QueryState getQueryState(Optional<QueryStats> statsFromResult, Optional<QueryException> queryException, ClusterType cluster)
     {
         if (statsFromResult.isPresent()) {
             return QueryState.SUCCEEDED;
