@@ -18,6 +18,7 @@ import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -38,21 +39,21 @@ public class QueryConfiguration
             @ColumnName("password") Optional<String> password,
             @ColumnName("session_properties") Optional<Map<String, String>> sessionProperties)
     {
-        this(catalog, schema, username, password, sessionProperties.orElse(ImmutableMap.of()));
-    }
-
-    public QueryConfiguration(
-            String catalog,
-            String schema,
-            String username,
-            Optional<String> password,
-            Map<String, String> sessionProperties)
-    {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.username = requireNonNull(username, "username is null");
         this.password = requireNonNull(password, "password is null");
-        this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
+        this.sessionProperties = ImmutableMap.copyOf(sessionProperties.orElse(ImmutableMap.of()));
+    }
+
+    public QueryConfiguration applyOverrides(QueryConfigurationOverrides overrides)
+    {
+        return new QueryConfiguration(
+                overrides.getCatalogOverride().orElse(catalog),
+                overrides.getSchemaOverride().orElse(schema),
+                overrides.getUsernameOverride().orElse(username),
+                Optional.ofNullable(overrides.getPasswordOverride().orElse(password.orElse(null))),
+                Optional.of(sessionProperties));
     }
 
     public String getCatalog()
@@ -78,5 +79,28 @@ public class QueryConfiguration
     public Map<String, String> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        QueryConfiguration o = (QueryConfiguration) obj;
+        return Objects.equals(catalog, o.catalog) &&
+                Objects.equals(schema, o.schema) &&
+                Objects.equals(username, o.username) &&
+                Objects.equals(password, o.password) &&
+                Objects.equals(sessionProperties, o.sessionProperties);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(catalog, schema, username, password, sessionProperties);
     }
 }

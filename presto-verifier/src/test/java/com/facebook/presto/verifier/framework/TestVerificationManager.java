@@ -25,7 +25,6 @@ import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.resolver.ExceededGlobalMemoryLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.ExceededTimeLimitFailureResolver;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -76,7 +75,7 @@ public class TestVerificationManager
     private static final String SUITE = "test-suite";
     private static final String NAME = "test-query";
     private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON));
-    private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration("test", "di", "user", Optional.empty(), ImmutableMap.of());
+    private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration("test", "di", "user", Optional.empty(), Optional.empty());
     private static final SourceQuery SOURCE_QUERY = new SourceQuery(
             SUITE,
             NAME,
@@ -127,6 +126,8 @@ public class TestVerificationManager
                 SQL_PARSER,
                 ImmutableSet.of(),
                 ImmutableList.of(),
+                new QueryConfigurationOverridesConfig(),
+                new QueryConfigurationOverridesConfig(),
                 config);
     }
 }
