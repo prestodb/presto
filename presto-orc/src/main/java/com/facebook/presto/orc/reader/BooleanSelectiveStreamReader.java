@@ -219,7 +219,22 @@ public class BooleanSelectiveStreamReader
                         outputPositionCount++;
                     }
                 }
+
+                outputPositionCount -= filter.getPrecedingPositionsToFail();
+
                 streamPosition++;
+
+                int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
+                if (succeedingPositionsToFail > 0) {
+                    int positionsToSkip = 0;
+                    for (int j = 0; j < succeedingPositionsToFail; j++) {
+                        i++;
+                        int nextPosition = positions[i];
+                        positionsToSkip += 1 + nextPosition - streamPosition;
+                        streamPosition = nextPosition + 1;
+                    }
+                    skip(positionsToSkip);
+                }
             }
         }
 
