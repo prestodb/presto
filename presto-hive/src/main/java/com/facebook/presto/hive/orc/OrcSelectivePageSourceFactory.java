@@ -47,6 +47,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.units.DataSize;
@@ -62,6 +63,7 @@ import javax.inject.Inject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -244,7 +246,7 @@ public class OrcSelectivePageSourceFactory
 
             OrcPredicate orcPredicate = toOrcPredicate(domainPredicate, physicalColumns, typeManager, domainCompactionThreshold, orcBloomFiltersEnabled);
 
-            Map<Integer, TupleDomainFilter> tupleDomainFilters = toTupleDomainFilters(domainPredicate, ImmutableBiMap.copyOf(columnNames).inverse());
+            Map<Integer, Map<Subfield, TupleDomainFilter>> tupleDomainFilters = toTupleDomainFilters(domainPredicate, ImmutableBiMap.copyOf(columnNames).inverse());
 
             Map<Integer, List<Subfield>> requiredSubfields = physicalColumns.stream()
                     .collect(toImmutableMap(HiveColumnHandle::getHiveColumnIndex, HiveColumnHandle::getRequiredSubfields));
@@ -307,17 +309,17 @@ public class OrcSelectivePageSourceFactory
         }
     }
 
-    private static Map<Integer, TupleDomainFilter> toTupleDomainFilters(TupleDomain<Subfield> domainPredicate, Map<String, Integer> columnIndices)
+    private static Map<Integer, Map<Subfield, TupleDomainFilter>> toTupleDomainFilters(TupleDomain<Subfield> domainPredicate, Map<String, Integer> columnIndices)
     {
-        // TODO Add support for filters on subfields
-        checkArgument(domainPredicate.getDomains().get().keySet().stream()
-                .allMatch(OrcSelectivePageSourceFactory::isEntireColumn), "Filters on subfields are not supported yet");
+        Map<Subfield, TupleDomainFilter> filtersBySubfield = Maps.transformValues(domainPredicate.getDomains().get(), TupleDomainFilterUtils::toFilter);
 
-        return Maps.transformValues(
-                domainPredicate.transform(subfield -> isEntireColumn(subfield) ? columnIndices.get(subfield.getRootName()) : null)
-                        .getDomains()
-                        .get(),
-                TupleDomainFilterUtils::toFilter);
+        Map<Integer, Map<Subfield, TupleDomainFilter>> filtersByColumn = new HashMap<>();
+        for (Map.Entry<Subfield, TupleDomainFilter> entry : filtersBySubfield.entrySet()) {
+            int columnIndex = columnIndices.get(entry.getKey().getRootName());
+            filtersByColumn.computeIfAbsent(columnIndex, k -> new HashMap<>()).put(entry.getKey(), entry.getValue());
+        }
+
+        return ImmutableMap.copyOf(filtersByColumn);
     }
 
     private static boolean isEntireColumn(Subfield subfield)

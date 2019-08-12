@@ -19,6 +19,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.CharType;
@@ -45,6 +46,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -886,7 +888,7 @@ public class OrcTester
         return orcReader.createSelectiveRecordReader(
                 columnTypes,
                 IntStream.range(0, types.size()).boxed().collect(toList()),
-                filters,
+                Maps.transformValues(filters, v -> ImmutableMap.of(new Subfield("c"), v)),
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
