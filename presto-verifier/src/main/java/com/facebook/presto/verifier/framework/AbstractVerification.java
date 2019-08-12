@@ -25,6 +25,8 @@ import com.facebook.presto.verifier.resolver.FailureResolver;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -111,14 +113,14 @@ public abstract class AbstractVerification
         VerificationResult verificationResult = null;
         Optional<Boolean> deterministic = Optional.empty();
 
-        Optional<QueryStats> controlQueryStats = Optional.empty();
-        Optional<QueryStats> testQueryStats = Optional.empty();
+        QueryStats controlQueryStats = null;
+        QueryStats testQueryStats = null;
 
         try {
             control = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
             test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST);
-            controlQueryStats = Optional.of(setupAndRun(control, CONTROL));
-            testQueryStats = Optional.of(setupAndRun(test, TEST));
+            controlQueryStats = setupAndRun(control);
+            testQueryStats = setupAndRun(test);
             verificationResult = verify(control, test);
 
             deterministic = verificationResult.getMatchResult().isMismatchPossiblyCausedByNonDeterminism() ?
@@ -129,8 +131,8 @@ public abstract class AbstractVerification
             return Optional.of(buildEvent(
                     Optional.of(control),
                     Optional.of(test),
-                    controlQueryStats,
-                    testQueryStats,
+                    Optional.ofNullable(controlQueryStats),
+                    Optional.ofNullable(testQueryStats),
                     Optional.empty(),
                     Optional.of(verificationResult),
                     deterministic));
@@ -142,8 +144,8 @@ public abstract class AbstractVerification
             return Optional.of(buildEvent(
                     Optional.ofNullable(control),
                     Optional.ofNullable(test),
-                    controlQueryStats,
-                    testQueryStats,
+                    Optional.ofNullable(controlQueryStats),
+                    Optional.ofNullable(testQueryStats),
                     Optional.of(e),
                     Optional.ofNullable(verificationResult),
                     deterministic));
@@ -154,12 +156,8 @@ public abstract class AbstractVerification
         }
         finally {
             if (!resultMismatched || runTearDownOnResultMismatch) {
-                if (control != null) {
-                    teardownSafely(control, CONTROL);
-                }
-                if (test != null) {
-                    teardownSafely(test, TEST);
-                }
+                teardownSafely(control);
+                teardownSafely(test);
             }
         }
     }
@@ -174,35 +172,28 @@ public abstract class AbstractVerification
         return queryRewriter;
     }
 
-    protected QueryConfiguration getConfiguration(ClusterType cluster)
+    protected QueryStats setupAndRun(QueryBundle bundle)
     {
-        checkState(cluster == CONTROL || cluster == TEST, "Unexpected ClusterType %s", cluster);
-        return cluster == CONTROL ? sourceQuery.getControlConfiguration() : sourceQuery.getTestConfiguration();
-    }
-
-    protected void setup(QueryBundle control, ClusterType cluster)
-    {
-        for (Statement setupQuery : control.getSetupQueries()) {
-            prestoAction.execute(setupQuery, forSetup(cluster));
+        for (Statement setupQuery : bundle.getSetupQueries()) {
+            prestoAction.execute(setupQuery, forSetup(bundle.getCluster()));
         }
+        return getPrestoAction().execute(bundle.getQuery(), forMain(bundle.getCluster()));
     }
 
-    protected void teardownSafely(QueryBundle control, ClusterType cluster)
+    protected void teardownSafely(@Nullable QueryBundle bundle)
     {
-        for (Statement teardownQuery : control.getTeardownQueries()) {
+        if (bundle == null) {
+            return;
+        }
+
+        for (Statement teardownQuery : bundle.getTeardownQueries()) {
             try {
-                prestoAction.execute(teardownQuery, forTeardown(cluster));
+                prestoAction.execute(teardownQuery, forTeardown(bundle.getCluster()));
             }
             catch (Throwable t) {
-                log.warn("Failed to teardown %s: %s", cluster.name().toLowerCase(ENGLISH), formatSql(teardownQuery));
+                log.warn("Failed to teardown %s: %s", bundle.getCluster().name().toLowerCase(ENGLISH), formatSql(teardownQuery));
             }
         }
-    }
-
-    protected QueryStats setupAndRun(QueryBundle control, ClusterType cluster)
-    {
-        setup(control, cluster);
-        return getPrestoAction().execute(control.getQuery(), forMain(cluster));
     }
 
     private VerifierQueryEvent buildEvent(

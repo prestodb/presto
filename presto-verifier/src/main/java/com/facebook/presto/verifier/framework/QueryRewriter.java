@@ -75,7 +75,7 @@ public class QueryRewriter
     {
         Statement statement = sqlParser.createStatement(query, PARSING_OPTIONS);
         if (QueryType.of(statement).getCategory() != DATA_PRODUCING) {
-            return new QueryBundle(Optional.empty(), ImmutableList.of(), statement, ImmutableList.of());
+            return new QueryBundle(Optional.empty(), ImmutableList.of(), statement, ImmutableList.of(), cluster);
         }
 
         QualifiedName prefix = prefixes.get(cluster);
@@ -93,7 +93,8 @@ public class QueryRewriter
                             createTableAsSelect.isWithData(),
                             createTableAsSelect.getColumnAliases(),
                             createTableAsSelect.getComment()),
-                    ImmutableList.of(new DropTable(temporaryTableName, true)));
+                    ImmutableList.of(new DropTable(temporaryTableName, true)),
+                    cluster);
         }
         if (statement instanceof Insert) {
             Insert insert = (Insert) statement;
@@ -112,7 +113,8 @@ public class QueryRewriter
                             temporaryTableName,
                             insert.getColumns(),
                             insert.getQuery()),
-                    ImmutableList.of(new DropTable(temporaryTableName, true)));
+                    ImmutableList.of(new DropTable(temporaryTableName, true)),
+                    cluster);
         }
         if (statement instanceof Query) {
             QualifiedName temporaryTableName = generateTemporaryTableName(Optional.empty(), prefix);
@@ -127,7 +129,8 @@ public class QueryRewriter
                             true,
                             Optional.of(generateStorageColumnAliases((Query) statement)),
                             Optional.empty()),
-                    ImmutableList.of(new DropTable(temporaryTableName, true)));
+                    ImmutableList.of(new DropTable(temporaryTableName, true)),
+                    cluster);
         }
 
         throw new IllegalStateException(format("Unsupported query type: %s", statement.getClass()));
