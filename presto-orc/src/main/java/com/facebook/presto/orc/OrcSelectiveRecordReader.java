@@ -279,6 +279,12 @@ public class OrcSelectiveRecordReader
             return new Page(0);
         }
 
+        for (SelectiveStreamReader reader : getStreamReaders()) {
+            if (reader != null) {
+                reader.throwAnyError(positionsToRead, positionCount);
+            }
+        }
+
         Block[] blocks = new Block[outputColumns.size()];
         for (int i = 0; i < outputColumns.size(); i++) {
             int columnIndex = outputColumns.get(i);
