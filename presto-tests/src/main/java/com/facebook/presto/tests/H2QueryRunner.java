@@ -51,9 +51,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -363,7 +365,16 @@ public class H2QueryRunner
                             row.add(null);
                         }
                         else {
-                            row.add(newArrayList((Object[]) array.getArray()));
+                            Object[] elements = (Object[]) array.getArray();
+                            Type elementType = ((ArrayType) type).getElementType();
+                            if (elementType instanceof ArrayType) {
+                                row.add(Arrays.stream(elements)
+                                        .map(v -> v == null ? null : newArrayList((Object[]) v))
+                                        .collect(Collectors.toList()));
+                            }
+                            else {
+                                row.add(newArrayList(elements));
+                            }
                         }
                     }
                     else {
