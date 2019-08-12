@@ -13,10 +13,18 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import java.util.Map;
 import java.util.Optional;
 
 public interface QueryConfigurationOverrides
 {
+    enum SessionPropertiesOverrideStrategy
+    {
+        NO_ACTION,
+        OVERRIDE,
+        SUBSTITUTE,
+    }
+
     Optional<String> getCatalogOverride();
 
     Optional<String> getSchemaOverride();
@@ -24,4 +32,8 @@ public interface QueryConfigurationOverrides
     Optional<String> getUsernameOverride();
 
     Optional<String> getPasswordOverride();
+
+    SessionPropertiesOverrideStrategy getSessionPropertiesOverrideStrategy();
+
+    Map<String, String> getSessionPropertiesOverride();
 }

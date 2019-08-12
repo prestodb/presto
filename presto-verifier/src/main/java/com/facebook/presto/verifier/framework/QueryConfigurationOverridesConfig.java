@@ -13,10 +13,19 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
+import javax.validation.constraints.NotNull;
+
+import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
+
+import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.NO_ACTION;
 
 public class QueryConfigurationOverridesConfig
         implements QueryConfigurationOverrides
@@ -25,6 +34,8 @@ public class QueryConfigurationOverridesConfig
     private Optional<String> schemaOverride = Optional.empty();
     private Optional<String> usernameOverride = Optional.empty();
     private Optional<String> passwordOverride = Optional.empty();
+    private SessionPropertiesOverrideStrategy sessionPropertiesOverrideStrategy = NO_ACTION;
+    private Map<String, String> sessionPropertiesOverride = ImmutableMap.of();
 
     @Override
     public Optional<String> getCatalogOverride()
@@ -79,6 +90,42 @@ public class QueryConfigurationOverridesConfig
     public QueryConfigurationOverridesConfig setPasswordOverride(String passwordOverride)
     {
         this.passwordOverride = Optional.ofNullable(passwordOverride);
+        return this;
+    }
+
+    @Override
+    @NotNull
+    public SessionPropertiesOverrideStrategy getSessionPropertiesOverrideStrategy()
+    {
+        return sessionPropertiesOverrideStrategy;
+    }
+
+    @Config("session-properties-override-strategy")
+    public QueryConfigurationOverridesConfig setSessionPropertiesOverrideStrategy(SessionPropertiesOverrideStrategy sessionPropertiesOverrideStrategy)
+    {
+        this.sessionPropertiesOverrideStrategy = sessionPropertiesOverrideStrategy;
+        return this;
+    }
+
+    @Override
+    public Map<String, String> getSessionPropertiesOverride()
+    {
+        return sessionPropertiesOverride;
+    }
+
+    @Config("session-properties-override")
+    public QueryConfigurationOverridesConfig setSessionPropertiesOverride(String sessionPropertyOverride)
+    {
+        if (sessionPropertyOverride == null) {
+            return this;
+        }
+
+        try {
+            this.sessionPropertiesOverride = new ObjectMapper().readValue(sessionPropertyOverride, new TypeReference<Map<String, String>>() {});
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return this;
     }
 }
