@@ -24,6 +24,8 @@ import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryOrigin.forMain;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestVerificationContext
 {
@@ -41,6 +43,7 @@ public class TestVerificationContext
         List<QueryFailure> queryFailures = context.getQueryFailures();
         assertEquals(queryFailures.size(), 1);
         assertEquals(queryFailures.get(0).getErrorCode(), "PRESTO(REMOTE_HOST_GONE)");
+        assertFalse(queryFailures.get(0).isRetryable());
     }
 
     @Test
@@ -54,5 +57,7 @@ public class TestVerificationContext
         assertEquals(queryFailures.size(), 2);
         assertEquals(queryFailures.get(0).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
         assertEquals(queryFailures.get(1).getErrorCode(), "CLUSTER_CONNECTION(SocketTimeoutException)");
+        assertTrue(queryFailures.get(0).isRetryable());
+        assertTrue(queryFailures.get(1).isRetryable());
     }
 }

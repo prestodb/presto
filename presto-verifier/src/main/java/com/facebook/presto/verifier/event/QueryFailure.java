@@ -31,6 +31,7 @@ public class QueryFailure
     private final String clusterType;
     private final String queryStage;
     private final String errorCode;
+    private final boolean retryable;
     private final String prestoQueryId;
     private final String stacktrace;
 
@@ -38,12 +39,14 @@ public class QueryFailure
             ClusterType clusterType,
             QueryStage queryStage,
             String errorCode,
+            boolean retryable,
             Optional<String> prestoQueryId,
             String stacktrace)
     {
         this.clusterType = requireNonNull(clusterType.name(), "cluster is null");
         this.queryStage = requireNonNull(queryStage.name(), "queryStage is null");
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
+        this.retryable = retryable;
         this.prestoQueryId = prestoQueryId.orElse(null);
         this.stacktrace = requireNonNull(stacktrace, "stacktrace is null");
     }
@@ -64,6 +67,12 @@ public class QueryFailure
     public String getErrorCode()
     {
         return errorCode;
+    }
+
+    @EventField
+    public boolean isRetryable()
+    {
+        return retryable;
     }
 
     @EventField
