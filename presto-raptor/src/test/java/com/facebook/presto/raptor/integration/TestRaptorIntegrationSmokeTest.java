@@ -79,6 +79,13 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateTableUnsupportedType()
+    {
+        assertQueryFails("CREATE TABLE rowtype_test AS SELECT row(1) AS c", "Type not supported: row\\(integer\\)");
+        assertQueryFails("CREATE TABLE rowtype_test(row_type_field row(s varchar))", "Type not supported: row\\(s varchar\\)");
+    }
+
+    @Test
     public void testMapTable()
     {
         assertUpdate("CREATE TABLE map_test AS SELECT MAP(ARRAY [1, 2, 3], ARRAY ['hi', 'bye', NULL]) AS c", 1);
@@ -836,6 +843,14 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("DELETE FROM test_alter_table WHERE c1 = 22", 3);
 
         assertUpdate("DROP TABLE test_alter_table");
+    }
+
+    @Test
+    public void testAlterTableUnsupportedType()
+    {
+        assertUpdate("CREATE TABLE test_alter_table_unsupported_type (c1 bigint, c2 bigint)");
+        assertQueryFails("ALTER TABLE test_alter_table_unsupported_type ADD COLUMN c3 row(bigint)", "Type not supported: row\\(bigint\\)");
+        assertUpdate("DROP TABLE test_alter_table_unsupported_type");
     }
 
     @Test

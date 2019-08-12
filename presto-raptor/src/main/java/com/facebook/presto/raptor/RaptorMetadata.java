@@ -22,6 +22,7 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.ViewResult;
+import com.facebook.presto.raptor.storage.StorageTypeConverter;
 import com.facebook.presto.raptor.systemtables.ColumnRangesSystemTable;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -49,6 +50,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -134,26 +136,29 @@ public class RaptorMetadata
     private final IDBI dbi;
     private final MetadataDao dao;
     private final ShardManager shardManager;
+    private final TypeManager typeManager;
     private final String connectorId;
     private final LongConsumer beginDeleteForTableId;
 
     private final AtomicReference<Long> currentTransactionId = new AtomicReference<>();
 
-    public RaptorMetadata(String connectorId, IDBI dbi, ShardManager shardManager)
+    public RaptorMetadata(String connectorId, IDBI dbi, ShardManager shardManager, TypeManager typeManager)
     {
-        this(connectorId, dbi, shardManager, tableId -> {});
+        this(connectorId, dbi, shardManager, typeManager, tableId -> {});
     }
 
     public RaptorMetadata(
             String connectorId,
             IDBI dbi,
             ShardManager shardManager,
+            TypeManager typeManager,
             LongConsumer beginDeleteForTableId)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.beginDeleteForTableId = requireNonNull(beginDeleteForTableId, "beginDeleteForTableId is null");
     }
 
@@ -345,7 +350,9 @@ public class RaptorMetadata
     {
         ImmutableMap.Builder<String, RaptorColumnHandle> map = ImmutableMap.builder();
         long columnId = 1;
+        StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeManager);
         for (ColumnMetadata column : metadata.getColumns()) {
+            checkState(storageTypeConverter.toStorageType(column.getType()) != null, "storage type cannot be null");
             map.put(column.getName(), new RaptorColumnHandle(connectorId, column.getName(), columnId, column.getType()));
             columnId++;
         }
@@ -469,6 +476,8 @@ public class RaptorMetadata
         long columnId = lastColumn.getColumnId() + 1;
         int ordinalPosition = lastColumn.getOrdinalPosition() + 1;
 
+        StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeManager);
+        checkState(storageTypeConverter.toStorageType(column.getType()) != null, "storage type cannot be null");
         String type = column.getType().getTypeSignature().toString();
         daoTransaction(dbi, MetadataDao.class, dao -> {
             dao.insertColumn(table.getTableId(), columnId, column.getName(), ordinalPosition, type, null, null);
