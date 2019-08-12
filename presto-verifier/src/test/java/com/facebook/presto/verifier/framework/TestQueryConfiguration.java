@@ -35,8 +35,8 @@ public class TestQueryConfiguration
 
     private static final Map<String, String> SESSION_PROPERTIES = ImmutableMap.of("property_1", "value_1", "property_2", "value_2");
 
-    private static final QueryConfiguration CONFIGURATION_1 = new QueryConfiguration(CATALOG, SCHEMA, USERNAME, Optional.of(PASSWORD), Optional.of(SESSION_PROPERTIES));
-    private static final QueryConfiguration CONFIGURATION_2 = new QueryConfiguration(CATALOG, SCHEMA, USERNAME, Optional.empty(), Optional.empty());
+    private static final QueryConfiguration CONFIGURATION_1 = new QueryConfiguration(CATALOG, SCHEMA, Optional.of(USERNAME), Optional.of(PASSWORD), Optional.of(SESSION_PROPERTIES));
+    private static final QueryConfiguration CONFIGURATION_2 = new QueryConfiguration(CATALOG, SCHEMA, Optional.empty(), Optional.empty(), Optional.empty());
 
     private static final QueryConfigurationOverrides OVERRIDES = new QueryConfigurationOverridesConfig()
             .setCatalogOverride(CATALOG_OVERRIDE)
@@ -59,14 +59,14 @@ public class TestQueryConfiguration
                 new QueryConfiguration(
                         CATALOG_OVERRIDE,
                         SCHEMA_OVERRIDE,
-                        USERNAME_OVERRIDE,
+                        Optional.of(USERNAME_OVERRIDE),
                         Optional.of(PASSWORD_OVERRIDE),
                         Optional.of(SESSION_PROPERTIES)));
         assertEquals(CONFIGURATION_2.applyOverrides(OVERRIDES),
                 new QueryConfiguration(
                         CATALOG_OVERRIDE,
                         SCHEMA_OVERRIDE,
-                        USERNAME_OVERRIDE,
+                        Optional.of(USERNAME_OVERRIDE),
                         Optional.of(PASSWORD_OVERRIDE),
                         Optional.empty()));
     }

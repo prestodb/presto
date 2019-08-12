@@ -27,7 +27,7 @@ public class QueryConfiguration
 {
     private final String catalog;
     private final String schema;
-    private final String username;
+    private final Optional<String> username;
     private final Optional<String> password;
     private final Map<String, String> sessionProperties;
 
@@ -35,7 +35,7 @@ public class QueryConfiguration
     public QueryConfiguration(
             @ColumnName("catalog") String catalog,
             @ColumnName("schema") String schema,
-            @ColumnName("username") String username,
+            @ColumnName("username") Optional<String> username,
             @ColumnName("password") Optional<String> password,
             @ColumnName("session_properties") Optional<Map<String, String>> sessionProperties)
     {
@@ -51,7 +51,7 @@ public class QueryConfiguration
         return new QueryConfiguration(
                 overrides.getCatalogOverride().orElse(catalog),
                 overrides.getSchemaOverride().orElse(schema),
-                overrides.getUsernameOverride().orElse(username),
+                Optional.ofNullable(overrides.getUsernameOverride().orElse(username.orElse(null))),
                 Optional.ofNullable(overrides.getPasswordOverride().orElse(password.orElse(null))),
                 Optional.of(sessionProperties));
     }
@@ -66,7 +66,7 @@ public class QueryConfiguration
         return schema;
     }
 
-    public String getUsername()
+    public Optional<String> getUsername()
     {
         return username;
     }

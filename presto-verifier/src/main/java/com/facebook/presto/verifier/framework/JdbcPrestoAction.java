@@ -182,7 +182,7 @@ public class JdbcPrestoAction
     {
         PrestoConnection connection = DriverManager.getConnection(
                 clusterUrls.get(queryOrigin.getCluster()),
-                configuration.getUsername(),
+                configuration.getUsername().orElse(null),
                 configuration.getPassword().orElse(null))
                 .unwrap(PrestoConnection.class);
 
