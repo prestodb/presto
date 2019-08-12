@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.Type;
@@ -161,7 +162,7 @@ public class BenchmarkSelectiveStreamReaders
             return orcReader.createSelectiveRecordReader(
                     ImmutableMap.of(0, type),
                     ImmutableList.of(0),
-                    filter.map(f -> ImmutableMap.of(0, f)).orElse(ImmutableMap.of()),
+                    filter.isPresent() ? ImmutableMap.of(0, ImmutableMap.of(new Subfield("c"), filter.get())) : ImmutableMap.of(),
                     ImmutableList.of(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),

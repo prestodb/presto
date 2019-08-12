@@ -265,7 +265,7 @@ public class OrcReader
     public OrcSelectiveRecordReader createSelectiveRecordReader(
             Map<Integer, Type> includedColumns,
             List<Integer> outputColumns,
-            Map<Integer, TupleDomainFilter> filters,
+            Map<Integer, Map<Subfield, TupleDomainFilter>> filters,
             List<FilterFunction> filterFunctions,
             Map<Integer, Integer> filterFunctionInputs,
             Map<Integer, List<Subfield>> requiredSubfields,

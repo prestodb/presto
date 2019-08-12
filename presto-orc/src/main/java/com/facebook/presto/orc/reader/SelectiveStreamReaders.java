@@ -16,14 +16,18 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
+import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.Iterables;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 public final class SelectiveStreamReaders
 {
@@ -31,25 +35,29 @@ public final class SelectiveStreamReaders
 
     public static SelectiveStreamReader createStreamReader(
             StreamDescriptor streamDescriptor,
-            Optional<TupleDomainFilter> filter,
+            Map<Subfield, TupleDomainFilter> filters,
             Optional<Type> outputType,
             List<Subfield> requiredSubfields,
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryContext)
     {
-        switch (streamDescriptor.getStreamType()) {
-            case BOOLEAN:
+        OrcTypeKind type = streamDescriptor.getStreamType();
+        switch (type) {
+            case BOOLEAN: {
                 checkArgument(requiredSubfields.isEmpty(), "Boolean stream reader doesn't support subfields");
-                return new BooleanSelectiveStreamReader(streamDescriptor, filter, outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
-            case BYTE:
+                return new BooleanSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+            }
+            case BYTE: {
                 checkArgument(requiredSubfields.isEmpty(), "Byte stream reader doesn't support subfields");
-                return new ByteSelectiveStreamReader(streamDescriptor, filter, outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+                return new ByteSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+            }
             case SHORT:
             case INT:
             case LONG:
-            case DATE:
+            case DATE: {
                 checkArgument(requiredSubfields.isEmpty(), "Primitive type stream reader doesn't support subfields");
-                return new LongSelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext);
+                return new LongSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext);
+            }
             case FLOAT:
             case DOUBLE:
             case BINARY:
@@ -63,7 +71,17 @@ public final class SelectiveStreamReaders
             case DECIMAL:
             case UNION:
             default:
-                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
+                throw new IllegalArgumentException("Unsupported type: " + type);
         }
+    }
+
+    private static Optional<TupleDomainFilter> getOptionalOnlyFilter(OrcTypeKind type, Map<Subfield, TupleDomainFilter> filters)
+    {
+        if (filters.isEmpty()) {
+            return Optional.empty();
+        }
+
+        checkArgument(filters.size() == 1, format("Stream reader for %s doesn't support multiple range filters", type));
+        return Optional.of(Iterables.getOnlyElement(filters.values()));
     }
 }

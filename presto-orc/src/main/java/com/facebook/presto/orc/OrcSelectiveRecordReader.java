@@ -28,6 +28,7 @@ import com.facebook.presto.spi.block.BlockLease;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
@@ -76,7 +77,7 @@ public class OrcSelectiveRecordReader
     public OrcSelectiveRecordReader(
             Map<Integer, Type> includedColumns,                 // key: hiveColumnIndex
             List<Integer> outputColumns,                        // elements are hive column indices
-            Map<Integer, TupleDomainFilter> filters,            // key: hiveColumnIndex
+            Map<Integer, Map<Subfield, TupleDomainFilter>> filters, // key: hiveColumnIndex
             List<FilterFunction> filterFunctions,
             Map<Integer, Integer> filterFunctionInputMapping,   // channel-to-hiveColumnIndex mapping for all filter function inputs
             Map<Integer, List<Subfield>> requiredSubfields,     // key: hiveColumnIndex
@@ -199,7 +200,7 @@ public class OrcSelectiveRecordReader
             DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns,
             List<Integer> outputColumns,
-            Map<Integer, TupleDomainFilter> filters,
+            Map<Integer, Map<Subfield, TupleDomainFilter>> filters,
             List<FilterFunction> filterFunctions,
             Map<Integer, Integer> filterFunctionInputMapping,
             Map<Integer, List<Subfield>> requiredSubfields,
@@ -224,7 +225,7 @@ public class OrcSelectiveRecordReader
                 boolean outputRequired = outputColumns.contains(columnId) || filterFunctionInputColumns.contains(columnId);
                 streamReaders[columnId] = createStreamReader(
                         streamDescriptor,
-                        Optional.ofNullable(filters.get(columnId)),
+                        Optional.ofNullable(filters.get(columnId)).orElse(ImmutableMap.of()),
                         outputRequired ? Optional.of(includedColumns.get(columnId)) : Optional.empty(),
                         Optional.ofNullable(requiredSubfields.get(columnId)).orElse(ImmutableList.of()),
                         hiveStorageTimeZone,
