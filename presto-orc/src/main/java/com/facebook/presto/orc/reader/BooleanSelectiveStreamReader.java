@@ -52,6 +52,7 @@ public class BooleanSelectiveStreamReader
     private final StreamDescriptor streamDescriptor;
     @Nullable
     private final TupleDomainFilter filter;
+    private final boolean nonDeterministicFilter;
     private final boolean nullsAllowed;
     private final boolean outputRequired;
 
@@ -90,7 +91,8 @@ public class BooleanSelectiveStreamReader
         this.outputRequired = outputRequired;
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
 
-        nullsAllowed = this.filter == null || this.filter.testNull();
+        nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
+        nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
     }
 
     @Override
@@ -196,7 +198,7 @@ public class BooleanSelectiveStreamReader
                 }
 
                 if (presentStream != null && !presentStream.nextBit()) {
-                    if (nullsAllowed) {
+                    if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                         if (outputRequired) {
                             nulls[outputPositionCount] = true;
                         }
@@ -230,7 +232,15 @@ public class BooleanSelectiveStreamReader
     {
         presentStream.skip(positions[positionCount - 1]);
 
-        if (nullsAllowed) {
+        if (nonDeterministicFilter) {
+            outputPositionCount = 0;
+            for (int i = 0; i < positionCount; i++) {
+                if (filter.testNull()) {
+                    outputPositionCount++;
+                }
+            }
+        }
+        else if (nullsAllowed) {
             outputPositionCount = positionCount;
             allNulls = true;
         }
