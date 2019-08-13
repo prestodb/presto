@@ -187,11 +187,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>joda-to-java-time-bridge</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.teradata</groupId>
             <artifactId>re2j-td</artifactId>
         </dependency>
