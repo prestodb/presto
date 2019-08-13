@@ -27,9 +27,12 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -401,6 +404,7 @@ public class TestOrcBatchPageSourceMemoryTracking
     {
         private final FileSplit fileSplit;
         private final Properties schema;
+        private final TableHandle table;
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
         private final List<HivePartitionKey> partitionKeys;
@@ -433,6 +437,12 @@ public class TestOrcBatchPageSourceMemoryTracking
                     .filter(TestColumn::isPartitionKey)
                     .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                     .collect(toList());
+
+            table = new TableHandle(
+                    new ConnectorId("test"),
+                    new ConnectorTableHandle() {},
+                    new ConnectorTransactionHandle() {},
+                    Optional.empty());
 
             ImmutableList.Builder<HiveColumnHandle> columnsBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -495,7 +505,8 @@ public class TestOrcBatchPageSourceMemoryTracking
             SourceOperatorFactory sourceOperatorFactory = new TableScanOperatorFactory(
                     0,
                     new PlanNodeId("0"),
-                    (session, split, columnHandles) -> pageSource,
+                    (session, split, table, columnHandles) -> pageSource,
+                    table,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -515,9 +526,10 @@ public class TestOrcBatchPageSourceMemoryTracking
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
-                    (session, split, columnHandles) -> pageSource,
+                    (session, split, table, columnHandles) -> pageSource,
                     cursorProcessor,
                     pageProcessor,
+                    table,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
                     types,
                     new DataSize(0, BYTE),

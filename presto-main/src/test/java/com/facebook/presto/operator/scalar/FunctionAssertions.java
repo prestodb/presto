@@ -34,6 +34,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
@@ -44,7 +45,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -940,6 +943,11 @@ public final class FunctionAssertions
                     PAGE_SOURCE_PROVIDER,
                     cursorProcessor,
                     pageProcessor,
+                    new TableHandle(
+                            new ConnectorId("test"),
+                            new ConnectorTableHandle() {},
+                            new ConnectorTransactionHandle() {},
+                            Optional.empty()),
                     ImmutableList.of(),
                     ImmutableList.of(projection.getType()),
                     new DataSize(0, BYTE),
@@ -1015,7 +1023,7 @@ public final class FunctionAssertions
             implements PageSourceProvider
     {
         @Override
-        public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+        public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
         {
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();

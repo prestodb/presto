@@ -28,11 +28,14 @@ import com.facebook.presto.operator.project.TestPageProcessor.SelectAllFilter;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
@@ -80,6 +83,12 @@ import static org.testng.Assert.assertTrue;
 public class TestScanFilterAndProjectOperator
         extends AbstractTestFunctions
 {
+    private static final TableHandle TESTING_TABLE_HANDLE = new TableHandle(
+            new ConnectorId("test"),
+            new ConnectorTableHandle() {},
+            new ConnectorTransactionHandle() {},
+            Optional.empty());
+
     private final MetadataManager metadata = createTestMetadataManager();
     private final ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
     private ExecutorService executor;
@@ -105,9 +114,10 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, columns) -> new FixedPageSource(ImmutableList.of(input)),
+                (session, split, table, columns) -> new FixedPageSource(ImmutableList.of(input)),
                 cursorProcessor,
                 pageProcessor,
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(VARCHAR),
                 new DataSize(0, BYTE),
@@ -148,9 +158,10 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, columns) -> new FixedPageSource(input),
+                (session, split, table, columns) -> new FixedPageSource(input),
                 cursorProcessor,
                 pageProcessor,
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(BIGINT),
                 new DataSize(64, KILOBYTE),
@@ -191,9 +202,10 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, columns) -> new SinglePagePageSource(input),
+                (session, split, table, columns) -> new SinglePagePageSource(input),
                 cursorProcessor,
                 () -> pageProcessor,
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(BIGINT),
                 new DataSize(0, BYTE),
@@ -224,9 +236,10 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, columns) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                (session, split, table, columns) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
                 cursorProcessor,
                 pageProcessor,
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(VARCHAR),
                 new DataSize(0, BYTE),
@@ -276,9 +289,10 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, columns) -> new FixedPageSource(ImmutableList.of(input)),
+                (session, split, table, columns) -> new FixedPageSource(ImmutableList.of(input)),
                 cursorProcessor,
                 pageProcessor,
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(BIGINT),
                 new DataSize(0, BYTE),
@@ -342,9 +356,10 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (session, split, columns) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)),
+                (session, split, table, columns) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)),
                 cursorProcessor,
                 pageProcessor,
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(BIGINT),
                 new DataSize(0, BYTE),
