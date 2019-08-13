@@ -3536,18 +3536,18 @@ public class TestHiveIntegrationSmokeTest
                 "   partitioned_by = ARRAY['p_varchar'] " +
                 ") " +
                 "AS " +
-                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar " +
+                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, c_array, p_varchar " +
                 "FROM ( " +
                 "  VALUES " +
-                "    (null, null, null, null, null, null, 'p1'), " +
-                "    (null, null, null, null, null, null, 'p1'), " +
-                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), CAST('bcd1' AS VARBINARY), 'p1')," +
-                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), CAST('bcd2' AS VARBINARY), 'p1')," +
-                "    (null, null, null, null, null, null, 'p2'), " +
-                "    (null, null, null, null, null, null, 'p2'), " +
-                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), CAST('dcb1' AS VARBINARY), 'p2'), " +
-                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), CAST('dcb2' AS VARBINARY), 'p2') " +
-                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar)", tableName), 8);
+                "    (null, null, null, null, null, null, null, 'p1'), " +
+                "    (null, null, null, null, null, null, null, 'p1'), " +
+                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), CAST('bcd1' AS VARBINARY), sequence(0, 10), 'p1')," +
+                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), CAST('bcd2' AS VARBINARY), sequence(10, 20), 'p1')," +
+                "    (null, null, null, null, null, null, null, 'p2'), " +
+                "    (null, null, null, null, null, null, null, 'p2'), " +
+                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), CAST('dcb1' AS VARBINARY), sequence(20, 25), 'p2'), " +
+                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), CAST('dcb2' AS VARBINARY), sequence(30, 35), 'p2') " +
+                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, c_array, p_varchar)", tableName), 8);
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1')", tableName),
                 "SELECT * FROM VALUES " +
@@ -3557,6 +3557,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
+                        "('c_array', 176.0E0, null, 0.5, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "(null, null, null, null, 4.0E0, null, null)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2')", tableName),
@@ -3567,6 +3568,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
+                        "('c_array', 96.0E0, null, 0.5, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "(null, null, null, null, 4.0E0, null, null)");
 
@@ -3579,6 +3581,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 0E0, 0E0, null, null, null), " +
                         "('c_varchar', 0E0, 0E0, 0E0, null, null, null), " +
                         "('c_varbinary', null, 0E0, 0E0, null, null, null), " +
+                        "('c_array', null, 0E0, 0E0, null, null, null), " +
                         "('p_varchar', 0E0, 0E0, 0E0, null, null, null), " +
                         "(null, null, null, null, 0E0, null, null)");
 
@@ -3597,6 +3600,7 @@ public class TestHiveIntegrationSmokeTest
                 "   c_timestamp TIMESTAMP, " +
                 "   c_varchar VARCHAR, " +
                 "   c_varbinary VARBINARY, " +
+                "   c_array ARRAY(BIGINT), " +
                 "   p_varchar VARCHAR " +
                 ") " +
                 "WITH ( " +
@@ -3605,18 +3609,18 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(format("" +
                 "INSERT INTO %s " +
-                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar " +
+                "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, c_array, p_varchar " +
                 "FROM ( " +
                 "  VALUES " +
-                "    (null, null, null, null, null, null, 'p1'), " +
-                "    (null, null, null, null, null, null, 'p1'), " +
-                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), CAST('bcd1' AS VARBINARY), 'p1')," +
-                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), CAST('bcd2' AS VARBINARY), 'p1')," +
-                "    (null, null, null, null, null, null, 'p2'), " +
-                "    (null, null, null, null, null, null, 'p2'), " +
-                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), CAST('dcb1' AS VARBINARY), 'p2'), " +
-                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), CAST('dcb2' AS VARBINARY), 'p2') " +
-                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar)", tableName), 8);
+                "    (null, null, null, null, null, null, null, 'p1'), " +
+                "    (null, null, null, null, null, null, null, 'p1'), " +
+                "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', CAST('abc1' AS VARCHAR), CAST('bcd1' AS VARBINARY), sequence(0, 10), 'p1')," +
+                "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', CAST('abc2' AS VARCHAR), CAST('bcd2' AS VARBINARY), sequence(10, 20), 'p1')," +
+                "    (null, null, null, null, null, null, null, 'p2'), " +
+                "    (null, null, null, null, null, null, null, 'p2'), " +
+                "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', CAST('cba1' AS VARCHAR), CAST('dcb1' AS VARBINARY), sequence(20, 25), 'p2'), " +
+                "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', CAST('cba2' AS VARCHAR), CAST('dcb2' AS VARBINARY), sequence(30, 35), 'p2') " +
+                ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, c_array, p_varchar)", tableName), 8);
 
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1')", tableName),
                 "SELECT * FROM VALUES " +
@@ -3626,6 +3630,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
+                        "('c_array', 176.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "(null, null, null, null, 4.0E0, null, null)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2')", tableName),
@@ -3636,6 +3641,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varchar', 8.0E0, 2.0E0, 0.5E0, null, null, null), " +
                         "('c_varbinary', 8.0E0, null, 0.5E0, null, null, null), " +
+                        "('c_array', 96.0E0, null, 0.5E0, null, null, null), " +
                         "('p_varchar', 8.0E0, 1.0E0, 0.0E0, null, null, null), " +
                         "(null, null, null, null, 4.0E0, null, null)");
 
@@ -3648,6 +3654,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 0E0, 0E0, null, null, null), " +
                         "('c_varchar', 0E0, 0E0, 0E0, null, null, null), " +
                         "('c_varbinary', null, 0E0, 0E0, null, null, null), " +
+                        "('c_array', null, 0E0, 0E0, null, null, null), " +
                         "('p_varchar', 0E0, 0E0, 0E0, null, null, null), " +
                         "(null, null, null, null, 0E0, null, null)");
 
@@ -3729,6 +3736,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
+                        "('c_array', null, null, null, null, null, null), " +
                         "('p_varchar', 24.0, 3.0, 0.25, null, null, null), " +
                         "('p_bigint', null, 2.0, 0.25, null, '7', '8'), " +
                         "(null, null, null, null, 16.0, null, null)");
@@ -3743,6 +3751,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
+                        "('c_array', null, null, null, null, null, null), " +
                         "('p_varchar', 24.0, 3.0, 0.25, null, null, null), " +
                         "('p_bigint', null, 2.0, 0.25, null, '7', '8'), " +
                         "(null, null, null, null, 16.0, null, null)");
@@ -3758,6 +3767,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 2.0, 0.5, null, null, null), " +
                         "('c_varchar', 8.0, 2.0, 0.5, null, null, null), " +
                         "('c_varbinary', 4.0, null, 0.5, null, null, null), " +
+                        "('c_array', 176.0, null, 0.5, null, null, null), " +
                         "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
                         "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
                         "(null, null, null, null, 4.0, null, null)");
@@ -3769,6 +3779,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 2.0, 0.5, null, null, null), " +
                         "('c_varchar', 8.0, 2.0, 0.5, null, null, null), " +
                         "('c_varbinary', 4.0, null, 0.5, null, null, null), " +
+                        "('c_array', 96.0, null, 0.5, null, null, null), " +
                         "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
                         "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
                         "(null, null, null, null, 4.0, null, null)");
@@ -3780,6 +3791,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 4.0, 0.0, null, null, null), " +
                         "('c_varchar', 16.0, 4.0, 0.0, null, null, null), " +
                         "('c_varbinary', 8.0, null, 0.0, null, null, null), " +
+                        "('c_array', 192.0, null, 0.0, null, null, null), " +
                         "('p_varchar', 0.0, 0.0, 1.0, null, null, null), " +
                         "('p_bigint', null, 0.0, 1.0, null, null, null), " +
                         "(null, null, null, null, 4.0, null, null)");
@@ -3793,6 +3805,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
+                        "('c_array', null, null, null, null, null, null), " +
                         "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
                         "('p_bigint', null, 1.0, 0.0, null, '8', '8'), " +
                         "(null, null, null, null, 4.0, null, null)");
@@ -3804,6 +3817,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
+                        "('c_array', null, null, null, null, null, null), " +
                         "('p_varchar', 0.0, 0.0, 0.0, null, null, null), " +
                         "('p_bigint', null, 0.0, 0.0, null, null, null), " +
                         "(null, null, null, null, 0.0, null, null)");
@@ -3815,6 +3829,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
+                        "('c_array', null, null, null, null, null, null), " +
                         "('p_varchar', 0.0, 0.0, 0.0, null, null, null), " +
                         "('p_bigint', null, 0.0, 0.0, null, null, null), " +
                         "(null, null, null, null, 0.0, null, null)");
@@ -3831,6 +3846,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 2.0, 0.5, null, null, null), " +
                         "('c_varchar', 8.0, 2.0, 0.5, null, null, null), " +
                         "('c_varbinary', 4.0, null, 0.5, null, null, null), " +
+                        "('c_array', 176.0, null, 0.5, null, null, null), " +
                         "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
                         "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
                         "(null, null, null, null, 4.0, null, null)");
@@ -3842,6 +3858,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 2.0, 0.5, null, null, null), " +
                         "('c_varchar', 8.0, 2.0, 0.5, null, null, null), " +
                         "('c_varbinary', 4.0, null, 0.5, null, null, null), " +
+                        "('c_array', 96.0, null, 0.5, null, null, null), " +
                         "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
                         "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
                         "(null, null, null, null, 4.0, null, null)");
@@ -3853,6 +3870,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 4.0, 0.0, null, null, null), " +
                         "('c_varchar', 16.0, 4.0, 0.0, null, null, null), " +
                         "('c_varbinary', 8.0, null, 0.0, null, null, null), " +
+                        "('c_array', 192.0, null, 0.0, null, null, null), " +
                         "('p_varchar', 0.0, 0.0, 1.0, null, null, null), " +
                         "('p_bigint', null, 0.0, 1.0, null, null, null), " +
                         "(null, null, null, null, 4.0, null, null)");
@@ -3864,6 +3882,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 2.0, 0.5, null, null, null), " +
                         "('c_varchar', 8.0, 2.0, 0.5, null, null, null), " +
                         "('c_varbinary', 4.0, null, 0.5, null, null, null), " +
+                        "('c_array', 96.0, null, 0.5, null, null, null), " +
                         "('p_varchar', 8.0, 1.0, 0.0, null, null, null), " +
                         "('p_bigint', null, 1.0, 0.0, null, '8', '8'), " +
                         "(null, null, null, null, 4.0, null, null)");
@@ -3875,6 +3894,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 0.0, 0.0, null, null, null), " +
                         "('c_varchar', 0.0, 0.0, 0.0, null, null, null), " +
                         "('c_varbinary', 0.0, null, 0.0, null, null, null), " +
+                        "('c_array', 0.0, null, 0.0, null, null, null), " +
                         "('p_varchar', 0.0, 0.0, 0.0, null, null, null), " +
                         "('p_bigint', null, 0.0, 0.0, null, null, null), " +
                         "(null, null, null, null, 0.0, null, null)");
@@ -3886,6 +3906,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 0.0, 0.0, null, null, null), " +
                         "('c_varchar', 0.0, 0.0, 0.0, null, null, null), " +
                         "('c_varbinary', 0.0, null, 0.0, null, null, null), " +
+                        "('c_array', 0.0, null, 0.0, null, null, null), " +
                         "('p_varchar', 0.0, 0.0, 0.0, null, null, null), " +
                         "('p_bigint', null, 0.0, 0.0, null, null, null), " +
                         "(null, null, null, null, 0.0, null, null)");
@@ -3909,6 +3930,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
+                        "('c_array', null, null, null, null, null, null), " +
                         "('p_varchar', null, null, null, null, null, null), " +
                         "('p_bigint', null, null, null, null, null, null), " +
                         "(null, null, null, null, 16.0, null, null)");
@@ -3924,6 +3946,7 @@ public class TestHiveIntegrationSmokeTest
                         "('c_timestamp', null, 10.0, 0.375, null, null, null), " +
                         "('c_varchar', 40.0, 10.0, 0.375, null, null, null), " +
                         "('c_varbinary', 20.0, null, 0.375, null, null, null), " +
+                        "('c_array', 560.0, null, 0.375, null, null, null), " +
                         "('p_varchar', 24.0, 3.0, 0.25, null, null, null), " +
                         "('p_bigint', null, 2.0, 0.25, null, '7', '8'), " +
                         "(null, null, null, null, 16.0, null, null)");
@@ -3958,30 +3981,30 @@ public class TestHiveIntegrationSmokeTest
                         tableName +
                         (partitioned ? " WITH (partitioned_by = ARRAY['p_varchar', 'p_bigint'])\n" : " ") +
                         "AS " +
-                        "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar, p_bigint " +
+                        "SELECT c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, c_array, p_varchar, p_bigint " +
                         "FROM ( " +
                         "  VALUES " +
                         // p_varchar = 'p1', p_bigint = BIGINT '7'
-                        "    (null, null, null, null, null, null, 'p1', BIGINT '7'), " +
-                        "    (null, null, null, null, null, null, 'p1', BIGINT '7'), " +
-                        "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', 'abc1', X'bcd1', 'p1', BIGINT '7'), " +
-                        "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', 'abc2', X'bcd2', 'p1', BIGINT '7'), " +
+                        "    (null, null, null, null, null, null, null, 'p1', BIGINT '7'), " +
+                        "    (null, null, null, null, null, null, null, 'p1', BIGINT '7'), " +
+                        "    (true, BIGINT '1', DOUBLE '2.2', TIMESTAMP '2012-08-08 01:00', 'abc1', X'bcd1', sequence(0, 10), 'p1', BIGINT '7'), " +
+                        "    (false, BIGINT '0', DOUBLE '1.2', TIMESTAMP '2012-08-08 00:00', 'abc2', X'bcd2', sequence(10, 20), 'p1', BIGINT '7'), " +
                         // p_varchar = 'p2', p_bigint = BIGINT '7'
-                        "    (null, null, null, null, null, null, 'p2', BIGINT '7'), " +
-                        "    (null, null, null, null, null, null, 'p2', BIGINT '7'), " +
-                        "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', 'cba1', X'dcb1', 'p2', BIGINT '7'), " +
-                        "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', 'cba2', X'dcb2', 'p2', BIGINT '7'), " +
+                        "    (null, null, null, null, null, null, null, 'p2', BIGINT '7'), " +
+                        "    (null, null, null, null, null, null, null, 'p2', BIGINT '7'), " +
+                        "    (true, BIGINT '2', DOUBLE '3.3', TIMESTAMP '2012-09-09 01:00', 'cba1', X'dcb1', sequence(20, 25), 'p2', BIGINT '7'), " +
+                        "    (false, BIGINT '1', DOUBLE '2.3', TIMESTAMP '2012-09-09 00:00', 'cba2', X'dcb2', sequence(30, 35), 'p2', BIGINT '7'), " +
                         // p_varchar = 'p3', p_bigint = BIGINT '8'
-                        "    (null, null, null, null, null, null, 'p3', BIGINT '8'), " +
-                        "    (null, null, null, null, null, null, 'p3', BIGINT '8'), " +
-                        "    (true, BIGINT '3', DOUBLE '4.4', TIMESTAMP '2012-10-10 01:00', 'bca1', X'cdb1', 'p3', BIGINT '8'), " +
-                        "    (false, BIGINT '2', DOUBLE '3.4', TIMESTAMP '2012-10-10 00:00', 'bca2', X'cdb2', 'p3', BIGINT '8'), " +
+                        "    (null, null, null, null, null, null, null, 'p3', BIGINT '8'), " +
+                        "    (null, null, null, null, null, null, null, 'p3', BIGINT '8'), " +
+                        "    (true, BIGINT '3', DOUBLE '4.4', TIMESTAMP '2012-10-10 01:00', 'bca1', X'cdb1', sequence(40, 45), 'p3', BIGINT '8'), " +
+                        "    (false, BIGINT '2', DOUBLE '3.4', TIMESTAMP '2012-10-10 00:00', 'bca2', X'cdb2', sequence(50, 55), 'p3', BIGINT '8'), " +
                         // p_varchar = NULL, p_bigint = NULL
-                        "    (false, BIGINT '7', DOUBLE '7.7', TIMESTAMP '1977-07-07 07:07', 'efa1', X'efa1', NULL, NULL), " +
-                        "    (false, BIGINT '6', DOUBLE '6.7', TIMESTAMP '1977-07-07 07:06', 'efa2', X'efa2', NULL, NULL), " +
-                        "    (false, BIGINT '5', DOUBLE '5.7', TIMESTAMP '1977-07-07 07:05', 'efa3', X'efa3', NULL, NULL), " +
-                        "    (false, BIGINT '4', DOUBLE '4.7', TIMESTAMP '1977-07-07 07:04', 'efa4', X'efa4', NULL, NULL) " +
-                        ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, p_varchar, p_bigint)", 16);
+                        "    (false, BIGINT '7', DOUBLE '7.7', TIMESTAMP '1977-07-07 07:07', 'efa1', X'efa1', sequence(60, 65), NULL, NULL), " +
+                        "    (false, BIGINT '6', DOUBLE '6.7', TIMESTAMP '1977-07-07 07:06', 'efa2', X'efa2', sequence(70, 75), NULL, NULL), " +
+                        "    (false, BIGINT '5', DOUBLE '5.7', TIMESTAMP '1977-07-07 07:05', 'efa3', X'efa3', sequence(80, 85), NULL, NULL), " +
+                        "    (false, BIGINT '4', DOUBLE '4.7', TIMESTAMP '1977-07-07 07:04', 'efa4', X'efa4', sequence(90, 95), NULL, NULL) " +
+                        ") AS x (c_boolean, c_bigint, c_double, c_timestamp, c_varchar, c_varbinary, c_array, p_varchar, p_bigint)", 16);
 
         if (partitioned) {
             // Create empty partitions
