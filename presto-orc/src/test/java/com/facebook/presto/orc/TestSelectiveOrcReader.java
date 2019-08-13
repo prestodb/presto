@@ -20,7 +20,9 @@ import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.AbstractIterator;
@@ -34,6 +36,7 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -76,6 +79,9 @@ import static org.testng.Assert.fail;
 
 public class TestSelectiveOrcReader
 {
+    private static final DecimalType DECIMAL_TYPE_PRECISION_2 = DecimalType.createDecimalType(2, 1);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_4 = DecimalType.createDecimalType(4, 2);
+    private static final DecimalType DECIMAL_TYPE_PRECISION_19 = DecimalType.createDecimalType(19, 8);
     private final OrcTester tester = quickSelectiveOrcTester();
 
     @BeforeClass
@@ -428,7 +434,7 @@ public class TestSelectiveOrcReader
     public void testArraysOfNulls()
             throws Exception
     {
-        for (Type type : ImmutableList.of(BOOLEAN, BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL, TIMESTAMP, arrayType(INTEGER))) {
+        for (Type type : ImmutableList.of(BOOLEAN, BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL, TIMESTAMP, DECIMAL_TYPE_PRECISION_19, DECIMAL_TYPE_PRECISION_4, arrayType(INTEGER))) {
             tester.testRoundTrip(arrayType(type),
                     nCopies(30_000, nCopies(5, null)),
                     ImmutableList.of(
@@ -505,6 +511,41 @@ public class TestSelectiveOrcReader
     {
         int mapSize = Math.abs(seed) % 7 + 1;
         return IntStream.range(0, mapSize).boxed().collect(toImmutableMap(Function.identity(), i -> i + seed));
+    }
+
+    @Test
+    public void testDecimalSequence()
+            throws Exception
+    {
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_4, decimalSequence("-3000", "1", 60_00, 4, 2));
+        tester.testRoundTrip(DECIMAL_TYPE_PRECISION_19, decimalSequence("-3000000000000000000", "100000000000000101", 60, 19, 8));
+
+        tester.testRoundTripTypes(
+                ImmutableList.of(DECIMAL_TYPE_PRECISION_2, DECIMAL_TYPE_PRECISION_2),
+                ImmutableList.of(
+                        decimalSequence("-30", "1", 60, 2, 1),
+                        decimalSequence("-30", "1", 60, 2, 1)),
+                toSubfieldFilters(ImmutableMap.of(0, TupleDomainFilter.BigintRange.of(10, 20, true))));
+
+        tester.testRoundTripTypes(
+                ImmutableList.of(DECIMAL_TYPE_PRECISION_2, DECIMAL_TYPE_PRECISION_2),
+                ImmutableList.of(
+                        decimalSequence("-30", "1", 60, 2, 1),
+                        decimalSequence("-30", "1", 60, 2, 1)),
+                toSubfieldFilters(ImmutableMap.of(
+                        0, TupleDomainFilter.BigintRange.of(10, 30, true),
+                        1, TupleDomainFilter.BigintRange.of(15, 25, true))));
+
+        tester.testRoundTripTypes(
+                ImmutableList.of(DECIMAL_TYPE_PRECISION_19, DECIMAL_TYPE_PRECISION_19),
+                ImmutableList.of(
+                        decimalSequence("-3000000000000000000", "100000000000000101", 60, 19, 8),
+                        decimalSequence("-3000000000000000000", "100000000000000101", 60, 19, 8)),
+                toSubfieldFilters(ImmutableMap.of(
+                        0, TupleDomainFilter.LongDecimalRange.of(-28999999999L, -28999999999L,
+                                false, true, 28999999999L, 28999999999L, false, true, true),
+                        1, TupleDomainFilter.LongDecimalRange.of(1000000000L, 1000000000L,
+                                false, true, 28999999999L, 28999999999L, false, true, true))));
     }
 
     private void testRoundTripNumeric(Iterable<? extends Number> values, TupleDomainFilter filter)
@@ -655,5 +696,17 @@ public class TestSelectiveOrcReader
     private static List<Integer> makeArray(int size, Random random)
     {
         return IntStream.range(0, size).map(i -> random.nextInt()).boxed().collect(toImmutableList());
+    }
+
+    private static List<SqlDecimal> decimalSequence(String start, String step, int items, int precision, int scale)
+    {
+        BigInteger decimalStep = new BigInteger(step);
+        List<SqlDecimal> values = new ArrayList<>();
+        BigInteger nextValue = new BigInteger(start);
+        for (int i = 0; i < items; i++) {
+            values.add(new SqlDecimal(nextValue, precision, scale));
+            nextValue = nextValue.add(decimalStep);
+        }
+        return values;
     }
 }
