@@ -13,10 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import sun.misc.Unsafe;
-
-import java.lang.reflect.Field;
-
+import static com.facebook.presto.spi.JvmUtils.unsafe;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.min;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
@@ -25,23 +22,6 @@ public class ByteArrayUtils
 {
     // Constant from MurMur hash.
     private static final long M = 0xc6a4a7935bd1e995L;
-
-    private static final Unsafe unsafe;
-
-    static {
-        try {
-            // fetch theUnsafe object
-            Field field = Unsafe.class.getDeclaredField("theUnsafe");
-            field.setAccessible(true);
-            unsafe = (Unsafe) field.get(null);
-            if (unsafe == null) {
-                throw new RuntimeException("Unsafe access not available");
-            }
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     private ByteArrayUtils() {}
 

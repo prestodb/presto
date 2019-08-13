@@ -16,12 +16,11 @@ package com.facebook.presto.spi.type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import sun.misc.Unsafe;
 
-import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.nio.ByteOrder;
 
+import static com.facebook.presto.spi.JvmUtils.unsafe;
 import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -85,22 +84,7 @@ public final class UnscaledDecimal128Arithmetic
      */
     private static final int[] POWERS_OF_TEN_INT = new int[MAX_POWER_OF_TEN_INT + 1];
 
-    private static final Unsafe unsafe;
-
     static {
-        try {
-            // fetch theUnsafe object
-            Field field = Unsafe.class.getDeclaredField("theUnsafe");
-            field.setAccessible(true);
-            unsafe = (Unsafe) field.get(null);
-            if (unsafe == null) {
-                throw new RuntimeException("Unsafe access not available");
-            }
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
         for (int i = 0; i < POWERS_OF_FIVE.length; ++i) {
             POWERS_OF_FIVE[i] = unscaledDecimal(BigInteger.valueOf(5).pow(i));
         }
