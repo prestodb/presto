@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkState;
@@ -251,9 +252,10 @@ public class JdbcMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        return jdbcClient.getTableStatistics(session, handle, constraint.getSummary());
+        List<JdbcColumnHandle> columns = columnHandles.stream().map(JdbcColumnHandle.class::cast).collect(Collectors.toList());
+        return jdbcClient.getTableStatistics(session, handle, columns, constraint.getSummary());
     }
 }

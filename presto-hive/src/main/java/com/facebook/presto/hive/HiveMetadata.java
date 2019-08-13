@@ -218,6 +218,7 @@ import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -585,15 +586,19 @@ public class HiveMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         if (!isStatisticsEnabled(session)) {
             return TableStatistics.empty();
         }
-        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle)
-                .entrySet().stream()
-                .filter(entry -> !((HiveColumnHandle) entry.getValue()).isHidden())
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        // TODO Adjust statistics to take into account required subfields
+
+        Map<String, ColumnHandle> columns = columnHandles.stream()
+                .map(HiveColumnHandle.class::cast)
+                .filter(not(HiveColumnHandle::isHidden))
+                .collect(toImmutableMap(HiveColumnHandle::getName, Function.identity()));
+
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
         List<HivePartition> partitions = partitionManager.getPartitions(metastore, tableHandle, constraint, session).getPartitions();

@@ -93,5 +93,5 @@ public interface JdbcClient
     PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException;
 
-    TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain);
+    TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> tupleDomain);
 }

@@ -513,11 +513,11 @@ public class MetadataManager
     }
 
     @Override
-    public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), constraint);
+        return metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), columnHandles, constraint);
     }
 
     @Override

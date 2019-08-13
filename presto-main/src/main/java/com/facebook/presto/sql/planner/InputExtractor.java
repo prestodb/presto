@@ -25,7 +25,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
@@ -37,13 +36,10 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Map.Entry;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class InputExtractor
 {
@@ -120,14 +116,13 @@ public class InputExtractor
                 columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
-            Set<ColumnHandle> desiredColumns = node.getAssignments().values().stream().collect(toImmutableSet());
+            List<ColumnHandle> desiredColumns = node.getAssignments().values().stream().collect(toImmutableList());
 
             Optional<TableStatistics> statistics = Optional.empty();
 
             if (context.isExtractStatistics()) {
                 Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
-                TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
-                statistics = Optional.of(pruneStatistics(tableStatistics, desiredColumns));
+                statistics = Optional.of(metadata.getTableStatistics(session, tableHandle, desiredColumns, constraint));
             }
 
             inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns, statistics));
@@ -145,14 +140,13 @@ public class InputExtractor
                 columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
-            Set<ColumnHandle> desiredColumns = node.getAssignments().values().stream().collect(toImmutableSet());
+            List<ColumnHandle> desiredColumns = node.getAssignments().values().stream().collect(toImmutableList());
 
             Optional<TableStatistics> statistics = Optional.empty();
 
             if (context.isExtractStatistics()) {
                 Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
-                TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
-                statistics = Optional.of(pruneStatistics(tableStatistics, desiredColumns));
+                statistics = Optional.of(metadata.getTableStatistics(session, tableHandle, desiredColumns, constraint));
             }
 
             inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns, statistics));
@@ -168,14 +162,6 @@ public class InputExtractor
             }
             return null;
         }
-
-        private TableStatistics pruneStatistics(TableStatistics tableStatistics, Set<ColumnHandle> desiredColumns)
-        {
-            Map<ColumnHandle, ColumnStatistics> columnStatistics = tableStatistics.getColumnStatistics().entrySet().stream()
-                    .filter(entry -> desiredColumns.contains(entry.getKey()))
-                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
-            return new TableStatistics(tableStatistics.getRowCount(), columnStatistics);
-        }
     }
 
     private static class Context
@@ -183,11 +169,6 @@ public class InputExtractor
         private boolean extractStatistics;
 
         public Context() {}
-
-        public Context(boolean extractStatistics)
-        {
-            this.extractStatistics = extractStatistics;
-        }
 
         public boolean isExtractStatistics()
         {

@@ -165,11 +165,11 @@ public class ShowStatsRewrite
         private Node rewriteShowStats(ShowStats node, Table table, Constraint<ColumnHandle> constraint)
         {
             TableHandle tableHandle = getTableHandle(node, table.getName());
-            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, ImmutableList.copyOf(columnHandles.values()), constraint);
             List<String> statsColumnNames = buildColumnsNames();
             List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, tableStatistics);
 
             return simpleQuery(selectAll(selectItems),

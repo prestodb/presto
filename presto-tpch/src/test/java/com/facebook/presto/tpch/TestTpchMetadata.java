@@ -136,7 +136,8 @@ public class TestTpchMetadata
     private void testTableStats(String schema, TpchTable<?> table, Constraint<ColumnHandle> constraint, double expectedRowCount)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, constraint);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(tpchMetadata.getColumnHandles(session, tableHandle).values());
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, columnHandles, constraint);
 
         double actualRowCountValue = tableStatistics.getRowCount().getValue();
         assertEquals(tableStatistics.getRowCount(), Estimate.of(actualRowCountValue));
@@ -146,7 +147,8 @@ public class TestTpchMetadata
     private void testNoTableStats(String schema, TpchTable<?> table)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, alwaysTrue());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(tpchMetadata.getColumnHandles(session, tableHandle).values());
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, columnHandles, alwaysTrue());
         assertTrue(tableStatistics.getRowCount().isUnknown());
     }
 
@@ -237,7 +239,8 @@ public class TestTpchMetadata
     private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, Constraint<ColumnHandle> constraint, ColumnStatistics expected)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, constraint);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(tpchMetadata.getColumnHandles(session, tableHandle).values());
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, columnHandles, constraint);
         ColumnHandle columnHandle = tpchMetadata.getColumnHandles(session, tableHandle).get(column.getSimplifiedColumnName());
 
         ColumnStatistics actual = tableStatistics.getColumnStatistics().get(columnHandle);

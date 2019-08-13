@@ -148,14 +148,14 @@ public class TpcdsMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         TpcdsTableHandle tpcdsTableHandle = (TpcdsTableHandle) tableHandle;
 
         Table table = Table.getTable(tpcdsTableHandle.getTableName());
         String schemaName = scaleFactorSchemaName(tpcdsTableHandle.getScaleFactor());
 
-        return tpcdsTableStatisticsFactory.create(schemaName, table, getColumnHandles(session, tableHandle));
+        return tpcdsTableStatisticsFactory.create(schemaName, table, columnHandles);
     }
 
     @Override

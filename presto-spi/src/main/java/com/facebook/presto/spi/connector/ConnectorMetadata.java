@@ -257,9 +257,9 @@ public interface ConnectorMetadata
     Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix);
 
     /**
-     * Get statistics for table for given filtering constraint.
+     * Get statistics for table for given columns and filtering constraint.
      */
-    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
         return TableStatistics.empty();
     }

@@ -24,6 +24,7 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -57,7 +58,7 @@ public class TableScanStatsRule
         // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
         Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
 
-        TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), ImmutableList.copyOf(node.getAssignments().values()), constraint);
         Map<VariableReferenceExpression, VariableStatsEstimate> outputVariableStats = new HashMap<>();
 
         for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
