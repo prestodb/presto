@@ -49,6 +49,9 @@ public class TestHivePushdownFilterQueries
             "   CASE WHEN orderkey % 43  = 0 THEN null ELSE discount END as discount, \n" +
             "   CASE WHEN orderkey % 7 = 0 THEN null ELSE CAST(tax AS REAL) END AS tax_real, \n" +
             "   CASE WHEN linenumber % 2 = 0 THEN null ELSE (CAST(day(shipdate) AS TINYINT) , CAST(month(shipdate) AS TINYINT)) END AS ship_day_month, " +
+            "   CASE WHEN orderkey % 37 = 0 THEN null ELSE CAST(discount AS DECIMAL(20, 8)) END AS discount_long_decimal, " +
+            "   CASE WHEN orderkey % 41 = 0 THEN null ELSE CAST(tax AS DECIMAL(3, 2)) END AS tax_short_decimal, " +
+            "   CASE WHEN orderkey % 43 = 0 THEN null ELSE (CAST(discount AS DECIMAL(20, 8)), CAST(tax AS DECIMAL(20, 8))) END AS long_decimals, " +
             "   CASE WHEN orderkey % 11 = 0 THEN null ELSE (orderkey, partkey, suppkey) END AS keys, \n" +
             "   CASE WHEN orderkey % 41 = 0 THEN null ELSE (extendedprice, discount, tax) END AS doubles, \n" +
             "   CASE WHEN orderkey % 13 = 0 THEN null ELSE ((orderkey, partkey), (suppkey,), CASE WHEN orderkey % 17 = 0 THEN null ELSE (orderkey, partkey) END) END AS nested_keys, \n" +
@@ -78,7 +81,7 @@ public class TestHivePushdownFilterQueries
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, discount, tax_real, ship_day_month, keys, doubles, nested_keys, flags, reals, info, dates, timestamps) AS " +
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, discount, tax_real, ship_day_month, discount_long_decimal, tax_short_decimal, long_decimals, keys, doubles, nested_keys, flags, reals, info, dates, timestamps) AS " +
                         "SELECT linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, " +
                         "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
                         "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
@@ -90,6 +93,9 @@ public class TestHivePushdownFilterQueries
                         "   IF (orderkey % 43 = 0, null, discount) AS discount, " +
                         "   IF (orderkey % 7 = 0, null, CAST(tax AS REAL)) AS tax_real, " +
                         "   IF (linenumber % 2 = 0, null, ARRAY[CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT)]) AS ship_day_month, " +
+                        "   IF (orderkey % 37 = 0, null, CAST(discount AS DECIMAL(20, 8))) AS discount_long_decimal, " +
+                        "   IF (orderkey % 41 = 0, null, CAST(tax AS DECIMAL(3, 2))) AS tax_short_decimal, " +
+                        "   IF (orderkey % 43 = 0, null, ARRAY[CAST(discount AS DECIMAL(20, 8)), CAST(tax AS DECIMAL(20, 8))]) AS long_decimals, " +
                         "   IF (orderkey % 11 = 0, null, ARRAY[orderkey, partkey, suppkey]) AS keys, " +
                         "   IF (orderkey % 41 = 0, null, ARRAY[extendedprice, discount, tax]) AS doubles, " +
                         "   IF (orderkey % 13 = 0, null, ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], IF (orderkey % 17 = 0, null, ARRAY[orderkey, partkey])]) AS nested_keys, " +
@@ -290,6 +296,28 @@ public class TestHivePushdownFilterQueries
         finally {
             getQueryRunner().execute("DROP TABLE test_maps");
         }
+    }
+
+    @Test
+    public void testDecimals()
+    {
+        assertQueryUsingH2Cte("SELECT discount_long_decimal, tax_short_decimal FROM lineitem_ex");
+
+        assertFilterProject("discount_long_decimal IS NOT NULL", "count(*)");
+
+        assertFilterProject("discount_long_decimal IS NULL", "discount_long_decimal");
+
+        assertFilterProject("discount_long_decimal > 0.05", "discount_long_decimal");
+
+        assertFilterProject("tax_short_decimal < 0.03", "tax_short_decimal");
+
+        assertFilterProject("tax_short_decimal < 0.05  AND discount_long_decimal > 0.05", "discount_long_decimal");
+
+        assertFilterProject("tax_short_decimal < discount_long_decimal", "discount_long_decimal");
+
+        assertFilterProject("discount_long_decimal > 0.01 AND tax_short_decimal > 0.01 AND (discount_long_decimal + tax_short_decimal) < 0.03", "discount_long_decimal");
+
+        assertFilterProject("long_decimals[1] > 0.01", "count(*)");
     }
 
     @Test

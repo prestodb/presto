@@ -92,6 +92,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -308,7 +309,7 @@ public class OrcTester
         testRoundTrip(type, readValues, ImmutableList.of());
     }
 
-    public void testRoundTrip(Type type, List<?> readValues, TupleDomainFilter...filters)
+    public void testRoundTrip(Type type, List<?> readValues, TupleDomainFilter... filters)
             throws Exception
     {
         testRoundTrip(type, readValues, Arrays.stream(filters).map(filter -> ImmutableMap.of(new Subfield("c"), filter)).collect(toImmutableList()));
@@ -794,6 +795,18 @@ public class OrcTester
 
         if (type == TIMESTAMP) {
             return filter.testLong(((SqlTimestamp) value).getMillisUtc());
+        }
+
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            BigDecimal bigDecimal = ((SqlDecimal) value).toBigDecimal();
+            if (decimalType.isShort()) {
+                return filter.testLong(bigDecimal.unscaledValue().longValue());
+            }
+            else {
+                Slice encodedDecimal = Decimals.encodeScaledValue(bigDecimal);
+                return filter.testDecimal(encodedDecimal.getLong(0), encodedDecimal.getLong(Long.BYTES));
+            }
         }
 
         fail("Unsupported type: " + type);

@@ -20,7 +20,10 @@ import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
@@ -48,6 +51,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -61,6 +65,7 @@ import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
+import static com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -91,6 +96,8 @@ public class BenchmarkSelectiveStreamReaders
 {
     public static final int ROWS = 10_000_000;
     public static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
+    private static final DecimalType SHORT_DECIMAL_TYPE = DecimalType.createDecimalType(10, 5);
+    private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(30, 10);
 
     @Benchmark
     public Object readAllNull(AllNullBenchmarkData data)
@@ -201,7 +208,9 @@ public class BenchmarkSelectiveStreamReaders
                 "timestamp",
 
                 "real",
-                "double"
+                "double",
+                "decimal(10,5)",
+                "decimal(30,10)"
         })
         private String typeSignature;
 
@@ -236,7 +245,9 @@ public class BenchmarkSelectiveStreamReaders
                 "timestamp",
 
                 "real",
-                "double"
+                "double",
+                "decimal(10,5)",
+                "decimal(30,10)"
         })
         private String typeSignature;
 
@@ -276,6 +287,13 @@ public class BenchmarkSelectiveStreamReaders
 
             if (type == DOUBLE) {
                 return Optional.of(DoubleRange.of(.5, false, false, 2, false, false, false));
+            }
+
+            if (type instanceof DecimalType) {
+                if (((DecimalType) type).isShort()) {
+                    return Optional.of(BigintRange.of(0, Long.MAX_VALUE, true));
+                }
+                return Optional.of(LongDecimalRange.of(0, 0, false, true, Long.MAX_VALUE, Long.MAX_VALUE, false, true, true));
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + type);
@@ -326,6 +344,15 @@ public class BenchmarkSelectiveStreamReaders
 
             if (getType() == DOUBLE) {
                 return random.nextDouble();
+            }
+
+            if (getType() instanceof DecimalType) {
+                if (Decimals.isShortDecimal(getType())) {
+                    return new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), SHORT_DECIMAL_TYPE.getPrecision(), SHORT_DECIMAL_TYPE.getScale());
+                }
+                else {
+                    return new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), LONG_DECIMAL_TYPE.getPrecision(), LONG_DECIMAL_TYPE.getScale());
+                }
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + getType());

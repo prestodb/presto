@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
@@ -82,7 +83,14 @@ public final class SelectiveStreamReaders
                 return new StructSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext);
             case MAP:
                 return new MapSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext);
-            case DECIMAL:
+            case DECIMAL: {
+                if (streamDescriptor.getOrcType().getPrecision().get() <= MAX_SHORT_PRECISION) {
+                    return new ShortDecimalSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+                }
+                else {
+                    return new LongDecimalSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+                }
+            }
             case UNION:
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
