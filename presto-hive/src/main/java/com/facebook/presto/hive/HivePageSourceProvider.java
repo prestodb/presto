@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -93,8 +94,11 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, TableHandle table, List<ColumnHandle> columns)
     {
+        checkArgument(table.getLayout().isPresent(), "Table layout is missing");
+        HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) table.getLayout().get();
+
         List<HiveColumnHandle> hiveColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)
                 .collect(toList());
@@ -105,7 +109,7 @@ public class HivePageSourceProvider
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
         if (isPushdownFilterEnabled(session)) {
-            return createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveColumns, hiveStorageTimeZone, rowExpressionService);
+            return createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, hiveColumns, hiveStorageTimeZone, rowExpressionService);
         }
 
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
@@ -119,9 +123,9 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
                 hiveSplit.getSchema(),
-                hiveSplit.getDomainPredicate()
+                hiveLayout.getDomainPredicate()
                         .transform(Subfield::getRootName)
-                        .transform(hiveSplit.getPredicateColumns()::get),
+                        .transform(hiveLayout.getPredicateColumns()::get),
                 hiveColumns,
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
@@ -140,12 +144,13 @@ public class HivePageSourceProvider
             Configuration configuration,
             ConnectorSession session,
             HiveSplit split,
+            HiveTableLayoutHandle layout,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
             RowExpressionService rowExpressionService)
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
-                .addAll(split.getPredicateColumns().values())
+                .addAll(layout.getPredicateColumns().values())
                 .addAll(split.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()))
                 .build();
 
@@ -174,7 +179,7 @@ public class HivePageSourceProvider
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .collect(toImmutableList());
 
-        RowExpression optimizedRemainingPredicate = rowExpressionService.getExpressionOptimizer().optimize(split.getRemainingPredicate(), MOST_OPTIMIZED, session);
+        RowExpression optimizedRemainingPredicate = rowExpressionService.getExpressionOptimizer().optimize(layout.getRemainingPredicate(), MOST_OPTIMIZED, session);
 
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -188,7 +193,7 @@ public class HivePageSourceProvider
                     toColumnHandles(columnMappings, true),
                     prefilledValues,
                     outputColumns,
-                    split.getDomainPredicate(),
+                    layout.getDomainPredicate(),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone);
             if (pageSource.isPresent()) {

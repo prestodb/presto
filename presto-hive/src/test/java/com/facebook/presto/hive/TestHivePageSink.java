@@ -17,6 +17,7 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -57,6 +59,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
+import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
@@ -232,14 +235,24 @@ public class TestHivePageSink
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 false,
-                TupleDomain.all(),
-                TRUE_CONSTANT,
-                ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 false);
+        TableHandle tableHandle = new TableHandle(
+                new ConnectorId(HIVE_CATALOG),
+                new HiveTableHandle(SCHEMA_NAME, TABLE_NAME),
+                transaction,
+                Optional.of(new HiveTableLayoutHandle(
+                        new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
+                        ImmutableList.of(),
+                        TupleDomain.all(),
+                        TRUE_CONSTANT,
+                        ImmutableMap.of(),
+                        TupleDomain.all(),
+                        Optional.empty(),
+                        Optional.empty())));
         HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), ImmutableSet.of(), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
-        return provider.createPageSource(transaction, getSession(config), split, ImmutableList.copyOf(getColumnHandles()));
+        return provider.createPageSource(transaction, getSession(config), split, tableHandle, ImmutableList.copyOf(getColumnHandles()));
     }
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)

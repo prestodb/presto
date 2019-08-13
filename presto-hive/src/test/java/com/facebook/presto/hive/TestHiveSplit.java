@@ -22,7 +22,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -45,7 +44,6 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -79,9 +77,6 @@ public class TestHiveSplit
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 true,
-                TupleDomain.all(),
-                TRUE_CONSTANT,
-                ImmutableMap.of(),
                 ImmutableMap.of(1, HIVE_STRING),
                 Optional.of(new HiveSplit.BucketConversion(
                         32,
