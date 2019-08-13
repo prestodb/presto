@@ -29,8 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregations
@@ -84,7 +82,7 @@ public class StatisticAggregations
                                     originalAggregation.getCall().getDisplayName(),
                                     functionHandle,
                                     function.getFinalType(),
-                                    ImmutableList.of(castToRowExpression(asSymbolReference(partialVariable)))),
+                                    ImmutableList.of(partialVariable)),
                             Optional.empty(),
                             Optional.empty(),
                             false,
