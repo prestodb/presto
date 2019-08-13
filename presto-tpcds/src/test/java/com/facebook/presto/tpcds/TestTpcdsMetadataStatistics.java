@@ -22,12 +22,14 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.google.common.collect.ImmutableList;
 import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.CallCenterColumn;
 import com.teradata.tpcds.column.WebSiteColumn;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -52,7 +54,8 @@ public class TestTpcdsMetadataStatistics
                         .forEach(table -> {
                             SchemaTableName schemaTableName = new SchemaTableName(schemaName, table.getName());
                             ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
-                            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+                            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
+                            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, columnHandles, alwaysTrue());
                             assertTrue(tableStatistics.getRowCount().isUnknown());
                             assertTrue(tableStatistics.getColumnStatistics().isEmpty());
                         }));
@@ -66,7 +69,8 @@ public class TestTpcdsMetadataStatistics
                         .forEach(table -> {
                             SchemaTableName schemaTableName = new SchemaTableName(schemaName, table.getName());
                             ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
-                            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+                            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
+                            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, columnHandles, alwaysTrue());
                             assertFalse(tableStatistics.getRowCount().isUnknown());
                             for (ColumnHandle column : metadata.getColumnHandles(session, tableHandle).values()) {
                                 assertTrue(tableStatistics.getColumnStatistics().containsKey(column));
@@ -80,12 +84,12 @@ public class TestTpcdsMetadataStatistics
     {
         SchemaTableName schemaTableName = new SchemaTableName("sf1", Table.CALL_CENTER.getName());
         ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
-        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, ImmutableList.copyOf(columnHandles.values()), alwaysTrue());
 
         estimateAssertion.assertClose(tableStatistics.getRowCount(), Estimate.of(6), "Row count does not match");
 
         // all columns have stats
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         for (ColumnHandle column : columnHandles.values()) {
             assertTrue(tableStatistics.getColumnStatistics().containsKey(column));
             assertNotNull(tableStatistics.getColumnStatistics().get(column));
@@ -150,9 +154,8 @@ public class TestTpcdsMetadataStatistics
     {
         SchemaTableName schemaTableName = new SchemaTableName("sf1", Table.WEB_SITE.getName());
         ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
-        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
-
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, ImmutableList.copyOf(columnHandles.values()), alwaysTrue());
 
         // some null values
         assertColumnStatistics(
@@ -169,7 +172,8 @@ public class TestTpcdsMetadataStatistics
     {
         SchemaTableName schemaTableName = new SchemaTableName("sf1", Table.WEB_SITE.getName());
         ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
-        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
+        TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, columnHandles, alwaysTrue());
 
         Entry<ColumnHandle, ColumnStatistics> entry = tableStatistics.getColumnStatistics().entrySet().iterator().next();
 
