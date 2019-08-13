@@ -40,8 +40,10 @@ public class TestHivePushdownFilterQueries
             "SELECT linenumber, orderkey, partkey, suppkey, \n" +
             "   CASE WHEN linenumber % 5 = 0 THEN null ELSE shipmode = 'AIR' END AS ship_by_air, \n" +
             "   CASE WHEN linenumber % 7 = 0 THEN null ELSE returnflag = 'R' END AS is_returned, \n" +
-            "   CASE WHEN linenumber % 4 = 0 THEN NULL ELSE CAST(day(shipdate) AS TINYINT) END AS ship_day, " +
-            "   CASE WHEN linenumber % 6 = 0 THEN NULL ELSE CAST(month(shipdate) AS TINYINT) END AS ship_month, " +
+            "   CASE WHEN linenumber % 4 = 0 THEN null ELSE CAST(day(shipdate) AS TINYINT) END AS ship_day, " +
+            "   CASE WHEN linenumber % 6 = 0 THEN null ELSE CAST(month(shipdate) AS TINYINT) END AS ship_month, " +
+            "   CASE WHEN linenumber % 3 = 0 THEN null ELSE CAST(shipdate AS TIMESTAMP) END AS ship_timestamp, \n" +
+            "   CASE WHEN orderkey % 3 = 0 THEN null ELSE CAST(commitdate AS TIMESTAMP) END AS commit_timestamp, \n" +
             "   CASE WHEN orderkey % 11 = 0 THEN null ELSE (orderkey, partkey, suppkey) END AS keys, \n" +
             "   CASE WHEN orderkey % 13 = 0 THEN null ELSE ((orderkey, partkey), (suppkey,), CASE WHEN orderkey % 17 = 0 THEN null ELSE (orderkey, partkey) END) END AS nested_keys, \n" +
             "   CASE WHEN orderkey % 17 = 0 THEN null ELSE (shipmode = 'AIR', returnflag = 'R') END as flags\n" +
@@ -62,12 +64,14 @@ public class TestHivePushdownFilterQueries
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, keys, nested_keys, flags) AS " +
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, keys, nested_keys, flags) AS " +
                         "SELECT linenumber, orderkey, partkey, suppkey, " +
                         "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
                         "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
                         "   IF (linenumber % 4 = 0, null, CAST(day(shipdate) AS TINYINT)) AS ship_day, " +
                         "   IF (linenumber % 6 = 0, null, CAST(month(shipdate) AS TINYINT)) AS ship_month, " +
+                        "   IF (linenumber % 3 = 0, null, CAST(shipdate AS TIMESTAMP)) AS ship_timestamp, " +
+                        "   IF (orderkey % 3 = 0, null, CAST(commitdate AS TIMESTAMP)) AS commit_timestamp, " +
                         "   IF (orderkey % 11 = 0, null, ARRAY[orderkey, partkey, suppkey]), " +
                         "   IF (orderkey % 13 = 0, null, ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], IF (orderkey % 17 = 0, null, ARRAY[orderkey, partkey])]), " +
                         "   IF (orderkey % 17 = 0, null, ARRAY[shipmode = 'AIR', returnflag = 'R']) " +
@@ -142,6 +146,28 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT linenumber, orderkey, ship_by_air, is_returned FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
 
         assertQueryUsingH2Cte("SELECT linenumber, ship_by_air, is_returned FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
+    }
+
+    @Test
+    public void testTimestamps()
+    {
+        // Single timestamp column
+        assertQueryUsingH2Cte("SELECT ship_timestamp FROM lineitem_ex");
+
+        assertQueryUsingH2Cte("SELECT ship_timestamp FROM lineitem_ex WHERE ship_timestamp < TIMESTAMP '1993-01-01 01:00:00'");
+
+        assertQueryUsingH2Cte("SELECT count(*) FROM lineitem_ex WHERE ship_timestamp IS NOT NULL");
+
+        assertQueryUsingH2Cte("SELECT count(*) FROM lineitem_ex WHERE ship_timestamp = TIMESTAMP '2012-08-08 01:00:00'");
+
+        // Two timestamp columns
+        assertQueryUsingH2Cte("SELECT commit_timestamp, ship_timestamp FROM lineitem_ex");
+
+        assertQueryUsingH2Cte("SELECT commit_timestamp, ship_timestamp FROM lineitem_ex WHERE ship_timestamp > TIMESTAMP '1993-08-08 01:00:00' AND commit_timestamp < TIMESTAMP '1993-08-08 01:00:00'");
+
+        assertQueryReturnsEmptyResult("SELECT commit_timestamp, ship_timestamp FROM lineitem_ex WHERE year(ship_timestamp) - year(commit_timestamp) > 1");
+
+        assertQueryUsingH2Cte("SELECT commit_timestamp, ship_timestamp, orderkey FROM lineitem_ex WHERE year(commit_timestamp) > 1993 and year(ship_timestamp) > 1993 and year(ship_timestamp) - year(commit_timestamp) = 1");
     }
 
     @Test
