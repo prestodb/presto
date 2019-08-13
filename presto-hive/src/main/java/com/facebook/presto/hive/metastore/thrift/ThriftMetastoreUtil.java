@@ -944,7 +944,7 @@ public final class ThriftMetastoreUtil
             return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
         }
         if (type instanceof ArrayType || type instanceof RowType || type instanceof MapType) {
-            return ImmutableSet.of();
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES);
         }
         // Throwing here to make sure this method is updated when a new type is added in Hive connector
         throw new IllegalArgumentException("Unsupported type: " + type);
