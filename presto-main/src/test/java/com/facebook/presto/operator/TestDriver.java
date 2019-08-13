@@ -22,10 +22,13 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
@@ -44,6 +47,7 @@ import org.testng.annotations.Test;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -73,6 +77,12 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestDriver
 {
+    private static final TableHandle TESTING_TABLE_HANDLE = new TableHandle(
+            new ConnectorId("test"),
+            new ConnectorTableHandle() {},
+            new ConnectorTransactionHandle() {},
+            Optional.empty());
+
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
@@ -172,13 +182,14 @@ public class TestDriver
                 new PageSourceProvider()
                 {
                     @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
                     {
                         return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of());
 
         PageConsumerOperator sink = createSinkOperator(types);
@@ -270,13 +281,14 @@ public class TestDriver
                 new PageSourceProvider()
                 {
                     @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
                     {
                         return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of());
 
         Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(types));
@@ -298,13 +310,14 @@ public class TestDriver
                 new PageSourceProvider()
                 {
                     @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+                    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
                     {
                         return new FixedPageSource(rowPagesBuilder(types)
                                 .addSequencePage(10, 20, 30, 40)
                                 .build());
                     }
                 },
+                TESTING_TABLE_HANDLE,
                 ImmutableList.of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
@@ -482,9 +495,10 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
+                TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns);
         }
 
         @Override
@@ -506,9 +520,10 @@ public class TestDriver
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
+                TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, columns);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns);
         }
 
         @Override

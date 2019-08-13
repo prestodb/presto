@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.EmptySplit;
@@ -48,6 +49,7 @@ public class TableScanOperator
         private final int operatorId;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
+        private final TableHandle table;
         private final List<ColumnHandle> columns;
         private boolean closed;
 
@@ -55,11 +57,13 @@ public class TableScanOperator
                 int operatorId,
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
+                TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+            this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         }
 
@@ -78,6 +82,7 @@ public class TableScanOperator
                     operatorContext,
                     sourceId,
                     pageSourceProvider,
+                    table,
                     columns);
         }
 
@@ -91,6 +96,7 @@ public class TableScanOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final PageSourceProvider pageSourceProvider;
+    private final TableHandle table;
     private final List<ColumnHandle> columns;
     private final LocalMemoryContext systemMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
@@ -107,11 +113,13 @@ public class TableScanOperator
             OperatorContext operatorContext,
             PlanNodeId planNodeId,
             PageSourceProvider pageSourceProvider,
+            TableHandle table,
             Iterable<ColumnHandle> columns)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(TableScanOperator.class.getSimpleName());
     }
@@ -236,7 +244,7 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns);
         }
 
         Page page = source.getNextPage();

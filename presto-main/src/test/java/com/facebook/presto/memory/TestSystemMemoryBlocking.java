@@ -22,9 +22,12 @@ import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
@@ -41,6 +44,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -96,13 +100,18 @@ public class TestSystemMemoryBlocking
         final List<Type> types = ImmutableList.of(VARCHAR);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
                 sourceId,
-                (session, split, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                (session, split, table, columns) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .build()),
+                new TableHandle(
+                        new ConnectorId("test"),
+                        new ConnectorTableHandle() {},
+                        new ConnectorTransactionHandle() {},
+                        Optional.empty()),
                 ImmutableList.of());
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
