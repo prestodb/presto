@@ -19,6 +19,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.SqlDate;
+import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.TypeRegistry;
@@ -63,6 +65,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -188,7 +191,8 @@ public class BenchmarkSelectiveStreamReaders
                 "bigint",
                 "smallint",
                 "tinyint",
-                "date"
+                "date",
+                "timestamp"
         })
         private String typeSignature;
 
@@ -217,7 +221,8 @@ public class BenchmarkSelectiveStreamReaders
                 "bigint",
                 "smallint",
                 "tinyint",
-                "date"
+                "date",
+                "timestamp"
         })
         private String typeSignature;
 
@@ -247,7 +252,7 @@ public class BenchmarkSelectiveStreamReaders
                 return Optional.of(BooleanValue.of(true, true));
             }
 
-            if (type == TINYINT || type == BIGINT || type == INTEGER || type == SMALLINT || type == DATE) {
+            if (type == TINYINT || type == BIGINT || type == INTEGER || type == SMALLINT || type == DATE || type == TIMESTAMP) {
                 return Optional.of(BigintRange.of(0, Long.MAX_VALUE, true));
             }
 
@@ -287,6 +292,10 @@ public class BenchmarkSelectiveStreamReaders
 
             if (getType() == DATE) {
                 return new SqlDate(random.nextInt());
+            }
+
+            if (getType() == TIMESTAMP) {
+                return new SqlTimestamp(random.nextLong(), TimeZoneKey.UTC_KEY);
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + getType());
