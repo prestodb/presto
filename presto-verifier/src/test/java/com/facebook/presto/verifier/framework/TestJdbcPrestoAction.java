@@ -52,6 +52,7 @@ public class TestJdbcPrestoAction
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
     private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
+    private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DECIMAL).build();
 
     private static StandaloneQueryRunner queryRunner;
 
@@ -87,13 +88,13 @@ public class TestJdbcPrestoAction
     {
         assertEquals(
                 prestoAction.execute(
-                        sqlParser.createStatement("SELECT 1", new ParsingOptions(AS_DECIMAL)),
+                        sqlParser.createStatement("SELECT 1", PARSING_OPTIONS),
                         QUERY_STAGE).getState(),
                 FINISHED.name());
 
         assertEquals(
                 prestoAction.execute(
-                        sqlParser.createStatement("CREATE TABLE test_table (x int)", new ParsingOptions(AS_DECIMAL)),
+                        sqlParser.createStatement("CREATE TABLE test_table (x int)", PARSING_OPTIONS),
                         QUERY_STAGE).getState(),
                 FINISHED.name());
     }
@@ -102,7 +103,7 @@ public class TestJdbcPrestoAction
     public void testQuerySucceededWithConverter()
     {
         QueryResult<Integer> result = prestoAction.execute(
-                sqlParser.createStatement("SELECT x FROM (VALUES (1), (2), (3)) t(x)", new ParsingOptions(AS_DECIMAL)),
+                sqlParser.createStatement("SELECT x FROM (VALUES (1), (2), (3)) t(x)", PARSING_OPTIONS),
                 QUERY_STAGE,
                 resultSet -> resultSet.getInt("x") * resultSet.getInt("x"));
         assertEquals(result.getQueryStats().getState(), FINISHED.name());
@@ -114,7 +115,7 @@ public class TestJdbcPrestoAction
     {
         try {
             prestoAction.execute(
-                    sqlParser.createStatement("SELECT * FROM test_table", new ParsingOptions(AS_DECIMAL)),
+                    sqlParser.createStatement("SELECT * FROM test_table", PARSING_OPTIONS),
                     QUERY_STAGE);
             fail("Expect QueryException");
         }
