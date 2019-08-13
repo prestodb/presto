@@ -550,7 +550,7 @@ public class PrestoS3FileSystem
      */
     @VisibleForTesting
     static class UnrecoverableS3OperationException
-            extends RuntimeException
+            extends IOException
     {
         public UnrecoverableS3OperationException(Path path, Throwable cause)
         {
