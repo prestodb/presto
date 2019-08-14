@@ -56,6 +56,7 @@ import java.util.UUID;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DELTA_DELETE;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
@@ -80,6 +81,7 @@ public class TestRaptorSplitManager
             .column("ds", createVarcharType(10))
             .column("foo", createVarcharType(10))
             .column("bar", BigintType.BIGINT)
+            .property(TABLE_SUPPORTS_DELTA_DELETE, false)
             .build();
 
     private Handle dummyHandle;

@@ -35,6 +35,7 @@ public final class Table
     private final OptionalInt bucketCount;
     private final OptionalLong temporalColumnId;
     private final boolean organized;
+    private final boolean tableSupportsDeltaDelete;
 
     public Table(
             long tableId,
@@ -42,7 +43,8 @@ public final class Table
             Optional<String> distributionName,
             OptionalInt bucketCount,
             OptionalLong temporalColumnId,
-            boolean organized)
+            boolean organized,
+            boolean tableSupportsDeltaDelete)
     {
         this.tableId = tableId;
         this.distributionId = requireNonNull(distributionId, "distributionId is null");
@@ -50,6 +52,7 @@ public final class Table
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.temporalColumnId = requireNonNull(temporalColumnId, "temporalColumnId is null");
         this.organized = organized;
+        this.tableSupportsDeltaDelete = tableSupportsDeltaDelete;
     }
 
     public long getTableId()
@@ -82,6 +85,11 @@ public final class Table
         return organized;
     }
 
+    public boolean isTableSupportsDeltaDelete()
+    {
+        return tableSupportsDeltaDelete;
+    }
+
     @Override
     public String toString()
     {
@@ -91,6 +99,7 @@ public final class Table
                 .add("bucketCount", bucketCount.isPresent() ? bucketCount.getAsInt() : null)
                 .add("temporalColumnId", temporalColumnId.isPresent() ? temporalColumnId.getAsLong() : null)
                 .add("organized", organized)
+                .add("tableSupportsDeltaDelete", tableSupportsDeltaDelete)
                 .omitNullValues()
                 .toString();
     }
@@ -108,7 +117,8 @@ public final class Table
                     Optional.ofNullable(r.getString("distribution_name")),
                     getOptionalInt(r, "bucket_count"),
                     getOptionalLong(r, "temporal_column_id"),
-                    r.getBoolean("organization_enabled"));
+                    r.getBoolean("organization_enabled"),
+                    r.getBoolean("table_supports_delta_delete"));
         }
     }
 }

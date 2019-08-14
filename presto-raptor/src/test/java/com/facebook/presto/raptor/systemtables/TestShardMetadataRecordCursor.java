@@ -49,6 +49,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DELTA_DELETE;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
@@ -86,6 +87,7 @@ public class TestShardMetadataRecordCursor
                 .column("orderkey", BIGINT)
                 .column("orderdate", DATE)
                 .property("temporal_column", "orderdate")
+                .property(TABLE_SUPPORTS_DELTA_DELETE, false)
                 .build();
         createTable(table);
     }
@@ -157,11 +159,13 @@ public class TestShardMetadataRecordCursor
         // Create "orders" table in a different schema
         createTable(tableMetadataBuilder(new SchemaTableName("other", "orders"))
                 .column("orderkey", BIGINT)
+                .property(TABLE_SUPPORTS_DELTA_DELETE, false)
                 .build());
 
         // Create another table that should not be selected
         createTable(tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
                 .column("orderkey", BIGINT)
+                .property(TABLE_SUPPORTS_DELTA_DELETE, false)
                 .build());
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
@@ -183,11 +187,13 @@ public class TestShardMetadataRecordCursor
         // Create "orders" table in a different schema
         createTable(tableMetadataBuilder(new SchemaTableName("test", "orders2"))
                 .column("orderkey", BIGINT)
+                .property(TABLE_SUPPORTS_DELTA_DELETE, false)
                 .build());
 
         // Create another table that should not be selected
         createTable(tableMetadataBuilder(new SchemaTableName("schema1", "foo"))
                 .column("orderkey", BIGINT)
+                .property(TABLE_SUPPORTS_DELTA_DELETE, false)
                 .build());
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(

@@ -167,8 +167,8 @@ public class TestShardDao
             dao.insertBuckets(distributionId, ImmutableList.of(i), ImmutableList.of(nodeId));
         }
 
-        long plainTableId = metadataDao.insertTable("test", "plain", false, false, null, 0);
-        long bucketedTableId = metadataDao.insertTable("test", "bucketed", false, false, distributionId, 0);
+        long plainTableId = metadataDao.insertTable("test", "plain", false, false, null, 0, false);
+        long bucketedTableId = metadataDao.insertTable("test", "bucketed", false, false, distributionId, 0, false);
 
         long shardId1 = dao.insertShard(shardUuid1, plainTableId, null, 1, 11, 111, 888_111);
         long shardId2 = dao.insertShard(shardUuid2, plainTableId, null, 2, 22, 222, 888_222);
@@ -278,7 +278,7 @@ public class TestShardDao
 
     private long createTable(String name)
     {
-        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, false, null, 0);
+        return dbi.onDemand(MetadataDao.class).insertTable("test", name, false, false, null, 0, false);
     }
 
     private static void assertContainsShardNode(Set<ShardNode> nodes, String nodeName, UUID shardUuid)
