@@ -69,7 +69,9 @@ public interface SelectiveStreamReader
      *
      * Used by list and map readers to raise "subscript out of bounds" error.
      */
-    void throwAnyError(int[] positions, int positionCount);
+    default void throwAnyError(int[] positions, int positionCount)
+    {
+    }
 
     void close();
 }

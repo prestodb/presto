@@ -80,11 +80,6 @@ abstract class AbstractLongSelectiveStreamReader
         return outputPositions;
     }
 
-    @Override
-    public void throwAnyError(int[] positions, int positionCount)
-    {
-    }
-
     protected BlockLease buildOutputBlockView(int[] positions, int positionCount, boolean includeNulls)
     {
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");

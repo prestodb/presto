@@ -353,11 +353,6 @@ public class ByteSelectiveStreamReader
         return newLease(new ByteArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), values));
     }
 
-    @Override
-    public void throwAnyError(int[] positions, int positionCount)
-    {
-    }
-
     private BlockLease newLease(Block block)
     {
         valuesInUse = true;

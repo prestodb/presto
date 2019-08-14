@@ -417,8 +417,4 @@ public class TimestampSelectiveStreamReader
         systemMemoryContext.close();
     }
 
-    @Override
-    public void throwAnyError(int[] positions, int positionCount)
-    {
-    }
 }
