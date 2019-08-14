@@ -16,6 +16,7 @@ package com.facebook.presto.raptor;
 import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.TableColumn;
+import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.systemtables.ShardMetadataSystemTable;
 import com.facebook.presto.raptor.systemtables.TableMetadataSystemTable;
 import com.facebook.presto.raptor.systemtables.TableStatsSystemTable;
@@ -33,6 +34,7 @@ import org.skife.jdbi.v2.tweak.ConnectionFactory;
 
 import javax.inject.Singleton;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
@@ -50,6 +52,8 @@ public class RaptorModule
     @Override
     public void configure(Binder binder)
     {
+        configBinder(binder).bindConfig(StorageManagerConfig.class);
+
         binder.bind(RaptorConnectorId.class).toInstance(new RaptorConnectorId(connectorId));
         binder.bind(RaptorConnector.class).in(Scopes.SINGLETON);
         binder.bind(RaptorMetadataFactory.class).in(Scopes.SINGLETON);

@@ -275,9 +275,9 @@ public class TestBucketBalancer
     private long createBucketedTable(String tableName, long distributionId, DataSize compressedSize)
     {
         MetadataDao dao = dbi.onDemand(MetadataDao.class);
-        long tableId = dao.insertTable("test", tableName, false, false, distributionId, 0);
+        long tableId = dao.insertTable("test", tableName, false, false, distributionId, 0, false);
         List<ColumnInfo> columnsA = ImmutableList.of(new ColumnInfo(1, BIGINT));
-        shardManager.createTable(tableId, columnsA, false, OptionalLong.empty());
+        shardManager.createTable(tableId, false, columnsA, false, OptionalLong.empty());
 
         metadataDao.updateTableStats(tableId, 1024, 1024 * 1024 * 1024, compressedSize.toBytes(), compressedSize.toBytes() * 2);
         return tableId;

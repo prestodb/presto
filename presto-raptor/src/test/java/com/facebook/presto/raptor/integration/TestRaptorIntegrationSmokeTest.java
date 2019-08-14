@@ -374,6 +374,8 @@ public class TestRaptorIntegrationSmokeTest
     {
         computeActual("CREATE TABLE test_table_properties_1 (foo BIGINT, bar BIGINT, ds DATE) WITH (ordering=array['foo','bar'], temporal_column='ds')");
         computeActual("CREATE TABLE test_table_properties_2 (foo BIGINT, bar BIGINT, ds DATE) WITH (ORDERING=array['foo','bar'], TEMPORAL_COLUMN='ds')");
+        computeActual("CREATE TABLE test_table_properties_3 (foo BIGINT, bar BIGINT, ds DATE) WITH (TABLE_SUPPORTS_DELTA_DELETE=false)");
+        computeActual("CREATE TABLE test_table_properties_4 (foo BIGINT, bar BIGINT, ds DATE) WITH (table_supports_delta_delete=true)");
     }
 
     @Test
@@ -589,6 +591,7 @@ public class TestRaptorIntegrationSmokeTest
                         "   bucket_count = 32,\n" +
                         "   bucketed_on = ARRAY['c1','c6'],\n" +
                         "   ordering = ARRAY['c6','c1'],\n" +
+                        "   table_supports_delta_delete = false,\n" +
                         "   temporal_column = 'c7'\n" +
                         ")",
                 getSession().getCatalog().get(), getSession().getSchema().get(), "test_show_create_table");
@@ -618,7 +621,8 @@ public class TestRaptorIntegrationSmokeTest
                         "   bucket_count = 32,\n" +
                         "   bucketed_on = ARRAY['c1','c6'],\n" +
                         "   ordering = ARRAY['c6','c1'],\n" +
-                        "   organized = true\n" +
+                        "   organized = true,\n" +
+                        "   table_supports_delta_delete = true\n" +
                         ")",
                 getSession().getCatalog().get(), getSession().getSchema().get(), "test_show_create_table_organized");
         assertUpdate(createTableSql);
@@ -632,6 +636,8 @@ public class TestRaptorIntegrationSmokeTest
         actualResult = computeActual("SHOW CREATE TABLE " + getSession().getCatalog().get() + "." + getSession().getSchema().get() + ".test_show_create_table_organized");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
 
+        // For table_supports_delta_delete, we don't have null value, thus can't distinguish between user set false and default false
+        // As a result, will always show table_supports_delta_delete properties when `SHOW CREATE TABLE`
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
                         "   \"c\"\"1\" bigint,\n" +
@@ -640,10 +646,14 @@ public class TestRaptorIntegrationSmokeTest
                         "   \"c'4\" array(bigint),\n" +
                         "   c5 map(bigint, varchar)\n" +
                         ")",
-                getSession().getCatalog().get(), getSession().getSchema().get(), "\"test_show_create_table\"\"2\"");
+                getSession().getCatalog().get(), getSession().getSchema().get(), "test_show_create_table_default");
         assertUpdate(createTableSql);
 
-        actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table\"\"2\"");
+        actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table_default\"");
+        createTableSql += format("\n" +
+                "WITH (\n" +
+                "   table_supports_delta_delete = false\n" +
+                ")");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
 
@@ -667,6 +677,9 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("" +
                 "CREATE TABLE system_tables_test5 (c50 timestamp, c51 varchar, c52 double, c53 bigint, c54 bigint) " +
                 "WITH (ordering = ARRAY['c51', 'c52'], distribution_name = 'test_distribution', bucket_count = 50, bucketed_on = ARRAY ['c53', 'c54'], organized = true)");
+        assertUpdate("" +
+                "CREATE TABLE system_tables_test6 (c60 timestamp, c61 varchar, c62 double, c63 bigint, c64 bigint) " +
+                "WITH (ordering = ARRAY['c61', 'c62'], distribution_name = 'test_distribution', bucket_count = 50, bucketed_on = ARRAY ['c63', 'c64'], organized = true, table_supports_delta_delete = true)");
 
         MaterializedResult actualResults = computeActual("SELECT * FROM system.tables");
         assertEquals(
@@ -680,35 +693,39 @@ public class TestRaptorIntegrationSmokeTest
                         .add(BIGINT) // bucket_count
                         .add(new ArrayType(VARCHAR)) // bucket_columns
                         .add(BOOLEAN) // organized
+                        .add(BOOLEAN) // table_supports_delta_delete
                         .build());
         Map<String, MaterializedRow> map = actualResults.getMaterializedRows().stream()
                 .filter(row -> ((String) row.getField(1)).startsWith("system_tables_test"))
                 .collect(toImmutableMap(row -> ((String) row.getField(1)), identity()));
-        assertEquals(map.size(), 6);
+        assertEquals(map.size(), 7);
         assertEquals(
                 map.get("system_tables_test0").getFields(),
-                asList("tpch", "system_tables_test0", null, null, null, null, null, Boolean.FALSE));
+                asList("tpch", "system_tables_test0", null, null, null, null, null, Boolean.FALSE, Boolean.FALSE));
         assertEquals(
                 map.get("system_tables_test1").getFields(),
-                asList("tpch", "system_tables_test1", "c10", null, null, null, null, Boolean.FALSE));
+                asList("tpch", "system_tables_test1", "c10", null, null, null, null, Boolean.FALSE, Boolean.FALSE));
         assertEquals(
                 map.get("system_tables_test2").getFields(),
-                asList("tpch", "system_tables_test2", "c20", ImmutableList.of("c22", "c21"), null, null, null, Boolean.FALSE));
+                asList("tpch", "system_tables_test2", "c20", ImmutableList.of("c22", "c21"), null, null, null, Boolean.FALSE, Boolean.FALSE));
         assertEquals(
                 map.get("system_tables_test3").getFields(),
-                asList("tpch", "system_tables_test3", "c30", null, null, 40L, ImmutableList.of("c34", "c33"), Boolean.FALSE));
+                asList("tpch", "system_tables_test3", "c30", null, null, 40L, ImmutableList.of("c34", "c33"), Boolean.FALSE, Boolean.FALSE));
         assertEquals(
                 map.get("system_tables_test4").getFields(),
-                asList("tpch", "system_tables_test4", "c40", ImmutableList.of("c41", "c42"), "test_distribution", 50L, ImmutableList.of("c43", "c44"), Boolean.FALSE));
+                asList("tpch", "system_tables_test4", "c40", ImmutableList.of("c41", "c42"), "test_distribution", 50L, ImmutableList.of("c43", "c44"), Boolean.FALSE, Boolean.FALSE));
         assertEquals(
                 map.get("system_tables_test5").getFields(),
-                asList("tpch", "system_tables_test5", null, ImmutableList.of("c51", "c52"), "test_distribution", 50L, ImmutableList.of("c53", "c54"), Boolean.TRUE));
+                asList("tpch", "system_tables_test5", null, ImmutableList.of("c51", "c52"), "test_distribution", 50L, ImmutableList.of("c53", "c54"), Boolean.TRUE, Boolean.FALSE));
+        assertEquals(
+                map.get("system_tables_test6").getFields(),
+                asList("tpch", "system_tables_test6", null, ImmutableList.of("c61", "c62"), "test_distribution", 50L, ImmutableList.of("c63", "c64"), Boolean.TRUE, Boolean.TRUE));
 
         actualResults = computeActual("SELECT * FROM system.tables WHERE table_schema = 'tpch'");
         long actualRowCount = actualResults.getMaterializedRows().stream()
                 .filter(row -> ((String) row.getField(1)).startsWith("system_tables_test"))
                 .count();
-        assertEquals(actualRowCount, 6);
+        assertEquals(actualRowCount, 7);
 
         actualResults = computeActual("SELECT * FROM system.tables WHERE table_name = 'system_tables_test3'");
         assertEquals(actualResults.getMaterializedRows().size(), 1);
@@ -729,6 +746,7 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate("DROP TABLE system_tables_test3");
         assertUpdate("DROP TABLE system_tables_test4");
         assertUpdate("DROP TABLE system_tables_test5");
+        assertUpdate("DROP TABLE system_tables_test6");
 
         assertEquals(computeActual("SELECT * FROM system.tables WHERE table_schema IN ('foo', 'bar')").getRowCount(), 0);
     }
@@ -820,7 +838,7 @@ public class TestRaptorIntegrationSmokeTest
         // cleanup
         assertUpdate("DROP TABLE test_table_stats");
     }
-
+    
     @Test
     public void testAlterTable()
     {

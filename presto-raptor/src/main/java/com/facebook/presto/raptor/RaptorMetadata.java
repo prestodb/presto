@@ -93,6 +93,7 @@ import static com.facebook.presto.raptor.RaptorSessionProperties.getExternalBatc
 import static com.facebook.presto.raptor.RaptorSessionProperties.getOneSplitPerBucketThreshold;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKETED_ON_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DELTA_DELETE;
 import static com.facebook.presto.raptor.RaptorTableProperties.DISTRIBUTION_NAME_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORDERING_PROPERTY;
 import static com.facebook.presto.raptor.RaptorTableProperties.ORGANIZED_PROPERTY;
@@ -102,6 +103,7 @@ import static com.facebook.presto.raptor.RaptorTableProperties.getBucketCount;
 import static com.facebook.presto.raptor.RaptorTableProperties.getDistributionName;
 import static com.facebook.presto.raptor.RaptorTableProperties.getSortColumns;
 import static com.facebook.presto.raptor.RaptorTableProperties.getTemporalColumn;
+import static com.facebook.presto.raptor.RaptorTableProperties.isTableSupportsDeltaDelete;
 import static com.facebook.presto.raptor.RaptorTableProperties.isOrganized;
 import static com.facebook.presto.raptor.systemtables.ColumnRangesSystemTable.getSourceTable;
 import static com.facebook.presto.raptor.util.DatabaseUtil.daoTransaction;
@@ -195,7 +197,8 @@ public class RaptorMetadata
                 table.isOrganized(),
                 OptionalLong.empty(),
                 Optional.empty(),
-                false);
+                false,
+                table.isTableSupportsDeltaDelete());
     }
 
     @Override
@@ -237,6 +240,7 @@ public class RaptorMetadata
 
         handle.getBucketCount().ifPresent(bucketCount -> properties.put(BUCKET_COUNT_PROPERTY, bucketCount));
         handle.getDistributionName().ifPresent(distributionName -> properties.put(DISTRIBUTION_NAME_PROPERTY, distributionName));
+        properties.put(TABLE_SUPPORTS_DELTA_DELETE, handle.isTableSupportsDeltaDelete());
         // Only display organization property if set
         if (handle.isOrganized()) {
             properties.put(ORGANIZED_PROPERTY, true);
@@ -568,6 +572,7 @@ public class RaptorMetadata
         }
 
         boolean organized = isOrganized(tableMetadata.getProperties());
+        boolean tableSupportsDeltaDelete = isTableSupportsDeltaDelete(tableMetadata.getProperties());
         if (organized) {
             if (temporalColumnHandle.isPresent()) {
                 throw new PrestoException(NOT_SUPPORTED, "Table with temporal columns cannot be organized");
@@ -597,6 +602,7 @@ public class RaptorMetadata
                 distribution.map(info -> OptionalLong.of(info.getDistributionId())).orElse(OptionalLong.empty()),
                 distribution.map(info -> OptionalInt.of(info.getBucketCount())).orElse(OptionalInt.empty()),
                 organized,
+                tableSupportsDeltaDelete,
                 distribution.map(DistributionInfo::getBucketColumns).orElse(ImmutableList.of()));
     }
 
@@ -659,7 +665,7 @@ public class RaptorMetadata
 
             Long distributionId = table.getDistributionId().isPresent() ? table.getDistributionId().getAsLong() : null;
             // TODO: update default value of organization_enabled to true
-            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, table.isOrganized(), distributionId, updateTime);
+            long tableId = dao.insertTable(table.getSchemaName(), table.getTableName(), true, table.isOrganized(), distributionId, updateTime, table.isTableSupportsDeltaDelete());
 
             List<RaptorColumnHandle> sortColumnHandles = table.getSortColumnHandles();
             List<RaptorColumnHandle> bucketColumnHandles = table.getBucketColumnHandles();
@@ -689,7 +695,7 @@ public class RaptorMetadata
                 .orElse(OptionalLong.empty());
 
         // TODO: refactor this to avoid creating an empty table on failure
-        shardManager.createTable(newTableId, columns, table.getBucketCount().isPresent(), temporalColumnId);
+        shardManager.createTable(newTableId, table.isTableSupportsDeltaDelete(), columns, table.getBucketCount().isPresent(), temporalColumnId);
         shardManager.commitShards(transactionId, newTableId, columns, parseFragments(fragments), Optional.empty(), updateTime);
 
         clearRollback();
@@ -799,7 +805,8 @@ public class RaptorMetadata
                 handle.isOrganized(),
                 OptionalLong.of(transactionId),
                 Optional.of(columnTypes),
-                true);
+                true,
+                handle.isTableSupportsDeltaDelete());
     }
 
     @Override

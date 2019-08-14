@@ -58,6 +58,7 @@ import java.io.File;
 import java.util.Collection;
 import java.util.Optional;
 
+import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DELTA_DELETE;
 import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
@@ -115,7 +116,7 @@ public class TestRaptorConnector
                         config),
                 new RaptorNodePartitioningProvider(nodeSupplier),
                 new RaptorSessionProperties(config),
-                new RaptorTableProperties(typeRegistry),
+                new RaptorTableProperties(typeRegistry, config),
                 ImmutableSet.of(),
                 new AllowAllAccessControl(),
                 dbi,
@@ -234,7 +235,7 @@ public class TestRaptorConnector
                 new ConnectorTableMetadata(
                         new SchemaTableName("test", "test"),
                         ImmutableList.of(new ColumnMetadata("id", BIGINT), new ColumnMetadata("time", temporalType)),
-                        ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "time")),
+                        ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "time", TABLE_SUPPORTS_DELTA_DELETE, false)),
                 false);
         connector.commit(transaction);
 
@@ -275,7 +276,8 @@ public class TestRaptorConnector
                 SESSION,
                 new ConnectorTableMetadata(
                         new SchemaTableName("test", name),
-                        ImmutableList.of(new ColumnMetadata("id", BIGINT))),
+                        ImmutableList.of(new ColumnMetadata("id", BIGINT)),
+                        ImmutableMap.of(TABLE_SUPPORTS_DELTA_DELETE, false)),
                 false);
         connector.commit(transaction);
 
