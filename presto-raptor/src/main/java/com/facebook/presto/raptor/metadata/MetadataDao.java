@@ -27,7 +27,7 @@ import java.util.Set;
 public interface MetadataDao
 {
     String TABLE_INFORMATION_SELECT = "" +
-            "SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id, t.organization_enabled\n" +
+            "SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id, t.organization_enabled, t.table_supports_delta_delete\n" +
             "FROM tables t\n" +
             "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n";
 
@@ -115,11 +115,11 @@ public interface MetadataDao
     @SqlUpdate("INSERT INTO tables (\n" +
             "  schema_name, table_name, compaction_enabled, organization_enabled, distribution_id,\n" +
             "  create_time, update_time, table_version,\n" +
-            "  shard_count, row_count, compressed_size, uncompressed_size)\n" +
+            "  shard_count, row_count, compressed_size, uncompressed_size, table_supports_delta_delete)\n" +
             "VALUES (\n" +
             "  :schemaName, :tableName, :compactionEnabled, :organizationEnabled, :distributionId,\n" +
             "  :createTime, :createTime, 0,\n" +
-            "  0, 0, 0, 0)\n")
+            "  0, 0, 0, 0, :tableSupportsDeltaDelete)\n")
     @GetGeneratedKeys
     long insertTable(
             @Bind("schemaName") String schemaName,
@@ -127,7 +127,8 @@ public interface MetadataDao
             @Bind("compactionEnabled") boolean compactionEnabled,
             @Bind("organizationEnabled") boolean organizationEnabled,
             @Bind("distributionId") Long distributionId,
-            @Bind("createTime") long createTime);
+            @Bind("createTime") long createTime,
+            @Bind("tableSupportsDeltaDelete") boolean tableSupportsDeltaDelete);
 
     @SqlUpdate("UPDATE tables SET\n" +
             "  update_time = :updateTime\n" +
@@ -246,7 +247,7 @@ public interface MetadataDao
             @Bind("columnTypes") String columnTypes,
             @Bind("bucketCount") int bucketCount);
 
-    @SqlQuery("SELECT table_id, schema_name, table_name, temporal_column_id, distribution_name, bucket_count, organization_enabled\n" +
+    @SqlQuery("SELECT table_id, schema_name, table_name, temporal_column_id, distribution_name, bucket_count, organization_enabled, table_supports_delta_delete\n" +
             "FROM tables\n" +
             "LEFT JOIN distributions\n" +
             "ON tables.distribution_id = distributions.distribution_id\n" +

@@ -43,6 +43,7 @@ public final class RaptorTableHandle
     private final OptionalLong transactionId;
     private final Optional<Map<String, Type>> columnTypes;
     private final boolean delete;
+    private final boolean tableSupportsDeltaDelete;
 
     @JsonCreator
     public RaptorTableHandle(
@@ -56,7 +57,8 @@ public final class RaptorTableHandle
             @JsonProperty("organized") boolean organized,
             @JsonProperty("transactionId") OptionalLong transactionId,
             @JsonProperty("columnTypes") Optional<Map<String, Type>> columnTypes,
-            @JsonProperty("delete") boolean delete)
+            @JsonProperty("delete") boolean delete,
+            @JsonProperty("tableSupportsDeltaDelete") boolean tableSupportsDeltaDelete)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
@@ -73,6 +75,7 @@ public final class RaptorTableHandle
         this.columnTypes = requireNonNull(columnTypes, "columnTypes is null");
 
         this.delete = delete;
+        this.tableSupportsDeltaDelete = tableSupportsDeltaDelete;
     }
 
     public boolean isBucketed()
@@ -144,6 +147,12 @@ public final class RaptorTableHandle
     public boolean isDelete()
     {
         return delete;
+    }
+
+    @JsonProperty
+    public boolean isTableSupportsDeltaDelete()
+    {
+        return tableSupportsDeltaDelete;
     }
 
     @Override

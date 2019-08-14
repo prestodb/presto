@@ -39,6 +39,7 @@ public class RaptorTableProperties
     public static final String BUCKETED_ON_PROPERTY = "bucketed_on";
     public static final String DISTRIBUTION_NAME_PROPERTY = "distribution_name";
     public static final String ORGANIZED_PROPERTY = "organized";
+    public static final String TABLE_SUPPORTS_DELTA_DELETE = "table_supports_delta_delete";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -68,6 +69,11 @@ public class RaptorTableProperties
                 .add(booleanProperty(
                         ORGANIZED_PROPERTY,
                         "Keep the table organized using the sort order",
+                        null,
+                        false))
+                .add(booleanProperty(
+                        TABLE_SUPPORTS_DELTA_DELETE,
+                        "Support delta delete on the table",
                         null,
                         false))
                 .build();
@@ -107,6 +113,12 @@ public class RaptorTableProperties
     public static boolean isOrganized(Map<String, Object> tableProperties)
     {
         Boolean value = (Boolean) tableProperties.get(ORGANIZED_PROPERTY);
+        return (value == null) ? false : value;
+    }
+
+    public static boolean isTableSupportsDeltaDelete(Map<String, Object> tableProperties)
+    {
+        Boolean value = (Boolean) tableProperties.get(TABLE_SUPPORTS_DELTA_DELETE);
         return (value == null) ? false : value;
     }
 
