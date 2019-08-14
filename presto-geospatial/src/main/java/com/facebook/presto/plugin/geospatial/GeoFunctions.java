@@ -42,10 +42,13 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -314,6 +317,14 @@ public final class GeoFunctions
         }
 
         return input;
+    }
+
+    @ScalarOperator(OperatorType.EQUAL)
+    @SqlType(StandardTypes.BOOLEAN)
+    @SqlNullable
+    public static Boolean geometryEquals(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    {
+        return left.equals(right);
     }
 
     @Description("Converts a SphericalGeography object to a Geometry object.")
