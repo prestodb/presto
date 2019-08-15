@@ -134,7 +134,23 @@ public class FullyQualifiedName
         public static Prefix of(String dottedName)
         {
             String[] parts = dottedName.split("\\.");
+            if (parts.length < 2) {
+                throw new IllegalArgumentException("Prefix should be in the form of a.b(.c...) with at least 1 dot");
+            }
             return new Prefix(asList(parts));
+        }
+
+        public boolean contains(Prefix other)
+        {
+            if (parts.size() > other.parts.size()) {
+                return false;
+            }
+            for (int i = 0; i < parts.size(); i++) {
+                if (!parts.get(i).equals(other.parts.get(i))) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         @Override

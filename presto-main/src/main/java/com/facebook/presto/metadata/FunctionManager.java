@@ -18,6 +18,7 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -93,6 +94,7 @@ public class FunctionManager
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.builtInFunctionNamespace = new BuiltInFunctionNamespaceManager(typeManager, blockEncodingSerde, featuresConfig, this);
+        this.functionNamespaces.put(DEFAULT_NAMESPACE, builtInFunctionNamespace);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = handleResolver;
         if (typeManager instanceof TypeRegistry) {
@@ -114,7 +116,6 @@ public class FunctionManager
         FunctionNamespaceManager manager = factory.create(properties);
 
         for (String functionNamespacePrefix : functionNamespacePrefixes) {
-            FullyQualifiedName.Prefix prefix = FullyQualifiedName.Prefix.of(functionNamespacePrefix);
             if (functionNamespaces.putIfAbsent(FullyQualifiedName.Prefix.of(functionNamespacePrefix), manager) != null) {
                 throw new IllegalArgumentException(format("Function namespace manager '%s' already registered to handle function namespace '%s'", factory.getName(), functionNamespacePrefix));
             }
@@ -147,30 +148,43 @@ public class FunctionManager
     }
 
     /**
-     * Resolves a function using the SQL path, and implicit type coercions.
+     * Resolves a function using implicit type coercions. We enforce explicit naming for dynamic function namespaces.
+     * All unqualified function names will only be resolved against the built-in static function namespace. While it is
+     * possible to define an ordering (through SQL path or other means) and convention (best match / first match), in
+     * reality when complicated namespaces are involved such implicit resolution might hide errors and cause confusion.
      *
      * @throws PrestoException if there are no matches or multiple matches
      */
     public FunctionHandle resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        // TODO Actually use session
-        // Session will be used to provide information about the order of function namespaces to through resolving the function.
-        // This is likely to be in terms of SQL path. Currently we still don't have support multiple function namespaces, nor
-        // SQL path. As a result, session is not used here. We still add this to distinguish the two versions of resolveFunction
-        // while the refactoring is on-going.
+        FullyQualifiedName fullyQualifiedName;
+        if (!name.getPrefix().isPresent()) {
+            fullyQualifiedName = FullyQualifiedName.of(DEFAULT_NAMESPACE, name.getSuffix());
+        }
+        else {
+            fullyQualifiedName = FullyQualifiedName.of(name.getOriginalParts());
+        }
+
+        Optional<FunctionNamespaceManager> servingNamespaceManager = getServingNamespaceManager(fullyQualifiedName);
+        if (!servingNamespaceManager.isPresent()) {
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Cannot find function namespace for function %s", name));
+        }
+
+        QueryId queryId = session == null ? null : session.getQueryId();
+        Collection<SqlFunction> allCandidates = servingNamespaceManager.get().getCandidates(queryId, fullyQualifiedName);
+
         try {
-            return lookupFunction(name.getSuffix(), parameterTypes);
+            return lookupFunction(servingNamespaceManager.get(), queryId, fullyQualifiedName, parameterTypes, allCandidates);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() != FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
                 throw e;
             }
         }
-        FullyQualifiedName fullyQualifiedName = FullyQualifiedName.of(DEFAULT_NAMESPACE, name.getSuffix());
-        Collection<SqlFunction> allCandidates = builtInFunctionNamespace.getCandidates(null, fullyQualifiedName);
+
         Optional<Signature> match = matchFunctionWithCoercion(allCandidates, parameterTypes);
         if (match.isPresent()) {
-            return new BuiltInFunctionHandle(match.get());
+            return servingNamespaceManager.get().getFunctionHandle(queryId, match.get());
         }
 
         if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
@@ -186,13 +200,13 @@ public class FunctionManager
             return new BuiltInFunctionHandle(getMagicLiteralFunctionSignature(type));
         }
 
-        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name.getSuffix(), parameterTypes, allCandidates));
+        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name.toString(), parameterTypes, allCandidates));
     }
 
     @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
-        return builtInFunctionNamespace.getFunctionMetadata(functionHandle);
+        return functionNamespaces.get(functionHandle.getFunctionNamespace()).getFunctionMetadata(functionHandle);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
@@ -251,25 +265,7 @@ public class FunctionManager
     {
         FullyQualifiedName fullyQualifiedName = FullyQualifiedName.of(DEFAULT_NAMESPACE, name);
         Collection<SqlFunction> allCandidates = builtInFunctionNamespace.getCandidates(null, fullyQualifiedName);
-        List<SqlFunction> exactCandidates = allCandidates.stream()
-                .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(Collectors.toList());
-
-        Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return new BuiltInFunctionHandle(match.get());
-        }
-
-        List<SqlFunction> genericCandidates = allCandidates.stream()
-                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(Collectors.toList());
-
-        match = matchFunctionExact(genericCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return new BuiltInFunctionHandle(match.get());
-        }
-
-        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name, parameterTypes, allCandidates));
+        return lookupFunction(builtInFunctionNamespace, null, fullyQualifiedName, parameterTypes, allCandidates);
     }
 
     public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
@@ -286,6 +282,48 @@ public class FunctionManager
             throw e;
         }
         return builtInFunctionNamespace.getFunctionHandle(null, signature);
+    }
+
+    private FunctionHandle lookupFunction(FunctionNamespaceManager functionNamespaceManager, QueryId queryId, FullyQualifiedName name, List<TypeSignatureProvider> parameterTypes, Collection<SqlFunction> allCandidates)
+    {
+        List<SqlFunction> exactCandidates = allCandidates.stream()
+                .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
+                .collect(Collectors.toList());
+
+        Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
+        if (match.isPresent()) {
+            return functionNamespaceManager.getFunctionHandle(queryId, match.get());
+        }
+
+        List<SqlFunction> genericCandidates = allCandidates.stream()
+                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
+                .collect(Collectors.toList());
+
+        match = matchFunctionExact(genericCandidates, parameterTypes);
+        if (match.isPresent()) {
+            return functionNamespaceManager.getFunctionHandle(queryId, match.get());
+        }
+
+        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name.toString(), parameterTypes, allCandidates));
+    }
+
+    private Optional<FunctionNamespaceManager> getServingNamespaceManager(FullyQualifiedName name)
+    {
+        FullyQualifiedName.Prefix functionPrefix = name.getPrefix();
+        if (functionPrefix.equals(DEFAULT_NAMESPACE)) {
+            return Optional.of(builtInFunctionNamespace);
+        }
+
+        FullyQualifiedName.Prefix bestMatchNamespace = null;
+        FunctionNamespaceManager servingNamespaceManager = null;
+
+        for (Map.Entry<FullyQualifiedName.Prefix, FunctionNamespaceManager> functionNamespace : functionNamespaces.entrySet()) {
+            if (functionNamespace.getKey().contains(functionPrefix) && (bestMatchNamespace == null || bestMatchNamespace.contains(functionNamespace.getKey()))) {
+                bestMatchNamespace = functionNamespace.getKey();
+                servingNamespaceManager = functionNamespace.getValue();
+            }
+        }
+        return Optional.ofNullable(servingNamespaceManager);
     }
 
     private String constructFunctionNotFoundErrorMessage(String name, List<TypeSignatureProvider> parameterTypes, Collection<SqlFunction> candidates)
@@ -351,7 +389,7 @@ public class FunctionManager
             Optional<Signature> boundSignature = new SignatureBinder(typeManager, declaredSignature, allowCoercion)
                     .bind(actualParameters);
             if (boundSignature.isPresent()) {
-                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get()));
+                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get(), function.isCalledOnNullInput()));
             }
         }
         return applicableFunctions.build();
@@ -475,9 +513,10 @@ public class FunctionManager
         for (int i = 0; i < parameterTypes.size(); i++) {
             Type parameterType = parameterTypes.get(i);
             if (parameterType.equals(UNKNOWN)) {
-                // TODO: This still doesn't feel right. Need to understand function resolution logic better to know what's the right way.
-                BuiltInFunctionHandle functionHandle = new BuiltInFunctionHandle(boundSignature);
-                if (getFunctionMetadata(functionHandle).isCalledOnNullInput()) {
+                // The original implementation checks only whether the particular argument has @SqlNullable.
+                // However, RETURNS NULL ON NULL INPUT / CALLED ON NULL INPUT is a function level metadata according
+                // to SQL spec. So there is a loss of precision here.
+                if (applicableFunction.isCalledOnNullInput()) {
                     return false;
                 }
             }
@@ -512,11 +551,13 @@ public class FunctionManager
     {
         private final Signature declaredSignature;
         private final Signature boundSignature;
+        private final boolean isCalledOnNullInput;
 
-        private ApplicableFunction(Signature declaredSignature, Signature boundSignature)
+        private ApplicableFunction(Signature declaredSignature, Signature boundSignature, boolean isCalledOnNullInput)
         {
             this.declaredSignature = declaredSignature;
             this.boundSignature = boundSignature;
+            this.isCalledOnNullInput = isCalledOnNullInput;
         }
 
         public Signature getDeclaredSignature()
@@ -527,6 +568,11 @@ public class FunctionManager
         public Signature getBoundSignature()
         {
             return boundSignature;
+        }
+
+        public boolean isCalledOnNullInput()
+        {
+            return isCalledOnNullInput;
         }
 
         @Override

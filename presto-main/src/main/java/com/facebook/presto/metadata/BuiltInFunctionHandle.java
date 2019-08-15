@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -38,6 +39,12 @@ public class BuiltInFunctionHandle
     public Signature getSignature()
     {
         return signature;
+    }
+
+    @Override
+    public FullyQualifiedName.Prefix getFunctionNamespace()
+    {
+        return signature.getName().getPrefix();
     }
 
     @Override

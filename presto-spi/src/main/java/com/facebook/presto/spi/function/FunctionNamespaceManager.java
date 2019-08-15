@@ -40,6 +40,7 @@ public interface FunctionNamespaceManager
      * is deleted. Multiple calls of this function with the same parameters should return the same FunctionHandle.
      * queryId serves as a transaction ID before proper support for transaction is introduced.
      * TODO Support transaction in function namespaces
+     * @return FunctionHandle or null if the namespace manager does not manage any function with the given signature.
      */
     FunctionHandle getFunctionHandle(QueryId queryId, Signature signature);
 
