@@ -35,16 +35,6 @@ public enum GeometrySerializationType
         this.geometryType = geometryType;
     }
 
-    public int code()
-    {
-        return code;
-    }
-
-    public GeometryType geometryType()
-    {
-        return geometryType;
-    }
-
     public static GeometrySerializationType getForCode(int code)
     {
         switch (code) {
@@ -67,5 +57,15 @@ public enum GeometrySerializationType
             default:
                 throw new IllegalArgumentException("Invalid type code: " + code);
         }
+    }
+
+    public int code()
+    {
+        return code;
+    }
+
+    public GeometryType geometryType()
+    {
+        return geometryType;
     }
 }

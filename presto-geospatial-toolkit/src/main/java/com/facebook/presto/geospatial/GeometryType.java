@@ -37,16 +37,6 @@ public enum GeometryType
         this.standardName = standardName;
     }
 
-    public boolean isMultitype()
-    {
-        return multitype;
-    }
-
-    public Slice standardName()
-    {
-        return standardName;
-    }
-
     public static GeometryType getForEsriGeometryType(String type)
     {
         return getForInternalLibraryName(type);
@@ -78,5 +68,15 @@ public enum GeometryType
             default:
                 throw new IllegalArgumentException("Invalid Geometry Type: " + type);
         }
+    }
+
+    public boolean isMultitype()
+    {
+        return multitype;
+    }
+
+    public Slice standardName()
+    {
+        return standardName;
     }
 }

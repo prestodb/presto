@@ -39,8 +39,206 @@ import static java.util.Objects.requireNonNull;
 public class KdbTree
 {
     private static final int MAX_LEVELS = 10_000;
+    private static final SplitDimension BY_X = new SplitDimension()
+    {
+        private final Comparator<Rectangle> comparator = (first, second) -> ComparisonChain.start()
+                .compare(first.getXMin(), second.getXMin())
+                .compare(first.getYMin(), second.getYMin())
+                .result();
 
+        @Override
+        public Comparator<Rectangle> getComparator()
+        {
+            return comparator;
+        }
+
+        @Override
+        public double getValue(Rectangle rectangle)
+        {
+            return rectangle.getXMin();
+        }
+
+        @Override
+        public SplitResult<Rectangle> split(Rectangle rectangle, double x)
+        {
+            checkArgument(rectangle.getXMin() < x && x < rectangle.getXMax());
+            return new SplitResult<>(
+                    new Rectangle(rectangle.getXMin(), rectangle.getYMin(), x, rectangle.getYMax()),
+                    new Rectangle(x, rectangle.getYMin(), rectangle.getXMax(), rectangle.getYMax()));
+        }
+    };
+    private static final SplitDimension BY_Y = new SplitDimension()
+    {
+        private final Comparator<Rectangle> comparator = (first, second) -> ComparisonChain.start()
+                .compare(first.getYMin(), second.getYMin())
+                .compare(first.getXMin(), second.getXMin())
+                .result();
+
+        @Override
+        public Comparator<Rectangle> getComparator()
+        {
+            return comparator;
+        }
+
+        @Override
+        public double getValue(Rectangle rectangle)
+        {
+            return rectangle.getYMin();
+        }
+
+        @Override
+        public SplitResult<Rectangle> split(Rectangle rectangle, double y)
+        {
+            checkArgument(rectangle.getYMin() < y && y < rectangle.getYMax());
+            return new SplitResult<>(
+                    new Rectangle(rectangle.getXMin(), rectangle.getYMin(), rectangle.getXMax(), y),
+                    new Rectangle(rectangle.getXMin(), y, rectangle.getXMax(), rectangle.getYMax()));
+        }
+    };
     private final Node root;
+
+    @JsonCreator
+    public KdbTree(@JsonProperty("root") Node root)
+    {
+        this.root = requireNonNull(root, "root is null");
+    }
+
+    private static void addLeaves(Node node, ImmutableMap.Builder<Integer, Rectangle> leaves, Predicate<Node> predicate)
+    {
+        if (!predicate.apply(node)) {
+            return;
+        }
+
+        if (node.leafId.isPresent()) {
+            leaves.put(node.leafId.getAsInt(), node.extent);
+        }
+        else {
+            addLeaves(node.left.get(), leaves, predicate);
+            addLeaves(node.right.get(), leaves, predicate);
+        }
+    }
+
+    public static KdbTree buildKdbTree(int maxItemsPerNode, Rectangle extent, List<Rectangle> items)
+    {
+        checkArgument(maxItemsPerNode > 0, "maxItemsPerNode must be > 0");
+        requireNonNull(extent, "extent is null");
+        requireNonNull(items, "items is null");
+        return new KdbTree(buildKdbTreeNode(maxItemsPerNode, 0, extent, items, new LeafIdAllocator()));
+    }
+
+    private static Node buildKdbTreeNode(int maxItemsPerNode, int level, Rectangle extent, List<Rectangle> items, LeafIdAllocator leafIdAllocator)
+    {
+        checkArgument(maxItemsPerNode > 0, "maxItemsPerNode must be > 0");
+        checkArgument(level >= 0, "level must be >= 0");
+        checkArgument(level <= MAX_LEVELS, "level must be <= 10,000");
+        requireNonNull(extent, "extent is null");
+        requireNonNull(items, "items is null");
+
+        if (items.size() <= maxItemsPerNode || level == MAX_LEVELS) {
+            return newLeaf(extent, leafIdAllocator.next());
+        }
+
+        // Split over longer side
+        boolean splitVertically = extent.getWidth() >= extent.getHeight();
+        Optional<SplitResult<Node>> splitResult = trySplit(splitVertically ? BY_X : BY_Y, maxItemsPerNode, level, extent, items, leafIdAllocator);
+        if (!splitResult.isPresent()) {
+            // Try spitting by the other side
+            splitResult = trySplit(splitVertically ? BY_Y : BY_X, maxItemsPerNode, level, extent, items, leafIdAllocator);
+        }
+
+        if (!splitResult.isPresent()) {
+            return newLeaf(extent, leafIdAllocator.next());
+        }
+
+        return newInternal(extent, splitResult.get().getLeft(), splitResult.get().getRight());
+    }
+
+    private static Optional<SplitResult<Node>> trySplit(SplitDimension splitDimension, int maxItemsPerNode, int level, Rectangle extent, List<Rectangle> items, LeafIdAllocator leafIdAllocator)
+    {
+        checkArgument(items.size() > 1, "Number of items to split must be > 1");
+
+        // Sort envelopes by xMin or yMin
+        List<Rectangle> sortedItems = ImmutableList.sortedCopyOf(splitDimension.getComparator(), items);
+
+        // Find a mid-point
+        int middleIndex = (sortedItems.size() - 1) / 2;
+        Rectangle middleEnvelope = sortedItems.get(middleIndex);
+        double splitValue = splitDimension.getValue(middleEnvelope);
+        int splitIndex = middleIndex;
+
+        // skip over duplicate values
+        while (splitIndex < sortedItems.size() && splitDimension.getValue(sortedItems.get(splitIndex)) == splitValue) {
+            splitIndex++;
+        }
+
+        // all values between left-of-middle and the end are the same, so can't split
+        if (splitIndex == sortedItems.size()) {
+            return Optional.empty();
+        }
+
+        // about half of the objects are <= splitValue, the rest are >= next value
+        // assuming the input set of objects is a sample from a much larger set,
+        // let's split in the middle; this way objects from the larger set with values
+        // between splitValue and next value will get split somewhat evenly into left
+        // and right partitions
+        splitValue = (splitValue + splitDimension.getValue(sortedItems.get(splitIndex))) / 2;
+
+        SplitResult<Rectangle> childExtents = splitDimension.split(extent, splitValue);
+
+        return Optional.of(new SplitResult(
+                buildKdbTreeNode(maxItemsPerNode, level + 1, childExtents.getLeft(), sortedItems.subList(0, splitIndex), leafIdAllocator),
+                buildKdbTreeNode(maxItemsPerNode, level + 1, childExtents.getRight(), sortedItems.subList(splitIndex, sortedItems.size()), leafIdAllocator)));
+    }
+
+    @JsonProperty
+    public Node getRoot()
+    {
+        return root;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (obj == null) {
+            return false;
+        }
+
+        if (!(obj instanceof KdbTree)) {
+            return false;
+        }
+
+        KdbTree other = (KdbTree) obj;
+        return this.root.equals(other.root);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(root);
+    }
+
+    public Map<Integer, Rectangle> getLeaves()
+    {
+        ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
+        addLeaves(root, leaves, node -> true);
+        return leaves.build();
+    }
+
+    public Map<Integer, Rectangle> findIntersectingLeaves(Rectangle envelope)
+    {
+        ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
+        addLeaves(root, leaves, node -> node.extent.intersects(envelope));
+        return leaves.build();
+    }
+
+    private interface SplitDimension
+    {
+        Comparator<Rectangle> getComparator();
+
+        double getValue(Rectangle rectangle);
+
+        SplitResult<Rectangle> split(Rectangle rectangle, double value);
+    }
 
     public static final class Node
     {
@@ -48,16 +246,6 @@ public class KdbTree
         private final OptionalInt leafId;
         private final Optional<Node> left;
         private final Optional<Node> right;
-
-        public static Node newLeaf(Rectangle extent, int leafId)
-        {
-            return new Node(extent, OptionalInt.of(leafId), Optional.empty(), Optional.empty());
-        }
-
-        public static Node newInternal(Rectangle extent, Node left, Node right)
-        {
-            return new Node(extent, OptionalInt.empty(), Optional.of(left), Optional.of(right));
-        }
 
         @JsonCreator
         public Node(
@@ -79,6 +267,16 @@ public class KdbTree
                 checkArgument(left.isPresent(), "Intermediate node must have left child");
                 checkArgument(right.isPresent(), "Intermediate node must have right child");
             }
+        }
+
+        public static Node newLeaf(Rectangle extent, int leafId)
+        {
+            return new Node(extent, OptionalInt.of(leafId), Optional.empty(), Optional.empty());
+        }
+
+        public static Node newInternal(Rectangle extent, Node left, Node right)
+        {
+            return new Node(extent, OptionalInt.empty(), Optional.of(left), Optional.of(right));
         }
 
         @JsonProperty
@@ -130,133 +328,6 @@ public class KdbTree
         }
     }
 
-    @JsonCreator
-    public KdbTree(@JsonProperty("root") Node root)
-    {
-        this.root = requireNonNull(root, "root is null");
-    }
-
-    @JsonProperty
-    public Node getRoot()
-    {
-        return root;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (obj == null) {
-            return false;
-        }
-
-        if (!(obj instanceof KdbTree)) {
-            return false;
-        }
-
-        KdbTree other = (KdbTree) obj;
-        return this.root.equals(other.root);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(root);
-    }
-
-    public Map<Integer, Rectangle> getLeaves()
-    {
-        ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
-        addLeaves(root, leaves, node -> true);
-        return leaves.build();
-    }
-
-    public Map<Integer, Rectangle> findIntersectingLeaves(Rectangle envelope)
-    {
-        ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
-        addLeaves(root, leaves, node -> node.extent.intersects(envelope));
-        return leaves.build();
-    }
-
-    private static void addLeaves(Node node, ImmutableMap.Builder<Integer, Rectangle> leaves, Predicate<Node> predicate)
-    {
-        if (!predicate.apply(node)) {
-            return;
-        }
-
-        if (node.leafId.isPresent()) {
-            leaves.put(node.leafId.getAsInt(), node.extent);
-        }
-        else {
-            addLeaves(node.left.get(), leaves, predicate);
-            addLeaves(node.right.get(), leaves, predicate);
-        }
-    }
-
-    private interface SplitDimension
-    {
-        Comparator<Rectangle> getComparator();
-
-        double getValue(Rectangle rectangle);
-
-        SplitResult<Rectangle> split(Rectangle rectangle, double value);
-    }
-
-    private static final SplitDimension BY_X = new SplitDimension() {
-        private final Comparator<Rectangle> comparator = (first, second) -> ComparisonChain.start()
-                .compare(first.getXMin(), second.getXMin())
-                .compare(first.getYMin(), second.getYMin())
-                .result();
-
-        @Override
-        public Comparator<Rectangle> getComparator()
-        {
-            return comparator;
-        }
-
-        @Override
-        public double getValue(Rectangle rectangle)
-        {
-            return rectangle.getXMin();
-        }
-
-        @Override
-        public SplitResult<Rectangle> split(Rectangle rectangle, double x)
-        {
-            checkArgument(rectangle.getXMin() < x && x < rectangle.getXMax());
-            return new SplitResult<>(
-                    new Rectangle(rectangle.getXMin(), rectangle.getYMin(), x, rectangle.getYMax()),
-                    new Rectangle(x, rectangle.getYMin(), rectangle.getXMax(), rectangle.getYMax()));
-        }
-    };
-
-    private static final SplitDimension BY_Y = new SplitDimension() {
-        private final Comparator<Rectangle> comparator = (first, second) -> ComparisonChain.start()
-                .compare(first.getYMin(), second.getYMin())
-                .compare(first.getXMin(), second.getXMin())
-                .result();
-
-        @Override
-        public Comparator<Rectangle> getComparator()
-        {
-            return comparator;
-        }
-
-        @Override
-        public double getValue(Rectangle rectangle)
-        {
-            return rectangle.getYMin();
-        }
-
-        @Override
-        public SplitResult<Rectangle> split(Rectangle rectangle, double y)
-        {
-            checkArgument(rectangle.getYMin() < y && y < rectangle.getYMax());
-            return new SplitResult<>(
-                    new Rectangle(rectangle.getXMin(), rectangle.getYMin(), rectangle.getXMax(), y),
-                    new Rectangle(rectangle.getXMin(), y, rectangle.getXMax(), rectangle.getYMax()));
-        }
-    };
-
     private static final class LeafIdAllocator
     {
         private int nextId;
@@ -265,41 +336,6 @@ public class KdbTree
         {
             return nextId++;
         }
-    }
-
-    public static KdbTree buildKdbTree(int maxItemsPerNode, Rectangle extent, List<Rectangle> items)
-    {
-        checkArgument(maxItemsPerNode > 0, "maxItemsPerNode must be > 0");
-        requireNonNull(extent, "extent is null");
-        requireNonNull(items, "items is null");
-        return new KdbTree(buildKdbTreeNode(maxItemsPerNode, 0, extent, items, new LeafIdAllocator()));
-    }
-
-    private static Node buildKdbTreeNode(int maxItemsPerNode, int level, Rectangle extent, List<Rectangle> items, LeafIdAllocator leafIdAllocator)
-    {
-        checkArgument(maxItemsPerNode > 0, "maxItemsPerNode must be > 0");
-        checkArgument(level >= 0, "level must be >= 0");
-        checkArgument(level <= MAX_LEVELS, "level must be <= 10,000");
-        requireNonNull(extent, "extent is null");
-        requireNonNull(items, "items is null");
-
-        if (items.size() <= maxItemsPerNode || level == MAX_LEVELS) {
-            return newLeaf(extent, leafIdAllocator.next());
-        }
-
-        // Split over longer side
-        boolean splitVertically = extent.getWidth() >= extent.getHeight();
-        Optional<SplitResult<Node>> splitResult = trySplit(splitVertically ? BY_X : BY_Y, maxItemsPerNode, level, extent, items, leafIdAllocator);
-        if (!splitResult.isPresent()) {
-            // Try spitting by the other side
-            splitResult = trySplit(splitVertically ? BY_Y : BY_X, maxItemsPerNode, level, extent, items, leafIdAllocator);
-        }
-
-        if (!splitResult.isPresent()) {
-            return newLeaf(extent, leafIdAllocator.next());
-        }
-
-        return newInternal(extent, splitResult.get().getLeft(), splitResult.get().getRight());
     }
 
     private static final class SplitResult<T>
@@ -322,42 +358,5 @@ public class KdbTree
         {
             return right;
         }
-    }
-
-    private static Optional<SplitResult<Node>> trySplit(SplitDimension splitDimension, int maxItemsPerNode, int level, Rectangle extent, List<Rectangle> items, LeafIdAllocator leafIdAllocator)
-    {
-        checkArgument(items.size() > 1, "Number of items to split must be > 1");
-
-        // Sort envelopes by xMin or yMin
-        List<Rectangle> sortedItems = ImmutableList.sortedCopyOf(splitDimension.getComparator(), items);
-
-        // Find a mid-point
-        int middleIndex = (sortedItems.size() - 1) / 2;
-        Rectangle middleEnvelope = sortedItems.get(middleIndex);
-        double splitValue = splitDimension.getValue(middleEnvelope);
-        int splitIndex = middleIndex;
-
-        // skip over duplicate values
-        while (splitIndex < sortedItems.size() && splitDimension.getValue(sortedItems.get(splitIndex)) == splitValue) {
-            splitIndex++;
-        }
-
-        // all values between left-of-middle and the end are the same, so can't split
-        if (splitIndex == sortedItems.size()) {
-            return Optional.empty();
-        }
-
-        // about half of the objects are <= splitValue, the rest are >= next value
-        // assuming the input set of objects is a sample from a much larger set,
-        // let's split in the middle; this way objects from the larger set with values
-        // between splitValue and next value will get split somewhat evenly into left
-        // and right partitions
-        splitValue = (splitValue + splitDimension.getValue(sortedItems.get(splitIndex))) / 2;
-
-        SplitResult<Rectangle> childExtents = splitDimension.split(extent, splitValue);
-
-        return Optional.of(new SplitResult(
-                buildKdbTreeNode(maxItemsPerNode, level + 1, childExtents.getLeft(), sortedItems.subList(0, splitIndex), leafIdAllocator),
-                buildKdbTreeNode(maxItemsPerNode, level + 1, childExtents.getRight(), sortedItems.subList(splitIndex, sortedItems.size()), leafIdAllocator)));
     }
 }
