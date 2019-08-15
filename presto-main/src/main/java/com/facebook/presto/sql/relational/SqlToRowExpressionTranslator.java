@@ -609,7 +609,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitTryExpression(TryExpression node, Void context)
         {
-            return call("TRY", functionResolution.tryFunction(getType(node)), getType(node), process(node.getInnerExpression(), context));
+            throw new UnsupportedOperationException("Must desugar TryExpression before translate it into RowExpression");
         }
 
         @Override

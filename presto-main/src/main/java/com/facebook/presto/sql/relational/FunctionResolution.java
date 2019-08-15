@@ -230,12 +230,12 @@ public final class FunctionResolution
 
     public FunctionHandle tryFunction(Type returnType)
     {
-        return functionManager.lookupFunction("TRY", fromTypes(returnType));
+        return functionManager.lookupFunction("$internal$try", fromTypes(returnType));
     }
 
     public boolean isTryFunction(FunctionHandle functionHandle)
     {
-        return functionManager.getFunctionMetadata(functionHandle).getName().equals("TRY");
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals("$internal$try");
     }
 
     @Override
