@@ -20,12 +20,6 @@ import java.util.Optional;
 
 public interface PagesSpatialIndex
 {
-    int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel);
-
-    boolean isJoinPositionEligible(int joinPosition, int probePosition, Page probe);
-
-    void appendTo(int joinPosition, PageBuilder pageBuilder, int outputChannelOffset);
-
     PagesSpatialIndex EMPTY_INDEX = new PagesSpatialIndex()
     {
         private final int[] emptyAddresses = new int[0];
@@ -48,4 +42,10 @@ public interface PagesSpatialIndex
             throw new UnsupportedOperationException();
         }
     };
+
+    int[] findJoinPositions(int probePosition, Page probe, int probeGeometryChannel, Optional<Integer> probePartitionChannel);
+
+    boolean isJoinPositionEligible(int joinPosition, int probePosition, Page probe);
+
+    void appendTo(int joinPosition, PageBuilder pageBuilder, int outputChannelOffset);
 }

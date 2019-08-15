@@ -69,12 +69,11 @@ public class PagesSpatialIndexFactory
 
     @GuardedBy("this")
     private final List<SettableFuture<PagesSpatialIndex>> pagesSpatialIndexFutures = new ArrayList<>();
+    private final ReferenceCount activeProbeOperators = new ReferenceCount(1);
 
     @GuardedBy("this")
     @Nullable
     private Supplier<PagesSpatialIndex> pagesSpatialIndex;
-
-    private final ReferenceCount activeProbeOperators = new ReferenceCount(1);
 
     public PagesSpatialIndexFactory(List<Type> types, List<Type> outputTypes)
     {

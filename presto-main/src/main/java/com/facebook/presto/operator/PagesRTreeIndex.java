@@ -60,42 +60,6 @@ public class PagesRTreeIndex
     private final JoinFilterFunction filterFunction;
     private final Map<Integer, Rectangle> partitions;
 
-    public static final class GeometryWithPosition
-    {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GeometryWithPosition.class).instanceSize();
-
-        private final OGCGeometry ogcGeometry;
-        private final int partition;
-        private final int position;
-
-        public GeometryWithPosition(OGCGeometry ogcGeometry, int partition, int position)
-        {
-            this.ogcGeometry = requireNonNull(ogcGeometry, "ogcGeometry is null");
-            this.partition = partition;
-            this.position = position;
-        }
-
-        public OGCGeometry getGeometry()
-        {
-            return ogcGeometry;
-        }
-
-        public int getPartition()
-        {
-            return partition;
-        }
-
-        public int getPosition()
-        {
-            return position;
-        }
-
-        public long getEstimatedMemorySizeInBytes()
-        {
-            return INSTANCE_SIZE + ogcGeometry.estimateMemorySize();
-        }
-    }
-
     public PagesRTreeIndex(
             Session session,
             LongArrayList addresses,
@@ -219,6 +183,42 @@ public class PagesRTreeIndex
             Block block = channel.get(blockIndex);
             type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset));
             outputChannelOffset++;
+        }
+    }
+
+    public static final class GeometryWithPosition
+    {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GeometryWithPosition.class).instanceSize();
+
+        private final OGCGeometry ogcGeometry;
+        private final int partition;
+        private final int position;
+
+        public GeometryWithPosition(OGCGeometry ogcGeometry, int partition, int position)
+        {
+            this.ogcGeometry = requireNonNull(ogcGeometry, "ogcGeometry is null");
+            this.partition = partition;
+            this.position = position;
+        }
+
+        public OGCGeometry getGeometry()
+        {
+            return ogcGeometry;
+        }
+
+        public int getPartition()
+        {
+            return partition;
+        }
+
+        public int getPosition()
+        {
+            return position;
+        }
+
+        public long getEstimatedMemorySizeInBytes()
+        {
+            return INSTANCE_SIZE + ogcGeometry.estimateMemorySize();
         }
     }
 }
