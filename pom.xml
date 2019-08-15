@@ -957,6 +957,10 @@
                 <version>hadoop2-${dep.gcs.version}</version>
                 <exclusions>
                     <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>com.google.guava</groupId>
                         <artifactId>guava</artifactId>
                     </exclusion>
