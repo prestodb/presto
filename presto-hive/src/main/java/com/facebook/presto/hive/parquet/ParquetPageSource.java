@@ -101,7 +101,7 @@ public class ParquetPageSource
             typesBuilder.add(type);
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
-            if (getParquetType(column, fileSchema, useParquetColumnNames) == null) {
+            if (getParquetType(type, fileSchema, useParquetColumnNames, column.getName(), column.getHiveColumnIndex(), column.getHiveType()) == null) {
                 constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_VECTOR_LENGTH);
                 fieldsBuilder.add(Optional.empty());
             }
