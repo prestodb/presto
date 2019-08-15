@@ -24,6 +24,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -57,6 +59,8 @@ import java.util.Properties;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.JSON;
@@ -71,6 +75,14 @@ import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
+import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
+import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
@@ -80,7 +92,16 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaDoubleObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaFloatObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -479,7 +500,7 @@ public class TestHiveFileFormats
 
         List<TestColumn> columns = ImmutableList.of(partitionColumn, varcharColumn);
 
-        HiveErrorCode expectedErrorCode = HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+        HiveErrorCode expectedErrorCode = HIVE_INVALID_PARTITION_VALUE;
         String expectedMessage = "Invalid partition value 'test' for varchar(3) partition key: partition_column";
 
         assertThatFileFormat(RCTEXT)
@@ -508,6 +529,171 @@ public class TestHiveFileFormats
         assertThatFileFormat(TEXTFILE)
                 .withColumns(columns)
                 .isFailingForRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
+    }
+
+    @Test
+    public void testSchemaMismatch()
+            throws Exception
+    {
+        TestColumn floatColumn = new TestColumn("column_name", javaFloatObjectInspector, 5.1f, 5.1f);
+        TestColumn doubleColumn = new TestColumn("column_name", javaDoubleObjectInspector, 5.1, 5.1);
+        TestColumn booleanColumn = new TestColumn("column_name", javaBooleanObjectInspector, true, true);
+        TestColumn stringColumn = new TestColumn("column_name", javaStringObjectInspector, "test", utf8Slice("test"));
+        TestColumn intColumn = new TestColumn("column_name", javaIntObjectInspector, 3, 3);
+        TestColumn longColumn = new TestColumn("column_name", javaLongObjectInspector, 4L, 4L);
+        TestColumn mapLongColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector),
+                ImmutableMap.of(4L, 4L),
+                mapBlockOf(BIGINT, BIGINT, 4L, 4L));
+        TestColumn mapDoubleColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(javaDoubleObjectInspector, javaDoubleObjectInspector),
+                ImmutableMap.of(5.1, 5.2),
+                mapBlockOf(DOUBLE, DOUBLE, 5.1, 5.2));
+        TestColumn arrayStringColumn = new TestColumn("column_name",
+                getStandardListObjectInspector(javaStringObjectInspector),
+                ImmutableList.of("test"),
+                arrayBlockOf(createUnboundedVarcharType(), "test"));
+        TestColumn arrayBooleanColumn = new TestColumn("column_name",
+                getStandardListObjectInspector(javaBooleanObjectInspector),
+                ImmutableList.of(true),
+                arrayBlockOf(BOOLEAN, true));
+        TestColumn rowLongColumn = new TestColumn("column_name",
+                getStandardStructObjectInspector(ImmutableList.of("s_bigint"), ImmutableList.of(javaLongObjectInspector)),
+                new Long[] {1L},
+                rowBlockOf(ImmutableList.of(BIGINT), 1));
+        TestColumn nestColumn = new TestColumn("column_name",
+                getStandardMapObjectInspector(
+                    javaStringObjectInspector,
+                    getStandardListObjectInspector(
+                        getStandardStructObjectInspector(
+                            ImmutableList.of("s_int"),
+                            ImmutableList.of(javaIntObjectInspector)))),
+                ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
+                mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER))),
+                    "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER)), rowBlockOf(ImmutableList.of(INTEGER), 1L))));
+
+        HiveErrorCode expectedErrorCode = HIVE_PARTITION_SCHEMA_MISMATCH;
+        String expectedMessageFloatDouble = "The column column_name is declared as type double, but the Parquet file declares the column as type FLOAT";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(floatColumn))
+                .withReadColumns(ImmutableList.of(doubleColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageFloatDouble);
+
+        String expectedMessageDoubleLong = "The column column_name is declared as type bigint, but the Parquet file declares the column as type DOUBLE";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(doubleColumn))
+                .withReadColumns(ImmutableList.of(longColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageDoubleLong);
+
+        String expectedMessageFloatInt = "The column column_name is declared as type int, but the Parquet file declares the column as type FLOAT";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(floatColumn))
+                .withReadColumns(ImmutableList.of(intColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageFloatInt);
+
+        String expectedMessageIntBoolean = "The column column_name is declared as type boolean, but the Parquet file declares the column as type INT32";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(intColumn))
+                .withReadColumns(ImmutableList.of(booleanColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageIntBoolean);
+
+        String expectedMessageStringLong = "The column column_name is declared as type string, but the Parquet file declares the column as type INT64";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(longColumn))
+                .withReadColumns(ImmutableList.of(stringColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageStringLong);
+
+        String expectedMessageIntString = "The column column_name is declared as type int, but the Parquet file declares the column as type BINARY";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(stringColumn))
+                .withReadColumns(ImmutableList.of(intColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageIntString);
+
+        String expectedMessageMapLongLong = "The column column_name is declared as type map<bigint,bigint>, but the Parquet file declares the column as type INT64";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(longColumn))
+                .withReadColumns(ImmutableList.of(mapLongColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageMapLongLong);
+
+        String expectedMessageMapLongMapDouble = "The column column_name is declared as type map<bigint,bigint>, but the Parquet file declares the column as type optional group column_name (MAP) {\n"
+                + "  repeated group map (MAP_KEY_VALUE) {\n"
+                + "    required double key;\n"
+                + "    optional double value;\n"
+                + "  }\n"
+                + "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(mapDoubleColumn))
+                .withReadColumns(ImmutableList.of(mapLongColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageMapLongMapDouble);
+
+        String expectedMessageArrayStringArrayBoolean = "The column column_name is declared as type array<string>, but the Parquet file declares the column as type optional group column_name (LIST) {\n"
+                + "  repeated group bag {\n"
+                + "    optional boolean array_element;\n"
+                + "  }\n"
+                + "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(arrayBooleanColumn))
+                .withReadColumns(ImmutableList.of(arrayStringColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageArrayStringArrayBoolean);
+
+        String expectedMessageBooleanArrayBoolean = "The column column_name is declared as type array<boolean>, but the Parquet file declares the column as type BOOLEAN";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(booleanColumn))
+                .withReadColumns(ImmutableList.of(arrayBooleanColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageBooleanArrayBoolean);
+
+        String expectedMessageRowLongLong = "The column column_name is declared as type bigint, but the Parquet file declares the column as type optional group column_name {\n"
+                + "  optional int64 s_bigint;\n"
+                + "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(rowLongColumn))
+                .withReadColumns(ImmutableList.of(longColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageRowLongLong);
+
+        String expectedMessageMapLongRowLong = "The column column_name is declared as type struct<s_bigint:bigint>, but the Parquet file declares the column as type optional group column_name (MAP) {\n"
+                + "  repeated group map (MAP_KEY_VALUE) {\n"
+                + "    required int64 key;\n"
+                + "    optional int64 value;\n"
+                + "  }\n"
+                + "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(mapLongColumn))
+                .withReadColumns(ImmutableList.of(rowLongColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageMapLongRowLong);
+
+        String expectedMessageRowLongNest = "The column column_name is declared as type map<string,array<struct<s_int:int>>>, but the Parquet file declares the column as type optional group column_name {\n"
+                + "  optional int64 s_bigint;\n"
+                + "}";
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(rowLongColumn))
+                .withReadColumns(ImmutableList.of(nestColumn))
+                .withSession(parquetPageSourceSession)
+                .isFailingForPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), expectedErrorCode, expectedMessageRowLongNest);
     }
 
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
