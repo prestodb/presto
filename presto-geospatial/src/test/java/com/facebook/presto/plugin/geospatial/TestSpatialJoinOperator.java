@@ -82,10 +82,10 @@ public class TestSpatialJoinOperator
 {
     private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(
             new KdbTree(newInternal(new Rectangle(-2, -2, 15, 15),
-                newInternal(new Rectangle(-2, -2, 6, 15),
-                        newLeaf(new Rectangle(-2, -2, 6, 1), 1),
-                        newLeaf(new Rectangle(-2, 1, 6, 15), 2)),
-                newLeaf(new Rectangle(6, -2, 15, 15), 0))));
+                    newInternal(new Rectangle(-2, -2, 6, 15),
+                            newLeaf(new Rectangle(-2, -2, 6, 1), 1),
+                            newLeaf(new Rectangle(-2, 1, 6, 15), 2)),
+                    newLeaf(new Rectangle(6, -2, 15, 15), 0))));
 
     //  2 intersecting polygons: A and B
     private static final Slice POLYGON_A = stGeometryFromText(Slices.utf8Slice("POLYGON ((0 0, -0.5 2.5, 0 5, 2.5 5.5, 5 5, 5.5 2.5, 5 0, 2.5 -0.5, 0 0))"));
@@ -99,6 +99,25 @@ public class TestSpatialJoinOperator
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
+
+    /**
+     * Runs Driver in another thread until it is finished
+     */
+    private static void runDriverInThread(ExecutorService executor, Driver driver)
+    {
+        executor.execute(() -> {
+            if (!driver.isFinished()) {
+                try {
+                    driver.process();
+                }
+                catch (PrestoException e) {
+                    driver.getDriverContext().failed(e);
+                    throw e;
+                }
+                runDriverInThread(executor, driver);
+            }
+        });
+    }
 
     @BeforeMethod
     public void setUp()
@@ -463,25 +482,6 @@ public class TestSpatialJoinOperator
         return pagesSpatialIndexFactory;
     }
 
-    /**
-     * Runs Driver in another thread until it is finished
-     */
-    private static void runDriverInThread(ExecutorService executor, Driver driver)
-    {
-        executor.execute(() -> {
-            if (!driver.isFinished()) {
-                try {
-                    driver.process();
-                }
-                catch (PrestoException e) {
-                    driver.getDriverContext().failed(e);
-                    throw e;
-                }
-                runDriverInThread(executor, driver);
-            }
-        });
-    }
-
     private TaskContext createTaskContext()
     {
         return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION);
@@ -490,11 +490,6 @@ public class TestSpatialJoinOperator
     private static class TestInternalJoinFilterFunction
             implements InternalJoinFilterFunction
     {
-        public interface Lambda
-        {
-            boolean filter(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
-        }
-
         private final TestInternalJoinFilterFunction.Lambda lambda;
 
         private TestInternalJoinFilterFunction(TestInternalJoinFilterFunction.Lambda lambda)
@@ -506,6 +501,11 @@ public class TestSpatialJoinOperator
         public boolean filter(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
         {
             return lambda.filter(leftPosition, leftPage, rightPosition, rightPage);
+        }
+
+        public interface Lambda
+        {
+            boolean filter(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
         }
     }
 }
