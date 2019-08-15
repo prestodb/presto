@@ -105,16 +105,11 @@ public class InlineProjections
         // to place in the child projection.
         // If all assignments end up becoming identity assignments, they'll get pruned by
         // other rules
-        boolean allTranslated = child.getAssignments().entrySet()
-                .stream()
-                .map(Map.Entry::getValue)
-                .noneMatch(OriginalExpressionUtils::isExpression);
-
         Set<VariableReferenceExpression> inputs = child.getAssignments()
                 .entrySet().stream()
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
-                .flatMap(expression -> extractDependencies(expression, context.getVariableAllocator().getTypes()).stream())
+                .flatMap(expression -> extractInputs(expression, context.getVariableAllocator().getTypes()).stream())
                 .collect(toSet());
 
         Builder childAssignments = Assignments.builder();
@@ -123,6 +118,12 @@ public class InlineProjections
                 childAssignments.put(assignment);
             }
         }
+
+        boolean allTranslated = child.getAssignments().entrySet()
+                .stream()
+                .map(Map.Entry::getValue)
+                .noneMatch(OriginalExpressionUtils::isExpression);
+
         for (VariableReferenceExpression input : inputs) {
             if (allTranslated) {
                 childAssignments.put(input, input);
@@ -172,7 +173,7 @@ public class InlineProjections
         Map<VariableReferenceExpression, Long> dependencies = parent.getAssignments()
                 .getExpressions()
                 .stream()
-                .flatMap(expression -> extractDependencies(expression, context.getVariableAllocator().getTypes()).stream())
+                .flatMap(expression -> extractInputs(expression, context.getVariableAllocator().getTypes()).stream())
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
@@ -222,7 +223,7 @@ public class InlineProjections
         return builder.build();
     }
 
-    private static List<VariableReferenceExpression> extractDependencies(RowExpression expression, TypeProvider types)
+    private static List<VariableReferenceExpression> extractInputs(RowExpression expression, TypeProvider types)
     {
         if (isExpression(expression)) {
             return VariablesExtractor.extractAll(castToExpression(expression), types);

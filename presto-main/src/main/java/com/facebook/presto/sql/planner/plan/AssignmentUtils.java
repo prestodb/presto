@@ -66,6 +66,11 @@ public class AssignmentUtils
         return builder.build();
     }
 
+    public static Assignments identityAssignments(VariableReferenceExpression... variables)
+    {
+        return identityAssignments(asList(variables));
+    }
+
     public static boolean isIdentity(Assignments assignments, VariableReferenceExpression output)
     {
         //TODO this will be checking against VariableExpression once getOutput returns VariableReferenceExpression

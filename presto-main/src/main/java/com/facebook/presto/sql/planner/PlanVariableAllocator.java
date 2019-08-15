@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
@@ -157,5 +159,17 @@ public class PlanVariableAllocator
         String name = ((SymbolReference) expression).getName();
         checkArgument(variables.containsKey(name), "variable map does not contain name");
         return new VariableReferenceExpression(name, variables.get(name));
+    }
+
+    public VariableReferenceExpression newVariable(RowExpression expression)
+    {
+        String nameHint = "expr";
+        if (expression instanceof VariableReferenceExpression) {
+            nameHint = ((VariableReferenceExpression) expression).getName();
+        }
+        else if (expression instanceof CallExpression) {
+            nameHint = ((CallExpression) expression).getDisplayName();
+        }
+        return newVariable(nameHint, expression.getType(), null);
     }
 }
