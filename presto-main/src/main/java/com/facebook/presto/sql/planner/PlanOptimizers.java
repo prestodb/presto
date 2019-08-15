@@ -490,9 +490,6 @@ public class PlanOptimizers
                         .add(new InlineProjections())
                         .build()));
 
-        // Optimizers above this don't understand local exchanges, so be careful moving this.
-        builder.add(new AddLocalExchanges(metadata, sqlParser));
-
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
         builder.add(new IterativeOptimizer(
@@ -501,6 +498,9 @@ public class PlanOptimizers
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
+
+        // Optimizers above this don't understand local exchanges, so be careful moving this.
+        builder.add(new AddLocalExchanges(metadata, sqlParser));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
