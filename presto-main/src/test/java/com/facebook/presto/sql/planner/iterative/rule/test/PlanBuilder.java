@@ -23,6 +23,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.Ordering;
@@ -72,6 +73,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -102,6 +104,7 @@ import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -132,9 +135,19 @@ public class PlanBuilder
         return Assignments.builder().put(variable, OriginalExpressionUtils.castToRowExpression(expression)).build();
     }
 
+    public static Assignments assignment(VariableReferenceExpression variable, RowExpression expression)
+    {
+        return Assignments.builder().put(variable, expression).build();
+    }
+
     public static Assignments assignment(VariableReferenceExpression variable1, Expression expression1, VariableReferenceExpression variable2, Expression expression2)
     {
         return Assignments.builder().put(variable1, OriginalExpressionUtils.castToRowExpression(expression1)).put(variable2, OriginalExpressionUtils.castToRowExpression(expression2)).build();
+    }
+
+    public static Assignments assignment(VariableReferenceExpression variable1, RowExpression expression1, VariableReferenceExpression variable2, RowExpression expression2)
+    {
+        return Assignments.builder().put(variable1, expression1).put(variable2, expression2).build();
     }
 
     public OutputNode output(List<String> columnNames, List<VariableReferenceExpression> variables, PlanNode source)
@@ -272,6 +285,12 @@ public class PlanBuilder
         AggregationBuilder aggregationBuilder = new AggregationBuilder(getTypes());
         aggregationBuilderConsumer.accept(aggregationBuilder);
         return aggregationBuilder.build();
+    }
+
+    public CallExpression binaryOperation(OperatorType operatorType, RowExpression left, RowExpression right)
+    {
+        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionManager()).arithmeticFunction(operatorType, left.getType(), right.getType());
+        return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
     }
 
     public class AggregationBuilder
