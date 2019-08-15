@@ -33,7 +33,7 @@ public class TestInlineProjections
     @Test
     public void test()
     {
-        tester().assertThat(new InlineProjections())
+        tester().assertThat(new InlineProjections(getFunctionManager()))
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -71,9 +71,54 @@ public class TestInlineProjections
     }
 
     @Test
+    public void testRowExpression()
+    {
+        // TODO add testing to expressions that need desugaring like 'try'
+        tester().assertThat(new InlineProjections(getFunctionManager()))
+                .on(p -> {
+                    p.variable("symbol");
+                    p.variable("complex");
+                    p.variable("literal");
+                    p.variable("complex_2");
+                    p.variable("x");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("identity"), p.rowExpression("symbol")) // identity
+                                    .put(p.variable("multi_complex_1"), p.rowExpression("complex + 1")) // complex expression referenced multiple times
+                                    .put(p.variable("multi_complex_2"), p.rowExpression("complex + 2")) // complex expression referenced multiple times
+                                    .put(p.variable("multi_literal_1"), p.rowExpression("literal + 1")) // literal referenced multiple times
+                                    .put(p.variable("multi_literal_2"), p.rowExpression("literal + 2")) // literal referenced multiple times
+                                    .put(p.variable("single_complex"), p.rowExpression("complex_2 + 2")) // complex expression reference only once
+                                    .build(),
+                            p.project(Assignments.builder()
+                                            .put(p.variable("symbol"), p.rowExpression("x"))
+                                            .put(p.variable("complex"), p.rowExpression("x * 2"))
+                                            .put(p.variable("literal"), p.rowExpression("1"))
+                                            .put(p.variable("complex_2"), p.rowExpression("x - 1"))
+                                            .build(),
+                                    p.values(p.variable("x"))));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                        .put("out1", PlanMatchPattern.expression("x"))
+                                        .put("out2", PlanMatchPattern.expression("y + 1"))
+                                        .put("out3", PlanMatchPattern.expression("y + 2"))
+                                        .put("out4", PlanMatchPattern.expression("1 + 1"))
+                                        .put("out5", PlanMatchPattern.expression("1 + 2"))
+                                        .put("out6", PlanMatchPattern.expression("x - 1 + 2"))
+                                        .build(),
+                                project(
+                                        ImmutableMap.of(
+                                                "x", PlanMatchPattern.expression("x"),
+                                                "y", PlanMatchPattern.expression("x * 2")),
+                                        values(ImmutableMap.of("x", 0)))));
+    }
+
+    @Test
     public void testIdentityProjections()
     {
-        tester().assertThat(new InlineProjections())
+        tester().assertThat(new InlineProjections(getFunctionManager()))
                 .on(p ->
                         p.project(
                                 assignment(p.variable("output"), expression("value")),
@@ -86,7 +131,7 @@ public class TestInlineProjections
     @Test
     public void testSubqueryProjections()
     {
-        tester().assertThat(new InlineProjections())
+        tester().assertThat(new InlineProjections(getFunctionManager()))
                 .on(p ->
                         p.project(
                                 identityAssignmentsAsSymbolReferences(p.variable("fromOuterScope"), p.variable("value")),
