@@ -28,14 +28,17 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readRawPage;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 @NotThreadSafe
 public class PagesSerde
@@ -46,6 +49,8 @@ public class PagesSerde
     private final Optional<Compressor> compressor;
     private final Optional<Decompressor> decompressor;
     private final Optional<SpillCipher> spillCipher;
+
+    private byte[] compressionBuffer;
 
     public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<SpillCipher> spillCipher)
     {
@@ -62,15 +67,23 @@ public class PagesSerde
         SliceOutput serializationBuffer = new DynamicSliceOutput(toIntExact(page.getSizeInBytes() + Integer.BYTES)); // block length is an int
         writeRawPage(page, serializationBuffer, blockEncodingSerde);
         Slice slice = serializationBuffer.slice();
+
         int uncompressedSize = serializationBuffer.size();
         byte markers = PageCodecMarker.none();
 
         if (compressor.isPresent()) {
-            ByteBuffer compressionBuffer = ByteBuffer.allocate(compressor.get().maxCompressedLength(uncompressedSize));
-            compressor.get().compress(slice.toByteBuffer(), compressionBuffer);
-            compressionBuffer.flip();
-            if ((((double) compressionBuffer.remaining()) / uncompressedSize) <= MINIMUM_COMPRESSION_RATIO) {
-                slice = Slices.wrappedBuffer(compressionBuffer);
+            int maxCompressedSize = compressor.get().maxCompressedLength(uncompressedSize);
+            compressionBuffer = ensureCapacity(compressionBuffer, maxCompressedSize);
+            int compressedSize = compressor.get().compress(
+                    (byte[]) slice.getBase(),
+                    (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET),
+                    uncompressedSize,
+                    compressionBuffer,
+                    0,
+                    maxCompressedSize);
+
+            if (compressedSize / (double) uncompressedSize <= MINIMUM_COMPRESSION_RATIO) {
+                slice = Slices.copyOf(Slices.wrappedBuffer(compressionBuffer, 0, compressedSize));
                 markers = COMPRESSED.set(markers);
             }
         }
@@ -113,5 +126,15 @@ public class PagesSerde
         }
 
         return readRawPage(serializedPage.getPositionCount(), slice.getInput(), blockEncodingSerde);
+    }
+
+    public long getSizeInBytes()
+    {
+        return compressionBuffer == null ? 0 : compressionBuffer.length;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return sizeOf(compressionBuffer);
     }
 }

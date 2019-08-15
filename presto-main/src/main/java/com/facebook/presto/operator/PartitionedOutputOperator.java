@@ -350,7 +350,7 @@ public class PartitionedOutputOperator
         {
             // We use a foreach loop instead of streams
             // as it has much better performance.
-            long sizeInBytes = 0;
+            long sizeInBytes = serde.getSizeInBytes();
             for (PageBuilder pageBuilder : pageBuilders) {
                 sizeInBytes += pageBuilder.getSizeInBytes();
             }
@@ -362,7 +362,7 @@ public class PartitionedOutputOperator
          */
         public long getRetainedSizeInBytes()
         {
-            long sizeInBytes = 0;
+            long sizeInBytes = serde.getRetainedSizeInBytes();
             for (PageBuilder pageBuilder : pageBuilders) {
                 sizeInBytes += pageBuilder.getRetainedSizeInBytes();
             }
