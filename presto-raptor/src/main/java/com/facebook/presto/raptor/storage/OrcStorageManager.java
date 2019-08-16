@@ -102,7 +102,6 @@ import static com.facebook.presto.raptor.storage.OrcPageSource.NULL_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.ROWID_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.SHARD_UUID_COLUMN;
 import static com.facebook.presto.raptor.storage.ShardStats.computeColumnStats;
-import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED;
 import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED_AND_VALIDATED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -232,12 +231,7 @@ public class OrcStorageManager
         this.commitExecutor = newCachedThreadPool(daemonThreadsNamed("raptor-commit-" + connectorId + "-%s"));
         this.compression = requireNonNull(compression, "compression is null");
         this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
-        if (orcOptimizedWriterStage.ordinal() >= ENABLED.ordinal()) {
-            this.fileRewriter = new OrcPageFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
-        }
-        else {
-            this.fileRewriter = new OrcRecordFileRewriter();
-        }
+        this.fileRewriter = new OrcPageFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
     }
 
     @PreDestroy
@@ -715,12 +709,7 @@ public class OrcStorageManager
                 File stagingFile = storageService.getStagingFile(shardUuid);
                 storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
-                if (orcOptimizedWriterStage.ordinal() >= ENABLED.ordinal()) {
-                    writer = new OrcFileWriter(columnIds, columnTypes, stagingFile, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
-                }
-                else {
-                    writer = new OrcRecordWriter(columnIds, columnTypes, stagingFile, compression);
-                }
+                writer = new OrcFileWriter(columnIds, columnTypes, stagingFile, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
             }
         }
     }
