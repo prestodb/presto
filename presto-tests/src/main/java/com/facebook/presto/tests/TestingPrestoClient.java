@@ -44,13 +44,13 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -234,9 +234,11 @@ public class TestingPrestoClient
         }
         else if (type instanceof MapType) {
             return ((Map<Object, Object>) value).entrySet().stream()
-                    .collect(Collectors.toMap(
-                            e -> convertToRowValue(((MapType) type).getKeyType(), e.getKey()),
-                            e -> convertToRowValue(((MapType) type).getValueType(), e.getValue())));
+                    .collect(HashMap::new, (m, e) ->
+                            m.put(
+                                    convertToRowValue(((MapType) type).getKeyType(), e.getKey()),
+                                    convertToRowValue(((MapType) type).getValueType(), e.getValue())),
+                                    HashMap::putAll);
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
