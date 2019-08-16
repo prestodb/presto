@@ -29,7 +29,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.tdigest;
+package com.facebook.presto.facebook.tdigest;
 
 import javax.annotation.concurrent.NotThreadSafe;
 

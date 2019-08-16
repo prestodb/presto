@@ -29,7 +29,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.tdigest;
+package com.facebook.presto.facebook.tdigest;
 
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.GeometricDistribution;
@@ -41,7 +41,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.facebook.presto.tdigest.TDigest.createTDigest;
+import static com.facebook.presto.facebook.tdigest.TDigest.createTDigest;
 import static java.lang.String.format;
 import static java.util.Collections.sort;
 import static org.testng.Assert.assertTrue;

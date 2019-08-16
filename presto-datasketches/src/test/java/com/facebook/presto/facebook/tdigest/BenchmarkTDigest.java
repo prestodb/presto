@@ -29,7 +29,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.tdigest;
+package com.facebook.presto.facebook.tdigest;
 
 import io.airlift.slice.Slice;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -53,7 +53,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.tdigest.TDigest.createTDigest;
+import static com.facebook.presto.facebook.tdigest.TDigest.createTDigest;
 
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)

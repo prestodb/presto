@@ -29,7 +29,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.tdigest;
+package com.facebook.presto.facebook.tdigest;
 
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
@@ -48,11 +48,11 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.tdigest.TDigestUtils.maxSize;
-import static com.facebook.presto.tdigest.TDigestUtils.normalizer;
-import static com.facebook.presto.tdigest.TDigestUtils.reverse;
-import static com.facebook.presto.tdigest.TDigestUtils.sort;
-import static com.facebook.presto.tdigest.TDigestUtils.weightedAverage;
+import static com.facebook.presto.facebook.tdigest.TDigestUtils.maxSize;
+import static com.facebook.presto.facebook.tdigest.TDigestUtils.normalizer;
+import static com.facebook.presto.facebook.tdigest.TDigestUtils.reverse;
+import static com.facebook.presto.facebook.tdigest.TDigestUtils.sort;
+import static com.facebook.presto.facebook.tdigest.TDigestUtils.weightedAverage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
