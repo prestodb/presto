@@ -1,10 +1,10 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
-            remote exchange (REPARTITION, HASH, ["i_manager_id"])
+            remote exchange (REPARTITION, HASH, [i_manager_id])
                 final aggregation over (d_moy, i_manager_id)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["d_moy", "i_manager_id"])
+                        remote exchange (REPARTITION, HASH, [d_moy, i_manager_id])
                             partial aggregation over (d_moy, i_manager_id)
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):

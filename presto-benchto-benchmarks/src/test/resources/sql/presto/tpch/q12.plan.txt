@@ -3,11 +3,11 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             final aggregation over (shipmode)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["shipmode"])
+                    remote exchange (REPARTITION, HASH, [shipmode])
                         partial aggregation over (shipmode)
                             join (INNER, PARTITIONED):
-                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                remote exchange (REPARTITION, HASH, [orderkey])
                                     scan orders
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["orderkey_0"])
+                                    remote exchange (REPARTITION, HASH, [orderkey_0])
                                         scan lineitem

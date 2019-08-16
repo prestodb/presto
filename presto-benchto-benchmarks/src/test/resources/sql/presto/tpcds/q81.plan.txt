@@ -5,7 +5,7 @@ local exchange (GATHER, SINGLE, [])
                 join (INNER, REPLICATED):
                     final aggregation over (ca_state, cr_returning_customer_sk)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["ca_state", "cr_returning_customer_sk"])
+                            remote exchange (REPARTITION, HASH, [ca_state, cr_returning_customer_sk])
                                 partial aggregation over (ca_state, cr_returning_customer_sk)
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
@@ -27,11 +27,11 @@ local exchange (GATHER, SINGLE, [])
                     remote exchange (REPLICATE, BROADCAST, [])
                         final aggregation over (ca_state_93)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["ca_state_93"])
+                                remote exchange (REPARTITION, HASH, [ca_state_93])
                                     partial aggregation over (ca_state_93)
                                         final aggregation over (ca_state_93, cr_returning_customer_sk_37)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["ca_state_93", "cr_returning_customer_sk_37"])
+                                                remote exchange (REPARTITION, HASH, [ca_state_93, cr_returning_customer_sk_37])
                                                     partial aggregation over (ca_state_93, cr_returning_customer_sk_37)
                                                         join (INNER, REPLICATED):
                                                             join (INNER, REPLICATED):
