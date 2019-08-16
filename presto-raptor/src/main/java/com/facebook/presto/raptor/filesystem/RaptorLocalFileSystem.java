@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.util;
+package com.facebook.presto.raptor.filesystem;
 
 import io.airlift.slice.XxHash64;
 import org.apache.hadoop.conf.Configuration;
@@ -30,10 +30,13 @@ import java.io.OutputStream;
 
 import static java.util.Objects.requireNonNull;
 
-public final class SyncingFileSystem
+/**
+ * The class overrides some inefficient methods from local file system
+ */
+public final class RaptorLocalFileSystem
         extends RawLocalFileSystem
 {
-    public SyncingFileSystem(Configuration configuration)
+    public RaptorLocalFileSystem(Configuration configuration)
             throws IOException
     {
         initialize(getUri(), configuration);
