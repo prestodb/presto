@@ -118,7 +118,8 @@ public class TestRaptorConnector
                 new RaptorTableProperties(typeRegistry),
                 ImmutableSet.of(),
                 new AllowAllAccessControl(),
-                dbi);
+                dbi,
+                ImmutableSet.of());
     }
 
     @AfterMethod(alwaysRun = true)
