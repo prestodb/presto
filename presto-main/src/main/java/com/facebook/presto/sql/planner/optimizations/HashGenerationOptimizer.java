@@ -23,7 +23,6 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -490,11 +489,11 @@ public class HashGenerationOptimizer
             Optional<HashComputation> partitionVariables = Optional.empty();
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION) &&
-                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
+                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(VariableReferenceExpression.class::isInstance)) {
                 // add precomputed hash for exchange
                 partitionVariables = computeHash(
                         partitioningScheme.getPartitioning().getArguments().stream()
-                                .map(ArgumentBinding::getVariableReference)
+                                .map(VariableReferenceExpression.class::cast)
                                 .collect(toImmutableList()),
                         functionManager);
                 preference = preference.withHashComputation(partitionVariables);

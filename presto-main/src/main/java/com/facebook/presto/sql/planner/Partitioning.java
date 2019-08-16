@@ -34,18 +34,18 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class Partitioning
 {
     private final PartitioningHandle handle;
-    private final List<ArgumentBinding> arguments;
+    private final List<RowExpression> arguments;
 
-    private Partitioning(PartitioningHandle handle, List<ArgumentBinding> arguments)
+    private Partitioning(PartitioningHandle handle, List<RowExpression> arguments)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
@@ -54,7 +54,7 @@ public final class Partitioning
     public static Partitioning create(PartitioningHandle handle, List<VariableReferenceExpression> columns)
     {
         return new Partitioning(handle, columns.stream()
-                .map(ArgumentBinding::new)
+                .map(RowExpression.class::cast)
                 .collect(toImmutableList()));
     }
 
@@ -62,7 +62,7 @@ public final class Partitioning
     @JsonCreator
     public static Partitioning jsonCreate(
             @JsonProperty("handle") PartitioningHandle handle,
-            @JsonProperty("arguments") List<ArgumentBinding> arguments)
+            @JsonProperty("arguments") List<RowExpression> arguments)
     {
         return new Partitioning(handle, arguments);
     }
@@ -74,7 +74,7 @@ public final class Partitioning
     }
 
     @JsonProperty
-    public List<ArgumentBinding> getArguments()
+    public List<RowExpression> getArguments()
     {
         return arguments;
     }
@@ -82,8 +82,8 @@ public final class Partitioning
     public Set<VariableReferenceExpression> getVariableReferences()
     {
         return arguments.stream()
-                .filter(ArgumentBinding::isVariable)
-                .map(ArgumentBinding::getVariableReference)
+                .filter(VariableReferenceExpression.class::isInstance)
+                .map(VariableReferenceExpression.class::cast)
                 .collect(toImmutableSet());
     }
 
@@ -118,8 +118,8 @@ public final class Partitioning
         }
 
         for (int i = 0; i < arguments.size(); i++) {
-            ArgumentBinding leftArgument = arguments.get(i);
-            ArgumentBinding rightArgument = right.arguments.get(i);
+            RowExpression leftArgument = arguments.get(i);
+            RowExpression rightArgument = right.arguments.get(i);
 
             if (!isPartitionedWith(leftArgument, leftConstantMapping, rightArgument, rightConstantMapping, leftToRightMappings)) {
                 return false;
@@ -158,8 +158,8 @@ public final class Partitioning
         }
 
         for (int i = 0; i < arguments.size(); i++) {
-            ArgumentBinding leftArgument = arguments.get(i);
-            ArgumentBinding rightArgument = right.arguments.get(i);
+            RowExpression leftArgument = arguments.get(i);
+            RowExpression rightArgument = right.arguments.get(i);
 
             if (!isPartitionedWith(leftArgument, leftConstantMapping, rightArgument, rightConstantMapping, leftToRightMappings)) {
                 return false;
@@ -169,36 +169,36 @@ public final class Partitioning
     }
 
     private static boolean isPartitionedWith(
-            ArgumentBinding leftArgument,
+            RowExpression leftArgument,
             Function<VariableReferenceExpression, Optional<ConstantExpression>> leftConstantMapping,
-            ArgumentBinding rightArgument,
+            RowExpression rightArgument,
             Function<VariableReferenceExpression, Optional<ConstantExpression>> rightConstantMapping,
             Function<VariableReferenceExpression, Set<VariableReferenceExpression>> leftToRightMappings)
     {
-        if (leftArgument.isVariable()) {
-            if (rightArgument.isVariable()) {
+        if (leftArgument instanceof VariableReferenceExpression) {
+            if (rightArgument instanceof VariableReferenceExpression) {
                 // variable == variable
-                Set<VariableReferenceExpression> mappedColumns = leftToRightMappings.apply(leftArgument.getVariableReference());
-                return mappedColumns.contains(rightArgument.getVariableReference());
+                Set<VariableReferenceExpression> mappedColumns = leftToRightMappings.apply((VariableReferenceExpression) leftArgument);
+                return mappedColumns.contains(rightArgument);
             }
             else {
                 // variable == constant
                 // Normally, this would be a false condition, but if we happen to have an external
                 // mapping from the variable to a constant value and that constant value matches the
                 // right value, then we are co-partitioned.
-                Optional<ConstantExpression> leftConstant = leftConstantMapping.apply(leftArgument.getVariableReference());
-                return leftConstant.isPresent() && leftConstant.get().equals(rightArgument.getConstant());
+                Optional<ConstantExpression> leftConstant = leftConstantMapping.apply((VariableReferenceExpression) leftArgument);
+                return leftConstant.isPresent() && leftConstant.get().equals(rightArgument);
             }
         }
         else {
-            if (rightArgument.isConstant()) {
+            if (rightArgument instanceof ConstantExpression) {
                 // constant == constant
-                return leftArgument.getConstant().equals(rightArgument.getConstant());
+                return leftArgument.equals(rightArgument);
             }
             else {
                 // constant == variable
-                Optional<ConstantExpression> rightConstant = rightConstantMapping.apply(rightArgument.getVariableReference());
-                return rightConstant.isPresent() && rightConstant.get().equals(leftArgument.getConstant());
+                Optional<ConstantExpression> rightConstant = rightConstantMapping.apply((VariableReferenceExpression) rightArgument);
+                return rightConstant.isPresent() && rightConstant.get().equals(leftArgument);
             }
         }
     }
@@ -208,8 +208,8 @@ public final class Partitioning
         // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
         // can safely ignore all constant columns when comparing partition properties
         return arguments.stream()
-                .filter(ArgumentBinding::isVariable)
-                .map(ArgumentBinding::getVariableReference)
+                .filter(VariableReferenceExpression.class::isInstance)
+                .map(VariableReferenceExpression.class::cast)
                 .filter(variable -> !knownConstants.contains(variable))
                 .allMatch(columns::contains);
     }
@@ -225,8 +225,8 @@ public final class Partitioning
                 .filter(variable -> !knownConstants.contains(variable))
                 .collect(toImmutableSet());
         Set<VariableReferenceExpression> nonConstantArgs = arguments.stream()
-                .filter(ArgumentBinding::isVariable)
-                .map(ArgumentBinding::getVariableReference)
+                .filter(VariableReferenceExpression.class::isInstance)
+                .map(VariableReferenceExpression.class::cast)
                 .filter(variable -> !knownConstants.contains(variable))
                 .collect(toImmutableSet());
         return !nonConstantArgs.equals(keysWithoutConstants);
@@ -235,15 +235,34 @@ public final class Partitioning
     public Partitioning translate(Function<VariableReferenceExpression, VariableReferenceExpression> translator)
     {
         return new Partitioning(handle, arguments.stream()
-                .map(argument -> argument.translate(translator))
+                .map(argument -> {
+                    if (argument instanceof ConstantExpression) {
+                        return argument;
+                    }
+                    return translator.apply((VariableReferenceExpression) argument);
+                })
                 .collect(toImmutableList()));
     }
 
     public Optional<Partitioning> translate(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator, Function<VariableReferenceExpression, Optional<ConstantExpression>> constants)
     {
-        ImmutableList.Builder<ArgumentBinding> newArguments = ImmutableList.builder();
-        for (ArgumentBinding argument : arguments) {
-            Optional<ArgumentBinding> newArgument = argument.translate(translator, constants);
+        ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
+        for (RowExpression argument : arguments) {
+            Optional<RowExpression> newArgument;
+            if (argument instanceof ConstantExpression) {
+                newArgument = Optional.of(argument);
+            }
+            else {
+                checkArgument(argument instanceof VariableReferenceExpression, format("Expect argument to be VariableReferenceExpression, but get %s (%s)", argument.getClass(), argument));
+                newArgument = translator.apply((VariableReferenceExpression) argument).map(RowExpression.class::cast);
+                if (!newArgument.isPresent()) {
+                    // As a last resort, check for a constant mapping for the variable
+                    // Note: this MUST be last because we want to favor the variable representation
+                    // as it makes further optimizations possible.
+                    newArgument = constants.apply((VariableReferenceExpression) argument).map(RowExpression.class::cast);
+                }
+            }
+
             if (!newArgument.isPresent()) {
                 return Optional.empty();
             }
@@ -285,101 +304,5 @@ public final class Partitioning
                 .add("handle", handle)
                 .add("arguments", arguments)
                 .toString();
-    }
-
-    @Immutable
-    public static final class ArgumentBinding
-    {
-        private final RowExpression rowExpression;
-
-        @JsonCreator
-        public ArgumentBinding(@JsonProperty("rowExpression") RowExpression rowExpression)
-        {
-            checkArgument(rowExpression instanceof VariableReferenceExpression || rowExpression instanceof ConstantExpression, "Expect either VariableReferenceExpression or ConstantExpression");
-            this.rowExpression = requireNonNull(rowExpression, "rowExpression is null");
-        }
-
-        @JsonProperty
-        public RowExpression getRowExpression()
-        {
-            return rowExpression;
-        }
-
-        public boolean isConstant()
-        {
-            return rowExpression instanceof ConstantExpression;
-        }
-
-        public boolean isVariable()
-        {
-            return rowExpression instanceof VariableReferenceExpression;
-        }
-
-        public VariableReferenceExpression getVariableReference()
-        {
-            verify(rowExpression instanceof VariableReferenceExpression, "Expect the rowExpression to be a VariableReferenceExpression");
-            return (VariableReferenceExpression) rowExpression;
-        }
-
-        public ConstantExpression getConstant()
-        {
-            verify(rowExpression instanceof ConstantExpression, "Expect the rowExpression to be a ConstantExpression");
-            return (ConstantExpression) rowExpression;
-        }
-
-        public ArgumentBinding translate(Function<VariableReferenceExpression, VariableReferenceExpression> translator)
-        {
-            if (isConstant()) {
-                return this;
-            }
-            return new ArgumentBinding(translator.apply((VariableReferenceExpression) rowExpression));
-        }
-
-        public Optional<ArgumentBinding> translate(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator, Function<VariableReferenceExpression, Optional<ConstantExpression>> constants)
-        {
-            if (isConstant()) {
-                return Optional.of(this);
-            }
-
-            Optional<ArgumentBinding> newColumn = translator.apply((VariableReferenceExpression) rowExpression)
-                    .map(ArgumentBinding::new);
-            if (newColumn.isPresent()) {
-                return newColumn;
-            }
-
-            // As a last resort, check for a constant mapping for the variable
-            // Note: this MUST be last because we want to favor the variable representation
-            // as it makes further optimizations possible.
-            return constants.apply((VariableReferenceExpression) rowExpression)
-                    .map(ArgumentBinding::new);
-        }
-
-        @Override
-        public String toString()
-        {
-            if (rowExpression instanceof ConstantExpression) {
-                return rowExpression.toString();
-            }
-            return "\"" + rowExpression.toString() + "\"";
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ArgumentBinding that = (ArgumentBinding) o;
-            return Objects.equals(rowExpression, that.rowExpression);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(rowExpression);
-        }
     }
 }
