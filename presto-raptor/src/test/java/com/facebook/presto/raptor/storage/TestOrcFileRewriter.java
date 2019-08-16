@@ -39,6 +39,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterClass;
@@ -222,7 +224,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(4);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, rowsToDelete);
+        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 2);
         assertBetweenInclusive(info.getUncompressedSize(), 94L, 118L * 2);
 
@@ -337,7 +339,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, rowsToDelete);
+        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 1);
         assertBetweenInclusive(info.getUncompressedSize(), 13L, 13L * 2);
 
@@ -381,7 +383,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, rowsToDelete);
+        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 0);
         assertEquals(info.getUncompressedSize(), 0);
 
@@ -403,7 +405,7 @@ public class TestOrcFileRewriter
         BitSet rowsToDelete = new BitSet();
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, rowsToDelete);
+        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 2);
         assertBetweenInclusive(info.getUncompressedSize(), 16L, 16L * 2);
         assertEquals(readAllBytes(newFile.toPath()), readAllBytes(file.toPath()));
@@ -427,7 +429,7 @@ public class TestOrcFileRewriter
         }
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), file, newFile, new BitSet());
+        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), path(file), path(newFile), new BitSet());
         assertEquals(info.getRowCount(), 3);
         assertBetweenInclusive(info.getUncompressedSize(), 55L, 55L * 2);
     }
@@ -465,8 +467,8 @@ public class TestOrcFileRewriter
         File newFile1 = new File(temporary, randomUUID().toString());
         OrcFileInfo info = createFileRewriter().rewrite(
                 getColumnTypes(ImmutableList.of(3L, 7L, 10L), ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE)),
-                file,
-                newFile1,
+                path(file),
+                path(newFile1),
                 new BitSet(5));
         assertEquals(info.getRowCount(), 4);
         assertEquals(readAllBytes(file.toPath()), readAllBytes(newFile1.toPath()));
@@ -475,8 +477,8 @@ public class TestOrcFileRewriter
         File newFile2 = new File(temporary, randomUUID().toString());
         info = createFileRewriter().rewrite(
                 getColumnTypes(ImmutableList.of(7L, 10L), ImmutableList.of(createVarcharType(20), DOUBLE)),
-                newFile1,
-                newFile2,
+                path(newFile1),
+                path(newFile2),
                 new BitSet(5));
         assertEquals(info.getRowCount(), 4);
 
@@ -488,8 +490,8 @@ public class TestOrcFileRewriter
         File newFile3 = new File(temporary, randomUUID().toString());
         info = createFileRewriter().rewrite(
                 getColumnTypes(ImmutableList.of(7L, 10L, 13L), ImmutableList.of(createVarcharType(20), DOUBLE, createVarcharType(5))),
-                newFile2,
-                newFile3,
+                path(newFile2),
+                path(newFile3),
                 new BitSet(5));
         assertEquals(info.getRowCount(), 4);
         assertEquals(readAllBytes(newFile2.toPath()), readAllBytes(newFile3.toPath()));
@@ -509,8 +511,8 @@ public class TestOrcFileRewriter
         rowsToDelete.set(3);
         info = createFileRewriter().rewrite(
                 getColumnTypes(ImmutableList.of(7L, 13L, 18L), ImmutableList.of(createVarcharType(20), createVarcharType(5), INTEGER)),
-                newFile3,
-                newFile4,
+                path(newFile3),
+                path(newFile4),
                 rowsToDelete);
         assertEquals(info.getRowCount(), 1);
 
@@ -544,8 +546,8 @@ public class TestOrcFileRewriter
         File newFile5 = new File(temporary, randomUUID().toString());
         info = createFileRewriter().rewrite(
                 getColumnTypes(ImmutableList.of(13L, 18L), ImmutableList.of(createVarcharType(5), INTEGER)),
-                newFile4,
-                newFile5,
+                path(newFile4),
+                path(newFile5),
                 new BitSet(5));
 
         // Optimized writer will drop the file
@@ -587,8 +589,8 @@ public class TestOrcFileRewriter
         File newFile1 = new File(temporary, randomUUID().toString());
         OrcFileInfo info = createFileRewriter().rewrite(
                 getColumnTypes(ImmutableList.of(3L, 7L, 10L), ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE)),
-                file,
-                newFile1,
+                path(file),
+                path(newFile1),
                 new BitSet(5));
         assertEquals(info.getRowCount(), 1);
 
@@ -596,8 +598,8 @@ public class TestOrcFileRewriter
         File newFile2 = new File(temporary, randomUUID().toString());
         info = createFileRewriter().rewrite(
                 getColumnTypes(ImmutableList.of(7L, 10L), ImmutableList.of(createVarcharType(20), DOUBLE)),
-                newFile1,
-                newFile2,
+                path(newFile1),
+                path(newFile2),
                 new BitSet(5));
         assertEquals(info.getRowCount(), 1);
 
@@ -605,8 +607,8 @@ public class TestOrcFileRewriter
         File newFile3 = new File(temporary, randomUUID().toString());
         info = createFileRewriter().rewrite(
                 getColumnTypes(ImmutableList.of(7L, 10L, 3L), ImmutableList.of(createVarcharType(20), DOUBLE, createVarcharType(5))),
-                newFile2,
-                newFile3,
+                path(newFile2),
+                path(newFile3),
                 new BitSet(5));
         assertEquals(info.getRowCount(), 1);
 
@@ -621,8 +623,8 @@ public class TestOrcFileRewriter
         // Drop a column and add a column
         info = createFileRewriter().rewrite(
                 getColumnTypes(ImmutableList.of(7L, 3L, 8L), ImmutableList.of(createVarcharType(20), createVarcharType(5), INTEGER)),
-                newFile3,
-                newFile4,
+                path(newFile3),
+                path(newFile4),
                 new BitSet(5));
         assertEquals(info.getRowCount(), 1);
 
@@ -680,11 +682,16 @@ public class TestOrcFileRewriter
     {
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        return new OrcPageFileRewriter(READER_ATTRIBUTES, true, new OrcWriterStats(), typeManager, ZSTD);
+        return new OrcPageFileRewriter(READER_ATTRIBUTES, true, new OrcWriterStats(), typeManager, new RawLocalFileSystem(), ZSTD);
     }
 
     private static Map<String, Type> getColumnTypes(List<Long> columnIds, List<Type> columnTypes)
     {
         return IntStream.range(0, columnIds.size()).boxed().collect(Collectors.toMap(index -> String.valueOf(columnIds.get(index)), columnTypes::get));
+    }
+
+    private static Path path(File file)
+    {
+        return new Path(file.toURI());
     }
 }
