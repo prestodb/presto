@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.backup.BackupStore;
-import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.raptor.util.PrioritizedFifoExecutor;
@@ -29,7 +28,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.weakref.jmx.Flatten;
@@ -60,10 +58,11 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
+import static com.facebook.presto.raptor.storage.LocalOrcDataEnvironment.tryGetLocalFileSystem;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -81,11 +80,10 @@ import static java.util.stream.Collectors.toSet;
 public class ShardRecoveryManager
 {
     private static final Logger log = Logger.get(ShardRecoveryManager.class);
-    private static final Configuration CONFIGURATION = new Configuration();
 
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
-    private final RawLocalFileSystem localFileSystem;  // TODO: inject FileSystem once HDFS environment is ready
+    private final Optional<RawLocalFileSystem> localFileSystem;
     private final String nodeIdentifier;
     private final ShardManager shardManager;
     private final Duration missingShardDiscoveryInterval;
@@ -101,12 +99,14 @@ public class ShardRecoveryManager
     public ShardRecoveryManager(
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             NodeManager nodeManager,
             ShardManager shardManager,
             StorageManagerConfig config)
     {
         this(storageService,
                 backupStore,
+                environment,
                 nodeManager,
                 shardManager,
                 config.getMissingShardDiscoveryInterval(),
@@ -116,6 +116,7 @@ public class ShardRecoveryManager
     public ShardRecoveryManager(
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             NodeManager nodeManager,
             ShardManager shardManager,
             Duration missingShardDiscoveryInterval,
@@ -123,12 +124,8 @@ public class ShardRecoveryManager
     {
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
-        try {
-            localFileSystem = new RaptorLocalFileSystem(CONFIGURATION);
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
-        }
+        this.localFileSystem = tryGetLocalFileSystem(requireNonNull(environment, "environment is null"));
+        checkState((!backupStore.isPresent() || localFileSystem.isPresent()), "cannot support backup for remote file system");
         this.nodeIdentifier = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.missingShardDiscoveryInterval = requireNonNull(missingShardDiscoveryInterval, "missingShardDiscoveryInterval is null");
@@ -198,7 +195,7 @@ public class ShardRecoveryManager
 
     private boolean shardNeedsRecovery(UUID shardUuid, long shardSize)
     {
-        File storageFile = localFileSystem.pathToFile(storageService.getStorageFile(shardUuid));
+        File storageFile = localFileSystem.get().pathToFile(storageService.getStorageFile(shardUuid));
         return !storageFile.exists() || (storageFile.length() != shardSize);
     }
 
@@ -216,7 +213,7 @@ public class ShardRecoveryManager
     @VisibleForTesting
     void restoreFromBackup(UUID shardUuid, long shardSize, OptionalLong shardXxhash64)
     {
-        File storageFile = localFileSystem.pathToFile(storageService.getStorageFile(shardUuid));
+        File storageFile = localFileSystem.get().pathToFile(storageService.getStorageFile(shardUuid));
 
         if (!backupStore.get().shardExists(shardUuid)) {
             stats.incrementShardRecoveryBackupNotFound();
@@ -232,7 +229,7 @@ public class ShardRecoveryManager
         }
 
         // create a temporary file in the staging directory
-        File stagingFile = temporarySuffix(localFileSystem.pathToFile(storageService.getStagingFile(shardUuid)));
+        File stagingFile = temporarySuffix(localFileSystem.get().pathToFile(storageService.getStagingFile(shardUuid)));
         storageService.createParents(new Path(stagingFile.toURI()));
 
         // copy to temporary file
@@ -288,7 +285,7 @@ public class ShardRecoveryManager
 
     private void quarantineFile(UUID shardUuid, File file, String message)
     {
-        File quarantine = new File(localFileSystem.pathToFile(storageService.getQuarantineFile(shardUuid)) + ".corrupt");
+        File quarantine = new File(localFileSystem.get().pathToFile(storageService.getQuarantineFile(shardUuid)) + ".corrupt");
         if (quarantine.exists()) {
             log.warn("%s Quarantine already exists: %s", message, quarantine);
             return;
@@ -306,7 +303,7 @@ public class ShardRecoveryManager
 
     private boolean isFileCorrupt(File file, long size, OptionalLong xxhash64)
     {
-        return (file.length() != size) || (xxhash64.isPresent() && (xxhash64(localFileSystem, new Path(file.toURI())) != xxhash64.getAsLong()));
+        return (file.length() != size) || (xxhash64.isPresent() && (xxhash64(localFileSystem.get(), new Path(file.toURI())) != xxhash64.getAsLong()));
     }
 
     @VisibleForTesting

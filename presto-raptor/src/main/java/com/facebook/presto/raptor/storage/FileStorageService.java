@@ -35,6 +35,8 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.raptor.storage.LocalOrcDataEnvironment.tryGetLocalFileSystem;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -46,20 +48,23 @@ public class FileStorageService
     private static final Pattern HEX_DIRECTORY = Pattern.compile("[0-9a-f]{2}");
     private static final String FILE_EXTENSION = ".orc";
 
-    private final RawLocalFileSystem localFileSystem = new RawLocalFileSystem();
+    private final RawLocalFileSystem localFileSystem;
 
     private final File baseStorageDir;
     private final File baseStagingDir;
     private final File baseQuarantineDir;
 
     @Inject
-    public FileStorageService(StorageManagerConfig config)
+    public FileStorageService(OrcDataEnvironment environment, StorageManagerConfig config)
     {
-        this(config.getDataDirectory());
+        this(environment, config.getDataDirectory());
     }
 
-    public FileStorageService(File dataDirectory)
+    public FileStorageService(OrcDataEnvironment environment, File dataDirectory)
     {
+        Optional<RawLocalFileSystem> fileSystem = tryGetLocalFileSystem(requireNonNull(environment, "environment is null"));
+        checkState(fileSystem.isPresent(), "FileStorageService has to have local file system");
+        this.localFileSystem = fileSystem.get();
         File baseDataDir = requireNonNull(dataDirectory, "dataDirectory is null");
         this.baseStorageDir = new File(baseDataDir, "storage");
         this.baseStagingDir = new File(baseDataDir, "staging");

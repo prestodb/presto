@@ -45,7 +45,7 @@ public class TestFileStorageService
     public void setup()
     {
         temporary = createTempDir();
-        store = new FileStorageService(temporary);
+        store = new FileStorageService(new LocalOrcDataEnvironment(), temporary);
         store.start();
     }
 

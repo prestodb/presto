@@ -14,11 +14,10 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.backup.BackupStore;
-import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
+import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
@@ -26,7 +25,6 @@ import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.weakref.jmx.Managed;
@@ -55,9 +53,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
 import static com.facebook.presto.raptor.metadata.ShardDao.CLEANABLE_SHARDS_BATCH_SIZE;
 import static com.facebook.presto.raptor.metadata.ShardDao.CLEANUP_TRANSACTIONS_BATCH_SIZE;
+import static com.facebook.presto.raptor.storage.LocalOrcDataEnvironment.tryGetLocalFileSystem;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -74,7 +73,6 @@ import static java.util.stream.Collectors.toSet;
 public class ShardCleaner
 {
     private static final Logger log = Logger.get(ShardCleaner.class);
-    private static final Configuration CONFIGURATION = new Configuration();
 
     private final ShardDao dao;
     private final String currentNode;
@@ -90,7 +88,7 @@ public class ShardCleaner
     private final Duration backupCleanTime;
     private final ScheduledExecutorService scheduler;
     private final ExecutorService backupExecutor;
-    private final RawLocalFileSystem localFileSystem;  // TODO: inject FileSystem once HDFS environment is ready
+    private final Optional<RawLocalFileSystem> localFileSystem;
     private final Duration maxCompletedTransactionAge;
 
     private final AtomicBoolean started = new AtomicBoolean();
@@ -112,6 +110,7 @@ public class ShardCleaner
             NodeManager nodeManager,
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             ShardCleanerConfig config)
     {
         this(
@@ -121,6 +120,7 @@ public class ShardCleaner
                 ticker,
                 storageService,
                 backupStore,
+                environment,
                 config.getMaxTransactionAge(),
                 config.getTransactionCleanerInterval(),
                 config.getLocalCleanerInterval(),
@@ -138,6 +138,7 @@ public class ShardCleaner
             Ticker ticker,
             StorageService storageService,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             Duration maxTransactionAge,
             Duration transactionCleanerInterval,
             Duration localCleanerInterval,
@@ -161,12 +162,8 @@ public class ShardCleaner
         this.backupCleanTime = requireNonNull(backupCleanTime, "backupCleanTime is null");
         this.scheduler = newScheduledThreadPool(2, daemonThreadsNamed("shard-cleaner-%s"));
         this.backupExecutor = newFixedThreadPool(backupDeletionThreads, daemonThreadsNamed("shard-cleaner-backup-%s"));
-        try {
-            this.localFileSystem = new RaptorLocalFileSystem(CONFIGURATION);
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
-        }
+        this.localFileSystem = tryGetLocalFileSystem(requireNonNull(environment, "environment is null"));
+        checkState((!backupStore.isPresent() || localFileSystem.isPresent()), "cannot support backup for remote file system");
         this.maxCompletedTransactionAge = requireNonNull(maxCompletedTransactionAge, "maxCompletedTransactionAge is null");
     }
 
@@ -532,6 +529,6 @@ public class ShardCleaner
     private void deleteFile(Path file)
             throws IOException
     {
-        localFileSystem.delete(file, false);
+        localFileSystem.get().delete(file, false);
     }
 }

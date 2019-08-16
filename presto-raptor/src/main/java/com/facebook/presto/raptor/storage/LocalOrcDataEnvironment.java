@@ -28,6 +28,7 @@ import javax.inject.Inject;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
 
@@ -72,5 +73,13 @@ public class LocalOrcDataEnvironment
             throws IOException
     {
         return new OutputStreamOrcDataSink(new FileOutputStream(localFileSystem.pathToFile(path)));
+    }
+
+    public static Optional<RawLocalFileSystem> tryGetLocalFileSystem(OrcDataEnvironment environment)
+    {
+        if (environment instanceof LocalOrcDataEnvironment) {
+            return Optional.of((RaptorLocalFileSystem) environment.getFileSystem());
+        }
+        return Optional.empty();
     }
 }
