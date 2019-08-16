@@ -635,6 +635,7 @@ public class TestOrcStorageManager
                 recoveryManager,
                 shardRecorder,
                 new TypeRegistry(),
+                new LocalOrcDataEnvironment(),
                 CONNECTOR_ID,
                 DELETION_THREADS,
                 SHARD_RECOVERY_TIMEOUT,
