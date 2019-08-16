@@ -106,7 +106,7 @@ public class TestShardCompactor
     public void testShardCompactor(boolean useOptimizedOrcWriter)
             throws Exception
     {
-        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS, useOptimizedOrcWriter);
+        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE, DATE, TIMESTAMP);
 
@@ -133,7 +133,7 @@ public class TestShardCompactor
     public void testShardCompactorSorted(boolean useOptimizedOrcWriter)
             throws Exception
     {
-        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS, useOptimizedOrcWriter);
+        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DATE, TIMESTAMP, DOUBLE);
         List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
         List<Long> sortColumnIds = ImmutableList.of(1L, 2L, 3L, 5L, 7L);

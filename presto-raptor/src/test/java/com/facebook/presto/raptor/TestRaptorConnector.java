@@ -101,7 +101,7 @@ public class TestRaptorConnector
         NodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         ShardManager shardManager = createShardManager(dbi);
-        StorageManager storageManager = createOrcStorageManager(dbi, dataDir, true);
+        StorageManager storageManager = createOrcStorageManager(dbi, dataDir);
         StorageManagerConfig config = new StorageManagerConfig();
         connector = new RaptorConnector(
                 new LifeCycleManager(ImmutableList.of(), null),

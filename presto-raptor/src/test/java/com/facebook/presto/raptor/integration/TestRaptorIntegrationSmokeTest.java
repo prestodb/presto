@@ -66,7 +66,7 @@ public class TestRaptorIntegrationSmokeTest
                 ImmutableMap.of(),
                 true,
                 false,
-                ImmutableMap.of("storage.orc.compression-kind", "SNAPPY", "storage.orc.optimized-writer-stage", "DISABLED")));
+                ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
     }
 
     protected TestRaptorIntegrationSmokeTest(QueryRunnerSupplier supplier)

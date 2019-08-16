@@ -168,7 +168,7 @@ public class StorageManagerConfig
 
     public enum OrcOptimizedWriterStage
     {
-        DISABLED, ENABLED, ENABLED_AND_VALIDATED
+        ENABLED, ENABLED_AND_VALIDATED
     }
 
     public OrcOptimizedWriterStage getOrcOptimizedWriterStage()
