@@ -61,6 +61,7 @@ public class StorageModule
 
         binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
+        binder.bind(OrcDataEnvironment.class).to(LocalOrcDataEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardRecorder.class).to(DatabaseShardRecorder.class).in(Scopes.SINGLETON);
         binder.bind(DatabaseShardManager.class).in(Scopes.SINGLETON);
