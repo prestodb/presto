@@ -15,12 +15,14 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
+import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -36,9 +38,9 @@ import java.util.OptionalLong;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
-import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -178,7 +180,7 @@ public class TestShardRecovery
         assertFalse(Files.equal(storageFile, tempFile));
 
         // restore from backup and verify
-        recoveryManager.restoreFromBackup(shardUuid, tempFile.length(), OptionalLong.of(xxhash64(tempFile)));
+        recoveryManager.restoreFromBackup(shardUuid, tempFile.length(), OptionalLong.of(xxhash64(new RaptorLocalFileSystem(new Configuration()), new Path(tempFile.toURI()))));
 
         assertTrue(storageFile.exists());
         assertTrue(Files.equal(storageFile, tempFile));
@@ -202,7 +204,7 @@ public class TestShardRecovery
         Files.write("test data", storageFile, UTF_8);
 
         long size = storageFile.length();
-        long xxhash64 = xxhash64(storageFile);
+        long xxhash64 = xxhash64(new RaptorLocalFileSystem(new Configuration()), new Path(storageFile.toURI()));
 
         // backup and verify
         backupStore.backupShard(shardUuid, storageFile);

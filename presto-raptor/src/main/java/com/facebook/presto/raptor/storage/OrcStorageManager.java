@@ -57,7 +57,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
@@ -69,11 +68,8 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -103,6 +99,7 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_DISK_FULL;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_TIMEOUT;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
 import static com.facebook.presto.raptor.storage.OrcPageSource.BUCKET_NUMBER_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.NULL_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.ROWID_COLUMN;
@@ -372,9 +369,17 @@ public class OrcStorageManager
     @VisibleForTesting
     OrcDataSource openShard(UUID shardUuid, ReaderAttributes readerAttributes)
     {
-        File file = localFileSystem.pathToFile(storageService.getStorageFile(shardUuid)).getAbsoluteFile();
+        Path file = storageService.getStorageFile(shardUuid);
 
-        if (!file.exists() && backupStore.isPresent()) {
+        boolean exists;
+        try {
+            exists = localFileSystem.exists(file);
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Error locating file " + file, e.getCause());
+        }
+
+        if (!exists && backupStore.isPresent()) {
             try {
                 Future<?> future = recoveryManager.recoverShard(shardUuid);
                 future.get(recoveryTimeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -402,18 +407,23 @@ public class OrcStorageManager
         }
     }
 
-    private static FileOrcDataSource fileOrcDataSource(ReaderAttributes readerAttributes, File file)
+    private FileOrcDataSource fileOrcDataSource(ReaderAttributes readerAttributes, Path file)
             throws FileNotFoundException
     {
-        return new FileOrcDataSource(file, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize(), readerAttributes.isLazyReadSmallRanges());
+        return new FileOrcDataSource(localFileSystem.pathToFile(file), readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize(), readerAttributes.isLazyReadSmallRanges());
     }
 
-    private ShardInfo createShardInfo(UUID shardUuid, OptionalInt bucketNumber, File file, Set<String> nodes, long rowCount, long uncompressedSize)
+    private ShardInfo createShardInfo(UUID shardUuid, OptionalInt bucketNumber, Path file, Set<String> nodes, long rowCount, long uncompressedSize)
     {
-        return new ShardInfo(shardUuid, bucketNumber, nodes, computeShardStats(file), rowCount, file.length(), uncompressedSize, xxhash64(file));
+        try {
+            return new ShardInfo(shardUuid, bucketNumber, nodes, computeShardStats(file), rowCount, localFileSystem.getFileStatus(file).getLen(), uncompressedSize, xxhash64(localFileSystem, file));
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to get file status: " + file, e);
+        }
     }
 
-    private List<ColumnStats> computeShardStats(File file)
+    private List<ColumnStats> computeShardStats(Path file)
     {
         try (OrcDataSource dataSource = fileOrcDataSource(defaultReaderAttributes, file)) {
             OrcReader reader = new OrcReader(dataSource, ORC, defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getMaxReadSize(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE);
@@ -455,7 +465,7 @@ public class OrcStorageManager
         Set<String> nodes = ImmutableSet.of(nodeId);
         long uncompressedSize = info.getUncompressedSize();
 
-        ShardInfo shard = createShardInfo(newShardUuid, bucketNumber, localFileSystem.pathToFile(output), nodes, rowCount, uncompressedSize);
+        ShardInfo shard = createShardInfo(newShardUuid, bucketNumber, output, nodes, rowCount, uncompressedSize);
 
         writeShard(newShardUuid);
 
@@ -502,16 +512,6 @@ public class OrcStorageManager
             list.add(new ColumnInfo(Long.parseLong(orcColumnNames.get(i)), rowType.getTypeParameters().get(i)));
         }
         return list.build();
-    }
-
-    static long xxhash64(File file)
-    {
-        try (InputStream in = new FileInputStream(file)) {
-            return XxHash64.hash(in);
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to read file: " + file, e);
-        }
     }
 
     private static Optional<OrcFileMetadata> getOrcFileMetadata(OrcReader reader)
@@ -661,7 +661,7 @@ public class OrcStorageManager
                 long rowCount = writer.getRowCount();
                 long uncompressedSize = writer.getUncompressedSize();
 
-                shards.add(createShardInfo(shardUuid, bucketNumber, localFileSystem.pathToFile(stagingFile), nodes, rowCount, uncompressedSize));
+                shards.add(createShardInfo(shardUuid, bucketNumber, stagingFile, nodes, rowCount, uncompressedSize));
 
                 writer = null;
                 shardUuid = null;

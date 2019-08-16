@@ -19,6 +19,7 @@ import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
+import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
@@ -45,6 +46,8 @@ import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.chrono.ISOChronology;
@@ -71,9 +74,9 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
-import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
 import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED_AND_VALIDATED;
@@ -210,7 +213,7 @@ public class TestOrcStorageManager
 
         assertEquals(shardInfo.getRowCount(), 2);
         assertEquals(shardInfo.getCompressedSize(), file.length());
-        assertEquals(shardInfo.getXxhash64(), xxhash64(file));
+        assertEquals(shardInfo.getXxhash64(), xxhash64(new RaptorLocalFileSystem(new Configuration()), new Path(file.toURI())));
 
         // verify primary and backup shard exist
         assertFile(file, "primary shard");
