@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.facebook.qdigest.QuantileDigest;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeParameter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.stats.QuantileDigest;
 import org.testng.annotations.Test;
 
 import java.util.List;

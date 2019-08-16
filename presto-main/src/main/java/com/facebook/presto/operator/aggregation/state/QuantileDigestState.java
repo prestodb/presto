@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.facebook.qdigest.QuantileDigest;
 import com.facebook.presto.spi.function.AccumulatorState;
-import io.airlift.stats.QuantileDigest;
 
 public interface QuantileDigestState
         extends AccumulatorState

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.presto.facebook.qdigest.QuantileDigest;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
@@ -21,7 +22,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.airlift.stats.QuantileDigest;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.facebook.qdigest.QuantileDigest;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Floats;
-import io.airlift.stats.QuantileDigest;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
