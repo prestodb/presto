@@ -62,7 +62,7 @@ import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTIO
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
-import static com.facebook.presto.raptor.storage.OrcStorageManager.xxhash64;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
@@ -304,9 +304,9 @@ public class ShardRecoveryManager
         }
     }
 
-    private static boolean isFileCorrupt(File file, long size, OptionalLong xxhash64)
+    private boolean isFileCorrupt(File file, long size, OptionalLong xxhash64)
     {
-        return (file.length() != size) || (xxhash64.isPresent() && (xxhash64(file) != xxhash64.getAsLong()));
+        return (file.length() != size) || (xxhash64.isPresent() && (xxhash64(localFileSystem, new Path(file.toURI())) != xxhash64.getAsLong()));
     }
 
     @VisibleForTesting
