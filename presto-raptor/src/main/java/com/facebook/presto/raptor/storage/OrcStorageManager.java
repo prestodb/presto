@@ -75,7 +75,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -128,7 +127,6 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.PETABYTE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -359,14 +357,13 @@ public class OrcStorageManager
             throw new PrestoException(RAPTOR_ERROR, "Backup does not exist after write");
         }
 
-        File stagingFile = localFileSystem.pathToFile(storageService.getStagingFile(shardUuid));
-        File storageFile = localFileSystem.pathToFile(storageService.getStorageFile(shardUuid));
+        Path stagingFile = storageService.getStagingFile(shardUuid);
+        Path storageFile = storageService.getStorageFile(shardUuid);
 
-        storageService.createParents(new Path(storageFile.toURI()));
+        storageService.createParents(storageFile);
 
         try {
-            // Do not use FileSystem::moveXXX which does a copy and delete
-            Files.move(stagingFile.toPath(), storageFile.toPath(), ATOMIC_MOVE);
+            localFileSystem.rename(stagingFile, storageFile);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);

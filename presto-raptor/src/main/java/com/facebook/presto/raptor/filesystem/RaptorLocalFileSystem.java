@@ -27,7 +27,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
 
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -56,6 +58,20 @@ public final class RaptorLocalFileSystem
         return new FSDataOutputStream(
                 new BufferedOutputStream(new LocalFileOutputStream(pathToFile(path)), bufferSize),
                 statistics);
+    }
+
+    @Override
+    public boolean exists(Path file)
+    {
+        return pathToFile(file).exists();
+    }
+
+    @Override
+    public boolean rename(Path from, Path to)
+            throws IOException
+    {
+        Files.move(pathToFile(from).toPath(), pathToFile(to).toPath(), ATOMIC_MOVE);
+        return true;
     }
 
     private static class LocalFileOutputStream
