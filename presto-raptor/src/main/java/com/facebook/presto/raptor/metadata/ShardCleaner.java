@@ -14,9 +14,9 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.backup.BackupStore;
+import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
-import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
@@ -162,7 +162,7 @@ public class ShardCleaner
         this.scheduler = newScheduledThreadPool(2, daemonThreadsNamed("shard-cleaner-%s"));
         this.backupExecutor = newFixedThreadPool(backupDeletionThreads, daemonThreadsNamed("shard-cleaner-backup-%s"));
         try {
-            this.localFileSystem = new SyncingFileSystem(CONFIGURATION);
+            this.localFileSystem = new RaptorLocalFileSystem(CONFIGURATION);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);

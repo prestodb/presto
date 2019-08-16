@@ -14,10 +14,10 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.backup.BackupStore;
+import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.raptor.util.PrioritizedFifoExecutor;
-import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
@@ -124,7 +124,7 @@ public class ShardRecoveryManager
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
         try {
-            localFileSystem = new SyncingFileSystem(CONFIGURATION);
+            localFileSystem = new RaptorLocalFileSystem(CONFIGURATION);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);

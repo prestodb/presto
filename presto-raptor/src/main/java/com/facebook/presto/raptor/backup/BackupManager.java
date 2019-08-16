@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.backup;
 
+import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.storage.BackupStats;
 import com.facebook.presto.raptor.storage.StorageService;
-import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
@@ -75,7 +75,7 @@ public class BackupManager
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.executorService = newFixedThreadPool(backupThreads, daemonThreadsNamed("background-shard-backup-%s"));
         try {
-            localFileSystem = new SyncingFileSystem(CONFIGURATION);
+            localFileSystem = new RaptorLocalFileSystem(CONFIGURATION);
         }
         catch (IOException e) {
             stats.incrementBackupFailure();

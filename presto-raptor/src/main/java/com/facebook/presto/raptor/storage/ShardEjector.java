@@ -16,9 +16,9 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.backup.BackupStore;
+import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
-import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
@@ -121,7 +121,7 @@ public class ShardEjector
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
         this.executor = newScheduledThreadPool(1, daemonThreadsNamed("shard-ejector-" + connectorId));
         try {
-            this.localFileSystem = new SyncingFileSystem(CONFIGURATION);
+            this.localFileSystem = new RaptorLocalFileSystem(CONFIGURATION);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
