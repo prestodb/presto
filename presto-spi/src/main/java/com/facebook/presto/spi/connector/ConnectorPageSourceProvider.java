@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 import java.util.List;
 
@@ -35,7 +35,7 @@ public interface ConnectorPageSourceProvider
     /**
      * @param columns columns that should show up in the output page, in this order
      */
-    default ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, TableHandle table, List<ColumnHandle> columns)
+    default ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns)
     {
         return createPageSource(transactionHandle, session, split, columns);
     }
