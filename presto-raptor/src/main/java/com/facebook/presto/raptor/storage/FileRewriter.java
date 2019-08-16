@@ -14,13 +14,13 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.spi.type.Type;
+import org.apache.hadoop.fs.Path;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.Map;
 
 public interface FileRewriter
 {
-    OrcFileInfo rewrite(Map<String, Type> columns, File input, File output, BitSet rowsToDelete) throws IOException;
+    OrcFileInfo rewrite(Map<String, Type> columns, Path input, Path output, BitSet rowsToDelete) throws IOException;
 }

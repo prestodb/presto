@@ -32,8 +32,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 
-import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -71,28 +72,31 @@ public final class OrcPageFileRewriter
     private final OrcWriterStats stats;
     private final TypeManager typeManager;
     private final CompressionKind compression;
+    private final RawLocalFileSystem localFileSystem;
 
     OrcPageFileRewriter(
             ReaderAttributes readerAttributes,
             boolean validate,
             OrcWriterStats stats,
             TypeManager typeManager,
+            RawLocalFileSystem localFileSystem,
             CompressionKind compression)
     {
         this.readerAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
         this.validate = validate;
         this.stats = requireNonNull(stats, "stats is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.localFileSystem = requireNonNull(localFileSystem, "localFileSystem is null");
         this.compression = requireNonNull(compression, "compression is null");
     }
 
     @Override
-    public OrcFileInfo rewrite(Map<String, Type> allColumnTypes, File input, File output, BitSet rowsToDelete)
+    public OrcFileInfo rewrite(Map<String, Type> allColumnTypes, Path input, Path output, BitSet rowsToDelete)
             throws IOException
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
             OrcReader reader = new OrcReader(
-                    new FileOrcDataSource(input, readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize(), readerAttributes.isLazyReadSmallRanges()),
+                    new FileOrcDataSource(localFileSystem.pathToFile(input), readerAttributes.getMaxMergeDistance(), readerAttributes.getMaxReadSize(), readerAttributes.getStreamBufferSize(), readerAttributes.isLazyReadSmallRanges()),
                     ORC,
                     readerAttributes.getMaxMergeDistance(),
                     readerAttributes.getMaxReadSize(),
@@ -158,7 +162,7 @@ public final class OrcPageFileRewriter
             }
             try (Closer<OrcBatchRecordReader, IOException> recordReader = closer(reader.createBatchRecordReader(readerColumns, TRUE, DEFAULT_STORAGE_TIMEZONE, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE), OrcBatchRecordReader::close);
                     Closer<OrcWriter, IOException> writer = closer(new OrcWriter(
-                            new OutputStreamOrcDataSink(new FileOutputStream(output)),
+                            new OutputStreamOrcDataSink(new FileOutputStream(localFileSystem.pathToFile(output))),
                             writerColumnIds,
                             writerStorageTypes,
                             ORC,

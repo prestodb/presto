@@ -242,13 +242,15 @@ public class OrcStorageManager
         this.commitExecutor = newCachedThreadPool(daemonThreadsNamed("raptor-commit-" + connectorId + "-%s"));
         this.compression = requireNonNull(compression, "compression is null");
         this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
-        this.fileRewriter = new OrcPageFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
+
         try {
             this.localFileSystem = new SyncingFileSystem(CONFIGURATION);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
         }
+
+        this.fileRewriter = new OrcPageFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, localFileSystem, compression);
     }
 
     @PreDestroy
@@ -439,8 +441,8 @@ public class OrcStorageManager
         }
 
         UUID newShardUuid = UUID.randomUUID();
-        File input = localFileSystem.pathToFile(storageService.getStorageFile(shardUuid));
-        File output = localFileSystem.pathToFile(storageService.getStagingFile(newShardUuid));
+        Path input = storageService.getStorageFile(shardUuid);
+        Path output = storageService.getStagingFile(newShardUuid);
 
         OrcFileInfo info = rewriteFile(columns, input, output, rowsToDelete);
         long rowCount = info.getRowCount();
@@ -452,12 +454,12 @@ public class OrcStorageManager
         shardRecorder.recordCreatedShard(transactionId, newShardUuid);
 
         // submit for backup and wait until it finishes
-        getFutureValue(backupManager.submit(newShardUuid, output));
+        getFutureValue(backupManager.submit(newShardUuid, localFileSystem.pathToFile(output)));
 
         Set<String> nodes = ImmutableSet.of(nodeId);
         long uncompressedSize = info.getUncompressedSize();
 
-        ShardInfo shard = createShardInfo(newShardUuid, bucketNumber, output, nodes, rowCount, uncompressedSize);
+        ShardInfo shard = createShardInfo(newShardUuid, bucketNumber, localFileSystem.pathToFile(output), nodes, rowCount, uncompressedSize);
 
         writeShard(newShardUuid);
 
@@ -471,7 +473,7 @@ public class OrcStorageManager
         return ImmutableList.of(Slices.wrappedBuffer(SHARD_DELTA_CODEC.toJsonBytes(delta)));
     }
 
-    private OrcFileInfo rewriteFile(Map<String, Type> columns, File input, File output, BitSet rowsToDelete)
+    private OrcFileInfo rewriteFile(Map<String, Type> columns, Path input, Path output, BitSet rowsToDelete)
     {
         try {
             return fileRewriter.rewrite(columns, input, output, rowsToDelete);
