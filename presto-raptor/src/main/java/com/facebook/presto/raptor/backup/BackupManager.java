@@ -22,6 +22,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -89,7 +90,7 @@ public class BackupManager
         executorService.shutdownNow();
     }
 
-    public CompletableFuture<?> submit(UUID uuid, File source)
+    public CompletableFuture<?> submit(UUID uuid, Path source)
     {
         requireNonNull(uuid, "uuid is null");
         requireNonNull(source, "source is null");
@@ -100,7 +101,7 @@ public class BackupManager
 
         // TODO: decrement when the running task is finished (not immediately on cancel)
         pendingBackups.incrementAndGet();
-        CompletableFuture<?> future = runAsync(new BackgroundBackup(uuid, source), executorService);
+        CompletableFuture<?> future = runAsync(new BackgroundBackup(uuid, localFileSystem.pathToFile(source)), executorService);
         future.whenComplete((none, throwable) -> pendingBackups.decrementAndGet());
         return future;
     }
