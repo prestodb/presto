@@ -17,6 +17,7 @@ import com.facebook.presto.raptor.storage.BackupStats;
 import com.facebook.presto.raptor.storage.FileStorageService;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Files;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -94,7 +95,7 @@ public class TestBackupManager
             Files.write("hello world", file, UTF_8);
             uuids.add(randomUUID());
 
-            futures.add(backupManager.submit(uuids.get(i), file));
+            futures.add(backupManager.submit(uuids.get(i), path(file)));
         }
         futures.forEach(CompletableFuture::join);
         for (UUID uuid : uuids) {
@@ -116,7 +117,7 @@ public class TestBackupManager
         Files.write("hello world", file, UTF_8);
 
         try {
-            backupManager.submit(FAILURE_UUID, file).get(1, SECONDS);
+            backupManager.submit(FAILURE_UUID, path(file)).get(1, SECONDS);
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {
@@ -140,7 +141,7 @@ public class TestBackupManager
         Files.write("hello world", file, UTF_8);
 
         try {
-            backupManager.submit(CORRUPTION_UUID, file).get(1, SECONDS);
+            backupManager.submit(CORRUPTION_UUID, path(file)).get(1, SECONDS);
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {
@@ -169,6 +170,11 @@ public class TestBackupManager
         assertEquals(stats.getBackupSuccess().getTotalCount(), successCount);
         assertEquals(stats.getBackupFailure().getTotalCount(), failureCount);
         assertEquals(stats.getBackupCorruption().getTotalCount(), corruptionCount);
+    }
+
+    private static Path path(File file)
+    {
+        return new Path(file.toURI());
     }
 
     private static class TestingBackupStore

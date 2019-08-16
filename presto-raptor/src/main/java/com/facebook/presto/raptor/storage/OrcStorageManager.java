@@ -451,7 +451,7 @@ public class OrcStorageManager
         shardRecorder.recordCreatedShard(transactionId, newShardUuid);
 
         // submit for backup and wait until it finishes
-        getFutureValue(backupManager.submit(newShardUuid, localFileSystem.pathToFile(output)));
+        getFutureValue(backupManager.submit(newShardUuid, output));
 
         Set<String> nodes = ImmutableSet.of(nodeId);
         long uncompressedSize = info.getUncompressedSize();
@@ -655,14 +655,14 @@ public class OrcStorageManager
 
                 shardRecorder.recordCreatedShard(transactionId, shardUuid);
 
-                File stagingFile = localFileSystem.pathToFile(storageService.getStagingFile(shardUuid));
+                Path stagingFile = storageService.getStagingFile(shardUuid);
                 futures.add(backupManager.submit(shardUuid, stagingFile));
 
                 Set<String> nodes = ImmutableSet.of(nodeId);
                 long rowCount = writer.getRowCount();
                 long uncompressedSize = writer.getUncompressedSize();
 
-                shards.add(createShardInfo(shardUuid, bucketNumber, stagingFile, nodes, rowCount, uncompressedSize));
+                shards.add(createShardInfo(shardUuid, bucketNumber, localFileSystem.pathToFile(stagingFile), nodes, rowCount, uncompressedSize));
 
                 writer = null;
                 shardUuid = null;
