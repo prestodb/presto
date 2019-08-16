@@ -19,9 +19,9 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -221,7 +221,7 @@ public class TestBeginQuery
         {
             return new ConnectorPageSourceProvider() {
                 @Override
-                public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, TableHandle table, List<ColumnHandle> columns)
+                public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns)
                 {
                     return new FixedPageSource(ImmutableList.of());
                 }

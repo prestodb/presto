@@ -19,10 +19,10 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -94,10 +94,9 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, TableHandle table, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableLayoutHandle layout, List<ColumnHandle> columns)
     {
-        checkArgument(table.getLayout().isPresent(), "Table layout is missing");
-        HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) table.getLayout().get();
+        HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout;
 
         List<HiveColumnHandle> hiveColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)
