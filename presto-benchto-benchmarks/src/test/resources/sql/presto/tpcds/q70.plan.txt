@@ -1,13 +1,13 @@
 local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
-            remote exchange (REPARTITION, HASH, ["expr_110", "expr_111"])
+            remote exchange (REPARTITION, HASH, [expr_110, expr_111])
                 final aggregation over (groupid, s_county$gid, s_state$gid_102)
-                    local exchange (REPARTITION, HASH, ["groupid", "s_county$gid", "s_state$gid_102"])
-                        remote exchange (REPARTITION, HASH, ["groupid", "s_county$gid", "s_state$gid_102"])
+                    local exchange (REPARTITION, HASH, [groupid, s_county$gid, s_state$gid_102])
+                        remote exchange (REPARTITION, HASH, [groupid, s_county$gid, s_state$gid_102])
                             partial aggregation over (groupid, s_county$gid, s_state$gid_102)
                                 semijoin (PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["s_state"])
+                                    remote exchange (REPARTITION, HASH, [s_state])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 scan store_sales
@@ -18,10 +18,10 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan store
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["s_state_48"])
+                                        remote exchange (REPARTITION, HASH, [s_state_48])
                                             final aggregation over (s_state_48)
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["s_state_48"])
+                                                    remote exchange (REPARTITION, HASH, [s_state_48])
                                                         partial aggregation over (s_state_48)
                                                             join (INNER, REPLICATED):
                                                                 join (INNER, REPLICATED):

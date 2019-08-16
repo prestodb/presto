@@ -46,7 +46,6 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -579,15 +578,15 @@ public class PlanFragmenter
         {
             ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
             ImmutableMap.Builder<VariableReferenceExpression, RowExpression> constants = ImmutableMap.builder();
-            for (ArgumentBinding argumentBinding : partitioning.getArguments()) {
+            for (RowExpression argument : partitioning.getArguments()) {
+                checkArgument(argument instanceof ConstantExpression || argument instanceof VariableReferenceExpression, format("Expect argument to be ConstantExpression or VariableReferenceExpression, get %s (%s)", argument.getClass(), argument));
                 VariableReferenceExpression variable;
-                if (argumentBinding.isConstant()) {
-                    ConstantExpression constant = argumentBinding.getConstant();
-                    variable = variableAllocator.newVariable("constant_partition", constant.getType());
-                    constants.put(variable, constant);
+                if (argument instanceof ConstantExpression) {
+                    variable = variableAllocator.newVariable("constant_partition", argument.getType());
+                    constants.put(variable, argument);
                 }
                 else {
-                    variable = argumentBinding.getVariableReference();
+                    variable = (VariableReferenceExpression) argument;
                 }
                 variables.add(variable);
             }

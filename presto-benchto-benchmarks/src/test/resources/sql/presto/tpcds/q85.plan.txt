@@ -2,25 +2,25 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         final aggregation over (r_reason_desc)
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, ["r_reason_desc"])
+                remote exchange (REPARTITION, HASH, [r_reason_desc])
                     partial aggregation over (r_reason_desc)
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, ["cd_demo_sk_0", "cd_education_status_3", "cd_marital_status_2"])
+                                    remote exchange (REPARTITION, HASH, [cd_demo_sk_0, cd_education_status_3, cd_marital_status_2])
                                         scan customer_demographics
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["cd_education_status", "cd_marital_status", "wr_returning_cdemo_sk"])
+                                        remote exchange (REPARTITION, HASH, [cd_education_status, cd_marital_status, wr_returning_cdemo_sk])
                                             join (INNER, REPLICATED):
                                                 join (INNER, PARTITIONED):
-                                                    remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
+                                                    remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
                                                         join (INNER, REPLICATED):
                                                             scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
+                                                        remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
                                                             join (INNER, REPLICATED):
                                                                 scan web_returns
                                                                 local exchange (GATHER, SINGLE, [])

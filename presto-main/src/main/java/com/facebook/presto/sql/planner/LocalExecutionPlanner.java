@@ -276,6 +276,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
 
@@ -397,29 +398,27 @@ public class LocalExecutionPlanner
             partitionChannelTypes = ImmutableList.of(BIGINT);
         }
         else {
+            checkArgument(
+                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(argument -> argument instanceof ConstantExpression || argument instanceof VariableReferenceExpression),
+                    format("Expect all partitioning arguments to be either ConstantExpression or VariableReferenceExpression, but get %s", partitioningScheme.getPartitioning().getArguments()));
             partitionChannels = partitioningScheme.getPartitioning().getArguments().stream()
                     .map(argument -> {
-                        if (argument.isConstant()) {
+                        if (argument instanceof ConstantExpression) {
                             return -1;
                         }
-                        return outputLayout.indexOf(argument.getVariableReference());
+                        return outputLayout.indexOf((VariableReferenceExpression) argument);
                     })
                     .collect(toImmutableList());
             partitionConstants = partitioningScheme.getPartitioning().getArguments().stream()
                     .map(argument -> {
-                        if (argument.isConstant()) {
-                            return Optional.of(argument.getConstant());
+                        if (argument instanceof ConstantExpression) {
+                            return Optional.of((ConstantExpression) argument);
                         }
                         return Optional.<ConstantExpression>empty();
                     })
                     .collect(toImmutableList());
             partitionChannelTypes = partitioningScheme.getPartitioning().getArguments().stream()
-                    .map(argument -> {
-                        if (argument.isConstant()) {
-                            return argument.getConstant().getType();
-                        }
-                        return argument.getVariableReference().getType();
-                    })
+                    .map(RowExpression::getType)
                     .collect(toImmutableList());
         }
 
@@ -2481,7 +2480,10 @@ public class LocalExecutionPlanner
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             List<Integer> channels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                    .map(argument -> node.getOutputVariables().indexOf(argument.getVariableReference()))
+                    .map(argument -> {
+                        checkArgument(argument instanceof VariableReferenceExpression, format("Expect VariableReferenceExpression but get %s", argument));
+                        return node.getOutputVariables().indexOf(argument);
+                    })
                     .collect(toImmutableList());
             Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
                     .map(variable -> node.getOutputVariables().indexOf(variable));
