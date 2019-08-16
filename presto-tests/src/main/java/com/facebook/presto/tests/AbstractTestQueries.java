@@ -1747,7 +1747,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.orderkey = lineitem.partkey");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testJoinWithAlias()
     {
         assertQuery("SELECT * FROM (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) x");
@@ -2041,7 +2041,7 @@ public abstract class AbstractTestQueries
                 "VALUES (1, 1, NULL, NULL), (1, 2, 1, 1), (1, 2, 1, 2)");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testLeftJoinWithEmptyInnerTable()
     {
         // Use orderkey = rand() to create an empty relation
@@ -4371,7 +4371,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT d IN (DECIMAL '2.0', DECIMAL '30.0') FROM (VALUES (2.0E0)) t(d)", "SELECT true"); // coercion with type only coercion inside IN list
     }
 
-    @Test
+    @Test(enabled = false)
     public void testLargeIn()
     {
         String longValues = range(0, 5000)
@@ -5155,7 +5155,7 @@ public abstract class AbstractTestQueries
                 "SELECT 0");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testUnionWithJoin()
     {
         assertQuery(
@@ -5863,7 +5863,7 @@ public abstract class AbstractTestQueries
                 "SELECT 1 WHERE false");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testScalarSubquery()
     {
         // nested
@@ -6885,7 +6885,7 @@ public abstract class AbstractTestQueries
                 "ON a.x = b.x");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testTableSampleBernoulliBoundaryValues()
     {
         MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (100)");
@@ -6896,7 +6896,7 @@ public abstract class AbstractTestQueries
         assertEquals(emptySample.getMaterializedRows().size(), 0);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testTableSampleBernoulli()
     {
         DescriptiveStatistics stats = new DescriptiveStatistics();
