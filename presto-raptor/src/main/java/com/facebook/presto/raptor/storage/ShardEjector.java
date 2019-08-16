@@ -16,17 +16,14 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.backup.BackupStore;
-import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.weakref.jmx.Managed;
@@ -51,7 +48,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
+import static com.facebook.presto.raptor.storage.LocalOrcDataEnvironment.tryGetLocalFileSystem;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.filterKeys;
@@ -69,7 +66,6 @@ import static java.util.stream.Collectors.toSet;
 public class ShardEjector
 {
     private static final Logger log = Logger.get(ShardEjector.class);
-    private static final Configuration CONFIGURATION = new Configuration();
 
     private final String currentNode;
     private final NodeSupplier nodeSupplier;
@@ -78,7 +74,7 @@ public class ShardEjector
     private final Duration interval;
     private final Optional<BackupStore> backupStore;
     private final ScheduledExecutorService executor;
-    private final RawLocalFileSystem localFileSystem;  // TODO: inject FileSystem once HDFS environment is ready
+    private final Optional<RawLocalFileSystem> localFileSystem;
 
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -93,6 +89,7 @@ public class ShardEjector
             StorageService storageService,
             StorageManagerConfig config,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             RaptorConnectorId connectorId)
     {
         this(nodeManager.getCurrentNode().getNodeIdentifier(),
@@ -101,6 +98,7 @@ public class ShardEjector
                 storageService,
                 config.getShardEjectorInterval(),
                 backupStore,
+                environment,
                 connectorId.toString());
     }
 
@@ -111,6 +109,7 @@ public class ShardEjector
             StorageService storageService,
             Duration interval,
             Optional<BackupStore> backupStore,
+            OrcDataEnvironment environment,
             String connectorId)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
@@ -120,12 +119,9 @@ public class ShardEjector
         this.interval = requireNonNull(interval, "interval is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
         this.executor = newScheduledThreadPool(1, daemonThreadsNamed("shard-ejector-" + connectorId));
-        try {
-            this.localFileSystem = new RaptorLocalFileSystem(CONFIGURATION);
-        }
-        catch (IOException e) {
-            throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
-        }
+        this.localFileSystem = tryGetLocalFileSystem(requireNonNull(environment, "environment is null"));
+
+        checkState((!backupStore.isPresent() || localFileSystem.isPresent()), "cannot support backup for remote file system");
     }
 
     @PostConstruct
@@ -258,7 +254,7 @@ public class ShardEjector
 
             // delete local file
             Path file = storageService.getStorageFile(shardUuid);
-            if (localFileSystem.exists(file) && !localFileSystem.delete(file, false)) {
+            if (localFileSystem.get().exists(file) && !localFileSystem.get().delete(file, false)) {
                 log.warn("Failed to delete shard file: %s", file);
             }
         }

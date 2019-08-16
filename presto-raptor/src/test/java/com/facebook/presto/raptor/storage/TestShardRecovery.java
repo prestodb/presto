@@ -72,7 +72,7 @@ public class TestShardRecovery
         File backupDirectory = new File(temporary, "backup");
         backupStore = new FileBackupStore(backupDirectory);
         backupStore.start();
-        storageService = new FileStorageService(directory);
+        storageService = new FileStorageService(new LocalOrcDataEnvironment(), directory);
         storageService.start();
 
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
@@ -254,6 +254,7 @@ public class TestShardRecovery
         return new ShardRecoveryManager(
                 storageService,
                 backupStore,
+                new LocalOrcDataEnvironment(),
                 new TestingNodeManager(),
                 shardManager,
                 new Duration(5, MINUTES),

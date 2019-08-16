@@ -145,7 +145,7 @@ public class TestOrcStorageManager
     {
         temporary = createTempDir();
         File directory = new File(temporary, "data");
-        storageService = new FileStorageService(directory);
+        storageService = new FileStorageService(new LocalOrcDataEnvironment(), directory);
         storageService.start();
 
         File backupDirectory = new File(temporary, "backup");
@@ -159,7 +159,7 @@ public class TestOrcStorageManager
 
         ShardManager shardManager = createShardManager(dbi);
         Duration discoveryInterval = new Duration(5, TimeUnit.MINUTES);
-        recoveryManager = new ShardRecoveryManager(storageService, backupStore, nodeManager, shardManager, discoveryInterval, 10);
+        recoveryManager = new ShardRecoveryManager(storageService, backupStore, new LocalOrcDataEnvironment(), nodeManager, shardManager, discoveryInterval, 10);
 
         shardRecorder = new InMemoryShardRecorder();
     }
@@ -593,7 +593,7 @@ public class TestOrcStorageManager
     public static OrcStorageManager createOrcStorageManager(IDBI dbi, File temporary, int maxShardRows)
     {
         File directory = new File(temporary, "data");
-        StorageService storageService = new FileStorageService(directory);
+        StorageService storageService = new FileStorageService(new LocalOrcDataEnvironment(), directory);
         storageService.start();
 
         File backupDirectory = new File(temporary, "backup");
@@ -605,6 +605,7 @@ public class TestOrcStorageManager
         ShardRecoveryManager recoveryManager = new ShardRecoveryManager(
                 storageService,
                 backupStore,
+                new LocalOrcDataEnvironment(),
                 new TestingNodeManager(),
                 shardManager,
                 MISSING_SHARD_DISCOVERY,
@@ -631,7 +632,7 @@ public class TestOrcStorageManager
                 storageService,
                 backupStore,
                 READER_ATTRIBUTES,
-                new BackupManager(backupStore, storageService, 1),
+                new BackupManager(backupStore, storageService, new LocalOrcDataEnvironment(), 1),
                 recoveryManager,
                 shardRecorder,
                 new TypeRegistry(),

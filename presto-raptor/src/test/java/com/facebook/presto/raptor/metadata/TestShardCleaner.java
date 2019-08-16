@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.metadata;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.storage.FileStorageService;
+import com.facebook.presto.raptor.storage.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
@@ -78,7 +79,7 @@ public class TestShardCleaner
 
         temporary = createTempDir();
         File directory = new File(temporary, "data");
-        storageService = new FileStorageService(directory);
+        storageService = new FileStorageService(new LocalOrcDataEnvironment(), directory);
         storageService.start();
 
         File backupDirectory = new File(temporary, "backup");
@@ -95,6 +96,7 @@ public class TestShardCleaner
                 ticker,
                 storageService,
                 Optional.of(backupStore),
+                new LocalOrcDataEnvironment(),
                 config.getMaxTransactionAge(),
                 config.getTransactionCleanerInterval(),
                 config.getLocalCleanerInterval(),

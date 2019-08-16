@@ -76,7 +76,7 @@ public class TestShardEjector
         shardManager = createShardManager(dbi);
 
         dataDir = createTempDir();
-        storageService = new FileStorageService(dataDir);
+        storageService = new FileStorageService(new LocalOrcDataEnvironment(), dataDir);
         storageService.start();
     }
 
@@ -105,6 +105,7 @@ public class TestShardEjector
                 storageService,
                 new Duration(1, HOURS),
                 Optional.of(new TestingBackupStore()),
+                new LocalOrcDataEnvironment(),
                 "test");
 
         List<ShardInfo> shards = ImmutableList.<ShardInfo>builder()
