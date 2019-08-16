@@ -72,7 +72,6 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -599,7 +598,7 @@ public class OrcStorageManager
         private final List<Type> columnTypes;
         private final OptionalInt bucketNumber;
 
-        private final List<File> stagingFiles = new ArrayList<>();
+        private final List<Path> stagingFiles = new ArrayList<>();
         private final List<ShardInfo> shards = new ArrayList<>();
         private final List<CompletableFuture<?>> futures = new ArrayList<>();
 
@@ -703,8 +702,13 @@ public class OrcStorageManager
                 }
             }
             finally {
-                for (File file : stagingFiles) {
-                    file.delete();
+                for (Path file : stagingFiles) {
+                    try {
+                        localFileSystem.delete(file, false);
+                    }
+                    catch (IOException e) {
+                        // ignore
+                    }
                 }
 
                 // cancel incomplete backup jobs
@@ -723,15 +727,18 @@ public class OrcStorageManager
         {
             if (writer == null) {
                 shardUuid = UUID.randomUUID();
-                File stagingFile = localFileSystem.pathToFile(storageService.getStagingFile(shardUuid));
-                storageService.createParents(new Path(stagingFile.toURI()));
+                Path stagingFile = storageService.getStagingFile(shardUuid);
+                storageService.createParents(stagingFile);
                 stagingFiles.add(stagingFile);
                 OrcDataSink sink;
                 try {
-                    sink = new OutputStreamOrcDataSink(new FileOutputStream(stagingFile));
+                    sink = new OutputStreamOrcDataSink(localFileSystem.create(stagingFile));
                 }
                 catch (FileNotFoundException e) {
                     throw new PrestoException(RAPTOR_ERROR, format("Failed to find staging file %s", stagingFile), e);
+                }
+                catch (IOException e) {
+                    throw new PrestoException(RAPTOR_ERROR, format("Failed to create staging file %s", stagingFile), e);
                 }
                 writer = new OrcFileWriter(columnIds, columnTypes, sink, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, compression);
             }
