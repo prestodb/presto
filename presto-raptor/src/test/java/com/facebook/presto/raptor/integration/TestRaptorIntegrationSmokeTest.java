@@ -795,4 +795,10 @@ public class TestRaptorIntegrationSmokeTest
 
         assertUpdate("DROP TABLE test_delete_table");
     }
+
+    @Test
+    public void testTriggerBucketBalancer()
+    {
+        assertUpdate("CALL system.trigger_bucket_balancer()");
+    }
 }

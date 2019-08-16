@@ -25,6 +25,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.HashMultimap;
@@ -71,6 +72,7 @@ public class RaptorConnector
     private final MetadataDao dao;
     private final ConnectorAccessControl accessControl;
     private final boolean coordinator;
+    private final Set<Procedure> procedures;
 
     private final ConcurrentMap<ConnectorTransactionHandle, RaptorMetadata> transactions = new ConcurrentHashMap<>();
 
@@ -92,7 +94,8 @@ public class RaptorConnector
             RaptorTableProperties tableProperties,
             Set<SystemTable> systemTables,
             ConnectorAccessControl accessControl,
-            @ForMetadata IDBI dbi)
+            @ForMetadata IDBI dbi,
+            Set<Procedure> procedures)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
@@ -106,6 +109,7 @@ public class RaptorConnector
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
         this.coordinator = nodeManager.getCurrentNode().isCoordinator();
+        this.procedures = requireNonNull(procedures, "procedures is null");
     }
 
     @PostConstruct
@@ -201,6 +205,12 @@ public class RaptorConnector
     public ConnectorAccessControl getAccessControl()
     {
         return accessControl;
+    }
+
+    @Override
+    public Set<Procedure> getProcedures()
+    {
+        return procedures;
     }
 
     @Override
