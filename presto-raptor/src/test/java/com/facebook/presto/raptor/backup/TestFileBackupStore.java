@@ -26,6 +26,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestFileBackupStore
         extends AbstractTestBackupStore<FileBackupStore>
 {
