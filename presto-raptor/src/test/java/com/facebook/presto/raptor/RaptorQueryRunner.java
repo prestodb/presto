@@ -46,13 +46,14 @@ public final class RaptorQueryRunner
     public static DistributedQueryRunner createRaptorQueryRunner(Map<String, String> extraProperties, boolean loadTpch, boolean bucketed)
             throws Exception
     {
-        return createRaptorQueryRunner(extraProperties, loadTpch, bucketed, ImmutableMap.of());
+        return createRaptorQueryRunner(extraProperties, loadTpch, bucketed, false, ImmutableMap.of());
     }
 
     public static DistributedQueryRunner createRaptorQueryRunner(
             Map<String, String> extraProperties,
             boolean loadTpch,
             boolean bucketed,
+            boolean disaggregated,
             Map<String, String> extraRaptorProperties)
             throws Exception
     {
@@ -63,16 +64,24 @@ public final class RaptorQueryRunner
 
         queryRunner.installPlugin(new RaptorPlugin());
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();
-        Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
-                .putAll(extraRaptorProperties)
-                .put("metadata.db.type", "h2")
-                .put("metadata.db.connections.max", "100")
-                .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
-                .put("storage.data-directory", new File(baseDir, "data").getAbsolutePath())
-                .put("storage.max-shard-rows", "2000")
-                .put("backup.provider", "file")
-                .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
-                .build();
+
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        builder.putAll(extraRaptorProperties)
+            .put("metadata.db.type", "h2")
+            .put("metadata.db.connections.max", "100")
+            .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
+            .put("storage.data-directory", new File(baseDir, "data").getAbsolutePath())
+            .put("storage.max-shard-rows", "2000");
+
+        if (disaggregated) {
+            builder.put("storage.disaggregated", "true");
+        }
+        else {
+            builder.put("backup.provider", "file")
+                    .put("backup.directory", new File(baseDir, "backup").getAbsolutePath());
+        }
+
+        Map<String, String> raptorProperties = builder.build();
 
         queryRunner.createCatalog("raptor", "raptor", raptorProperties);
 
@@ -145,7 +154,7 @@ public final class RaptorQueryRunner
     {
         Logging.initialize();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        DistributedQueryRunner queryRunner = createRaptorQueryRunner(properties, false, false);
+        DistributedQueryRunner queryRunner = createRaptorQueryRunner(properties, true, false);
         Thread.sleep(10);
         Logger log = Logger.get(RaptorQueryRunner.class);
         log.info("======== SERVER STARTED ========");

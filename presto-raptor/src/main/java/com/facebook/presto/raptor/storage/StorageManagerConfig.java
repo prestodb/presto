@@ -71,6 +71,8 @@ public class StorageManagerConfig
     private int oneSplitPerBucketThreshold;
     private String shardDayBoundaryTimeZone = TimeZoneKey.UTC_KEY.getId();
 
+    private boolean disaggregated;
+
     @NotNull
     public File getDataDirectory()
     {
@@ -415,6 +417,18 @@ public class StorageManagerConfig
     public StorageManagerConfig setShardDayBoundaryTimeZone(String timeZone)
     {
         this.shardDayBoundaryTimeZone = timeZone;
+        return this;
+    }
+
+    public boolean isDisaggregated()
+    {
+        return disaggregated;
+    }
+
+    @Config("storage.disaggregated")
+    public StorageManagerConfig setDisaggregated(boolean disaggregated)
+    {
+        this.disaggregated = disaggregated;
         return this;
     }
 }

@@ -14,6 +14,8 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.backup.BackupManager;
+import com.facebook.presto.raptor.filesystem.RaptorHdfsConfig;
+import com.facebook.presto.raptor.filesystem.RaptorHdfsConfiguration;
 import com.facebook.presto.raptor.metadata.AssignmentLimiter;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
 import com.facebook.presto.raptor.metadata.DatabaseShardRecorder;
@@ -31,8 +33,12 @@ import com.facebook.presto.raptor.storage.organization.ShardOrganizer;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.google.common.base.Ticker;
 import com.google.inject.Binder;
-import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import org.apache.hadoop.fs.Path;
+
+import javax.inject.Singleton;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
@@ -40,7 +46,7 @@ import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class StorageModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private final String connectorId;
 
@@ -50,7 +56,7 @@ public class StorageModule
     }
 
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         configBinder(binder).bindConfig(StorageManagerConfig.class);
         configBinder(binder).bindConfig(BucketBalancerConfig.class);
@@ -59,9 +65,18 @@ public class StorageModule
 
         binder.bind(Ticker.class).toInstance(Ticker.systemTicker());
 
+        if (buildConfigObject(StorageManagerConfig.class).isDisaggregated()) {
+            configBinder(binder).bindConfig(RaptorHdfsConfig.class);
+            binder.bind(RaptorHdfsConfiguration.class).in(Scopes.SINGLETON);
+            binder.bind(StorageService.class).to(HdfsStorageService.class).in(Scopes.SINGLETON);
+            binder.bind(OrcDataEnvironment.class).to(HdfsOrcDataEnvironment.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
+            binder.bind(OrcDataEnvironment.class).to(LocalOrcDataEnvironment.class).in(Scopes.SINGLETON);
+        }
+
         binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
-        binder.bind(StorageService.class).to(FileStorageService.class).in(Scopes.SINGLETON);
-        binder.bind(OrcDataEnvironment.class).to(LocalOrcDataEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardRecorder.class).to(DatabaseShardRecorder.class).in(Scopes.SINGLETON);
         binder.bind(DatabaseShardManager.class).in(Scopes.SINGLETON);
@@ -90,5 +105,13 @@ public class StorageModule
         newExporter(binder).export(ShardCleaner.class).as(generatedNameOf(ShardCleaner.class, connectorId));
         newExporter(binder).export(BucketBalancer.class).as(generatedNameOf(BucketBalancer.class, connectorId));
         newExporter(binder).export(JobFactory.class).withGeneratedName();
+    }
+
+    @Singleton
+    @Provides
+    public Path createBaseLocation(StorageManagerConfig config)
+    {
+        // TODO: this is wrong
+        return new Path(config.getDataDirectory().toURI());
     }
 }
