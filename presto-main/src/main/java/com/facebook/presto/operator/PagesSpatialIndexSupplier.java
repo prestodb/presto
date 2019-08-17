@@ -21,6 +21,7 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
 import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.geospatial.rtree.Flatbush;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.PagesRTreeIndex.GeometryWithPosition;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.spi.block.Block;
@@ -46,11 +47,13 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class PagesSpatialIndexSupplier
         implements Supplier<PagesSpatialIndex>
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesSpatialIndexSupplier.class).instanceSize();
+    private static final int MEMORY_USAGE_UPDATE_INCREMENT_BYTES = 100 * 1024 * 1024;   // 100 MB
 
     private final Session session;
     private final LongArrayList addresses;
@@ -75,8 +78,10 @@ public class PagesSpatialIndexSupplier
             Optional<Integer> partitionChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory,
-            Map<Integer, Rectangle> partitions)
+            Map<Integer, Rectangle> partitions,
+            LocalMemoryContext localUserMemoryContext)
     {
+        requireNonNull(localUserMemoryContext, "localUserMemoryContext is null");
         this.session = session;
         this.addresses = addresses;
         this.types = types;
@@ -86,16 +91,20 @@ public class PagesSpatialIndexSupplier
         this.filterFunctionFactory = filterFunctionFactory;
         this.partitions = partitions;
 
-        this.rtree = buildRTree(addresses, channels, geometryChannel, radiusChannel, partitionChannel);
+        this.rtree = buildRTree(addresses, channels, geometryChannel, radiusChannel, partitionChannel, localUserMemoryContext);
         this.radiusChannel = radiusChannel;
         this.memorySizeInBytes = INSTANCE_SIZE + rtree.getEstimatedSizeInBytes();
     }
 
-    private static Flatbush<GeometryWithPosition> buildRTree(LongArrayList addresses, List<List<Block>> channels, int geometryChannel, Optional<Integer> radiusChannel, Optional<Integer> partitionChannel)
+    private static Flatbush<GeometryWithPosition> buildRTree(LongArrayList addresses, List<List<Block>> channels, int geometryChannel, Optional<Integer> radiusChannel, Optional<Integer> partitionChannel, LocalMemoryContext localUserMemoryContext)
     {
         Operator relateOperator = OperatorFactoryLocal.getInstance().getOperator(Operator.Type.Relate);
 
         ObjectArrayList<GeometryWithPosition> geometries = new ObjectArrayList<>();
+
+        long recordedSizeInBytes = localUserMemoryContext.getBytes();
+        long addedSizeInBytes = 0;
+
         for (int position = 0; position < addresses.size(); position++) {
             long pageAddress = addresses.getLong(position);
             int blockIndex = decodeSliceIndex(pageAddress);
@@ -130,7 +139,16 @@ public class PagesSpatialIndexSupplier
                 partition = toIntExact(INTEGER.getLong(partitionBlock, blockPosition));
             }
 
-            geometries.add(new GeometryWithPosition(ogcGeometry, partition, position, radius));
+            GeometryWithPosition geometryWithPosition = new GeometryWithPosition(ogcGeometry, partition, position, radius);
+            geometries.add(geometryWithPosition);
+
+            addedSizeInBytes += geometryWithPosition.getEstimatedSizeInBytes();
+
+            if (addedSizeInBytes >= MEMORY_USAGE_UPDATE_INCREMENT_BYTES) {
+                localUserMemoryContext.setBytes(recordedSizeInBytes + addedSizeInBytes);
+                recordedSizeInBytes += addedSizeInBytes;
+                addedSizeInBytes = 0;
+            }
         }
 
         return new Flatbush<>(geometries.toArray(new GeometryWithPosition[] {}));
