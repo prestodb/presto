@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -27,9 +28,16 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -42,11 +50,13 @@ public final class LogicalRowExpressions
 
     private final DeterminismEvaluator determinismEvaluator;
     private final StandardFunctionResolution functionResolution;
+    private final FunctionMetadataManager functionMetadataManager;
 
-    public LogicalRowExpressions(DeterminismEvaluator determinismEvaluator, StandardFunctionResolution functionResolution)
+    public LogicalRowExpressions(DeterminismEvaluator determinismEvaluator, StandardFunctionResolution functionResolution, FunctionMetadataManager functionMetadataManager)
     {
         this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
     }
 
     public static List<RowExpression> extractConjuncts(RowExpression expression)
@@ -89,7 +99,7 @@ public final class LogicalRowExpressions
 
     public static RowExpression and(RowExpression... expressions)
     {
-        return and(Arrays.asList(expressions));
+        return and(asList(expressions));
     }
 
     public static RowExpression and(Collection<RowExpression> expressions)
@@ -99,7 +109,7 @@ public final class LogicalRowExpressions
 
     public static RowExpression or(RowExpression... expressions)
     {
-        return or(Arrays.asList(expressions));
+        return or(asList(expressions));
     }
 
     public static RowExpression or(Collection<RowExpression> expressions)
@@ -159,7 +169,7 @@ public final class LogicalRowExpressions
 
             // combine pairs of elements
             while (queue.size() >= 2) {
-                List<RowExpression> arguments = Arrays.asList(queue.remove(), queue.remove());
+                List<RowExpression> arguments = asList(queue.remove(), queue.remove());
                 buffer.add(new SpecialFormExpression(form, BOOLEAN, arguments));
             }
 
@@ -177,7 +187,7 @@ public final class LogicalRowExpressions
 
     public RowExpression combinePredicates(Form form, RowExpression... expressions)
     {
-        return combinePredicates(form, Arrays.asList(expressions));
+        return combinePredicates(form, asList(expressions));
     }
 
     public RowExpression combinePredicates(Form form, Collection<RowExpression> expressions)
@@ -190,7 +200,7 @@ public final class LogicalRowExpressions
 
     public RowExpression combineConjuncts(RowExpression... expressions)
     {
-        return combineConjuncts(Arrays.asList(expressions));
+        return combineConjuncts(asList(expressions));
     }
 
     public RowExpression combineConjuncts(Collection<RowExpression> expressions)
@@ -213,7 +223,7 @@ public final class LogicalRowExpressions
 
     public RowExpression combineDisjuncts(RowExpression... expressions)
     {
-        return combineDisjuncts(Arrays.asList(expressions));
+        return combineDisjuncts(asList(expressions));
     }
 
     public RowExpression combineDisjuncts(Collection<RowExpression> expressions)
@@ -241,7 +251,7 @@ public final class LogicalRowExpressions
 
     /**
      * Given a logical expression, the goal is to push negation to the leaf nodes.
-     * This only applies to propositional logic. this utility cannot be applied to high-order logic.
+     * This only applies to propositional logic and comparison. this utility cannot be applied to high-order logic.
      * Examples of non-applicable cases could be f(a AND b) > 5
      *
      * An applicable example:
@@ -374,11 +384,16 @@ public final class LogicalRowExpressions
                 return call;
             }
 
+            checkArgument(call.getArguments().size() == 1, "Not expression should have exactly one argument");
             RowExpression argument = call.getArguments().get(0);
 
             // eliminate two consecutive negations
             if (isNegationExpression(argument)) {
                 return ((CallExpression) argument).getArguments().get(0).accept(new PushNegationVisitor(), null);
+            }
+
+            if (isComparisonExpression(argument)) {
+                return negateComparison((CallExpression) argument);
             }
 
             if (!isConjunctionOrDisjunction(argument)) {
@@ -391,10 +406,26 @@ public final class LogicalRowExpressions
             RowExpression right = specialForm.getArguments().get(1);
             if (specialForm.getForm() == AND) {
                 // !(a AND b) ==> !a OR !b
-                return or(notCallExpression(left).accept(new PushNegationVisitor(), null), notCallExpression(right).accept(new PushNegationVisitor(), null));
+                return or(notCallExpression(left).accept(new PushNegationVisitor(), null), notCallExpression(right).accept(this, null));
             }
             // !(a OR b) ==> !a AND !b
-            return and(notCallExpression(left).accept(new PushNegationVisitor(), null), notCallExpression(right).accept(new PushNegationVisitor(), null));
+            return and(notCallExpression(left).accept(new PushNegationVisitor(), null), notCallExpression(right).accept(this, null));
+        }
+
+        private RowExpression negateComparison(CallExpression expression)
+        {
+            OperatorType newOperator = negate(getOperator(expression));
+            if (newOperator == null) {
+                return new CallExpression("NOT", functionResolution.notFunction(), BOOLEAN, singletonList(expression));
+            }
+            checkArgument(expression.getArguments().size() == 2, "Comparison expression must have exactly two arguments");
+            RowExpression left = expression.getArguments().get(0).accept(this, null);
+            RowExpression right = expression.getArguments().get(1).accept(this, null);
+            return new CallExpression(
+                    newOperator.getOperator(),
+                    functionResolution.comparisonFunction(newOperator, left.getType(), right.getType()),
+                    BOOLEAN,
+                    asList(left, right));
         }
 
         @Override
@@ -408,9 +439,9 @@ public final class LogicalRowExpressions
             RowExpression right = specialForm.getArguments().get(1);
 
             if (specialForm.getForm() == AND) {
-                return and(left.accept(new PushNegationVisitor(), null), right.accept(new PushNegationVisitor(), null));
+                return and(left.accept(this, null), right.accept(this, null));
             }
-            return or(left.accept(new PushNegationVisitor(), null), right.accept(new PushNegationVisitor(), null));
+            return or(left.accept(this, null), right.accept(this, null));
         }
 
         @Override
@@ -440,6 +471,19 @@ public final class LogicalRowExpressions
         private boolean isNegationExpression(RowExpression expression)
         {
             return expression instanceof CallExpression && ((CallExpression) expression).getFunctionHandle().equals(functionResolution.notFunction());
+        }
+
+        private boolean isComparisonExpression(RowExpression expression)
+        {
+            return expression instanceof CallExpression && functionResolution.isComparisonFunction(((CallExpression) expression).getFunctionHandle());
+        }
+
+        private OperatorType getOperator(RowExpression expression)
+        {
+            if (expression instanceof CallExpression) {
+                return functionMetadataManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getOperatorType().orElse(null);
+            }
+            return null;
         }
 
         private RowExpression notCallExpression(RowExpression argument)
@@ -509,6 +553,32 @@ public final class LogicalRowExpressions
         public RowExpression visitVariableReference(VariableReferenceExpression reference, SpecialFormExpression.Form clauseJoiner)
         {
             return reference;
+        }
+    }
+
+    private static OperatorType negate(OperatorType operator)
+    {
+        switch (operator) {
+            case EQUAL:
+                return NOT_EQUAL;
+            case NOT_EQUAL:
+                return EQUAL;
+            case GREATER_THAN:
+                return LESS_THAN_OR_EQUAL;
+            case LESS_THAN:
+                return GREATER_THAN_OR_EQUAL;
+            case LESS_THAN_OR_EQUAL:
+                return GREATER_THAN;
+            case GREATER_THAN_OR_EQUAL:
+                return LESS_THAN;
+        }
+        return null;
+    }
+
+    private static void checkArgument(boolean condition, String message, Object... arguments)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(String.format(message, arguments));
         }
     }
 }
