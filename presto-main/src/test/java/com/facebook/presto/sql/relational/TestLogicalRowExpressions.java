@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.LogicalRowExpressions;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -27,6 +28,12 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.relation.LogicalRowExpressions.extractPredicates;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
@@ -141,6 +148,14 @@ public class TestLogicalRowExpressions
         assertEquals(logicalRowExpressions.pushNegationToLeaves(not(or(not(and(a, b)), not(or(b, not(and(c, d))))))), and(and(a, b), or(b, or(not(c), not(d)))));
         assertEquals(logicalRowExpressions.pushNegationToLeaves(or(not(and(a, b)), not(or(b, not(and(c, d)))))), or(or(not(a), not(b)), and(not(b), and(c, d))));
         assertEquals(logicalRowExpressions.pushNegationToLeaves(and(and(a, b), c)), and(and(a, b), c));
+        assertEquals(logicalRowExpressions.pushNegationToLeaves(not(compare(a, EQUAL, b))), compare(a, NOT_EQUAL, b));
+        assertEquals(logicalRowExpressions.pushNegationToLeaves(not(compare(a, NOT_EQUAL, b))), compare(a, EQUAL, b));
+        assertEquals(logicalRowExpressions.pushNegationToLeaves(not(compare(a, GREATER_THAN, b))), compare(a, LESS_THAN_OR_EQUAL, b));
+        assertEquals(logicalRowExpressions.pushNegationToLeaves(not(compare(a, GREATER_THAN_OR_EQUAL, b))), compare(a, LESS_THAN, b));
+        assertEquals(logicalRowExpressions.pushNegationToLeaves(not(compare(a, GREATER_THAN_OR_EQUAL, not(not(b))))), compare(a, LESS_THAN, b));
+        assertEquals(logicalRowExpressions.pushNegationToLeaves(not(compare(a, LESS_THAN, b))), compare(a, GREATER_THAN_OR_EQUAL, b));
+        assertEquals(logicalRowExpressions.pushNegationToLeaves(not(compare(a, LESS_THAN_OR_EQUAL, b))), compare(a, GREATER_THAN, b));
+        assertEquals(logicalRowExpressions.pushNegationToLeaves(not(compare(a, LESS_THAN_OR_EQUAL, not(not(b))))), compare(a, GREATER_THAN, b));
     }
 
     @Test
@@ -332,6 +347,16 @@ public class TestLogicalRowExpressions
     private static RowExpression name(String name)
     {
         return new VariableReferenceExpression(name, BOOLEAN);
+    }
+
+    private RowExpression compare(RowExpression left, OperatorType operator, RowExpression right)
+    {
+        return call(
+                operator.getOperator(),
+                new FunctionResolution(functionManager).comparisonFunction(operator, left.getType(), right.getType()),
+                BOOLEAN,
+                left,
+                right);
     }
 
     private RowExpression and(RowExpression left, RowExpression right)
