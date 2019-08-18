@@ -13,24 +13,14 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
-import io.airlift.slice.XxHash64;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RawLocalFileSystem;
-import org.apache.hadoop.util.Progressable;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
-import static java.util.Objects.requireNonNull;
 
 /**
  * The class overrides some inefficient methods from local file system
@@ -45,22 +35,6 @@ public final class RaptorLocalFileSystem
     }
 
     @Override
-    public FSDataOutputStream create(Path path, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
-            throws IOException
-    {
-        if (exists(path) && !overwrite) {
-            throw new IOException("file already exists: " + path);
-        }
-        Path parent = path.getParent();
-        if ((parent != null) && !mkdirs(parent)) {
-            throw new IOException("mkdirs failed to create " + parent.toString());
-        }
-        return new FSDataOutputStream(
-                new BufferedOutputStream(new LocalFileOutputStream(pathToFile(path)), bufferSize),
-                statistics);
-    }
-
-    @Override
     public boolean exists(Path file)
     {
         return pathToFile(file).exists();
@@ -72,67 +46,5 @@ public final class RaptorLocalFileSystem
     {
         Files.move(pathToFile(from).toPath(), pathToFile(to).toPath(), ATOMIC_MOVE);
         return true;
-    }
-
-    private static class LocalFileOutputStream
-            extends OutputStream
-    {
-        private final byte[] oneByte = new byte[1];
-        private final XxHash64 hash = new XxHash64();
-        private final File file;
-        private final FileOutputStream out;
-        private boolean closed;
-
-        private LocalFileOutputStream(File file)
-                throws IOException
-        {
-            this.file = requireNonNull(file, "file is null");
-            this.out = new FileOutputStream(file);
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            if (closed) {
-                return;
-            }
-            closed = true;
-
-            flush();
-            out.getFD().sync();
-            out.close();
-
-            // extremely paranoid code to detect a broken local file system
-            try (InputStream in = new FileInputStream(file)) {
-                if (hash.hash() != XxHash64.hash(in)) {
-                    throw new IOException("File is corrupt after write");
-                }
-            }
-        }
-
-        @Override
-        public void flush()
-                throws IOException
-        {
-            out.flush();
-        }
-
-        @Override
-        public void write(byte[] b, int off, int len)
-                throws IOException
-        {
-            out.write(b, off, len);
-            hash.update(b, off, len);
-        }
-
-        @SuppressWarnings("NumericCastThatLosesPrecision")
-        @Override
-        public void write(int b)
-                throws IOException
-        {
-            oneByte[0] = (byte) (b & 0xFF);
-            write(oneByte, 0, 1);
-        }
     }
 }
