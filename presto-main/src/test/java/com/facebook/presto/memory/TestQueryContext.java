@@ -120,13 +120,13 @@ public class TestQueryContext
         LocalMemoryContext memoryContext = operatorContext.aggregateUserMemoryContext().newLocalMemoryContext("test_context");
         memoryContext.setBytes(1_000);
 
-        Map<String, Long> allocations = generalPool.getTaggedMemoryAllocations().get(queryId);
+        Map<String, Long> allocations = generalPool.getTaggedMemoryAllocations(queryId);
         assertEquals(allocations, ImmutableMap.of("test_context", 1_000L));
 
         queryContext.setMemoryPool(reservedPool);
 
-        assertNull(generalPool.getTaggedMemoryAllocations().get(queryId));
-        allocations = reservedPool.getTaggedMemoryAllocations().get(queryId);
+        assertNull(generalPool.getTaggedMemoryAllocations(queryId));
+        allocations = reservedPool.getTaggedMemoryAllocations(queryId);
         assertEquals(allocations, ImmutableMap.of("test_context", 1_000L));
 
         assertEquals(generalPool.getFreeBytes(), 10_000);
