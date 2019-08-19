@@ -81,6 +81,7 @@ public final class SelectiveStreamReaders
             case STRUCT:
                 return new StructSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext);
             case MAP:
+                return new MapSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext);
             case DECIMAL:
             case UNION:
             default:

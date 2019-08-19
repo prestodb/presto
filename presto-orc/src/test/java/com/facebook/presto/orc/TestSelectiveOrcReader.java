@@ -36,10 +36,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcTester.arrayType;
+import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.OrcTester.quickSelectiveOrcTester;
 import static com.facebook.presto.orc.OrcTester.rowType;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
@@ -56,6 +58,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
@@ -325,6 +328,53 @@ public class TestSelectiveOrcReader
                         IntStream.range(0, 30_000).boxed().map(i -> i % 11 == 0 ? null : random.nextInt()).collect(toList())),
                 ImmutableList.of(
                         ImmutableMap.of(0, IS_NOT_NULL, 1, IS_NULL)));
+    }
+
+    @Test
+    public void testMaps()
+            throws Exception
+    {
+        Random random = new Random(0);
+
+        // map column with no nulls
+        tester.testRoundTripTypes(
+                ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
+                        IntStream.range(0, 30_000).boxed().map(i -> createMap(i)).collect(toImmutableList())),
+                ImmutableList.of(
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
+                        ImmutableMap.of(1, IS_NOT_NULL),
+                        ImmutableMap.of(1, IS_NULL)));
+
+        // map column with nulls
+        tester.testRoundTripTypes(
+                ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
+                        IntStream.range(0, 30_000).boxed().map(i -> i % 5 == 0 ? null : createMap(i)).collect(toList())),
+                ImmutableList.of(
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
+                        ImmutableMap.of(1, IS_NOT_NULL),
+                        ImmutableMap.of(1, IS_NULL),
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false), 1, IS_NULL),
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false), 1, IS_NOT_NULL)));
+
+        // map column with filter, followed by another column with filter
+        tester.testRoundTripTypes(
+                ImmutableList.of(mapType(INTEGER, INTEGER), INTEGER),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).boxed().map(i -> i % 5 == 0 ? null : createMap(i)).collect(toList()),
+                        IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList())),
+                ImmutableList.of(
+                        ImmutableMap.of(0, IS_NULL, 1, BigintRange.of(0, Integer.MAX_VALUE, false)),
+                        ImmutableMap.of(0, IS_NOT_NULL, 1, BigintRange.of(0, Integer.MAX_VALUE, false))));
+    }
+
+    private static Map<Integer, Integer> createMap(int seed)
+    {
+        int mapSize = Math.abs(seed) % 7 + 1;
+        return IntStream.range(0, mapSize).boxed().collect(toImmutableMap(Function.identity(), i -> i + seed));
     }
 
     private void testRoundTripNumeric(Iterable<? extends Number> values, TupleDomainFilter filter)

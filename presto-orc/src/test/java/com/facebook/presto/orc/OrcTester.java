@@ -1615,7 +1615,7 @@ public class OrcTester
         return TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
     }
 
-    private static Type mapType(Type keyType, Type valueType)
+    public static Type mapType(Type keyType, Type valueType)
     {
         return TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
     }

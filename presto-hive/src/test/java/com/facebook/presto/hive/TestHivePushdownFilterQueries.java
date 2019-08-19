@@ -96,8 +96,7 @@ public class TestHivePushdownFilterQueries
                         "   IF (orderkey % 13 = 0, null, ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], IF (orderkey % 17 = 0, null, ARRAY[orderkey, partkey])]) AS nested_keys, " +
                         "   IF (orderkey % 17 = 0, null, ARRAY[shipmode = 'AIR', returnflag = 'R']) AS flags, " +
                         "   IF (orderkey % 19 = 0, null, ARRAY[CAST(discount AS REAL), CAST(tax AS REAL)]), " +
-                        "   IF (orderkey % 23 = 0, null, CAST(ROW(orderkey, linenumber, ROW(day(shipdate), month(shipdate), year(shipdate))) " +
-                        "       AS ROW(orderkey BIGINT, linenumber INTEGER, shipdate ROW(ship_day TINYINT, ship_month TINYINT, ship_year INTEGER)))), " +
+                        "   IF (orderkey % 23 = 0, null, CAST(ROW(orderkey, linenumber, ROW(day(shipdate), month(shipdate), year(shipdate))) AS ROW(orderkey BIGINT, linenumber INTEGER, shipdate ROW(ship_day TINYINT, ship_month TINYINT, ship_year INTEGER)))), " +
                         "   IF (orderkey % 31 = 0, NULL, ARRAY[" +
                         "       CAST(ROW(day(shipdate), month(shipdate), year(shipdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
                         "       CAST(ROW(day(commitdate), month(commitdate), year(commitdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
@@ -253,6 +252,35 @@ public class TestHivePushdownFilterQueries
         assertFilterProject("discount_real > 0.01 AND tax_real > 0.01 AND (discount_real + tax_real) < 0.08", "discount_real");
 
         assertFilterProject("reals[1] > 0.01", "count(*)");
+    }
+
+    @Test
+    public void testMaps()
+    {
+        getQueryRunner().execute("CREATE TABLE test_maps AS SELECT orderkey, linenumber, IF (keys IS NULL, null, MAP(ARRAY[1, 2, 3], keys)) AS map_keys FROM lineitem_ex");
+
+        Function<String, String> rewriter = query -> query.replaceAll("map_keys", "keys")
+                .replaceAll("test_maps", "lineitem_ex")
+                .replaceAll("cardinality", "array_length");
+        try {
+            assertQueryUsingH2Cte("SELECT cardinality(map_keys) FROM test_maps", rewriter);
+            assertQueryUsingH2Cte("SELECT cardinality(map_keys) FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
+
+            assertQueryUsingH2Cte("SELECT map_keys[1] FROM test_maps", rewriter);
+            assertQueryUsingH2Cte("SELECT map_keys[2] FROM test_maps", rewriter);
+            assertQueryUsingH2Cte("SELECT map_keys[1], map_keys[3] FROM test_maps", rewriter);
+
+            assertQueryUsingH2Cte("SELECT map_keys[1] FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
+
+            assertQueryUsingH2Cte("SELECT map_keys[2] FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
+            assertQueryUsingH2Cte("SELECT map_keys[1], map_keys[3] FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
+
+            assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[1] % 2 = 0", "Key not present in map: 5");
+            assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[4] % 2 = 0", "Key not present in map: 4");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_maps");
+        }
     }
 
     @Test
