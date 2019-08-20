@@ -22,6 +22,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -55,7 +56,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -365,16 +365,16 @@ public class H2QueryRunner
                             row.add(null);
                         }
                         else {
-                            Object[] elements = (Object[]) array.getArray();
-                            Type elementType = ((ArrayType) type).getElementType();
-                            if (elementType instanceof ArrayType) {
-                                row.add(Arrays.stream(elements)
-                                        .map(v -> v == null ? null : newArrayList((Object[]) v))
-                                        .collect(Collectors.toList()));
-                            }
-                            else {
-                                row.add(newArrayList(elements));
-                            }
+                            row.add(newArrayList(mapArrayValues(((ArrayType) type), (Object[]) array.getArray())));
+                        }
+                    }
+                    else if (type instanceof RowType) {
+                        Array array = resultSet.getArray(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(newArrayList(mapRowValues((RowType) type, (Object[]) array.getArray())));
                         }
                     }
                     else {
@@ -384,6 +384,41 @@ public class H2QueryRunner
                 return new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, row);
             }
         };
+    }
+
+    private static Object[] mapArrayValues(ArrayType arrayType, Object[] values)
+    {
+        Type elementType = arrayType.getElementType();
+        if (elementType instanceof ArrayType) {
+            return Arrays.stream(values)
+                    .map(v -> v == null ? null : newArrayList((Object[]) v))
+                    .toArray();
+        }
+
+        if (elementType instanceof RowType) {
+            RowType rowType = (RowType) elementType;
+            return Arrays.stream(values)
+                    .map(v -> v == null ? null : newArrayList(mapRowValues(rowType, (Object[]) v)))
+                    .toArray();
+        }
+
+        return values;
+    }
+
+    private static Object[] mapRowValues(RowType rowType, Object[] values)
+    {
+        int fieldCount = rowType.getFields().size();
+        Object[] fields = new Object[fieldCount];
+        for (int j = 0; j < fieldCount; j++) {
+            Type fieldType = rowType.getTypeParameters().get(j);
+            if (fieldType instanceof RowType) {
+                fields[j] = newArrayList(mapRowValues((RowType) fieldType, (Object[]) values[j]));
+            }
+            else {
+                fields[j] = values[j];
+            }
+        }
+        return fields;
     }
 
     private static void insertRows(ConnectorTableMetadata tableMetadata, Handle handle, RecordSet data)

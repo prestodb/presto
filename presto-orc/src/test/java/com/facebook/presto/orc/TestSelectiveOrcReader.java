@@ -39,6 +39,8 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcTester.quickSelectiveOrcTester;
+import static com.facebook.presto.orc.OrcTester.rowType;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -50,6 +52,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
@@ -234,6 +237,29 @@ public class TestSelectiveOrcReader
                                 1, FloatRange.of(3.0f, false, true, 9.0f, false, true, false)),
                         ImmutableMap.of(
                                 1, FloatRange.of(1.0f, false, true, 7.0f, false, true, true))));
+    }
+
+    @Test
+    public void testStructs()
+            throws Exception
+    {
+        Random random = new Random(0);
+
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, rowType(INTEGER, BOOLEAN)),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).boxed().map(i -> random.nextInt()).collect(toImmutableList()),
+                        IntStream.range(0, 30_000).boxed().map(i -> ImmutableList.of(random.nextInt(), random.nextBoolean())).collect(toImmutableList())),
+                ImmutableList.of(
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
+                        ImmutableMap.of(1, IS_NULL),
+                        ImmutableMap.of(1, IS_NOT_NULL)));
+
+        tester.testRoundTripTypes(ImmutableList.of(rowType(INTEGER, BOOLEAN), INTEGER),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).boxed().map(i -> i % 7 == 0 ? null : ImmutableList.of(random.nextInt(), random.nextBoolean())).collect(toList()),
+                        IntStream.range(0, 30_000).boxed().map(i -> i % 11 == 0 ? null : random.nextInt()).collect(toList())),
+                ImmutableList.of(
+                        ImmutableMap.of(0, IS_NOT_NULL, 1, IS_NULL)));
     }
 
     private void testRoundTripNumeric(Iterable<? extends Number> values, TupleDomainFilter filter)
