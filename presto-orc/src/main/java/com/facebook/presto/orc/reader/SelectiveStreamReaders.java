@@ -77,6 +77,7 @@ public final class SelectiveStreamReaders
             case LIST:
                 return new ListSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, null, 0, outputType, hiveStorageTimeZone, systemMemoryContext);
             case STRUCT:
+                return new StructSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext);
             case MAP:
             case DECIMAL:
             case UNION:
@@ -134,6 +135,7 @@ public final class SelectiveStreamReaders
                 Optional<ListFilter> childFilter = parentFilter.map(HierarchicalFilter::getChild).map(ListFilter.class::cast);
                 return new ListSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), ImmutableList.of(), childFilter.orElse(null), level, outputType, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
             case STRUCT:
+                return new StructSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), ImmutableList.of(), outputType, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
             case MAP:
             case UNION:
             default:

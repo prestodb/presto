@@ -120,6 +120,8 @@ import static com.facebook.presto.orc.OrcTester.Format.ORC_11;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -290,6 +292,7 @@ public class OrcTester
     {
         OrcTester orcTester = new OrcTester();
         orcTester.listTestsEnabled = true;
+        orcTester.structTestsEnabled = true;
         orcTester.nullTestsEnabled = true;
         orcTester.skipBatchTestsEnabled = true;
         orcTester.formats = ImmutableSet.of(ORC_12, ORC_11, DWRF);
@@ -705,7 +708,17 @@ public class OrcTester
             }
 
             Object value = values.get(column).get(row);
-            if (value == null) {
+            if (filter == IS_NULL) {
+                if (value != null) {
+                    return false;
+                }
+            }
+            else if (filter == IS_NOT_NULL) {
+                if (value == null) {
+                    return false;
+                }
+            }
+            else if (value == null) {
                 if (!filter.testNull()) {
                     return false;
                 }
@@ -1601,7 +1614,7 @@ public class OrcTester
         return TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
     }
 
-    private static Type rowType(Type... fieldTypes)
+    public static Type rowType(Type... fieldTypes)
     {
         ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
         for (int i = 0; i < fieldTypes.length; i++) {

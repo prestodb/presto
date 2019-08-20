@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,7 +50,12 @@ public class TestHivePushdownFilterQueries
             "   CASE WHEN orderkey % 11 = 0 THEN null ELSE (orderkey, partkey, suppkey) END AS keys, \n" +
             "   CASE WHEN orderkey % 13 = 0 THEN null ELSE ((orderkey, partkey), (suppkey,), CASE WHEN orderkey % 17 = 0 THEN null ELSE (orderkey, partkey) END) END AS nested_keys, \n" +
             "   CASE WHEN orderkey % 17 = 0 THEN null ELSE (shipmode = 'AIR', returnflag = 'R') END as flags, \n" +
-            "   CASE WHEN orderkey % 19 = 0 THEN null ELSE (CAST(discount AS REAL), CAST(tax AS REAL)) END as reals \n" +
+            "   CASE WHEN orderkey % 19 = 0 THEN null ELSE (CAST(discount AS REAL), CAST(tax AS REAL)) END as reals, \n" +
+            "   CASE WHEN orderkey % 23 = 0 THEN null ELSE (orderkey, linenumber, (CAST(day(shipdate) as TINYINT), CAST(month(shipdate) AS TINYINT), CAST(year(shipdate) AS INTEGER))) END AS info, \n" +
+            "   CASE WHEN orderkey % 31 = 0 THEN null ELSE (" +
+            "       (CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT), CAST(year(shipdate) AS INTEGER)), " +
+            "       (CAST(day(commitdate) AS TINYINT), CAST(month(commitdate) AS TINYINT), CAST(year(commitdate) AS INTEGER)), " +
+            "       (CAST(day(receiptdate) AS TINYINT), CAST(month(receiptdate) AS TINYINT), CAST(year(receiptdate) AS INTEGER))) END AS dates \n" +
             "FROM lineitem)\n";
 
     protected TestHivePushdownFilterQueries()
@@ -67,7 +73,7 @@ public class TestHivePushdownFilterQueries
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, tax_real, keys, nested_keys, flags, reals) AS " +
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, tax_real, keys, nested_keys, flags, reals, info, dates) AS " +
                         "SELECT linenumber, orderkey, partkey, suppkey, " +
                         "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
                         "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
@@ -80,7 +86,13 @@ public class TestHivePushdownFilterQueries
                         "   IF (orderkey % 11 = 0, null, ARRAY[orderkey, partkey, suppkey]), " +
                         "   IF (orderkey % 13 = 0, null, ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], IF (orderkey % 17 = 0, null, ARRAY[orderkey, partkey])]), " +
                         "   IF (orderkey % 17 = 0, null, ARRAY[shipmode = 'AIR', returnflag = 'R']), " +
-                        "   IF (orderkey % 19 = 0, null, ARRAY[CAST(discount AS REAL), CAST(tax AS REAL)]) " +
+                        "   IF (orderkey % 19 = 0, null, ARRAY[CAST(discount AS REAL), CAST(tax AS REAL)]), " +
+                        "   IF (orderkey % 23 = 0, null, CAST(ROW(orderkey, linenumber, ROW(day(shipdate), month(shipdate), year(shipdate))) " +
+                        "       AS ROW(orderkey BIGINT, linenumber INTEGER, shipdate ROW(ship_day TINYINT, ship_month TINYINT, ship_year INTEGER)))), " +
+                        "   IF (orderkey % 31 = 0, NULL, ARRAY[" +
+                        "       CAST(ROW(day(shipdate), month(shipdate), year(shipdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
+                        "       CAST(ROW(day(commitdate), month(commitdate), year(commitdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
+                        "       CAST(ROW(day(receiptdate), month(receiptdate), year(receiptdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER))]) " +
                         "FROM lineitem");
 
         return queryRunner;
@@ -258,6 +270,31 @@ public class TestHivePushdownFilterQueries
         assertFilterProjectFails("nested_keys[2][5] > 0", "orderkey", "Array subscript out of bounds");
     }
 
+    @Test
+    public void testStructs()
+    {
+        assertQueryUsingH2Cte("SELECT orderkey, info, dates FROM lineitem_ex");
+
+        Function<String, String> rewriter = query -> query.replaceAll("info.orderkey", "info[1]")
+                .replaceAll("info.linenumber", "info[2]")
+                .replaceAll("info.shipdate.ship_year", "info[3][3]")
+                .replaceAll("info.shipdate", "info[3]")
+                .replaceAll("dates\\[1\\].day", "dates[1][1]");
+
+        assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey, info.linenumber FROM lineitem_ex", rewriter);
+
+        assertQueryUsingH2Cte("SELECT info.linenumber, info.shipdate.ship_year FROM lineitem_ex WHERE orderkey < 1000", rewriter);
+
+        assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE info IS NULL", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE info IS NOT NULL", rewriter);
+
+        assertQueryUsingH2Cte("SELECT info, dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey, info.shipdate FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+
+        assertQueryUsingH2Cte("SELECT dates FROM lineitem_ex WHERE dates[1].day % 2 = 0", rewriter);
+    }
+
     private void assertFilterProject(String filter, String projections)
     {
         assertQueryUsingH2Cte(format("SELECT * FROM lineitem_ex WHERE %s", filter));
@@ -362,7 +399,12 @@ public class TestHivePushdownFilterQueries
 
     private void assertQueryUsingH2Cte(String query)
     {
-        assertQuery(query, WITH_LINEITEM_EX + toH2(query));
+        assertQueryUsingH2Cte(query, Function.identity());
+    }
+
+    private void assertQueryUsingH2Cte(String query, Function<String, String> rewriter)
+    {
+        assertQuery(query, WITH_LINEITEM_EX + toH2(rewriter.apply(query)));
     }
 
     private static String toH2(String query)
