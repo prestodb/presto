@@ -39,6 +39,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -389,6 +390,14 @@ public class ByteSelectiveStreamReader
         }
 
         outputPositionCount = positionCount;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .addValue(streamDescriptor)
+                .toString();
     }
 
     @Override
