@@ -21,6 +21,7 @@ import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
@@ -281,21 +282,102 @@ public class TestSelectiveOrcReader
     {
         Random random = new Random(0);
 
+        // non-null arrays of varying sizes; some arrays may be empty
+        tester.testRoundTrip(arrayType(INTEGER),
+                IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList()),
+                IS_NULL, IS_NOT_NULL);
+
+        BigintRange negative = BigintRange.of(Integer.MIN_VALUE, 0, false);
+        BigintRange nonNegative = BigintRange.of(0, Integer.MAX_VALUE, false);
+
+        // non-empty non-null arrays of varying sizes
+        tester.testRoundTrip(arrayType(INTEGER),
+                IntStream.range(0, 30_000).map(i -> 5 + random.nextInt(5)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList()),
+                ImmutableList.of(
+                        toSubfieldFilter(IS_NULL),
+                        toSubfieldFilter(IS_NOT_NULL),
+                        // c[1] >= 0
+                        toSubfieldFilter("c[1]", nonNegative),
+                        // c[2] >= 0 AND c[4] >= 0
+                        ImmutableMap.of(
+                                new Subfield("c[2]"), nonNegative,
+                                new Subfield("c[4]"), nonNegative)));
+
+        // non-null arrays of varying sizes; some arrays may be empty
         tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(INTEGER)),
                 ImmutableList.of(
-                        IntStream.range(0, 30_000).boxed().map(i -> random.nextInt()).collect(toImmutableList()),
-                        IntStream.range(0, 30_000).boxed().map(i -> IntStream.range(0, random.nextInt(10)).map(j -> j + i).boxed().collect(toImmutableList())).collect(toImmutableList())),
+                        makeArray(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList())),
                 toSubfieldFilters(
-                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
-                        ImmutableMap.of(1, IS_NULL),
-                        ImmutableMap.of(1, IS_NOT_NULL)));
+                        ImmutableMap.of(0, nonNegative),
+                        ImmutableMap.of(
+                                0, nonNegative,
+                                1, IS_NULL),
+                        ImmutableMap.of(
+                                0, nonNegative,
+                                1, IS_NOT_NULL)));
 
-        tester.testRoundTripTypes(ImmutableList.of(arrayType(INTEGER), INTEGER),
+        // non-empty non-null arrays of varying sizes
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(INTEGER)),
                 ImmutableList.of(
-                        IntStream.range(0, 30_000).boxed().map(i -> i % 7 == 0 ? null : IntStream.range(0, random.nextInt(10)).map(j -> j + i).boxed().collect(toImmutableList())).collect(toList()),
-                        IntStream.range(0, 30_000).boxed().map(i -> i % 11 == 0 ? null : random.nextInt()).collect(toList())),
+                        makeArray(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> 5 + random.nextInt(5)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList())),
+                ImmutableList.of(
+                        // c[1] >= 0
+                        ImmutableMap.of(
+                                0, toSubfieldFilter(nonNegative),
+                                1, toSubfieldFilter("c[1]", nonNegative)),
+                        // c[3] >= 0
+                        ImmutableMap.of(
+                                0, toSubfieldFilter(nonNegative),
+                                1, toSubfieldFilter("c[3]", nonNegative)),
+                        // c[2] >= 0 AND c[4] <= 0
+                        ImmutableMap.of(
+                                0, toSubfieldFilter(nonNegative),
+                                1, ImmutableMap.of(
+                                        new Subfield("c[2]"), nonNegative,
+                                        new Subfield("c[4]"), negative))));
+
+        // nested arrays
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(arrayType(INTEGER))),
+                ImmutableList.of(
+                        makeArray(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> IntStream.range(0, size).map(i -> random.nextInt(5)).mapToObj(nestedSize -> makeArray(nestedSize, random)).collect(toImmutableList())).collect(toImmutableList())),
                 toSubfieldFilters(
-                        ImmutableMap.of(0, IS_NOT_NULL, 1, IS_NULL)));
+                        ImmutableMap.of(0, nonNegative),
+                        ImmutableMap.of(1, IS_NULL),
+                        ImmutableMap.of(1, IS_NOT_NULL),
+                        ImmutableMap.of(
+                                0, nonNegative,
+                                1, IS_NULL)));
+
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(arrayType(INTEGER))),
+                ImmutableList.of(
+                        makeArray(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> 3 + random.nextInt(10)).mapToObj(size -> IntStream.range(0, size).map(i -> 3 + random.nextInt(5)).mapToObj(nestedSize -> makeArray(nestedSize, random)).collect(toImmutableList())).collect(toImmutableList())),
+                ImmutableList.of(
+                        // c[1] IS NULL
+                        ImmutableMap.of(1, ImmutableMap.of(new Subfield("c[1]"), IS_NULL)),
+                        // c[2] IS NOT NULL AND c[2][3] >= 0
+                        ImmutableMap.of(1, ImmutableMap.of(
+                                new Subfield("c[2]"), IS_NOT_NULL,
+                                new Subfield("c[2][3]"), nonNegative)),
+                        ImmutableMap.of(
+                                0, toSubfieldFilter(nonNegative),
+                                1, ImmutableMap.of(new Subfield("c[1]"), IS_NULL))));
+    }
+
+    @Test
+    public void testArraysOfNulls()
+            throws Exception
+    {
+        for (Type type : ImmutableList.of(BOOLEAN, BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL, TIMESTAMP)) {
+            tester.testRoundTrip(arrayType(type),
+                    IntStream.range(0, 30_000).mapToObj(i -> Collections.nCopies(5, null)).collect(toImmutableList()),
+                    ImmutableList.of(
+                            ImmutableMap.of(new Subfield("c[2]"), IS_NULL),
+                            ImmutableMap.of(new Subfield("c[2]"), IS_NOT_NULL)));
+        }
     }
 
     @Test
@@ -444,6 +526,11 @@ public class TestSelectiveOrcReader
                 .collect(ImmutableList.toImmutableList());
     }
 
+    private static Map<Subfield, TupleDomainFilter> toSubfieldFilter(String subfield, TupleDomainFilter filter)
+    {
+        return ImmutableMap.of(new Subfield(subfield), filter);
+    }
+
     private static Map<Subfield, TupleDomainFilter> toSubfieldFilter(TupleDomainFilter filter)
     {
         return ImmutableMap.of(new Subfield("c"), filter);
@@ -459,5 +546,10 @@ public class TestSelectiveOrcReader
         return Arrays.stream(filters)
                 .map(columnFilters -> Maps.transformValues(columnFilters, TestSelectiveOrcReader::toSubfieldFilter))
                 .collect(toImmutableList());
+    }
+
+    private static List<Integer> makeArray(int size, Random random)
+    {
+        return IntStream.range(0, size).map(i -> random.nextInt()).boxed().collect(toImmutableList());
     }
 }
