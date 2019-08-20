@@ -150,6 +150,7 @@ public class BooleanSelectiveStreamReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkArgument(positionCount > 0, "positionCount must be greater than zero");
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (!rowGroupOpen) {

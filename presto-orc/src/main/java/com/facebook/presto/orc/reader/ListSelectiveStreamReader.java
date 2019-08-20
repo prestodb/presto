@@ -189,6 +189,7 @@ public class ListSelectiveStreamReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkArgument(positionCount > 0, "positionCount must be greater than zero");
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (!rowGroupOpen) {
@@ -369,7 +370,7 @@ public class ListSelectiveStreamReader
             listFilter.populateElementFilters(outputPositionCount, nulls, elementLengths, elementPositionCount);
         }
 
-        if (elementStreamReader != null) {
+        if (elementStreamReader != null && elementPositionCount > 0) {
             elementStreamReader.read(elementReadOffset, elementPositions, elementPositionCount);
         }
         elementReadOffset += elementPositionCount + skippedElements;
