@@ -38,11 +38,12 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
@@ -52,7 +53,6 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStr
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
@@ -99,7 +99,6 @@ public class StructSelectiveStreamReader
             AggregatedMemoryContext systemMemoryContext)
     {
         checkArgument(filters.keySet().stream().map(Subfield::getPath).allMatch(List::isEmpty), "filters on nested columns are not supported yet");
-        checkArgument(requiredSubfields.isEmpty(), "requiredSubfields are not supported yet");
 
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null").newLocalMemoryContext(StructSelectiveStreamReader.class.getSimpleName());
@@ -113,13 +112,34 @@ public class StructSelectiveStreamReader
         Optional<List<Type>> nestedTypes = outputType.map(type -> type.getTypeParameters());
         List<StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams();
 
+        Optional<Map<String, List<Subfield>>> requiredFields = getRequiredFields(requiredSubfields);
+
         // TODO streamDescriptor may be missing some fields (due to schema evolution, e.g. add field?)
         // TODO fields in streamDescriptor may be out of order (due to schema evolution, e.g. remove field?)
-        this.nestedReaders = IntStream.range(0, nestedStreams.size())
-                .boxed()
-                .collect(toImmutableMap(
-                        i -> nestedStreams.get(i).getFieldName().toLowerCase(Locale.ENGLISH),
-                        i -> SelectiveStreamReaders.createStreamReader(nestedStreams.get(i), ImmutableMap.of(), nestedTypes.map(types -> types.get(i)), ImmutableList.of(), hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext())));
+
+        ImmutableMap.Builder<String, SelectiveStreamReader> nestedReaders = ImmutableMap.builder();
+        for (int i = 0; i < nestedStreams.size(); i++) {
+            StreamDescriptor nestedStream = nestedStreams.get(i);
+            String fieldName = nestedStream.getFieldName().toLowerCase(Locale.ENGLISH);
+            Optional<Type> fieldOutputType = nestedTypes.isPresent() ? Optional.of(nestedTypes.get().get(i)) : Optional.empty();
+            boolean requiredField = requiredFields.map(names -> names.containsKey(fieldName)).orElse(true);
+
+            if (requiredField) {
+                List<Subfield> nestedRequiredSubfields = requiredFields.map(names -> names.get(fieldName)).orElse(ImmutableList.of());
+                SelectiveStreamReader nestedReader = SelectiveStreamReaders.createStreamReader(
+                        nestedStream,
+                        ImmutableMap.of(),
+                        fieldOutputType,
+                        nestedRequiredSubfields,
+                        hiveStorageTimeZone,
+                        systemMemoryContext.newAggregatedMemoryContext());
+                nestedReaders.put(fieldName, nestedReader);
+            }
+            else {
+                nestedReaders.put(fieldName, new PruningStreamReader(nestedStream, fieldOutputType));
+            }
+        }
+        this.nestedReaders = nestedReaders.build();
     }
 
     @Override
@@ -476,5 +496,104 @@ public class StructSelectiveStreamReader
         TupleDomainFilter filter = Iterables.getOnlyElement(topLevelFilters.values());
         checkArgument(filter == IS_NULL || filter == IS_NOT_NULL, "Top-level range filter on ROW column must be IS NULL or IS NOT NULL");
         return Optional.of(filter);
+    }
+
+    private static Optional<Map<String, List<Subfield>>> getRequiredFields(List<Subfield> requiredSubfields)
+    {
+        if (requiredSubfields.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Map<String, List<Subfield>> fields = new HashMap<>();
+        for (Subfield subfield : requiredSubfields) {
+            List<Subfield.PathElement> path = subfield.getPath();
+            String name = ((Subfield.NestedField) path.get(0)).getName();
+            fields.computeIfAbsent(name, k -> new ArrayList<>());
+            if (path.size() > 1) {
+                fields.get(name).add(new Subfield("c", path.subList(1, path.size())));
+            }
+        }
+
+        return Optional.of(ImmutableMap.copyOf(fields));
+    }
+
+    private static final class PruningStreamReader
+            implements SelectiveStreamReader
+    {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(PruningStreamReader.class).instanceSize();
+
+        private final StreamDescriptor streamDescriptor;
+        @Nullable
+        private final Type outputType;
+        private int[] outputPositions;
+        private int outputPositionCount;
+
+        private PruningStreamReader(StreamDescriptor streamDescriptor, Optional<Type> outputType)
+        {
+            this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
+            this.outputType = requireNonNull(outputType, "outputType is null").orElse(null);
+        }
+
+        @Override
+        public int read(int offset, int[] positions, int positionCount)
+        {
+            outputPositions = positions;
+            outputPositionCount = positionCount;
+            return outputPositionCount;
+        }
+
+        @Override
+        public int[] getReadPositions()
+        {
+            return outputPositions;
+        }
+
+        @Override
+        public Block getBlock(int[] positions, int positionCount)
+        {
+            checkState(outputType != null, "This stream reader doesn't produce output");
+            return createNullBlock(outputType, positionCount);
+        }
+
+        @Override
+        public BlockLease getBlockView(int[] positions, int positionCount)
+        {
+            checkState(outputType != null, "This stream reader doesn't produce output");
+            return ClosingBlockLease.newLease(createNullBlock(outputType, positionCount));
+        }
+
+        @Override
+        public void throwAnyError(int[] positions, int positionCount)
+        {
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .addValue(streamDescriptor)
+                    .toString();
+        }
+
+        @Override
+        public void close()
+        {
+        }
+
+        @Override
+        public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+        {
+        }
+
+        @Override
+        public void startRowGroup(InputStreamSources dataStreamSources)
+        {
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(outputPositions);
+        }
     }
 }

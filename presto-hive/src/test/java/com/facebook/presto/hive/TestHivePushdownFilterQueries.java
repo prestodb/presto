@@ -67,7 +67,7 @@ public class TestHivePushdownFilterQueries
             throws Exception
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables(),
-                ImmutableMap.of(),
+                ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true"),
                 Optional.empty());
