@@ -88,6 +88,8 @@ public class LongDirectSelectiveStreamReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkArgument(positionCount > 0, "positionCount must be greater than zero");
+
         if (!rowGroupOpen) {
             openRowGroup();
         }
