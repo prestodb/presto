@@ -18,7 +18,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -474,35 +473,6 @@ public class TestHivePushdownFilterQueries
         Session session = getQueryRunner().getDefaultSession();
         assertQuerySucceeds(session, "SELECT linenumber, \"$path\" FROM lineitem");
         assertQuerySucceeds(session, "SELECT linenumber, \"$path\" FROM lineitem WHERE length(\"$path\") % 2 = linenumber % 2");
-    }
-
-    //TODO add a correctness check for the results and move this test to TestOrcSelectiveReader
-    @Test
-    public void testArraysOfNulls()
-    {
-        getQueryRunner().execute("CREATE TABLE test_arrays_of_nulls AS " +
-                "SELECT orderkey, linenumber, " +
-                "   CAST(ARRAY[null, null, null] AS ARRAY(BIGINT)) bigints, " +
-                "   CAST(ARRAY[null, null, null] AS ARRAY(INTEGER)) integers, " +
-                "   CAST(ARRAY[null, null, null] AS ARRAY(SMALLINT)) smallints, " +
-                "   CAST(ARRAY[null, null, null] AS ARRAY(TINYINT)) tinyints, " +
-                "   CAST(ARRAY[null, null, null] AS ARRAY(BOOLEAN)) booleans, " +
-                "   CAST(ARRAY[null, null, null] AS ARRAY(TIMESTAMP)) timestamps, " +
-                "   CAST(ARRAY[null, null, null] AS ARRAY(REAL)) floats, " +
-                "   CAST(ARRAY[null, null, null] AS ARRAY(DOUBLE)) doubles " +
-                "FROM lineitem");
-
-        List<String> columnNames = ImmutableList.of(
-                "bigints", "integers", "tinyints", "smallints", "booleans", "floats", "doubles");
-        try {
-            for (String columnName : columnNames) {
-                assertQuerySucceeds(getSession(), format("SELECT count(*) FROM test_arrays_of_nulls WHERE %s[1] IS NOT NULL", columnName));
-                assertQuerySucceeds(getSession(), format("SELECT count(*) FROM test_arrays_of_nulls WHERE %s[1] IS NULL", columnName));
-            }
-        }
-        finally {
-            getQueryRunner().execute("DROP TABLE test_arrays_of_nulls");
-        }
     }
 
     private void assertQueryUsingH2Cte(String query)
