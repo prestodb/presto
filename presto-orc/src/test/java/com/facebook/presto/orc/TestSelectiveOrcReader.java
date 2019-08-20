@@ -38,6 +38,7 @@ import java.util.Random;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.orc.OrcTester.arrayType;
 import static com.facebook.presto.orc.OrcTester.quickSelectiveOrcTester;
 import static com.facebook.presto.orc.OrcTester.rowType;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
@@ -237,6 +238,29 @@ public class TestSelectiveOrcReader
                                 1, FloatRange.of(3.0f, false, true, 9.0f, false, true, false)),
                         ImmutableMap.of(
                                 1, FloatRange.of(1.0f, false, true, 7.0f, false, true, true))));
+    }
+
+    @Test
+    public void testArrays()
+            throws Exception
+    {
+        Random random = new Random(0);
+
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(INTEGER)),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).boxed().map(i -> random.nextInt()).collect(toImmutableList()),
+                        IntStream.range(0, 30_000).boxed().map(i -> IntStream.range(0, random.nextInt(10)).map(j -> j + i).boxed().collect(toImmutableList())).collect(toImmutableList())),
+                ImmutableList.of(
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
+                        ImmutableMap.of(1, IS_NULL),
+                        ImmutableMap.of(1, IS_NOT_NULL)));
+
+        tester.testRoundTripTypes(ImmutableList.of(arrayType(INTEGER), INTEGER),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).boxed().map(i -> i % 7 == 0 ? null : IntStream.range(0, random.nextInt(10)).map(j -> j + i).boxed().collect(toImmutableList())).collect(toList()),
+                        IntStream.range(0, 30_000).boxed().map(i -> i % 11 == 0 ? null : random.nextInt()).collect(toList())),
+                ImmutableList.of(
+                        ImmutableMap.of(0, IS_NOT_NULL, 1, IS_NULL)));
     }
 
     @Test

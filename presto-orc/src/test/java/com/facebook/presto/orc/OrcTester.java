@@ -1604,7 +1604,7 @@ public class OrcTester
         return baseTypes.contains(testBaseType);
     }
 
-    private static Type arrayType(Type elementType)
+    public static Type arrayType(Type elementType)
     {
         return TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
     }
