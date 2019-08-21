@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Multimap;
 

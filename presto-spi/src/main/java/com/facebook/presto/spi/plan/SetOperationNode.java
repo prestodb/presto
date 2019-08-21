@@ -11,10 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,7 +31,7 @@ import static java.util.stream.Collectors.toMap;
 
 @Immutable
 public abstract class SetOperationNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final List<PlanNode> sources;
     private final Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs;

@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.ExceptNode;
+import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.PlanVisitor;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 
 public abstract class InternalPlanVisitor<R, C>

@@ -44,4 +44,19 @@ public abstract class PlanVisitor<R, C>
     {
         return visitPlan(node, context);
     }
+
+    public R visitExcept(ExceptNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitIntersect(IntersectNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitUnion(UnionNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }
