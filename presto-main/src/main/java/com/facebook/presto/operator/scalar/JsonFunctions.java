@@ -33,6 +33,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Doubles;
+import com.jayway.jsonpath.PathNotFoundException;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -60,6 +61,7 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class JsonFunctions
 {
@@ -70,6 +72,8 @@ public final class JsonFunctions
             .disable(CANONICALIZE_FIELD_NAMES);
 
     private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+
+    private static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
 
     private JsonFunctions() {}
 
@@ -458,12 +462,40 @@ public final class JsonFunctions
         return JsonExtract.extract(json, jsonPath.getObjectExtractor());
     }
 
+    @ScalarFunction(value = "json_extract_jayway", hidden = true)
+    @LiteralParameters({"x", "y"})
+    @SqlNullable
+    @SqlType(StandardTypes.JSON)
+    public static Slice varcharJsonExtractJayway(@SqlType("varchar(x)") Slice json, @SqlType("varchar(y)") Slice jsonPath)
+            throws IOException
+    {
+        // handle null jsons the same way as current json_extract implementation
+        requireNonNull(json, "json is null");
+        try (DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE)) {
+            Object obj = com.jayway.jsonpath.JsonPath.read(json.getInput(), jsonPath.toStringUtf8());
+            SORTED_MAPPER.writeValue((OutputStream) dynamicSliceOutput, obj);
+            return dynamicSliceOutput.slice();
+        }
+        catch (PathNotFoundException e) {
+            return null;
+        }
+    }
+
     @ScalarFunction
     @SqlNullable
     @SqlType(StandardTypes.JSON)
     public static Slice jsonExtract(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
         return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+    }
+
+    @ScalarFunction
+    @SqlNullable
+    @SqlType(StandardTypes.JSON)
+    public static Slice jsonExtractJayway(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.VARCHAR) Slice jsonPath)
+            throws IOException
+    {
+        return varcharJsonExtractJayway(json, jsonPath);
     }
 
     @ScalarFunction("json_size")
