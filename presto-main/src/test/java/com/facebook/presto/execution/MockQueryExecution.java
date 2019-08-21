@@ -20,7 +20,6 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,9 +41,10 @@ import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -52,37 +52,41 @@ public class MockQueryExecution
         implements QueryExecution
 {
     private final List<StateChangeListener<QueryState>> listeners = new ArrayList<>();
-    private final DataSize memoryUsage;
-    private final Duration cpuUsage;
     private final Session session;
-    private final QueryId queryId;
+
+    private DataSize memoryUsage;
+    private Duration cpuUsage;
     private QueryState state = QUEUED;
     private Throwable failureCause;
-    private Optional<ResourceGroupId> resourceGroupId;
 
-    public MockQueryExecution(long memoryUsage)
+    private MockQueryExecution(String queryId, int priority, DataSize memoryUsage, Duration cpuUsage)
     {
-        this(memoryUsage, "query_id", 1);
-    }
-
-    public MockQueryExecution(long memoryUsage, String queryId, int priority)
-    {
-        this(memoryUsage, queryId, priority, new Duration(0, MILLISECONDS));
-    }
-
-    public MockQueryExecution(long memoryUsage, String queryId, int priority, Duration cpuUsage)
-    {
-        this.memoryUsage = succinctBytes(memoryUsage);
-        this.cpuUsage = cpuUsage;
+        requireNonNull(queryId, "queryId is null");
         this.session = testSessionBuilder()
+                .setQueryId(QueryId.valueOf(queryId))
                 .setSystemProperty(QUERY_PRIORITY, String.valueOf(priority))
                 .build();
-        this.resourceGroupId = Optional.empty();
-        this.queryId = new QueryId(queryId);
+
+        this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
+        this.cpuUsage = requireNonNull(cpuUsage, "cpuUsage is null");
+    }
+
+    public void consumeCpuTime(Duration cpuTimeDelta)
+    {
+        checkState(state == RUNNING, "cannot consume CPU in a non-running state");
+        long newCpuTime = cpuUsage.toMillis() + cpuTimeDelta.toMillis();
+        this.cpuUsage = new Duration(newCpuTime, MILLISECONDS);
+    }
+
+    public void setMemoryUsage(DataSize memoryUsage)
+    {
+        checkState(state == RUNNING, "cannot set memory usage in a non-running state");
+        this.memoryUsage = memoryUsage;
     }
 
     public void complete()
     {
+        memoryUsage = new DataSize(0, BYTE);
         state = FINISHED;
         fireStateChange();
     }
@@ -90,7 +94,7 @@ public class MockQueryExecution
     @Override
     public QueryId getQueryId()
     {
-        return queryId;
+        return session.getQueryId();
     }
 
     @Override
@@ -299,6 +303,7 @@ public class MockQueryExecution
     @Override
     public void fail(Throwable cause)
     {
+        memoryUsage = new DataSize(0, BYTE);
         state = FAILED;
         failureCause = cause;
         fireStateChange();
@@ -349,6 +354,45 @@ public class MockQueryExecution
     {
         for (StateChangeListener<QueryState> listener : listeners) {
             listener.stateChanged(state);
+        }
+    }
+
+    public static class MockQueryExecutionBuilder
+    {
+        private DataSize memoryUsage = new DataSize(0, BYTE);
+        private Duration cpuUsage = new Duration(0, MILLISECONDS);
+        private int priority = 1;
+        private String queryId = "query_id";
+
+        public MockQueryExecutionBuilder() {}
+
+        public MockQueryExecutionBuilder withInitialMemoryUsage(DataSize memoryUsage)
+        {
+            this.memoryUsage = memoryUsage;
+            return this;
+        }
+
+        public MockQueryExecutionBuilder withInitialCpuUsage(Duration cpuUsage)
+        {
+            this.cpuUsage = cpuUsage;
+            return this;
+        }
+
+        public MockQueryExecutionBuilder withPriority(int priority)
+        {
+            this.priority = priority;
+            return this;
+        }
+
+        public MockQueryExecutionBuilder withQueryId(String queryId)
+        {
+            this.queryId = queryId;
+            return this;
+        }
+
+        public MockQueryExecution build()
+        {
+            return new MockQueryExecution(queryId, priority, memoryUsage, cpuUsage);
         }
     }
 }

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupState;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 
@@ -43,6 +44,7 @@ public class ResourceGroupInfo
     private final int maxQueuedQueries;
 
     private final DataSize memoryUsage;
+    private final Duration cpuUsage;
     private final int numQueuedQueries;
     private final int numRunningQueries;
     private final int numEligibleSubGroups;
@@ -64,6 +66,7 @@ public class ResourceGroupInfo
             int maxQueuedQueries,
 
             DataSize memoryUsage,
+            Duration cpuUsage,
             int numQueuedQueries,
             int numRunningQueries,
             int numEligibleSubGroups,
@@ -85,6 +88,7 @@ public class ResourceGroupInfo
         this.maxQueuedQueries = maxQueuedQueries;
 
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
+        this.cpuUsage = requireNonNull(cpuUsage, "cpuUsage is null");
         this.numQueuedQueries = numQueuedQueries;
         this.numRunningQueries = numRunningQueries;
         this.numEligibleSubGroups = numEligibleSubGroups;
@@ -128,6 +132,12 @@ public class ResourceGroupInfo
     public DataSize getMemoryUsage()
     {
         return memoryUsage;
+    }
+
+    @JsonProperty
+    public Duration getCpuUsage()
+    {
+        return cpuUsage;
     }
 
     @JsonProperty

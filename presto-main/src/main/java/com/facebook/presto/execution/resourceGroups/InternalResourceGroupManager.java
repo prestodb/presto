@@ -206,7 +206,7 @@ public final class InternalResourceGroupManager<C>
                 log.error(e, "Exception while generation cpu quota for %s", group);
             }
             try {
-                group.processQueuedQueries();
+                group.updateGroupsAndProcessQueuedQueries();
             }
             catch (RuntimeException e) {
                 log.error(e, "Exception while processing queued queries for %s", group);

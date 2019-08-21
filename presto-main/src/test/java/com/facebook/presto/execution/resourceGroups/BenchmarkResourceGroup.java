@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.MockQueryExecution;
+import com.facebook.presto.execution.MockQueryExecution.MockQueryExecutionBuilder;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -37,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -51,7 +53,7 @@ public class BenchmarkResourceGroup
     @Benchmark
     public Object benchmark(BenchmarkData data)
     {
-        data.getRoot().processQueuedQueries();
+        data.getRoot().updateGroupsAndProcessQueuedQueries();
         return data.getRoot();
     }
 
@@ -83,7 +85,10 @@ public class BenchmarkResourceGroup
                 group.setHardConcurrencyLimit(queries);
             }
             for (int i = 0; i < queries; i++) {
-                group.run(new MockQueryExecution(10));
+                MockQueryExecution query = new MockQueryExecutionBuilder()
+                        .withInitialMemoryUsage(new DataSize(10, BYTE))
+                        .build();
+                group.run(query);
             }
         }
 
