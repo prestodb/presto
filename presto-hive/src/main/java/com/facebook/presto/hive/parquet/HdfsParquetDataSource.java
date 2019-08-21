@@ -34,16 +34,14 @@ public class HdfsParquetDataSource
         implements ParquetDataSource
 {
     private final ParquetDataSourceId id;
-    private final long size;
     private final FSDataInputStream inputStream;
     private long readTimeNanos;
     private long readBytes;
     private final FileFormatDataSourceStats stats;
 
-    public HdfsParquetDataSource(ParquetDataSourceId id, long size, FSDataInputStream inputStream, FileFormatDataSourceStats stats)
+    public HdfsParquetDataSource(ParquetDataSourceId id, FSDataInputStream inputStream, FileFormatDataSourceStats stats)
     {
         this.id = requireNonNull(id, "id is null");
-        this.size = size;
         this.inputStream = inputStream;
         this.stats = stats;
     }
@@ -64,12 +62,6 @@ public class HdfsParquetDataSource
     public long getReadTimeNanos()
     {
         return readTimeNanos;
-    }
-
-    @Override
-    public final long getSize()
-    {
-        return size;
     }
 
     @Override
@@ -112,11 +104,11 @@ public class HdfsParquetDataSource
         }
     }
 
-    public static HdfsParquetDataSource buildHdfsParquetDataSource(FileSystem fileSystem, Path path, long start, long length, long fileSize, FileFormatDataSourceStats stats)
+    public static HdfsParquetDataSource buildHdfsParquetDataSource(FileSystem fileSystem, Path path, long start, long length, FileFormatDataSourceStats stats)
     {
         try {
             FSDataInputStream inputStream = fileSystem.open(path);
-            return new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream, stats);
+            return new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), inputStream, stats);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
@@ -127,8 +119,8 @@ public class HdfsParquetDataSource
         }
     }
 
-    public static HdfsParquetDataSource buildHdfsParquetDataSource(FSDataInputStream inputStream, Path path, long fileSize, FileFormatDataSourceStats stats)
+    public static HdfsParquetDataSource buildHdfsParquetDataSource(FSDataInputStream inputStream, Path path, FileFormatDataSourceStats stats)
     {
-        return new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream, stats);
+        return new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), inputStream, stats);
     }
 }
