@@ -18,13 +18,12 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
-import com.mysql.jdbc.Driver;
-
-import java.sql.SQLException;
-import java.util.Properties;
+import com.mysql.cj.conf.ConnectionUrlParser;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.mysql.cj.conf.ConnectionUrlParser.isConnectionStringSupported;
+import static com.mysql.cj.conf.ConnectionUrlParser.parseConnectionString;
 
 public class MySqlClientModule
         extends AbstractConfigurationAwareModule
@@ -39,14 +38,8 @@ public class MySqlClientModule
 
     private static void ensureCatalogIsEmpty(String connectionUrl)
     {
-        try {
-            Driver driver = new Driver();
-            Properties urlProperties = driver.parseURL(connectionUrl, null);
-            checkArgument(urlProperties != null, "Invalid JDBC URL for MySQL connector");
-            checkArgument(driver.database(urlProperties) == null, "Database (catalog) must not be specified in JDBC URL for MySQL connector");
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        checkArgument(isConnectionStringSupported(connectionUrl), "Invalid JDBC URL for MySQL connector");
+        ConnectionUrlParser parser = parseConnectionString(connectionUrl);
+        checkArgument(parser.getPath() == null || parser.getPath().isEmpty(), "Database (catalog) must not be specified in JDBC URL for MySQL connector");
     }
 }

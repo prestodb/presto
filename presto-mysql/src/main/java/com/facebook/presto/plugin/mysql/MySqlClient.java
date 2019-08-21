@@ -28,8 +28,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableSet;
-import com.mysql.jdbc.Driver;
-import com.mysql.jdbc.Statement;
+import com.mysql.cj.jdbc.Driver;
+import com.mysql.cj.jdbc.JdbcStatement;
 
 import javax.inject.Inject;
 
@@ -53,8 +53,8 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.mysql.jdbc.SQLError.SQL_STATE_ER_TABLE_EXISTS_ERROR;
-import static com.mysql.jdbc.SQLError.SQL_STATE_SYNTAX_ERROR;
+import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_ER_TABLE_EXISTS_ERROR;
+import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_SYNTAX_ERROR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -122,8 +122,8 @@ public class MySqlClient
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        if (statement.isWrapperFor(Statement.class)) {
-            statement.unwrap(Statement.class).enableStreamingResults();
+        if (statement.isWrapperFor(JdbcStatement.class)) {
+            statement.unwrap(JdbcStatement.class).enableStreamingResults();
         }
         return statement;
     }

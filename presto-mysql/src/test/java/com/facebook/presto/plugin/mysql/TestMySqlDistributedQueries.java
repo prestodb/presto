@@ -14,13 +14,11 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.mysql.MySqlOptions;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -30,22 +28,17 @@ import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQuery
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Test
 public class TestMySqlDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
-            .setCommandTimeout(new Duration(90, SECONDS))
-            .build();
-
     private final TestingMySqlServer mysqlServer;
 
     public TestMySqlDistributedQueries()
             throws Exception
     {
-        this(new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch"), MY_SQL_OPTIONS));
+        this(new TestingMySqlServer("testuser", "testpass", ImmutableList.of("tpch")));
     }
 
     public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)

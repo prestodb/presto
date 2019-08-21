@@ -82,7 +82,7 @@ databases:
 
   mysql:
     jdbc_driver_class: com.mysql.jdbc.Driver
-    jdbc_url: jdbc:mysql://mysql:13306/test
+    jdbc_url: jdbc:mysql://mysql:13306/test?serverTimezone=Asia/Kathmandu
     jdbc_user: root
     jdbc_password: swarm
     jdbc_pooling: true

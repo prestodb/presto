@@ -13,3 +13,4 @@ services:
       MYSQL_PASSWORD: swarm
       MYSQL_ROOT_PASSWORD: swarm
       MYSQL_DATABASE: test
+      TZ: Asia/Kathmandu

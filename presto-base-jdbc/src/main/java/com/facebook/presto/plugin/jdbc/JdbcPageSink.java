@@ -32,6 +32,7 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -161,7 +162,7 @@ public class JdbcPageSink
             // convert to midnight in default time zone
             long utcMillis = DAYS.toMillis(type.getLong(block, position));
             long localMillis = getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
-            statement.setDate(parameter, new Date(localMillis));
+            statement.setDate(parameter, new Date(localMillis), Calendar.getInstance());
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

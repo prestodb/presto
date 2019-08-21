@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.util;
 
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Throwables;
+import com.mysql.cj.jdbc.JdbcStatement;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
@@ -34,7 +35,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_METADATA_ERROR;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.reflect.Reflection.newProxy;
-import static com.mysql.jdbc.MysqlErrorNumbers.ER_TRANS_CACHE_FULL;
+import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_TRANS_CACHE_FULL;
 import static java.sql.Types.INTEGER;
 import static java.util.Objects.requireNonNull;
 
@@ -109,8 +110,8 @@ public final class DatabaseUtil
     public static void enableStreamingResults(Statement statement)
             throws SQLException
     {
-        if (statement.isWrapperFor(com.mysql.jdbc.Statement.class)) {
-            statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
+        if (statement.isWrapperFor(JdbcStatement.class)) {
+            statement.unwrap(JdbcStatement.class).enableStreamingResults();
         }
     }
 
