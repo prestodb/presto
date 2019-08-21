@@ -58,6 +58,7 @@ import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullVariables;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.outputMap;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Predicates.in;
@@ -224,7 +225,7 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitUnion(UnionNode node, Void context)
         {
-            return deriveCommonPredicates(node, source -> Multimaps.transformValues(node.outputMap(source), variable -> new SymbolReference(variable.getName())).entries());
+            return deriveCommonPredicates(node, source -> Multimaps.transformValues(outputMap(node, source), variable -> new SymbolReference(variable.getName())).entries());
         }
 
         @Override

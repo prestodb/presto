@@ -30,9 +30,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
 
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.Multimaps.asMap;
 import static java.util.Objects.requireNonNull;
 
 public class SetFlatteningOptimizer
@@ -67,7 +68,7 @@ public class SetFlatteningOptimizer
             ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> flattenedVariableMap = ImmutableListMultimap.builder();
             flattenSetOperation(node, context, flattenedSources, flattenedVariableMap);
 
-            return new UnionNode(node.getId(), flattenedSources.build(), flattenedVariableMap.build());
+            return new UnionNode(node.getId(), flattenedSources.build(), asMap(flattenedVariableMap.build()));
         }
 
         @Override
@@ -77,7 +78,7 @@ public class SetFlatteningOptimizer
             ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> flattenedVariableMap = ImmutableListMultimap.builder();
             flattenSetOperation(node, context, flattenedSources, flattenedVariableMap);
 
-            return new IntersectNode(node.getId(), flattenedSources.build(), flattenedVariableMap.build());
+            return new IntersectNode(node.getId(), flattenedSources.build(), asMap(flattenedVariableMap.build()));
         }
 
         @Override
@@ -87,7 +88,7 @@ public class SetFlatteningOptimizer
             ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> flattenedVariableMap = ImmutableListMultimap.builder();
             flattenSetOperation(node, context, flattenedSources, flattenedVariableMap);
 
-            return new ExceptNode(node.getId(), flattenedSources.build(), flattenedVariableMap.build());
+            return new ExceptNode(node.getId(), flattenedSources.build(), asMap(flattenedVariableMap.build()));
         }
 
         private static void flattenSetOperation(
@@ -105,14 +106,14 @@ public class SetFlatteningOptimizer
                     // ExceptNodes can only flatten their first source because except is not associative
                     SetOperationNode rewrittenSetOperation = (SetOperationNode) rewrittenSource;
                     flattenedSources.addAll(rewrittenSetOperation.getSources());
-                    for (Map.Entry<VariableReferenceExpression, Collection<VariableReferenceExpression>> entry : node.getVariableMapping().asMap().entrySet()) {
+                    for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getVariableMapping().entrySet()) {
                         VariableReferenceExpression inputVariable = Iterables.get(entry.getValue(), i);
                         flattenedSymbolMap.putAll(entry.getKey(), rewrittenSetOperation.getVariableMapping().get(inputVariable));
                     }
                 }
                 else {
                     flattenedSources.add(rewrittenSource);
-                    for (Map.Entry<VariableReferenceExpression, Collection<VariableReferenceExpression>> entry : node.getVariableMapping().asMap().entrySet()) {
+                    for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getVariableMapping().entrySet()) {
                         flattenedSymbolMap.put(entry.getKey(), Iterables.get(entry.getValue(), i));
                     }
                 }

@@ -346,7 +346,7 @@ public class PushdownSubfields
         @Override
         public PlanNode visitUnion(UnionNode node, RewriteContext<Context> context)
         {
-            for (Map.Entry<VariableReferenceExpression, Collection<VariableReferenceExpression>> entry : node.getVariableMapping().asMap().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : node.getVariableMapping().entrySet()) {
                 entry.getValue().forEach(variable -> context.get().addAssignment(entry.getKey(), variable));
             }
 

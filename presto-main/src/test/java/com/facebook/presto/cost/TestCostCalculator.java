@@ -91,6 +91,7 @@ import static com.facebook.presto.transaction.InMemoryTransactionManager.createT
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Multimaps.asMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -509,7 +510,7 @@ public class TestCostCalculator
         ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputMappings = ImmutableListMultimap.builder();
         outputMappings.put(new VariableReferenceExpression("orderkey_1", BIGINT), new VariableReferenceExpression("orderkey", BIGINT));
         outputMappings.put(new VariableReferenceExpression("orderkey_1", BIGINT), new VariableReferenceExpression("orderkey_0", BIGINT));
-        UnionNode union = new UnionNode(new PlanNodeId("union"), ImmutableList.of(ts1, ts2), outputMappings.build());
+        UnionNode union = new UnionNode(new PlanNodeId("union"), ImmutableList.of(ts1, ts2), asMap(outputMappings.build()));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "ts1", statsEstimate(ts1, 4000),
                 "ts2", statsEstimate(ts2, 1000),

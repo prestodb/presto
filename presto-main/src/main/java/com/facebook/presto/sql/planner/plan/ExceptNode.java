@@ -17,11 +17,11 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ListMultimap;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Map;
 
 @Immutable
 public class ExceptNode
@@ -30,7 +30,7 @@ public class ExceptNode
     public ExceptNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
-            @JsonProperty("outputToInputs") ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputToInputs)
+            @JsonProperty("outputToInputs") Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs)
     {
         super(id, sources, outputToInputs);
     }

@@ -77,6 +77,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.extractAggregationUniqueVariables;
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.sourceOutputLayout;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -626,7 +627,7 @@ public final class ValidateDependenciesChecker
         {
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanNode subplan = node.getSources().get(i);
-                checkDependencies(subplan.getOutputVariables(), node.sourceOutputLayout(i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
+                checkDependencies(subplan.getOutputVariables(), sourceOutputLayout(node, i), "%s subplan must provide all of the necessary symbols", node.getClass().getSimpleName());
                 subplan.accept(this, boundVariables); // visit child
             }
 

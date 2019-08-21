@@ -110,6 +110,7 @@ import static com.facebook.presto.util.MoreLists.nElements;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Multimaps.asMap;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 
@@ -723,7 +724,7 @@ public class PlanBuilder
 
     public UnionNode union(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs, List<PlanNode> sources)
     {
-        return new UnionNode(idAllocator.getNextId(), sources, outputsToInputs);
+        return new UnionNode(idAllocator.getNextId(), sources, asMap(outputsToInputs));
     }
 
     public TableWriterNode tableWriter(List<VariableReferenceExpression> columns, List<String> columnNames, PlanNode source)

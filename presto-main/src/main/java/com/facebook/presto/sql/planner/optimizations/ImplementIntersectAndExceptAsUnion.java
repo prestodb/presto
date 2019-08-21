@@ -54,6 +54,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.sourceVariableMap;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
@@ -64,6 +65,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Multimaps.asMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -209,7 +211,7 @@ public class ImplementIntersectAndExceptAsUnion
         {
             ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
             for (int i = 0; i < nodes.size(); i++) {
-                result.add(appendMarkers(nodes.get(i), i, markers, Maps.transformValues(node.sourceVariableMap(i), variable -> new SymbolReference(variable.getName()))));
+                result.add(appendMarkers(nodes.get(i), i, markers, Maps.transformValues(sourceVariableMap(node, i), variable -> new SymbolReference(variable.getName()))));
             }
             return result.build();
         }
@@ -241,7 +243,7 @@ public class ImplementIntersectAndExceptAsUnion
                 }
             }
 
-            return new UnionNode(idAllocator.getNextId(), nodes, outputsToInputs.build());
+            return new UnionNode(idAllocator.getNextId(), nodes, asMap(outputsToInputs.build()));
         }
 
         private AggregationNode computeCounts(UnionNode sourceNode, List<VariableReferenceExpression> originalColumns, List<VariableReferenceExpression> markers, List<VariableReferenceExpression> aggregationOutputs)

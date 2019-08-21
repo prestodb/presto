@@ -68,6 +68,7 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UN
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.google.common.collect.Multimaps.asMap;
 
 public class TestTypeValidator
 {
@@ -145,7 +146,7 @@ public class TestTypeValidator
         PlanNode node = new UnionNode(
                 newId(),
                 ImmutableList.of(baseTableScan, baseTableScan),
-                mappings);
+                asMap(mappings));
 
         assertTypesValid(node);
     }
@@ -365,7 +366,7 @@ public class TestTypeValidator
         PlanNode node = new UnionNode(
                 newId(),
                 ImmutableList.of(baseTableScan, baseTableScan),
-                mappings);
+                asMap(mappings));
 
         assertTypesValid(node);
     }

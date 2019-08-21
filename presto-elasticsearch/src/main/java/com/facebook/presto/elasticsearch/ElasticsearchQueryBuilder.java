@@ -42,8 +42,6 @@ import java.util.Set;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchClient.createTransportClient;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
-import static com.facebook.presto.spi.predicate.Marker.Bound.ABOVE;
-import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;

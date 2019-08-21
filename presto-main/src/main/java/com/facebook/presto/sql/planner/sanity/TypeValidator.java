@@ -36,7 +36,6 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.collect.ListMultimap;
 
 import java.util.List;
 import java.util.Map;
@@ -143,7 +142,7 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> variableMapping = node.getVariableMapping();
+            Map<VariableReferenceExpression, List<VariableReferenceExpression>> variableMapping = node.getVariableMapping();
             for (VariableReferenceExpression keyVariable : variableMapping.keySet()) {
                 List<VariableReferenceExpression> valueVariables = variableMapping.get(keyVariable);
                 for (VariableReferenceExpression valueVariable : valueVariables) {

@@ -83,6 +83,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Multimaps.asMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.concat;
 
@@ -574,7 +575,8 @@ public class HashGenerationOptimizer
 
             // add hash variables to sources
             ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> newVariableMapping = ImmutableListMultimap.builder();
-            newVariableMapping.putAll(node.getVariableMapping());
+            node.getVariableMapping().entrySet()
+                    .forEach(entry -> newVariableMapping.putAll(entry.getKey(), entry.getValue()));
             ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
             for (int sourceId = 0; sourceId < node.getSources().size(); sourceId++) {
                 // translate preference to input variables
@@ -599,7 +601,7 @@ public class HashGenerationOptimizer
                     new UnionNode(
                             node.getId(),
                             newSources.build(),
-                            newVariableMapping.build()),
+                            asMap(newVariableMapping.build())),
                     newHashVariables);
         }
 

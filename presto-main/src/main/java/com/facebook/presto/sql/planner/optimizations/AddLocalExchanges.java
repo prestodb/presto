@@ -69,6 +69,7 @@ import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.sourceOutputLayout;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.any;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn;
@@ -524,7 +525,7 @@ public class AddLocalExchanges
 
             List<List<VariableReferenceExpression>> inputLayouts = new ArrayList<>(sources.size());
             for (int i = 0; i < sources.size(); i++) {
-                inputLayouts.add(node.sourceOutputLayout(i));
+                inputLayouts.add(sourceOutputLayout(node, i));
             }
 
             if (preferredProperties.isSingleStreamPreferred()) {

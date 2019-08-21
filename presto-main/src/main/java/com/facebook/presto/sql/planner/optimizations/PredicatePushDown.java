@@ -84,6 +84,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.sourceVariableMap;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -349,7 +350,7 @@ public class PredicatePushDown
             boolean modified = false;
             ImmutableList.Builder<PlanNode> builder = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
-                Expression sourcePredicate = inlineVariables(Maps.transformValues(node.sourceVariableMap(i), variable -> new SymbolReference(variable.getName())), context.get(), types);
+                Expression sourcePredicate = inlineVariables(Maps.transformValues(sourceVariableMap(node, i), variable -> new SymbolReference(variable.getName())), context.get(), types);
                 PlanNode source = node.getSources().get(i);
                 PlanNode rewrittenSource = context.rewrite(source, sourcePredicate);
                 if (rewrittenSource != source) {

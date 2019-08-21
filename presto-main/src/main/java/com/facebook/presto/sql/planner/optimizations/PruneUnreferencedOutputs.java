@@ -68,7 +68,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
@@ -91,6 +90,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Multimaps.asMap;
 import static com.google.common.collect.Sets.intersection;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -709,7 +709,7 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitUnion(UnionNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
+            Map<VariableReferenceExpression, List<VariableReferenceExpression>> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
             return new UnionNode(node.getId(), rewrittenSubPlans, rewrittenVariableMapping);
         }
@@ -717,7 +717,7 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
+            Map<VariableReferenceExpression, List<VariableReferenceExpression>> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
             return new IntersectNode(node.getId(), rewrittenSubPlans, rewrittenVariableMapping);
         }
@@ -725,12 +725,12 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitExcept(ExceptNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
+            Map<VariableReferenceExpression, List<VariableReferenceExpression>> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
             return new ExceptNode(node.getId(), rewrittenSubPlans, rewrittenVariableMapping);
         }
 
-        private ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewriteSetOperationVariableMapping(SetOperationNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        private Map<VariableReferenceExpression, List<VariableReferenceExpression>> rewriteSetOperationVariableMapping(SetOperationNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             // Find out which output variables we need to keep
             ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMappingBuilder = ImmutableListMultimap.builder();
@@ -741,16 +741,16 @@ public class PruneUnreferencedOutputs
                             node.getVariableMapping().get(variable));
                 }
             }
-            return rewrittenVariableMappingBuilder.build();
+            return asMap(rewrittenVariableMappingBuilder.build());
         }
 
-        private ImmutableList<PlanNode> rewriteSetOperationSubPlans(SetOperationNode node, RewriteContext<Set<VariableReferenceExpression>> context, ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping)
+        private ImmutableList<PlanNode> rewriteSetOperationSubPlans(SetOperationNode node, RewriteContext<Set<VariableReferenceExpression>> context, Map<VariableReferenceExpression, List<VariableReferenceExpression>> rewrittenVariableMapping)
         {
             // Find the corresponding input symbol to the remaining output symbols and prune the subplans
             ImmutableList.Builder<PlanNode> rewrittenSubPlans = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
                 ImmutableSet.Builder<VariableReferenceExpression> expectedInputSymbols = ImmutableSet.builder();
-                for (Collection<VariableReferenceExpression> variables : rewrittenVariableMapping.asMap().values()) {
+                for (Collection<VariableReferenceExpression> variables : rewrittenVariableMapping.values()) {
                     expectedInputSymbols.add(Iterables.get(variables, i));
                 }
                 rewrittenSubPlans.add(context.rewrite(node.getSources().get(i), expectedInputSymbols.build()));

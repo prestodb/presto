@@ -119,6 +119,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.PickTableLayout.pus
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.sourceOutputLayout;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -135,6 +136,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Multimaps.asMap;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
@@ -1065,7 +1067,7 @@ public class AddExchanges
                 // partitioning, but as this only applies to a union of two values nodes, it isn't worth the added complexity
                 if (child.getProperties().isNodePartitionedOn(childPartitioning.getPartitioningColumns(), nullsAndAnyReplicated) && !child.getProperties().isSingleNode()) {
                     Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> childToParent = createTranslator(createMapping(
-                            node.sourceOutputLayout(sourceIndex),
+                            sourceOutputLayout(node, sourceIndex),
                             node.getOutputVariables()));
                     return child.getProperties().translate(childToParent).getNodePartitioning().get();
                 }
@@ -1092,7 +1094,7 @@ public class AddExchanges
                 for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
                     Partitioning childPartitioning = desiredParentPartitioning.translate(createDirectTranslator(createMapping(
                             node.getOutputVariables(),
-                            node.sourceOutputLayout(sourceIndex))));
+                            sourceOutputLayout(node, sourceIndex))));
 
                     PreferredProperties childPreferred = PreferredProperties.builder()
                             .global(PreferredProperties.Global.distributed(PartitioningProperties.partitioned(childPartitioning)
@@ -1119,13 +1121,13 @@ public class AddExchanges
                     partitionedSources.add(source.getNode());
 
                     for (int column = 0; column < node.getOutputVariables().size(); column++) {
-                        outputToSourcesMapping.put(node.getOutputVariables().get(column), node.sourceOutputLayout(sourceIndex).get(column));
+                        outputToSourcesMapping.put(node.getOutputVariables().get(column), sourceOutputLayout(node, sourceIndex).get(column));
                     }
                 }
                 UnionNode newNode = new UnionNode(
                         node.getId(),
                         partitionedSources.build(),
-                        outputToSourcesMapping.build());
+                        asMap(outputToSourcesMapping.build()));
 
                 return new PlanWithProperties(
                         newNode,
@@ -1151,12 +1153,12 @@ public class AddExchanges
                 PlanWithProperties child = node.getSources().get(i).accept(this, PreferredProperties.any());
                 if (child.getProperties().isSingleNode()) {
                     singleNodeChildren.add(child.getNode());
-                    singleNodeOutputLayouts.add(node.sourceOutputLayout(i));
+                    singleNodeOutputLayouts.add(sourceOutputLayout(node, i));
                 }
                 else {
                     distributedChildren.add(child.getNode());
                     // union may drop or duplicate symbols from the input so we must provide an exact mapping
-                    distributedOutputLayouts.add(node.sourceOutputLayout(i));
+                    distributedOutputLayouts.add(sourceOutputLayout(node, i));
                 }
             }
 
@@ -1210,7 +1212,7 @@ public class AddExchanges
                 }
 
                 // add local union for all unpartitioned inputs
-                result = new UnionNode(node.getId(), singleNodeChildren, mappings.build());
+                result = new UnionNode(node.getId(), singleNodeChildren, asMap(mappings.build()));
             }
             else {
                 throw new IllegalStateException("both singleNodeChildren distributedChildren are empty");

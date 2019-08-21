@@ -37,6 +37,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Multimaps.asMap;
 
 public class PushTableWriteThroughUnion
         implements Rule<TableWriterNode>
@@ -81,7 +82,7 @@ public class PushTableWriteThroughUnion
                 new UnionNode(
                         context.getIdAllocator().getNextId(),
                         rewrittenSources.build(),
-                        unionMappings.build()));
+                        asMap(unionMappings.build())));
     }
 
     private static TableWriterNode rewriteSource(

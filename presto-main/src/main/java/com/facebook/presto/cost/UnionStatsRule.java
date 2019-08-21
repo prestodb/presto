@@ -21,8 +21,9 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.UnionNode;
-import com.google.common.collect.ListMultimap;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndCollapseDistinctValues;
@@ -68,7 +69,7 @@ public class UnionStatsRule
         return estimate;
     }
 
-    private PlanNodeStatsEstimate mapToOutputSymbols(PlanNodeStatsEstimate estimate, ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mapping, int index)
+    private PlanNodeStatsEstimate mapToOutputSymbols(PlanNodeStatsEstimate estimate, Map<VariableReferenceExpression, List<VariableReferenceExpression>> mapping, int index)
     {
         PlanNodeStatsEstimate.Builder mapped = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(estimate.getOutputRowCount());

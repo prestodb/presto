@@ -33,7 +33,6 @@ import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -179,7 +178,7 @@ public class TestPhasedExecutionSchedule
                                 Optional.empty(),
                                 REPARTITION))
                         .collect(toImmutableList()),
-                ImmutableListMultimap.of());
+                ImmutableMap.of());
 
         return createFragment(planNode);
     }

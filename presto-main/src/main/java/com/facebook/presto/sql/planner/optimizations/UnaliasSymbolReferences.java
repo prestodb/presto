@@ -78,11 +78,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -99,6 +97,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpre
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Multimaps.asMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -766,17 +765,17 @@ public class UnaliasSymbolReferences
             return builder.build();
         }
 
-        private ListMultimap<VariableReferenceExpression, VariableReferenceExpression> canonicalizeSetOperationVariableMap(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> setOperationVariableMap)
+        private Map<VariableReferenceExpression, List<VariableReferenceExpression>> canonicalizeSetOperationVariableMap(Map<VariableReferenceExpression, List<VariableReferenceExpression>> setOperationVariableMap)
         {
             ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> builder = ImmutableListMultimap.builder();
             Set<VariableReferenceExpression> addedSymbols = new HashSet<>();
-            for (Map.Entry<VariableReferenceExpression, Collection<VariableReferenceExpression>> entry : setOperationVariableMap.asMap().entrySet()) {
+            for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : setOperationVariableMap.entrySet()) {
                 VariableReferenceExpression canonicalOutputVariable = canonicalize(entry.getKey());
                 if (addedSymbols.add(canonicalOutputVariable)) {
                     builder.putAll(canonicalOutputVariable, Iterables.transform(entry.getValue(), this::canonicalize));
                 }
             }
-            return builder.build();
+            return asMap(builder.build());
         }
     }
 }

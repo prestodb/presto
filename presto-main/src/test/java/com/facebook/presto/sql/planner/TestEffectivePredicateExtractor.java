@@ -84,6 +84,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupin
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.google.common.collect.Multimaps.asMap;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -392,7 +393,7 @@ public class TestEffectivePredicateExtractor
                         filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
                         filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
                         filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))),
-                variableMapping);
+                asMap(variableMapping));
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
