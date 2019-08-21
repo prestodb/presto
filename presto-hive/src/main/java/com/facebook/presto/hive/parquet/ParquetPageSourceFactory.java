@@ -187,7 +187,7 @@ public class ParquetPageSourceFactory
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
-            dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, stats);
+            dataSource = buildHdfsParquetDataSource(inputStream, path, stats);
 
             Optional<MessageType> message = columns.stream()
                     .filter(column -> column.getColumnType() == REGULAR)
