@@ -128,12 +128,19 @@ public final class HiveQueryRunner
                     .put("hive.collect-column-statistics-on-write", "true")
                     .put("hive.temporary-table-schema", TEMPORARY_TABLE_SCHEMA)
                     .build();
+
+            Map<String, String> storageProperties = extraHiveProperties.containsKey("hive.storage-format") ?
+                    ImmutableMap.copyOf(hiveProperties) :
+                    ImmutableMap.<String, String>builder()
+                            .putAll(hiveProperties)
+                            .put("hive.storage-format", "TEXTFILE")
+                            .put("hive.compression-codec", "NONE")
+                            .build();
+
             Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
-                    .putAll(hiveProperties)
+                    .putAll(storageProperties)
                     .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
                     .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
-                    .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
-                    .put("hive.compression-codec", "NONE") // so that the file is splittable
                     .build();
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);

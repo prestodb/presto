@@ -101,7 +101,7 @@ public class ParquetPageSource
             typesBuilder.add(type);
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
-            if (getParquetType(type, fileSchema, useParquetColumnNames, column.getName(), column.getHiveColumnIndex(), column.getHiveType()).isPresent()) {
+            if (getParquetType(type, fileSchema, useParquetColumnNames, column).isPresent()) {
                 String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
                 fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
             }
