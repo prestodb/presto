@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.parquet;
 
+import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.Subfield.PathElement;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
@@ -24,6 +27,7 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.DecimalMetadata;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 
 import java.util.Arrays;
@@ -33,6 +37,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.Subfield.NestedField;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
@@ -184,7 +189,7 @@ public final class ParquetTypeUtils
         }
     }
 
-    public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, MessageType messageType)
+    public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, GroupType messageType)
     {
         if (messageType.containsField(columnName)) {
             return messageType.getType(columnName);
@@ -260,5 +265,39 @@ public final class ParquetTypeUtils
         }
 
         return value;
+    }
+
+    public static MessageType getSubfieldType(GroupType baseType, Subfield subfield)
+    {
+        checkArgument(subfield.getPath().size() >= 1, "subfield size is less than 1");
+
+        ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
+        org.apache.parquet.schema.Type parentType = getParquetTypeByName(subfield.getRootName(), baseType);
+
+        for (PathElement field : subfield.getPath()) {
+            if (field instanceof NestedField) {
+                NestedField nestedField = (NestedField) field;
+                org.apache.parquet.schema.Type childType = getParquetTypeByName(nestedField.getName(), parentType.asGroupType());
+                if (childType != null) {
+                    typeBuilder.add(childType);
+                    parentType = childType;
+                }
+            }
+            else {
+                typeBuilder.add(parentType.asGroupType().getFields().get(0));
+                break;
+            }
+        }
+
+        List<org.apache.parquet.schema.Type> subfieldTypes = typeBuilder.build();
+        if (subfieldTypes.isEmpty()) {
+            return new MessageType(subfield.getRootName(), ImmutableList.of());
+        }
+        org.apache.parquet.schema.Type type = subfieldTypes.get(subfieldTypes.size() - 1);
+        for (int i = subfieldTypes.size() - 2; i >= 0; --i) {
+            GroupType groupType = subfieldTypes.get(i).asGroupType();
+            type = new MessageType(groupType.getName(), ImmutableList.of(type));
+        }
+        return new MessageType(subfield.getRootName(), ImmutableList.of(type));
     }
 }
