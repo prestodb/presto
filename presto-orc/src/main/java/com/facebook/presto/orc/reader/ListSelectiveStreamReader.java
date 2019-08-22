@@ -120,7 +120,7 @@ public class ListSelectiveStreamReader
         requireNonNull(subfields, "subfields is null");
         requireNonNull(systemMemoryContext, "systemMemoryContext is null");
 
-        checkArgument(subfields.isEmpty(), "Subfield pruning is not supported yet");
+        // TODO Implement subfield pruning
 
         if (listFilter != null) {
             checkArgument(subfieldLevel > 0, "SubfieldFilter is not expected at the top level");

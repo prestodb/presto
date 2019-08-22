@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -48,15 +49,17 @@ public class DwrfSelectivePageSourceFactory
         implements HiveSelectivePageSourceFactory
 {
     private final TypeManager typeManager;
+    private final StandardFunctionResolution functionResolution;
     private final RowExpressionService rowExpressionService;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
 
     @Inject
-    public DwrfSelectivePageSourceFactory(TypeManager typeManager, RowExpressionService rowExpressionService, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public DwrfSelectivePageSourceFactory(TypeManager typeManager, StandardFunctionResolution functionResolution, RowExpressionService rowExpressionService, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -104,6 +107,7 @@ public class DwrfSelectivePageSourceFactory
                 false,
                 hiveStorageTimeZone,
                 typeManager,
+                functionResolution,
                 rowExpressionService,
                 false,
                 stats,
