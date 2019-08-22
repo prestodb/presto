@@ -43,6 +43,7 @@ public class TestHivePushdownFilterQueries
             "   CASE WHEN linenumber % 7 = 0 THEN null ELSE returnflag = 'R' END AS is_returned, \n" +
             "   CASE WHEN linenumber % 4 = 0 THEN null ELSE CAST(day(shipdate) AS TINYINT) END AS ship_day, " +
             "   CASE WHEN linenumber % 6 = 0 THEN null ELSE CAST(month(shipdate) AS TINYINT) END AS ship_month, " +
+            "   CASE WHEN linenumber % 2 = 0 THEN null ELSE (CAST(day(shipdate) AS TINYINT) , CAST(month(shipdate) AS TINYINT)) END AS ship_day_month, " +
             "   CASE WHEN linenumber % 3 = 0 THEN null ELSE CAST(shipdate AS TIMESTAMP) END AS ship_timestamp, \n" +
             "   CASE WHEN orderkey % 3 = 0 THEN null ELSE CAST(commitdate AS TIMESTAMP) END AS commit_timestamp, \n" +
             "   CASE WHEN orderkey % 5 = 0 THEN null ELSE CAST(discount AS REAL) END AS discount_real, \n" +
@@ -55,7 +56,8 @@ public class TestHivePushdownFilterQueries
             "   CASE WHEN orderkey % 31 = 0 THEN null ELSE (" +
             "       (CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT), CAST(year(shipdate) AS INTEGER)), " +
             "       (CAST(day(commitdate) AS TINYINT), CAST(month(commitdate) AS TINYINT), CAST(year(commitdate) AS INTEGER)), " +
-            "       (CAST(day(receiptdate) AS TINYINT), CAST(month(receiptdate) AS TINYINT), CAST(year(receiptdate) AS INTEGER))) END AS dates \n" +
+            "       (CAST(day(receiptdate) AS TINYINT), CAST(month(receiptdate) AS TINYINT), CAST(year(receiptdate) AS INTEGER))) END AS dates, \n" +
+            "   (null, null) AS ship_day_month_nulls " +
             "FROM lineitem)\n";
 
     protected TestHivePushdownFilterQueries()
@@ -73,12 +75,13 @@ public class TestHivePushdownFilterQueries
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, tax_real, keys, nested_keys, flags, reals, info, dates) AS " +
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, ship_day_month, ship_timestamp, commit_timestamp, discount_real, tax_real, keys, nested_keys, flags, reals, info, dates, ship_day_month_nulls) AS " +
                         "SELECT linenumber, orderkey, partkey, suppkey, " +
                         "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
                         "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
                         "   IF (linenumber % 4 = 0, null, CAST(day(shipdate) AS TINYINT)) AS ship_day, " +
                         "   IF (linenumber % 6 = 0, null, CAST(month(shipdate) AS TINYINT)) AS ship_month, " +
+                        "   IF (linenumber % 2 = 0, null, ARRAY[CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT)]) AS ship_day_month, " +
                         "   IF (linenumber % 3 = 0, null, CAST(shipdate AS TIMESTAMP)) AS ship_timestamp, " +
                         "   IF (orderkey % 3 = 0, null, CAST(commitdate AS TIMESTAMP)) AS commit_timestamp, " +
                         "   IF (orderkey % 5 = 0, null, CAST(discount AS REAL)) AS discount_real, " +
@@ -92,7 +95,8 @@ public class TestHivePushdownFilterQueries
                         "   IF (orderkey % 31 = 0, NULL, ARRAY[" +
                         "       CAST(ROW(day(shipdate), month(shipdate), year(shipdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
                         "       CAST(ROW(day(commitdate), month(commitdate), year(commitdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
-                        "       CAST(ROW(day(receiptdate), month(receiptdate), year(receiptdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER))]) " +
+                        "       CAST(ROW(day(receiptdate), month(receiptdate), year(receiptdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER))]), " +
+                        "   ARRAY[CAST (null AS TINYINT), CAST (null AS TINYINT)] AS ship_day_month_nulls   " +
                         "FROM lineitem");
 
         return queryRunner;
@@ -146,6 +150,10 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT COUNT(*) FROM lineitem_ex WHERE ship_day is not null AND ship_month = 1");
 
         assertQueryUsingH2Cte("SELECT ship_day, ship_month FROM lineitem_ex WHERE ship_day > 15 AND ship_month < 5 AND (ship_day + ship_month) < 20");
+
+        assertQueryUsingH2Cte("SELECT count(*) FROM lineitem_ex WHERE ship_day_month[2] = 12");
+
+        assertQueryUsingH2Cte("SELECT ship_day_month_nulls FROM lineitem_ex WHERE ship_day_month_nulls[1] is NOT NULL AND ship_day_month[1] > 3");
     }
 
     @Test
