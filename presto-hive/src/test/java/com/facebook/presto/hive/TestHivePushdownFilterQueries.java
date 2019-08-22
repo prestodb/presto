@@ -335,6 +335,12 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE info IS NOT NULL", rewriter);
 
         assertQueryUsingH2Cte("SELECT info, dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey, dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+        assertQueryUsingH2Cte("SELECT info.linenumber, dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+
+        assertQueryUsingH2Cte("SELECT dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE info IS NOT NULL", rewriter);
+
         assertQueryUsingH2Cte("SELECT info.orderkey, info.shipdate FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
 
         assertQueryUsingH2Cte("SELECT dates FROM lineitem_ex WHERE dates[1].day % 2 = 0", rewriter);
