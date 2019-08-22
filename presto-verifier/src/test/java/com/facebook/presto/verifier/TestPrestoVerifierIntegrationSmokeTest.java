@@ -76,8 +76,8 @@ public class TestPrestoVerifierIntegrationSmokeTest
         insertSourceQuery(handle, SUITE, "query_2", "SELECT * FROM table1 CROSS JOIN table2");
     }
 
-    @AfterClass
-    public void teardown()
+    @AfterClass(alwaysRun = true)
+    public void destroy()
     {
         closeQuietly(queryRunner, mySqlServer, handle);
     }

@@ -49,8 +49,8 @@ public class TestMySqlSourceQuerySupplier
                 .setTableName(VERIFIER_QUERIES_TABLE);
     }
 
-    @AfterClass
-    public void teardown()
+    @AfterClass(alwaysRun = true)
+    public void destroy()
     {
         closeQuietly(mySqlServer, handle);
     }
