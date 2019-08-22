@@ -74,12 +74,12 @@ public class TestMapBlock
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
         boolean[] mapIsNull = {false, true, false, false, false, false};
 
-        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.empty(), new int[1], emptyBlock, emptyBlock));
-        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, compactKeyBlock, compactValueBlock));
+        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(0, Optional.empty(), new int[1], emptyBlock, emptyBlock));
+        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(mapIsNull.length, Optional.of(mapIsNull), offsets, compactKeyBlock, compactValueBlock));
         // TODO: Add test case for a sliced MapBlock
 
         // underlying key/value block is not compact
-        testIncompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
+        testIncompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(mapIsNull.length, Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
     }
 
     // TODO: remove this test when we have a more unified testWith() using assertBlock()
@@ -184,9 +184,10 @@ public class TestMapBlock
     {
         List<String> keys = new ArrayList<>();
         List<Long> values = new ArrayList<>();
-        int[] offsets = new int[maps.length + 1];
-        boolean[] mapIsNull = new boolean[maps.length];
-        for (int i = 0; i < maps.length; i++) {
+        int positionCount = maps.length;
+        int[] offsets = new int[positionCount + 1];
+        boolean[] mapIsNull = new boolean[positionCount];
+        for (int i = 0; i < positionCount; i++) {
             Map<String, Long> map = maps[i];
             mapIsNull[i] = map == null;
             if (map == null) {
@@ -200,7 +201,7 @@ public class TestMapBlock
                 offsets[i + 1] = offsets[i] + map.size();
             }
         }
-        return mapType(VARCHAR, BIGINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, createStringsBlock(keys), createLongsBlock(values));
+        return mapType(VARCHAR, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(mapIsNull), offsets, createStringsBlock(keys), createLongsBlock(values));
     }
 
     private void createBlockBuilderWithValues(Map<String, Long> map, BlockBuilder mapBlockBuilder)

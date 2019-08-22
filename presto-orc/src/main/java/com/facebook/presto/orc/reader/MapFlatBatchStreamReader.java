@@ -200,10 +200,12 @@ public class MapFlatBatchStreamReader
             mapOffsets[mapIndex + 1] = mapOffsets[mapIndex] + mapLength;
         }
 
+        Block block = mapType.createBlockFromKeyValue(nextBatchSize, Optional.ofNullable(nullVector), mapOffsets, new DictionaryBlock(keyBlockTemplate, keyIds), valueBlockBuilder);
+
         readOffset = 0;
         nextBatchSize = 0;
 
-        return mapType.createBlockFromKeyValue(Optional.ofNullable(nullVector), mapOffsets, new DictionaryBlock(keyBlockTemplate, keyIds), valueBlockBuilder);
+        return block;
     }
 
     private void openRowGroup()

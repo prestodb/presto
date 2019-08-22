@@ -115,7 +115,7 @@ public class BenchmarkMapToMapCast
             for (int i = 0; i < offsets.length; i++) {
                 offsets[i] = mapSize * i;
             }
-            return mapType.createBlockFromKeyValue(Optional.empty(), offsets, keyBlock, valueBlock);
+            return mapType.createBlockFromKeyValue(positionCount, Optional.empty(), offsets, keyBlock, valueBlock);
         }
 
         private static Block createKeyBlock(int positionCount, int mapSize)

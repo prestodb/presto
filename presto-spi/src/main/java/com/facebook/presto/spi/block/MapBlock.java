@@ -57,6 +57,7 @@ public class MapBlock
      * @param keyNativeHashCode hash of a key stack type; signature is (K)long
      */
     public static MapBlock fromKeyValueBlock(
+            int positionCount,
             Optional<boolean[]> mapIsNull,
             int[] offsets,
             Block keyBlock,
@@ -66,13 +67,11 @@ public class MapBlock
             MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode)
     {
-        validateConstructorArguments(0, offsets.length - 1, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, mapType.getKeyType(), keyBlockNativeEquals, keyNativeHashCode);
-
-        int mapCount = offsets.length - 1;
+        validateConstructorArguments(0, positionCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock, mapType.getKeyType(), keyBlockNativeEquals, keyNativeHashCode);
 
         return createMapBlockInternal(
                 0,
-                mapCount,
+                positionCount,
                 mapIsNull,
                 offsets,
                 keyBlock,
@@ -336,7 +335,7 @@ public class MapBlock
 
             int[] hashTables = new int[getRawKeyBlock().getPositionCount() * HASH_MULTIPLIER];
             Arrays.fill(hashTables, -1);
-            for (int i = 0; i < offsets.length - 1; i++) {
+            for (int i = 0; i < startOffset + positionCount; i++) {
                 int keyOffset = offsets[i];
                 int keyCount = offsets[i + 1] - keyOffset;
                 if (keyCount < 0) {
