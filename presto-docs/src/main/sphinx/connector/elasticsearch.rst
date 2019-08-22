@@ -30,7 +30,7 @@ replacing the properties as appropriate:
     elasticsearch.default-schema=default
     elasticsearch.table-description-directory=etc/elasticsearch/
     elasticsearch.scroll-size=1000
-    elasticsearch.scroll-timeout=60000
+    elasticsearch.scroll-timeout=2s
     elasticsearch.request-timeout=2s
     elasticsearch.max-request-retries=5
     elasticsearch.max-request-retry-time=10s
@@ -46,7 +46,7 @@ Property Name                                 Description
 ``elasticsearch.default-schema``              Default schema name for tables.
 ``elasticsearch.table-description-directory`` Directory containing JSON table description files.
 ``elasticsearch.scroll-size``                 Maximum number of hits to be returned with each Elasticsearch scroll request.
-``elasticsearch.scroll-timeout``              Amount of time (ms) Elasticsearch will keep the search context alive for scroll requests.
+``elasticsearch.scroll-timeout``              Amount of time Elasticsearch will keep the search context alive for scroll requests.
 ``elasticsearch.max-hits``                    Maximum number of hits a single Elasticsearch request can fetch.
 ``elasticsearch.request-timeout``             Timeout for Elasticsearch requests.
 ``elasticsearch.max-request-retries``         Maximum number of Elasticsearch request retries.
@@ -80,9 +80,9 @@ This property is optional; the default is ``1000``.
 ``elasticsearch.scroll-timeout``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This property defines the amount of time (ms) Elasticsearch will keep the `search context alive`_ for scroll requests
+This property defines the amount of time Elasticsearch will keep the `search context alive`_ for scroll requests
 
-This property is optional; the default is ``20s``.
+This property is optional; the default is ``1s``.
 
 .. _search context alive: https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-scroll.html#scroll-search-context
 
