@@ -56,6 +56,7 @@ public class ByteSelectiveStreamReader
     private final boolean nullsAllowed;
     private final boolean outputRequired;
     private final LocalMemoryContext systemMemoryContext;
+    private final boolean nonDeterministicFilter;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     private InputStreamSource<ByteInputStream> dataStreamSource = missingStreamSource(ByteInputStream.class);
@@ -87,7 +88,8 @@ public class ByteSelectiveStreamReader
         this.filter = filter.orElse(null);
         this.outputRequired = outputRequired;
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.nullsAllowed = this.filter == null || this.filter.testNull();
+        this.nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
+        this.nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
     }
 
     @Override
@@ -184,7 +186,7 @@ public class ByteSelectiveStreamReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if (nullsAllowed) {
+                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                     if (outputRequired) {
                         nulls[outputPositionCount] = true;
                     }
@@ -206,6 +208,21 @@ public class ByteSelectiveStreamReader
                 }
             }
             streamPosition++;
+
+            if (filter != null) {
+                outputPositionCount -= filter.getPrecedingPositionsToFail();
+                int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
+                if (succeedingPositionsToFail > 0) {
+                    int positionsToSkip = 0;
+                    for (int j = 0; j < succeedingPositionsToFail; j++) {
+                        i++;
+                        int nextPosition = positions[i];
+                        positionsToSkip += 1 + nextPosition - streamPosition;
+                        streamPosition = nextPosition + 1;
+                    }
+                    skip(positionsToSkip);
+                }
+            }
         }
         return streamPosition;
     }
@@ -215,14 +232,26 @@ public class ByteSelectiveStreamReader
     {
         presentStream.skip(positions[positionCount - 1]);
 
-        if (nullsAllowed) {
+        if (nonDeterministicFilter) {
+            outputPositionCount = 0;
+            for (int i = 0; i < positionCount; i++) {
+                if (filter.testNull()) {
+                    outputPositionCount++;
+                }
+                else {
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+                    i += filter.getSucceedingPositionsToFail();
+                }
+            }
+        }
+        else if (nullsAllowed) {
             outputPositionCount = positionCount;
-            allNulls = true;
         }
         else {
             outputPositionCount = 0;
         }
 
+        allNulls = true;
         return positions[positionCount - 1] + 1;
     }
 

@@ -221,6 +221,22 @@ public class TimestampSelectiveStreamReader
                 }
             }
             streamPosition++;
+
+            if (filter != null) {
+                outputPositionCount -= filter.getPrecedingPositionsToFail();
+
+                int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
+                if (succeedingPositionsToFail > 0) {
+                    int positionsToSkip = 0;
+                    for (int j = 0; j < succeedingPositionsToFail; j++) {
+                        i++;
+                        int nextPosition = positions[i];
+                        positionsToSkip += 1 + nextPosition - streamPosition;
+                        streamPosition = nextPosition + 1;
+                    }
+                    skip(positionsToSkip);
+                }
+            }
         }
         return streamPosition;
     }
@@ -236,16 +252,20 @@ public class TimestampSelectiveStreamReader
                 if (filter.testNull()) {
                     outputPositionCount++;
                 }
+                else {
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+                    i += filter.getSucceedingPositionsToFail();
+                }
             }
         }
         else if (nullsAllowed) {
             outputPositionCount = positionCount;
-            allNulls = true;
         }
         else {
             outputPositionCount = 0;
         }
 
+        allNulls = true;
         return positions[positionCount - 1] + 1;
     }
 

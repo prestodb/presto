@@ -232,16 +232,20 @@ public class FloatSelectiveStreamReader
                 if (filter.testNull()) {
                     outputPositionCount++;
                 }
+                else {
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+                    i += filter.getSucceedingPositionsToFail();
+                }
             }
         }
         else if (nullsAllowed) {
             outputPositionCount = positionCount;
-            allNulls = true;
         }
         else {
             outputPositionCount = 0;
         }
 
+        allNulls = true;
         return positions[positionCount - 1] + 1;
     }
 
