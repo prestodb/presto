@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -48,6 +49,7 @@ import java.sql.Array;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -399,6 +401,12 @@ public class H2QueryRunner
             RowType rowType = (RowType) elementType;
             return Arrays.stream(values)
                     .map(v -> v == null ? null : newArrayList(mapRowValues(rowType, (Object[]) v)))
+                    .toArray();
+        }
+
+        if (elementType instanceof TimestampType) {
+            return Arrays.stream(values)
+                    .map(v -> v == null ? null : ((Timestamp) v).toLocalDateTime())
                     .toArray();
         }
 

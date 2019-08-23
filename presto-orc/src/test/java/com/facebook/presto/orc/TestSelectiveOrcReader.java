@@ -58,7 +58,6 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
-import static com.google.common.collect.Lists.reverse;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -114,10 +113,10 @@ public class TestSelectiveOrcReader
                 ImmutableMap.of(1, IS_NULL),
                 ImmutableMap.of(
                         0,
-                        BigintRange.of(11, 15, false),
+                        BigintRange.of(7, 17, false),
                         1,
-                        BigintRange.of(11, Long.MAX_VALUE, false)));
-        tester.testRoundTripTypes(ImmutableList.of(TINYINT, TINYINT), ImmutableList.of(byteValues, reverse(byteValues)), filters);
+                        BigintRange.of(12, 14, false)));
+        tester.testRoundTripTypes(ImmutableList.of(TINYINT, TINYINT), ImmutableList.of(byteValues, byteValues), filters);
     }
 
     @Test

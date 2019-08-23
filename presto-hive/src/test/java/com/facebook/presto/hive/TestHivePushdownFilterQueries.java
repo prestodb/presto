@@ -18,6 +18,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -47,6 +48,7 @@ public class TestHivePushdownFilterQueries
             "   CASE WHEN orderkey % 3 = 0 THEN null ELSE CAST(commitdate AS TIMESTAMP) END AS commit_timestamp, \n" +
             "   CASE WHEN orderkey % 5 = 0 THEN null ELSE CAST(discount AS REAL) END AS discount_real, \n" +
             "   CASE WHEN orderkey % 7 = 0 THEN null ELSE CAST(tax AS REAL) END AS tax_real, \n" +
+            "   CASE WHEN linenumber % 2 = 0 THEN null ELSE (CAST(day(shipdate) AS TINYINT) , CAST(month(shipdate) AS TINYINT)) END AS ship_day_month, " +
             "   CASE WHEN orderkey % 11 = 0 THEN null ELSE (orderkey, partkey, suppkey) END AS keys, \n" +
             "   CASE WHEN orderkey % 13 = 0 THEN null ELSE ((orderkey, partkey), (suppkey,), CASE WHEN orderkey % 17 = 0 THEN null ELSE (orderkey, partkey) END) END AS nested_keys, \n" +
             "   CASE WHEN orderkey % 17 = 0 THEN null ELSE (shipmode = 'AIR', returnflag = 'R') END as flags, \n" +
@@ -55,7 +57,8 @@ public class TestHivePushdownFilterQueries
             "   CASE WHEN orderkey % 31 = 0 THEN null ELSE (" +
             "       (CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT), CAST(year(shipdate) AS INTEGER)), " +
             "       (CAST(day(commitdate) AS TINYINT), CAST(month(commitdate) AS TINYINT), CAST(year(commitdate) AS INTEGER)), " +
-            "       (CAST(day(receiptdate) AS TINYINT), CAST(month(receiptdate) AS TINYINT), CAST(year(receiptdate) AS INTEGER))) END AS dates \n" +
+            "       (CAST(day(receiptdate) AS TINYINT), CAST(month(receiptdate) AS TINYINT), CAST(year(receiptdate) AS INTEGER))) END AS dates, \n" +
+            "   CASE WHEN orderkey % 37 = 0 THEN null ELSE (CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)) END AS timestamps \n" +
             "FROM lineitem)\n";
 
     protected TestHivePushdownFilterQueries()
@@ -73,7 +76,7 @@ public class TestHivePushdownFilterQueries
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, tax_real, keys, nested_keys, flags, reals, info, dates) AS " +
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, tax_real, ship_day_month, keys, nested_keys, flags, reals, info, dates, timestamps) AS " +
                         "SELECT linenumber, orderkey, partkey, suppkey, " +
                         "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
                         "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
@@ -83,6 +86,7 @@ public class TestHivePushdownFilterQueries
                         "   IF (orderkey % 3 = 0, null, CAST(commitdate AS TIMESTAMP)) AS commit_timestamp, " +
                         "   IF (orderkey % 5 = 0, null, CAST(discount AS REAL)) AS discount_real, " +
                         "   IF (orderkey % 7 = 0, null, CAST(tax AS REAL)) AS tax_real, " +
+                        "   IF (linenumber % 2 = 0, null, ARRAY[CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT)]) AS ship_day_month, " +
                         "   IF (orderkey % 11 = 0, null, ARRAY[orderkey, partkey, suppkey]), " +
                         "   IF (orderkey % 13 = 0, null, ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], IF (orderkey % 17 = 0, null, ARRAY[orderkey, partkey])]), " +
                         "   IF (orderkey % 17 = 0, null, ARRAY[shipmode = 'AIR', returnflag = 'R']), " +
@@ -92,7 +96,8 @@ public class TestHivePushdownFilterQueries
                         "   IF (orderkey % 31 = 0, NULL, ARRAY[" +
                         "       CAST(ROW(day(shipdate), month(shipdate), year(shipdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
                         "       CAST(ROW(day(commitdate), month(commitdate), year(commitdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
-                        "       CAST(ROW(day(receiptdate), month(receiptdate), year(receiptdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER))]) " +
+                        "       CAST(ROW(day(receiptdate), month(receiptdate), year(receiptdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER))]) ," +
+                        "   IF (orderkey % 37 = 0, NULL, ARRAY[CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)]) AS timestamps " +
                         "FROM lineitem");
 
         return queryRunner;
@@ -146,6 +151,8 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT COUNT(*) FROM lineitem_ex WHERE ship_day is not null AND ship_month = 1");
 
         assertQueryUsingH2Cte("SELECT ship_day, ship_month FROM lineitem_ex WHERE ship_day > 15 AND ship_month < 5 AND (ship_day + ship_month) < 20");
+
+        assertQueryUsingH2Cte("SELECT count(*) FROM lineitem_ex WHERE ship_day_month[2] = 12");
     }
 
     @Test
@@ -186,6 +193,10 @@ public class TestHivePushdownFilterQueries
         assertQueryReturnsEmptyResult("SELECT commit_timestamp, ship_timestamp FROM lineitem_ex WHERE year(ship_timestamp) - year(commit_timestamp) > 1");
 
         assertQueryUsingH2Cte("SELECT commit_timestamp, ship_timestamp, orderkey FROM lineitem_ex WHERE year(commit_timestamp) > 1993 and year(ship_timestamp) > 1993 and year(ship_timestamp) - year(commit_timestamp) = 1");
+
+        assertQueryUsingH2Cte("SELECT count(*) from lineitem_ex where timestamps[1] > TIMESTAMP '1993-08-08 01:00:00'");
+
+        assertQueryUsingH2Cte("SELECT count(*) from lineitem_ex where year(timestamps[1]) != year(timestamps[2])");
     }
 
     @Test
@@ -395,6 +406,33 @@ public class TestHivePushdownFilterQueries
         Session session = getQueryRunner().getDefaultSession();
         assertQuerySucceeds(session, "SELECT linenumber, \"$path\" FROM lineitem");
         assertQuerySucceeds(session, "SELECT linenumber, \"$path\" FROM lineitem WHERE length(\"$path\") % 2 = linenumber % 2");
+    }
+
+    //TODO add a correctness check for the results and move this test to TestOrcSelectiveReader
+    @Test
+    public void testArraysOfNulls()
+    {
+        getQueryRunner().execute("CREATE TABLE test_arrays_of_nulls AS " +
+                "SELECT orderkey, linenumber, " +
+                "   CAST(ARRAY[null, null, null] AS ARRAY(BIGINT)) bigints, " +
+                "   CAST(ARRAY[null, null, null] AS ARRAY(INTEGER)) integers, " +
+                "   CAST(ARRAY[null, null, null] AS ARRAY(SMALLINT)) smallints, " +
+                "   CAST(ARRAY[null, null, null] AS ARRAY(TINYINT)) tinyints, " +
+                "   CAST(ARRAY[null, null, null] AS ARRAY(BOOLEAN)) booleans, " +
+                "   CAST(ARRAY[null, null, null] AS ARRAY(TIMESTAMP)) timestamps, " +
+                "   CAST(ARRAY[null, null, null] AS ARRAY(REAL)) floats " +
+                "FROM lineitem");
+
+        List<String> columnNames = ImmutableList.of("bigints", "integers", "tinyints", "smallints", "booleans", "floats");
+        try {
+            for (String columnName : columnNames) {
+                assertQuerySucceeds(getSession(), format("SELECT count(*) FROM test_arrays_of_nulls WHERE %s[1] IS NOT NULL", columnName));
+                assertQuerySucceeds(getSession(), format("SELECT count(*) FROM test_arrays_of_nulls WHERE %s[1] IS NULL", columnName));
+            }
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_arrays_of_nulls");
+        }
     }
 
     private void assertQueryUsingH2Cte(String query)
