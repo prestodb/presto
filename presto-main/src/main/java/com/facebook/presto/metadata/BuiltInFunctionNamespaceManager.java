@@ -66,6 +66,7 @@ import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationF
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
+import com.facebook.presto.operator.scalar.ArrayCombinationsFunction;
 import com.facebook.presto.operator.scalar.ArrayContains;
 import com.facebook.presto.operator.scalar.ArrayDistinctFromOperator;
 import com.facebook.presto.operator.scalar.ArrayDistinctFunction;
@@ -587,6 +588,7 @@ public class BuiltInFunctionNamespaceManager
                 .scalar(ArrayExceptFunction.class)
                 .scalar(ArraySliceFunction.class)
                 .scalar(ArrayIndeterminateOperator.class)
+                .scalar(ArrayCombinationsFunction.class)
                 .scalar(ArrayNgramsFunction.class)
                 .scalar(ArrayAllMatchFunction.class)
                 .scalar(ArrayAnyMatchFunction.class)
