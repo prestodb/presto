@@ -70,12 +70,12 @@ public interface ShardManager
     /**
      * Return the shard nodes for a non-bucketed table.
      */
-    ResultIterator<BucketShards> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    ResultIterator<BucketShards> getShardNodes(long tableId, boolean tableSupportsDeltaDelete, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
      * Return the shard nodes for a bucketed table.
      */
-    ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, List<String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean tableSupportsDeltaDelete, boolean merged, List<String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate);
 
     /**
      * Remove all old shard assignments and assign a shard to a node

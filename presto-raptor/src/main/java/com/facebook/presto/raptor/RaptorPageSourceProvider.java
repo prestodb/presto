@@ -60,16 +60,22 @@ public class RaptorPageSourceProvider
         ReaderAttributes attributes = ReaderAttributes.from(session);
         OptionalLong transactionId = raptorSplit.getTransactionId();
         Optional<Map<String, Type>> columnTypes = raptorSplit.getColumnTypes();
+        boolean tableSupportsDeltaDelete = raptorSplit.isTableSupportsDeltaDelete();
 
         FileSystemContext context = new FileSystemContext(session);
 
+        Map<UUID, UUID> shardDeltaMap = raptorSplit.getShardDeltaMap();
         if (raptorSplit.getShardUuids().size() == 1) {
             UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
-            return createPageSource(context, shardUuid, bucketNumber, columns, predicate, attributes, transactionId, columnTypes);
+            return createPageSource(context, shardUuid,
+                    Optional.ofNullable(shardDeltaMap.get(shardUuid)),
+                    tableSupportsDeltaDelete, bucketNumber, columns, predicate, attributes, transactionId, columnTypes);
         }
 
         Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
-                .map(shardUuid -> createPageSource(context, shardUuid, bucketNumber, columns, predicate, attributes, transactionId, columnTypes))
+                .map(shardUuid -> createPageSource(context, shardUuid,
+                        Optional.ofNullable(shardDeltaMap.get(shardUuid)),
+                        tableSupportsDeltaDelete, bucketNumber, columns, predicate, attributes, transactionId, columnTypes))
                 .iterator();
 
         return new ConcatPageSource(iterator);
@@ -78,6 +84,8 @@ public class RaptorPageSourceProvider
     private ConnectorPageSource createPageSource(
             FileSystemContext context,
             UUID shardUuid,
+            Optional<UUID> deltaShardUuid,
+            boolean tableSupportsDeltaDelete,
             OptionalInt bucketNumber,
             List<ColumnHandle> columns,
             TupleDomain<RaptorColumnHandle> predicate,
@@ -89,6 +97,6 @@ public class RaptorPageSourceProvider
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-        return storageManager.getPageSource(context, shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId, allColumnTypes);
+        return storageManager.getPageSource(context, shardUuid, deltaShardUuid, tableSupportsDeltaDelete, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId, allColumnTypes);
     }
 }

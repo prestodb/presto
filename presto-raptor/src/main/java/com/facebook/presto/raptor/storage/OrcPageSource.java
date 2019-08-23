@@ -62,6 +62,7 @@ public class OrcPageSource
     private final OrcDataSource orcDataSource;
 
     private final BitSet rowsToDelete;
+    private final boolean tableSupportsDeltaDelete;
 
     private final List<Long> columnIds;
     private final List<Type> types;
@@ -83,6 +84,7 @@ public class OrcPageSource
             List<Type> columnTypes,
             List<Integer> columnIndexes,
             UUID shardUuid,
+            boolean tableSupportsDeltaDelete,
             OptionalInt bucketNumber,
             AggregatedMemoryContext systemMemoryContext)
     {
@@ -90,6 +92,7 @@ public class OrcPageSource
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
 
+        this.tableSupportsDeltaDelete = tableSupportsDeltaDelete;
         this.rowsToDelete = new BitSet(toIntExact(recordReader.getFileRowCount()));
 
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");

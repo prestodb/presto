@@ -54,6 +54,7 @@ final class ShardIterator
     private final Map<Integer, String> nodeMap = new HashMap<>();
 
     private final boolean merged;
+    private final boolean tableSupportsDeltaDelete;
     private final List<String> bucketToNode;
     private final ShardDao dao;
     private final Connection connection;
@@ -63,22 +64,23 @@ final class ShardIterator
 
     public ShardIterator(
             long tableId,
+            boolean tableSupportsDeltaDelete,
             boolean merged,
             Optional<List<String>> bucketToNode,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             IDBI dbi)
     {
         this.merged = merged;
+        this.tableSupportsDeltaDelete = tableSupportsDeltaDelete;
         this.bucketToNode = bucketToNode.orElse(null);
         ShardPredicate predicate = ShardPredicate.create(effectivePredicate);
 
         String sql;
-        if (bucketToNode.isPresent()) {
-            sql = "SELECT shard_uuid, bucket_number FROM %s WHERE %s ORDER BY bucket_number";
-        }
-        else {
-            sql = "SELECT shard_uuid, node_ids FROM %s WHERE %s";
-        }
+        sql = "SELECT shard_uuid, " +
+                (tableSupportsDeltaDelete ? "delta_shard_uuid, " : "") +
+                (bucketToNode.isPresent() ? "bucket_number " : "node_ids ") +
+                "FROM %s WHERE %s " +
+                (bucketToNode.isPresent() ? "ORDER BY bucket_number" : "");
         sql = format(sql, shardIndexTable(tableId), predicate.getPredicate());
 
         dao = onDemandDao(dbi, ShardDao.class);
@@ -138,6 +140,8 @@ final class ShardIterator
         }
 
         UUID shardUuid = uuidFromBytes(resultSet.getBytes("shard_uuid"));
+        Optional<UUID> deltaShardUuid = (!tableSupportsDeltaDelete || resultSet.getBytes("delta_shard_uuid") == null)
+                ? Optional.empty() : Optional.of(uuidFromBytes(resultSet.getBytes("delta_shard_uuid")));
         Set<String> nodeIdentifiers;
         OptionalInt bucketNumber = OptionalInt.empty();
 
@@ -151,7 +155,7 @@ final class ShardIterator
             nodeIdentifiers = getNodeIdentifiers(nodeIds, shardUuid);
         }
 
-        ShardNodes shard = new ShardNodes(shardUuid, nodeIdentifiers);
+        ShardNodes shard = new ShardNodes(shardUuid, deltaShardUuid, nodeIdentifiers);
         return new BucketShards(bucketNumber, ImmutableSet.of(shard));
     }
 
@@ -176,10 +180,12 @@ final class ShardIterator
 
         do {
             UUID shardUuid = uuidFromBytes(resultSet.getBytes("shard_uuid"));
+            Optional<UUID> deltaShardUuid = !tableSupportsDeltaDelete || resultSet.getBytes("delta_shard_uuid") == null ?
+                    Optional.empty() : Optional.of(uuidFromBytes(resultSet.getBytes("delta_shard_uuid")));
             int bucket = resultSet.getInt("bucket_number");
             Set<String> nodeIdentifiers = ImmutableSet.of(getBucketNode(bucket));
 
-            shards.add(new ShardNodes(shardUuid, nodeIdentifiers));
+            shards.add(new ShardNodes(shardUuid, deltaShardUuid, nodeIdentifiers));
         }
         while (resultSet.next() && resultSet.getInt("bucket_number") == bucketNumber);
 
