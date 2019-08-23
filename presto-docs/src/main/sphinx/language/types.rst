@@ -88,8 +88,8 @@ Fixed-Precision
     .. note::
 
         For compatibility reasons decimal literals without explicit type specifier (e.g. ``1.2``)
-        are treated as the values of the ``DOUBLE`` type by default, but this is subject to change
-        in future releases. This behavior is controlled by:
+        are treated as values of the ``DOUBLE`` type by default up to version 0.198. 
+        After 0.198 they are parsed as DECIMAL.
 
           - System wide property: ``parse-decimal-literals-as-double``
           - Session wide property: ``parse_decimal_literals_as_double``
