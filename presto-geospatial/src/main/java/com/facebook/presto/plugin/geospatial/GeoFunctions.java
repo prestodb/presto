@@ -1602,12 +1602,12 @@ public final class GeoFunctions
     {
         OGCGeometry leftGeometry = deserialize(left);
         if (leftGeometry.isEmpty()) {
-            return null;
+            return false;
         }
 
         OGCGeometry rightGeometry = deserialize(right);
         if (rightGeometry.isEmpty()) {
-            return null;
+            return false;
         }
 
         validateSphericalType("ST_Contains", leftGeometry, EnumSet.of(POLYGON));
