@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -206,31 +207,8 @@ public class TestSphericalGeoFunctions
     }
 
     @Test
-    public void testStContains()
+    public void testContains()
     {
-        // to visualize relative locations, see http://www.gcmap.com/mapui
-        String brisbane = "153.1218 -27.3942";
-        String buffalo = "-78.8784 42.8864"; // longitude, latitutde
-        String fortLauderdale = "-80.1373 26.1224";
-        String grandRapids = "-85.6681 42.9634";
-        String honolulu = "-157.8583 21.3069";
-        String losAngeles = "-118.4085 33.9416";
-        String melbourne = "144.8410 -37.6690";
-        String newYork = "-74.0060 40.7128";
-        String noumea = "166.4416 -22.2711";
-        String oklahomaCity = "-97.5164 35.4676";
-        String saltLakeCity = "-111.8910 40.7608";
-        String sanFrancisco = "-122.3790 37.6213";
-        String santiago = "-70.6693 -33.4489";
-        String sydney = "151.1753 -33.9399";
-        String southeastOfSydney = "151.3 -34.0";
-        String wichita = "-97.3301 37.6872";
-
-        String[] saltBuffFortArr = {saltLakeCity, buffalo, fortLauderdale, saltLakeCity};
-        String saltBuffFort = buildPolygon(saltBuffFortArr);
-        String[] losAngMelSydSanFranArr = {losAngeles, melbourne, sydney, sanFrancisco};
-        String losAngMelSydSanFran = buildPolygon(losAngMelSydSanFranArr);
-
         // null arguments
         assertFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText(null)), to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))", BOOLEAN, null);
         assertFunction("ST_Contains(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')), to_spherical_geography(ST_GeometryFromText(null)))", BOOLEAN, null);
@@ -298,7 +276,29 @@ public class TestSphericalGeoFunctions
         assertContains("-50 70, -15 65, -30 50", "-46.2 60.777", false);
         assertContains("-50 70, -15 65, -30 50", "-50 59.23", false);
 
-        // based on flight routes from salt lake city -> buffalo -> ft. lauderdale -> salt lake city
+        // we use maps of flight routes to test larger polygons
+        // to visualize relative locations, see http://www.gcmap.com/mapui
+        String brisbane = "153.1218 -27.3942";
+        String buffalo = "-78.8784 42.8864"; // longitude, latitutde
+        String fortLauderdale = "-80.1373 26.1224";
+        String grandRapids = "-85.6681 42.9634";
+        String honolulu = "-157.8583 21.3069";
+        String losAngeles = "-118.4085 33.9416";
+        String melbourne = "144.8410 -37.6690";
+        String newYork = "-74.0060 40.7128";
+        String noumea = "166.4416 -22.2711";
+        String oklahomaCity = "-97.5164 35.4676";
+        String saltLakeCity = "-111.8910 40.7608";
+        String sanFrancisco = "-122.3790 37.6213";
+        String santiago = "-70.6693 -33.4489";
+        String sydney = "151.1753 -33.9399";
+        String southeastOfSydney = "151.3 -34.0";
+        String wichita = "-97.3301 37.6872";
+
+        String saltBuffFort = buildPolygon(saltLakeCity, buffalo, fortLauderdale, saltLakeCity);
+        String losAngMelSydSanFran = buildPolygon(losAngeles, melbourne, sydney, sanFrancisco);
+
+        // flight routes from salt lake city -> buffalo -> ft. lauderdale -> salt lake city
         assertContains(saltBuffFort, wichita, true);
         assertContains(saltBuffFort, grandRapids, true);
         assertContains(saltBuffFort, fortLauderdale, false);
@@ -308,8 +308,9 @@ public class TestSphericalGeoFunctions
         assertContains(saltBuffFort, buffalo, false);
 
         // based on flight routes from LA -> melbourne -> sydney -> SF -> LA
-        assertContains(losAngMelSydSanFran, sydney, false);
         assertContains(losAngMelSydSanFran, southeastOfSydney, true);
+        assertContains(losAngMelSydSanFran, sydney, false);
+        assertContains(losAngMelSydSanFran, brisbane, false);
         assertContains(losAngMelSydSanFran, noumea, false);
         assertContains(losAngMelSydSanFran, honolulu, false);
         assertContains(losAngMelSydSanFran, grandRapids, false);
@@ -324,14 +325,9 @@ public class TestSphericalGeoFunctions
         assertContains("-10 -80, -30 -80, -30 -50, -10 -50), (-12 -72, -20 -72, -20 -12", "-25 -55", true);
     }
 
-    private String buildPolygon(String[] polygonPoints)
+    private String buildPolygon(String...points)
     {
-        StringBuilder strBuilder = new StringBuilder();
-        for (int i = 0; i < polygonPoints.length - 1; i++) {
-            strBuilder.append(format("%s, ", polygonPoints[i]));
-        }
-        strBuilder.append(polygonPoints[polygonPoints.length - 1]);
-        return strBuilder.toString();
+        return Arrays.stream(points).collect(Collectors.joining(", "));
     }
 
     private void assertContains(String polygonString, String point, boolean expected)

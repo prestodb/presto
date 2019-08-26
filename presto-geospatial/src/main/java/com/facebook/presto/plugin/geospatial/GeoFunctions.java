@@ -144,6 +144,7 @@ public final class GeoFunctions
     private static final float MAX_LATITUDE = 90;
     private static final float MIN_LONGITUDE = -180;
     private static final float MAX_LONGITUDE = 180;
+    private static final Point NORTH_POLE = new Point(0, MAX_LATITUDE);
 
     private static final EnumSet<Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
             Type.Point, Type.Polyline, Type.Polygon, Type.MultiPoint);
@@ -1549,7 +1550,8 @@ public final class GeoFunctions
         int numPaths = polygon.getPathCount();
         for (int i = 0; i < numPaths; i++) {
             double sign = polygon.isExteriorRing(i) ? 1.0 : -1.0;
-            sphericalExcess += sign * Math.abs(computeSphericalExcess(polygon, polygon.getPathStart(i), polygon.getPathEnd(i)));
+            //SphericalExcessCalculator calculator = initializeSphericalExcessCalculator(polygon, polygon.getPathStart(i), polygon.getPathEnd(i));
+            sphericalExcess += sign * Math.abs(SphericalCalculator.computeSphericalExcess(polygon, polygon.getPathStart(i), polygon.getPathEnd(i)));
         }
 
         // Math.abs is required here because for Polygons with a 2D area of 0
@@ -1618,28 +1620,17 @@ public final class GeoFunctions
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "When applied to SphericalGeography inputs, ST_Contains only supports points which are not poles.");
         }
 
-        if (containsPole(polygon)) {
+        if (SphericalCalculator.containsPole(polygon)) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "When applied to SphericalGeography inputs, ST_Contains only supports polygons which do not enclose poles.");
         }
 
-        return getNumberIntersectionsWithPolygon(polygon, point) % 2 == 1;
+        return contains(polygon, point);
     }
 
     private static boolean liesInRange(double point, double rangeStart, double rangeEnd)
     {
         // strictly exclusive
         return Double.compare(point, rangeStart) > 0 && Double.compare(point, rangeEnd) < 0;
-    }
-
-    private static boolean haveSameSign(double x, double y)
-    {
-        // for the purposes of this function, 0 is considered positive
-        // e.g. haveSameSign(5, 0) --> true; haveSameSign(0, 0) --> true
-        // haveSameSign(-5, 0) --> false
-        if (min(x, y) >= 0) {
-            return true;
-        }
-        return x * y > 0;
     }
 
     private static boolean haveSameLongitude(double x, double y)
@@ -1694,142 +1685,99 @@ public final class GeoFunctions
         }
 
         // otherwise, calculate the edge's latitude at the point's longitude
-        double edgeLatitude = getArcLatitudeAtLongitude(edgeStart, edgeEnd, testEdgeStart.getX());
-        boolean inRange = liesInRange(edgeLatitude, testEdgeStart.getY(), testEdgeEnd.getY()) &&
-                (testEdgeStart.getY() < edgeLatitude);
-        return testEdgeStart.getY() < edgeLatitude && inRange;
+        double edgeLatitude = SphericalCalculator.computeExtrapolatedLatitude(edgeStart, edgeEnd, testEdgeStart.getX());
+        boolean inYRange = liesInRange(edgeLatitude, testEdgeStart.getY(), testEdgeEnd.getY()) && testEdgeStart.getY() < edgeLatitude;
+        boolean inXRangeExclusive = (Double.compare(edgeStart.getX(), testEdgeStart.getX()) != 0); //&& Double.compare(edgeEnd.getX(), testEdgeStart.getX()) >= 0);
+        return inXRangeExclusive && inYRange;
     }
 
-    private static double getArcLatitudeAtLongitude(Point start, Point end, double longitude)
+    private static boolean longitudeGrazesVertex(double longitude, Point pointPreVertex, Point vertex, Point pointPostVertex)
     {
-        // y of longstart must be lower than y of longend
-        Point startUpwardDirection = start;
-        Point endUpwardDirection = end;
-        if (start.getY() > end.getY()) {
-            startUpwardDirection = end;
-            endUpwardDirection = start;
+        // if the vertex is offset from the test point along the x-axis, this is not a graze
+        if (!haveSameLongitude(longitude, vertex.getX())) {
+            return false;
         }
-        SphericalExcessCalculator calculator = new SphericalExcessCalculator(startUpwardDirection);
-        return calculator.computeExtrapolatedLatitudeThroughPoint(endUpwardDirection, longitude);
+
+        // if one edge comprising this vertex is vertical, this is not a graze
+        if (haveSameLongitude(longitude, pointPreVertex.getX()) || haveSameLongitude(longitude, pointPostVertex.getX())) {
+            return false;
+        }
+
+        // are both non-vertex endpoints on the same side of the given longitude?
+        return Double.compare(longitude, pointPreVertex.getX()) * Double.compare(longitude, pointPostVertex.getX()) > 0;
     }
 
-    private static Point getExternalPoint(double longitude)
-    {
-        return new Point(longitude, MAX_LATITUDE);
-    }
-
-    private static int getNumberIntersectionsWithPolygon(Polygon polygon, Point point)
+    private static boolean contains(Polygon polygon, Point point)
     {
         int intersectionSum = 0;
-        Point testEdgeStart = point;
-        Point testEdgeEnd = new Point(point.getX(), MAX_LATITUDE);
 
         int numPaths = polygon.getPathCount();
-        Boolean excludeEdgeStartPoint = false;
+        boolean includeEdgeStartPoint = false;
         for (int i = 0; i < numPaths; i++) {
             int pathStartIndex = polygon.getPathStart(i);
             int pathEndIndex = polygon.getPathEnd(i);
-            for (int j = pathStartIndex; j < pathEndIndex - 1; j++) {
-                Point edgeStart = polygon.getPoint(j);
-                Point edgeEnd = polygon.getPoint(j + 1);
+
+            // check the last edge first
+            Point edgeStart = polygon.getPoint(pathEndIndex - 1);
+            if (edgeStart.equals(point)) {
+                return false;
+            }
+
+            for (int j = pathStartIndex; j < pathEndIndex; j++) {
+                Point edgeEnd = polygon.getPoint(j);
 
                 // all vertices are excluded
-                if (edgeStart.equals(point) || edgeEnd.equals(point)) {
-                    return 0;
+                if (edgeEnd.equals(point)) {
+                    return false;
                 }
 
                 // if this is a vertical edge, it can only add an even (and
                 // therefore uninformative) number of crossings, so don't bother checking
                 if (isVerticalEdge(edgeStart, edgeEnd)) {
-                    excludeEdgeStartPoint = false;
+                    // if this is the last edge
+                    if (j == pathEndIndex - 1) {
+                        if (haveSameLongitude(edgeEnd.getX(), point.getX()) && liesInRange(edgeEnd.getY(), point.getY(), NORTH_POLE.getY())) {
+                            intersectionSum++;
+                            continue;
+                        }
+                    }
+
+                    includeEdgeStartPoint = true;
+                    edgeStart = edgeEnd;
                     continue;
                 }
 
-                // if the previous edge and the current edge share a vertex,
+                // if the previous edge and the current edge share a vertex (i.e. not separated by a vertical edge),
                 // skip checking it this time to avoid double counting
                 // (if we didn't do this, consider the case of an upside down
                 // triangle with an external point directly below its tip)
-                if (excludeEdgeStartPoint) {
-                    if (haveSameLongitude(edgeStart.getX(), point.getX())) {
-                        continue;
-                    }
+                if (!includeEdgeStartPoint && haveSameLongitude(edgeStart.getX(), point.getX())) {
+                    edgeStart = edgeEnd;
+                    continue;
+                }
+
+                if ((includeEdgeStartPoint && haveSameLongitude(edgeStart.getX(), point.getX())) &&
+                        Double.compare(edgeStart.getY(), point.getY()) >= 0) {
+                    edgeStart = edgeEnd;
+                    intersectionSum++;
+                    includeEdgeStartPoint = false;
+                    continue;
                 }
 
                 // the garden variety case
-                if (edgeIntersectsTestEdge(edgeStart, edgeEnd, testEdgeStart, testEdgeEnd)) {
+                int nextEdgeEndpointIndex = (j + 1) % pathEndIndex;
+                if (edgeIntersectsTestEdge(edgeStart, edgeEnd, point, NORTH_POLE) &&
+                        !longitudeGrazesVertex(point.getX(), edgeStart, edgeEnd, polygon.getPoint(nextEdgeEndpointIndex))) {
                     intersectionSum++;
                 }
-
-                excludeEdgeStartPoint = true;
-            }
-            // check last edge which closes the loop back at the starting point
-            Point lastEdgeStart = polygon.getPoint(pathEndIndex - 1);
-            Point lastEdgeEnd = polygon.getPoint(pathStartIndex);
-
-            if (excludeEdgeStartPoint) {
-                if (haveSameLongitude(lastEdgeStart.getX(), point.getX())) {
-                    continue;
-                }
-            }
-
-            // if this is a vertical edge, it can only add an even (and
-            // therefore uninformative) number of crossings, so don't bother checking
-            if (isVerticalEdge(lastEdgeStart, lastEdgeEnd)) {
-                continue;
-            }
-
-            if (edgeIntersectsTestEdge(lastEdgeStart, lastEdgeEnd, testEdgeStart, testEdgeEnd)) {
-                intersectionSum++;
+                includeEdgeStartPoint = false;
+                edgeStart = edgeEnd;
             }
         }
-        return intersectionSum;
+        return intersectionSum % 2 == 1;
     }
 
-    private static boolean containsPole(Polygon polygon)
-    {
-        int numPaths = polygon.getPathCount();
-        for (int i = 0; i < numPaths; i++) {
-            SphericalExcessCalculator calculator = initializeSphericalExcessCalculator(polygon, polygon.getPathStart(i), polygon.getPathEnd(i));
-            if (calculator.containsPole()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static double computeSphericalExcess(Polygon polygon, int start, int end)
-    {
-        SphericalExcessCalculator calculator = initializeSphericalExcessCalculator(polygon, start, end);
-        return calculator.computeSphericalExcess();
-    }
-
-    private static SphericalExcessCalculator initializeSphericalExcessCalculator(Polygon polygon, int start, int end)
-    {
-        // Our calculations rely on not processing the same point twice
-        if (polygon.getPoint(end - 1).equals(polygon.getPoint(start))) {
-            end = end - 1;
-        }
-
-        if (end - start < 3) {
-            // A path with less than 3 distinct points is not valid for calculating an area
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Polygon is not valid: a loop contains less then 3 vertices.");
-        }
-
-        Point point = new Point();
-
-        // Initialize the calculator with the last point
-        polygon.getPoint(end - 1, point);
-        SphericalExcessCalculator calculator = new SphericalExcessCalculator(point);
-
-        for (int i = start; i < end; i++) {
-            polygon.getPoint(i, point);
-            calculator.add(point);
-        }
-
-        return calculator;
-    }
-
-    private static class SphericalExcessCalculator
+    private static class SphericalCalculator
     {
         private static final double TWO_PI = 2 * Math.PI;
         private static final double THREE_PI = 3 * Math.PI;
@@ -1850,7 +1798,7 @@ public final class GeoFunctions
 
         private boolean done;
 
-        public SphericalExcessCalculator(Point endPoint)
+        private SphericalCalculator(Point endPoint)
         {
             previousPhi = toRadians(endPoint.getY());
             previousSin = Math.sin(previousPhi);
@@ -1858,6 +1806,61 @@ public final class GeoFunctions
             previousTan = Math.tan(previousPhi / 2);
             previousLongitude = toRadians(endPoint.getX());
             firstPoint = true;
+        }
+
+        private static SphericalCalculator initialize(Polygon polygon, int start, int end)
+        {
+            // Our calculations rely on not processing the same point twice
+            if (polygon.getPoint(end - 1).equals(polygon.getPoint(start))) {
+                end = end - 1;
+            }
+
+            if (end - start < 3) {
+                // A path with less than 3 distinct points is not valid for calculating an area
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Polygon is not valid: a loop contains less then 3 vertices.");
+            }
+
+            Point point = new Point();
+
+            // Initialize the calculator with the last point
+            polygon.getPoint(end - 1, point);
+            SphericalCalculator calculator = new SphericalCalculator(point);
+
+            for (int i = start; i < end; i++) {
+                polygon.getPoint(i, point);
+                calculator.add(point);
+            }
+
+            return calculator;
+        }
+
+        public static double computeSphericalExcess(Polygon polygon, int start, int end)
+        {
+            return initialize(polygon, start, end).computeSphericalExcess();
+        }
+
+        public static boolean containsPole(Polygon polygon)
+        {
+            int numPaths = polygon.getPathCount();
+            for (int i = 0; i < numPaths; i++) {
+                if (initialize(polygon, polygon.getPathStart(i), polygon.getPathEnd(i)).containsPole()) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static double computeExtrapolatedLatitude(Point start, Point end, double longitude)
+        {
+            // y of longstart must be lower than y of longend
+            Point startUpwardDirection = start;
+            Point endUpwardDirection = end;
+            if (start.getY() > end.getY()) {
+                startUpwardDirection = end;
+                endUpwardDirection = start;
+            }
+
+            return new SphericalCalculator(startUpwardDirection).computeExtrapolatedLatitudeThroughPoint(endUpwardDirection, longitude);
         }
 
         private double computeInitialBearing(double cos, double sin, double deltaLongitude)
@@ -1966,7 +1969,7 @@ public final class GeoFunctions
             return previousLongitude - expectedLongitude; // actual - expected
         }
 
-        public double computeExtrapolatedLatitudeThroughPoint(Point point, double longitude)
+        private double computeExtrapolatedLatitudeThroughPoint(Point point, double longitude)
         {
             // Given two points that uniquely define a great circle
             // (the one most recently added, and the one passed here),
@@ -1974,11 +1977,9 @@ public final class GeoFunctions
             // on that circle
 
             double pointLongitude = toRadians(point.getX());
-            if (haveSameLongitude(point.getX(), toDegrees(previousLongitude))) {
-                if (!haveSameLongitude(point.getX(), longitude)) {
-                    return MAX_LATITUDE;
-                }
-                return -1000; //addab change me
+            if (haveSameLongitude(point.getX(), toDegrees(previousLongitude)) &&
+                    !haveSameLongitude(point.getX(), longitude)) {
+                return MAX_LATITUDE;
             }
 
             double deltaLongitude = pointLongitude - previousLongitude;
@@ -2040,7 +2041,7 @@ public final class GeoFunctions
             previousLongitude = longitude;
         }
 
-        public double computeSphericalExcess()
+        private double computeSphericalExcess()
         {
             if (!done) {
                 // Now that we have our last final bearing, we can calculate the remaining course delta
@@ -2061,7 +2062,7 @@ public final class GeoFunctions
             return sphericalExcess;
         }
 
-        public boolean containsPole()
+        private boolean containsPole()
         {
             if (!done) {
                 computeSphericalExcess();
