@@ -22,6 +22,7 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -32,6 +33,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -50,6 +52,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.google.common.base.Preconditions;
 import io.airlift.slice.Slice;
 
 import java.util.List;
@@ -69,6 +72,7 @@ import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
@@ -320,6 +324,28 @@ final class RowExpressionVerifier
     protected Boolean visitBooleanLiteral(BooleanLiteral expected, RowExpression actual)
     {
         return compareLiteral(expected, actual);
+    }
+
+    @Override
+    protected Boolean visitDereferenceExpression(DereferenceExpression expected, RowExpression actual)
+    {
+        if (!(actual instanceof SpecialFormExpression) || !(((SpecialFormExpression) actual).getForm().equals(DEREFERENCE))) {
+            return false;
+        }
+        SpecialFormExpression actualDereference = (SpecialFormExpression) actual;
+        if (actualDereference.getArguments().size() == 2 &&
+                actualDereference.getArguments().get(0).getType() instanceof RowType &&
+                actualDereference.getArguments().get(1) instanceof ConstantExpression) {
+            RowType rowType = (RowType) actualDereference.getArguments().get(0).getType();
+            Object value = LiteralInterpreter.evaluate(TEST_SESSION.toConnectorSession(), (ConstantExpression) actualDereference.getArguments().get(1));
+            Preconditions.checkState(value instanceof Long);
+            long index = (Long) value;
+            Preconditions.checkState(index >= 0 && index < rowType.getFields().size());
+            RowType.Field field = rowType.getFields().get((int) index);
+            Preconditions.checkState(field.getName().isPresent());
+            return expected.getField().getValue().equals(field.getName().get()) && process(expected.getBase(), actualDereference.getArguments().get(0));
+        }
+        return false;
     }
 
     private static String getValueFromLiteral(Node expression)
