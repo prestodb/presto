@@ -68,6 +68,13 @@ public interface TupleDomainFilter
     boolean testBytes(byte[] buffer, int offset, int length);
 
     /**
+     * Filters like string equality and IN, as well as conditions on cardinality of lists and maps can be at least partly
+     * decided by looking at lengths alone. If this is false, then no further checks are needed. If true, eventual filters on the
+     * data itself need to be evaluated.
+     */
+    boolean testLength(int length);
+
+    /**
      * When a filter applied to a nested column fails, the whole top-level position should
      * fail. To enable this functionality, the filter keeps track of the boundaries of
      * top-level positions and allows the caller to find out where the current top-level
@@ -149,6 +156,12 @@ public interface TupleDomainFilter
         }
 
         @Override
+        public boolean testLength(int length)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public int getPrecedingPositionsToFail()
         {
             return 0;
@@ -212,6 +225,12 @@ public interface TupleDomainFilter
         }
 
         @Override
+        public boolean testLength(int length)
+        {
+            return false;
+        }
+
+        @Override
         public String toString()
         {
             return toStringHelper(this).toString();
@@ -269,6 +288,12 @@ public interface TupleDomainFilter
         }
 
         @Override
+        public boolean testLength(int length)
+        {
+            return false;
+        }
+
+        @Override
         public String toString()
         {
             return toStringHelper(this).toString();
@@ -321,6 +346,12 @@ public interface TupleDomainFilter
 
         @Override
         public boolean testBytes(byte[] buffer, int offset, int length)
+        {
+            return true;
+        }
+
+        @Override
+        public boolean testLength(int length)
         {
             return true;
         }
@@ -888,6 +919,12 @@ public interface TupleDomainFilter
         }
 
         @Override
+        public boolean testLength(int length)
+        {
+            return !singleValue || lower.length == length;
+        }
+
+        @Override
         public int hashCode()
         {
             return Objects.hash(lower, lowerExclusive, upper, upperExclusive, nullAllowed);
@@ -943,6 +980,8 @@ public interface TupleDomainFilter
         private final int hashTableSizeMask;
         private final long[] bloom;
         private final int bloomSize;
+        // Contains true in position i if at least one of the values has length i.
+        private final boolean[] lengthExists;
 
         private BytesValues(byte[][] values, boolean nullAllowed)
         {
@@ -952,6 +991,7 @@ public interface TupleDomainFilter
             checkArgument(values.length > 1, "values must contain at least 2 entries");
 
             this.values = values;
+            lengthExists = new boolean[Arrays.stream(values).mapToInt(value -> value.length).max().getAsInt() + 1];
             // Linear hash table size is the highest power of two less than or equal to number of values * 4. This means that the
             // table is under half full, e.g. 127 elements gets 256 slots.
             int hashTableSize = Integer.highestOneBit(values.length * 4);
@@ -961,6 +1001,7 @@ public interface TupleDomainFilter
             bloomSize = Math.max(1, hashTableSize / 8);
             bloom = new long[bloomSize];
             for (byte[] value : values) {
+                lengthExists[value.length] = true;
                 long hashCode = hash(value, 0, value.length);
                 bloom[bloomIndex(hashCode)] |= bloomMask(hashCode);
                 int position = (int) (hashCode & hashTableSizeMask);
@@ -1001,6 +1042,12 @@ public interface TupleDomainFilter
                 }
             }
             return false;
+        }
+
+        @Override
+        public boolean testLength(int length)
+        {
+            return length < lengthExists.length && lengthExists[length];
         }
 
         private static long bloomMask(long hashCode)
@@ -1409,6 +1456,15 @@ public interface TupleDomainFilter
 
             return recordTestResult(filter.testBytes(buffer, offset, length));
         }
+
+        public boolean testLength(int length)
+        {
+            // Returns true without advancing to the next filter because this is a pre-check followed by a test on the value,
+            // which will advance the state. TODO: We could advance the state on false and not advance on true. Consider the
+            // case where testLength is the only filter on a list/map inside another. This would imply exposing advancing as a
+            // separate operation.
+            return true;
+        }
     }
 
     class NullsFilter
@@ -1465,6 +1521,11 @@ public interface TupleDomainFilter
         }
 
         public boolean testBytes(byte[] buffer, int offset, int length)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public boolean testLength(int length)
         {
             throw new UnsupportedOperationException();
         }
