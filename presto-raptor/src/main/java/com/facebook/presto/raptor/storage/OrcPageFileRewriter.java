@@ -95,7 +95,6 @@ public final class OrcPageFileRewriter
                     orcDataEnvironment.createOrcDataSource(input, readerAttributes),
                     ORC,
                     readerAttributes.getMaxMergeDistance(),
-                    readerAttributes.getMaxReadSize(),
                     readerAttributes.getTinyStripeThreshold(),
                     HUGE_MAX_READ_BLOCK_SIZE);
 

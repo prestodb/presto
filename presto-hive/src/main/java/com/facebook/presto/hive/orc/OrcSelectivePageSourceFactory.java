@@ -232,7 +232,7 @@ public class OrcSelectivePageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, maxBufferSize, tinyStripeThreshold, maxReadBlockSize);
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, tinyStripeThreshold, maxReadBlockSize);
 
             checkArgument(!domainPredicate.isNone(), "Unexpected NONE domain");
 
