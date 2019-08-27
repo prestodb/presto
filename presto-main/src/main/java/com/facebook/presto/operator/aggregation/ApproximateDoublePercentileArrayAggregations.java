@@ -48,6 +48,12 @@ public final class ApproximateDoublePercentileArrayAggregations
         ApproximateLongPercentileArrayAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentilesArrayBlock);
     }
 
+    @InputFunction
+    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        ApproximateLongPercentileArrayAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentilesArrayBlock, accuracy);
+    }
+
     @CombineFunction
     public static void combine(@AggregationState DigestAndPercentileArrayState state, DigestAndPercentileArrayState otherState)
     {

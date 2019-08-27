@@ -244,6 +244,17 @@ Approximate Aggregate Functions
     Each element of the array must be between zero and one, and the array must
     be constant for all input rows.
 
+.. function:: approx_percentile(x, w, percentages, accuracy) -> array<[same as x]>
+
+    Returns the approximate weighed percentile for all input values of ``x``
+    using the per-item weight ``w`` at each of the given percentages specified
+    in the array, with a maximum rank error of ``accuracy``. The weight must be
+    an integer value of at least one. It is effectively a replication count for
+    the value ``x`` in the percentile set. Each element of the array must be
+    between zero and one, and the array must be constant for all input rows.
+    ``accuracy`` must be a value greater than zero and less than one, and it
+    must be constant for all input rows.
+
 .. function:: approx_set(x) -> HyperLogLog
     :noindex:
 

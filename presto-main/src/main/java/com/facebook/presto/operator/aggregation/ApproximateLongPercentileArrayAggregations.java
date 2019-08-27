@@ -62,6 +62,18 @@ public final class ApproximateLongPercentileArrayAggregations
         state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
     }
 
+    @InputFunction
+    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        initializePercentilesArray(state, percentilesArrayBlock);
+        initializeDigest(state, accuracy);
+
+        QuantileDigest digest = state.getDigest();
+        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
+        digest.add(value, weight);
+        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+    }
+
     @CombineFunction
     public static void combine(@AggregationState DigestAndPercentileArrayState state, DigestAndPercentileArrayState otherState)
     {
@@ -120,9 +132,19 @@ public final class ApproximateLongPercentileArrayAggregations
 
     private static void initializeDigest(@AggregationState DigestAndPercentileArrayState state)
     {
+        initializeDigest(state, 0.01);
+    }
+
+    private static void initializeDigest(@AggregationState DigestAndPercentileArrayState state, double accuracy)
+    {
         QuantileDigest digest = state.getDigest();
         if (digest == null) {
-            digest = new QuantileDigest(0.01);
+            if (accuracy > 0 && accuracy < 1) {
+                digest = new QuantileDigest(accuracy);
+            }
+            else {
+                throw new IllegalArgumentException("Percentile accuracy must be strictly between 0 and 1");
+            }
             state.setDigest(digest);
             state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
         }

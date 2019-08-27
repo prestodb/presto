@@ -49,15 +49,18 @@ public class TestApproximatePercentileAggregation
 
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = getAggregation(DOUBLE, new ArrayType(DOUBLE));
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = getAggregation(DOUBLE, BIGINT, new ArrayType(DOUBLE));
+    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION_WITH_ACCURACY = getAggregation(DOUBLE, BIGINT, new ArrayType(DOUBLE), DOUBLE);
 
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = getAggregation(BIGINT, new ArrayType(DOUBLE));
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = getAggregation(BIGINT, BIGINT, new ArrayType(DOUBLE));
+    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION_WITH_ACCURACY = getAggregation(BIGINT, BIGINT, new ArrayType(DOUBLE), DOUBLE);
 
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_AGGREGATION = getAggregation(REAL, DOUBLE);
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = getAggregation(REAL, BIGINT, DOUBLE);
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = getAggregation(REAL, BIGINT, DOUBLE, DOUBLE);
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = getAggregation(REAL, new ArrayType(DOUBLE));
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = getAggregation(REAL, BIGINT, new ArrayType(DOUBLE));
+    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION_WITH_ACCURACY = getAggregation(REAL, BIGINT, new ArrayType(DOUBLE), DOUBLE);
 
     @Test
     public void testLongPartialStep()
@@ -179,6 +182,14 @@ public class TestApproximatePercentileAggregation
                 createLongsBlock(1L, 2L, 3L),
                 createLongsBlock(4L, 2L, 1L),
                 createRLEBlock(ImmutableList.of(0.5, 0.8), 3));
+
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION_WITH_ACCURACY,
+                ImmutableList.of(9900L, 100L),
+                createLongSequenceBlock(0, 10000),
+                createLongRepeatBlock(1, 10000),
+                createRLEBlock(ImmutableList.of(0.99, 0.01), 10000),
+                createRLEBlock(0.001, 10000));
     }
 
     @Test
@@ -315,6 +326,14 @@ public class TestApproximatePercentileAggregation
                 createBlockOfReals(1.0f, 2.0f, 3.0f),
                 createLongsBlock(4L, 2L, 1L),
                 createRLEBlock(ImmutableList.of(0.5, 0.8), 3));
+
+        assertAggregation(
+                FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION_WITH_ACCURACY,
+                ImmutableList.of(9900.0f, 100.0f),
+                createSequenceBlockOfReal(0, 10000),
+                createLongRepeatBlock(1, 10000),
+                createRLEBlock(ImmutableList.of(0.99, 0.01), 10000),
+                createRLEBlock(0.001, 10000));
     }
 
     @Test
@@ -439,6 +458,14 @@ public class TestApproximatePercentileAggregation
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createLongsBlock(4L, 2L, 1L),
                 createRLEBlock(ImmutableList.of(0.5, 0.8), 3));
+
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION_WITH_ACCURACY,
+                ImmutableList.of(9900.0, 100.0),
+                createDoubleSequenceBlock(0, 10000),
+                createLongRepeatBlock(1, 10000),
+                createRLEBlock(ImmutableList.of(0.99, 0.01), 10000),
+                createRLEBlock(0.001, 10000));
     }
 
     private static InternalAggregationFunction getAggregation(Type... arguments)
