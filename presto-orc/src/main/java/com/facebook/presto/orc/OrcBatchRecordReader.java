@@ -73,7 +73,7 @@ public class OrcBatchRecordReader
                 // doesn't have a local buffer. All non-leaf level StreamReaders' (e.g. MapStreamReader, LongStreamReader,
                 // ListStreamReader and StructStreamReader) instance sizes were not counted, because calling setBytes() in
                 // their constructors is confusing.
-                createStreamReaders(orcDataSource, types, hiveStorageTimeZone, includedColumns, systemMemoryUsage.newAggregatedMemoryContext()),
+                createStreamReaders(orcDataSource, types, hiveStorageTimeZone, includedColumns),
                 predicate,
                 numberOfRows,
                 fileStripes,
@@ -153,8 +153,7 @@ public class OrcBatchRecordReader
             OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
-            Map<Integer, Type> includedColumns,
-            AggregatedMemoryContext systemMemoryContext)
+            Map<Integer, Type> includedColumns)
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
