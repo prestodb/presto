@@ -15,6 +15,7 @@ package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
+import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
@@ -55,6 +56,7 @@ public class DwrfBatchPageSourceFactory
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
+    private final FileOpener fileOpener;
 
     @Inject
     public DwrfBatchPageSourceFactory(
@@ -62,13 +64,15 @@ public class DwrfBatchPageSourceFactory
             HiveClientConfig config,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
-            OrcFileTailSource orcFileTailSource)
+            OrcFileTailSource orcFileTailSource,
+            FileOpener fileOpener)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = requireNonNull(config, "config is null").getDomainCompactionThreshold();
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
+        this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
     }
 
     @Override
@@ -82,7 +86,8 @@ public class DwrfBatchPageSourceFactory
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            Optional<byte[]> extraFileInfo)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -115,6 +120,8 @@ public class DwrfBatchPageSourceFactory
                 false,
                 stats,
                 domainCompactionThreshold,
-                orcFileTailSource));
+                orcFileTailSource,
+                extraFileInfo,
+                fileOpener));
     }
 }

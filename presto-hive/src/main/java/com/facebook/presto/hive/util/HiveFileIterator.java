@@ -14,10 +14,10 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
@@ -33,7 +33,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 public class HiveFileIterator
-        extends AbstractIterator<LocatedFileStatus>
+        extends AbstractIterator<HiveFileInfo>
 {
     public enum NestedDirectoryPolicy
     {
@@ -47,7 +47,7 @@ public class HiveFileIterator
     private final NamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
 
-    private Iterator<LocatedFileStatus> remoteIterator = Collections.emptyIterator();
+    private Iterator<HiveFileInfo> remoteIterator = Collections.emptyIterator();
 
     public HiveFileIterator(
             Path path,
@@ -62,31 +62,31 @@ public class HiveFileIterator
     }
 
     @Override
-    protected LocatedFileStatus computeNext()
+    protected HiveFileInfo computeNext()
     {
         while (true) {
             while (remoteIterator.hasNext()) {
-                LocatedFileStatus status = getLocatedFileStatus(remoteIterator);
+                HiveFileInfo fileInfo = getLocatedFileStatus(remoteIterator);
 
                 // Ignore hidden files and directories. Hive ignores files starting with _ and . as well.
-                String fileName = status.getPath().getName();
+                String fileName = fileInfo.getPath().getName();
                 if (fileName.startsWith("_") || fileName.startsWith(".")) {
                     continue;
                 }
 
-                if (status.isDirectory()) {
+                if (fileInfo.isDirectory()) {
                     switch (nestedDirectoryPolicy) {
                         case IGNORED:
                             continue;
                         case RECURSE:
-                            paths.add(status.getPath());
+                            paths.add(fileInfo.getPath());
                             continue;
                         case FAIL:
                             throw new NestedDirectoryNotAllowedException();
                     }
                 }
 
-                return status;
+                return fileInfo;
             }
 
             if (paths.isEmpty()) {
@@ -96,14 +96,14 @@ public class HiveFileIterator
         }
     }
 
-    private Iterator<LocatedFileStatus> getLocatedFileStatusRemoteIterator(Path path)
+    private Iterator<HiveFileInfo> getLocatedFileStatusRemoteIterator(Path path)
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
             return new FileStatusIterator(path, listDirectoryOperation, namenodeStats);
         }
     }
 
-    private LocatedFileStatus getLocatedFileStatus(Iterator<LocatedFileStatus> iterator)
+    private HiveFileInfo getLocatedFileStatus(Iterator<HiveFileInfo> iterator)
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getRemoteIteratorNext().time()) {
             return iterator.next();
@@ -111,11 +111,11 @@ public class HiveFileIterator
     }
 
     private static class FileStatusIterator
-            implements Iterator<LocatedFileStatus>
+            implements Iterator<HiveFileInfo>
     {
         private final Path path;
         private final NamenodeStats namenodeStats;
-        private final RemoteIterator<LocatedFileStatus> fileStatusIterator;
+        private final RemoteIterator<HiveFileInfo> fileStatusIterator;
 
         private FileStatusIterator(Path path, ListDirectoryOperation listDirectoryOperation, NamenodeStats namenodeStats)
         {
@@ -141,7 +141,7 @@ public class HiveFileIterator
         }
 
         @Override
-        public LocatedFileStatus next()
+        public HiveFileInfo next()
         {
             try {
                 return fileStatusIterator.next();
@@ -172,7 +172,7 @@ public class HiveFileIterator
 
     public interface ListDirectoryOperation
     {
-        RemoteIterator<LocatedFileStatus> list(Path path)
+        RemoteIterator<HiveFileInfo> list(Path path)
                 throws IOException;
     }
 }

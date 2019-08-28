@@ -52,6 +52,7 @@ public class HiveSplit
     private final Map<Integer, Column> partitionSchemaDifference; // key: hiveColumnIndex
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
+    private final Optional<byte[]> extraFileInfo;
 
     @JsonCreator
     public HiveSplit(
@@ -71,7 +72,8 @@ public class HiveSplit
             @JsonProperty("partitionDataColumnCount") int partitionDataColumnCount,
             @JsonProperty("partitionSchemaDifference") Map<Integer, Column> partitionSchemaDifference,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
-            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled)
+            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
+            @JsonProperty("extraFileInfo") Optional<byte[]> extraFileInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -87,6 +89,7 @@ public class HiveSplit
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
+        requireNonNull(extraFileInfo, "extraFileInfo is null");
 
         this.database = database;
         this.table = table;
@@ -105,6 +108,7 @@ public class HiveSplit
         this.partitionSchemaDifference = partitionSchemaDifference;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.extraFileInfo = extraFileInfo;
     }
 
     @JsonProperty
@@ -214,6 +218,12 @@ public class HiveSplit
     public boolean isS3SelectPushdownEnabled()
     {
         return s3SelectPushdownEnabled;
+    }
+
+    @JsonProperty
+    public Optional<byte[]> getExtraFileInfo()
+    {
+        return extraFileInfo;
     }
 
     @Override

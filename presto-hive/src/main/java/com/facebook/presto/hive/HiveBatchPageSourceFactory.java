@@ -38,5 +38,6 @@ public interface HiveBatchPageSourceFactory
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone);
+            DateTimeZone hiveStorageTimeZone,
+            Optional<byte[]> extraFileInfo);
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
+import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
@@ -82,6 +83,7 @@ public class OrcBatchPageSourceFactory
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
+    private final FileOpener fileOpener;
 
     @Inject
     public OrcBatchPageSourceFactory(
@@ -89,9 +91,10 @@ public class OrcBatchPageSourceFactory
             HiveClientConfig config,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
-            OrcFileTailSource orcFileTailSource)
+            OrcFileTailSource orcFileTailSource,
+            FileOpener fileOpener)
     {
-        this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, stats, config.getDomainCompactionThreshold(), orcFileTailSource);
+        this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, stats, config.getDomainCompactionThreshold(), orcFileTailSource, fileOpener);
     }
 
     public OrcBatchPageSourceFactory(
@@ -100,7 +103,8 @@ public class OrcBatchPageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
-            OrcFileTailSource orcFileTailSource)
+            OrcFileTailSource orcFileTailSource,
+            FileOpener fileOpener)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useOrcColumnNames = useOrcColumnNames;
@@ -108,6 +112,7 @@ public class OrcBatchPageSourceFactory
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
+        this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
     }
 
     @Override
@@ -122,7 +127,8 @@ public class OrcBatchPageSourceFactory
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            Optional<byte[]> extraFileInfo)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -156,7 +162,9 @@ public class OrcBatchPageSourceFactory
                 isOrcBloomFiltersEnabled(session),
                 stats,
                 domainCompactionThreshold,
-                orcFileTailSource));
+                orcFileTailSource,
+                extraFileInfo,
+                fileOpener));
     }
 
     public static OrcBatchPageSource createOrcPageSource(
@@ -182,14 +190,16 @@ public class OrcBatchPageSourceFactory
             boolean orcBloomFiltersEnabled,
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
-            OrcFileTailSource orcFileTailSource)
+            OrcFileTailSource orcFileTailSource,
+            Optional<byte[]> extraFileInfo,
+            FileOpener fileOpener)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
         OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            FSDataInputStream inputStream = fileSystem.open(path);
+            FSDataInputStream inputStream = fileOpener.open(fileSystem, path, extraFileInfo);
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,

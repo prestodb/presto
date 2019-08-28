@@ -472,7 +472,7 @@ public class TestOrcBatchPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
-            OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, stats, 100, new StorageOrcFileTailSource());
+            OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, stats, 100, new StorageOrcFileTailSource(), new HadoopFileOpener());
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),
@@ -496,7 +496,8 @@ public class TestOrcBatchPageSourceMemoryTracking
                     0,
                     ImmutableMap.of(),
                     Optional.empty(),
-                    false)
+                    false,
+                    Optional.empty())
                     .get();
         }
 
