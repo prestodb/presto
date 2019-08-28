@@ -174,6 +174,7 @@ import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.HiveUtil.assignFieldNamesForAnonymousRowColumns;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
@@ -749,7 +750,12 @@ public class HiveMetadata
             return new HiveBucketProperty(partitioning.getPartitionColumns(), partitioningHandle.getBucketCount(), ImmutableList.of());
         });
 
-        List<HiveColumnHandle> columnHandles = getColumnHandles(columns, ImmutableSet.of(), typeTranslator);
+        List<HiveColumnHandle> columnHandles = getColumnHandles(
+                // Hive doesn't support anonymous rows
+                // Since this method doesn't create a real table, it is fine to assign dummy field names to the anonymous rows
+                assignFieldNamesForAnonymousRowColumns(columns, typeManager),
+                ImmutableSet.of(),
+                typeTranslator);
         storageFormat.validateColumns(columnHandles);
 
         Table table = Table.builder()
