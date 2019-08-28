@@ -35,6 +35,7 @@ import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.PredicateCompiler;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
@@ -45,6 +46,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
+import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
@@ -100,6 +102,12 @@ public final class HiveTestUtils
         public DeterminismEvaluator getDeterminismEvaluator()
         {
             return new RowExpressionDeterminismEvaluator(METADATA);
+        }
+
+        @Override
+        public String formatRowExpression(ConnectorSession session, RowExpression expression)
+        {
+            return new RowExpressionFormatter(METADATA.getFunctionManager()).formatRowExpression(session, expression);
         }
     };
 

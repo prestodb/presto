@@ -54,6 +54,7 @@ import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.ConnectorRowExpressionService;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
@@ -346,7 +347,12 @@ public class ConnectorManager
                 new FunctionResolution(metadataManager.getFunctionManager()),
                 pageSorter,
                 pageIndexerFactory,
-                new ConnectorRowExpressionService(domainTranslator, new RowExpressionOptimizer(metadataManager), predicateCompiler, determinismEvaluator));
+                new ConnectorRowExpressionService(
+                        domainTranslator,
+                        new RowExpressionOptimizer(metadataManager),
+                        predicateCompiler,
+                        determinismEvaluator,
+                        new RowExpressionFormatter(metadataManager.getFunctionManager())));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);
