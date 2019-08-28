@@ -1767,7 +1767,9 @@ public class HiveMetadata
                                 predicateColumns,
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hivePartitionResult.getBucketHandle(),
-                                hivePartitionResult.getBucketFilter())),
+                                hivePartitionResult.getBucketFilter(),
+                                session,
+                                rowExpression -> rowExpressionService.formatRowExpression(session, rowExpression))),
                 TRUE_CONSTANT);
     }
 
@@ -1824,7 +1826,9 @@ public class HiveMetadata
                                 predicateColumns,
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hiveBucketHandle,
-                                hivePartitionResult.getBucketFilter())),
+                                hivePartitionResult.getBucketFilter(),
+                                session,
+                                rowExpression -> rowExpressionService.formatRowExpression(session, rowExpression))),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
@@ -1996,7 +2000,9 @@ public class HiveMetadata
                 hiveLayoutHandle.getPredicateColumns(),
                 hiveLayoutHandle.getPartitionColumnPredicate(),
                 Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
-                hiveLayoutHandle.getBucketFilter());
+                hiveLayoutHandle.getBucketFilter(),
+                session,
+                rowExpression -> rowExpressionService.formatRowExpression(session, rowExpression));
     }
 
     @Override
