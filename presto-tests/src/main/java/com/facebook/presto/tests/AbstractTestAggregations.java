@@ -1338,4 +1338,17 @@ public abstract class AbstractTestAggregations
                         "GROUP BY partkey",
                 "SELECT partkey, true FROM lineitem GROUP BY partkey");
     }
+
+    @Test
+    public void testGroupedRow()
+    {
+        assertQuery(
+                "SELECT count(r[1]), count(r[2]) " +
+                        "FROM (" +
+                        "   SELECT orderkey, max_by(ROW(orderstatus, shippriority), orderstatus) AS r " +
+                        "   FROM orders " +
+                        "   GROUP BY orderkey" +
+                        ")",
+                "SELECT 15000, 15000");
+    }
 }
