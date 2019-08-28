@@ -135,6 +135,8 @@ public class HiveClientModule
 
         configBinder(binder).bindConfig(OrcCacheConfig.class, connectorId);
 
+        binder.bind(FileOpener.class).to(HadoopFileOpener.class).in(Scopes.SINGLETON);
+
         Multibinder<HiveSelectivePageSourceFactory> selectivePageSourceFactoryBinder = newSetBinder(binder, HiveSelectivePageSourceFactory.class);
         selectivePageSourceFactoryBinder.addBinding().to(OrcSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
         selectivePageSourceFactoryBinder.addBinding().to(DwrfSelectivePageSourceFactory.class).in(Scopes.SINGLETON);

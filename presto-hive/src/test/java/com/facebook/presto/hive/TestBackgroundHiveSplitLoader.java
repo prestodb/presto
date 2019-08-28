@@ -49,6 +49,7 @@ import java.util.concurrent.Executor;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
+import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
@@ -81,9 +82,9 @@ public class TestBackgroundHiveSplitLoader
 
     private static final Domain RETURNED_PATH_DOMAIN = Domain.singleValue(VARCHAR, utf8Slice(RETURNED_PATH.toString()));
 
-    private static final List<LocatedFileStatus> TEST_FILES = ImmutableList.of(
-            locatedFileStatus(RETURNED_PATH),
-            locatedFileStatus(FILTERED_PATH));
+    private static final List<HiveFileInfo> TEST_FILES = ImmutableList.of(
+            createHiveFileInfo(locatedFileStatus(RETURNED_PATH), Optional.empty()),
+            createHiveFileInfo(locatedFileStatus(FILTERED_PATH), Optional.empty()));
 
     private static final List<Column> PARTITION_COLUMNS = ImmutableList.of(
             new Column("partitionColumn", HIVE_INT, Optional.empty()));
@@ -170,7 +171,7 @@ public class TestBackgroundHiveSplitLoader
             throws Exception
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                ImmutableList.of(locatedFileStatusWithNoBlocks(RETURNED_PATH)),
+                ImmutableList.of(createHiveFileInfo(locatedFileStatusWithNoBlocks(RETURNED_PATH), Optional.empty())),
                 Optional.empty());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
@@ -216,7 +217,7 @@ public class TestBackgroundHiveSplitLoader
     }
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
-            List<LocatedFileStatus> files,
+            List<HiveFileInfo> files,
             Optional<Domain> pathDomain)
     {
         return backgroundHiveSplitLoader(
@@ -228,7 +229,7 @@ public class TestBackgroundHiveSplitLoader
     }
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(
-            List<LocatedFileStatus> files,
+            List<HiveFileInfo> files,
             Optional<Domain> pathDomain,
             Optional<HiveBucketFilter> hiveBucketFilter,
             Table table,
@@ -384,15 +385,15 @@ public class TestBackgroundHiveSplitLoader
     private static class TestingDirectoryLister
             implements DirectoryLister
     {
-        private final List<LocatedFileStatus> files;
+        private final List<HiveFileInfo> files;
 
-        public TestingDirectoryLister(List<LocatedFileStatus> files)
+        public TestingDirectoryLister(List<HiveFileInfo> files)
         {
             this.files = files;
         }
 
         @Override
-        public Iterator<LocatedFileStatus> list(FileSystem fs, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy)
+        public Iterator<HiveFileInfo> list(FileSystem fs, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy)
         {
             return files.iterator();
         }

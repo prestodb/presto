@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.hive;
 
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import java.util.Iterator;
+import java.io.IOException;
+import java.util.Optional;
 
-import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy;
-
-public interface DirectoryLister
+public interface FileOpener
 {
-    Iterator<HiveFileInfo> list(FileSystem fileSystem, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy);
+    FSDataInputStream open(FileSystem fileSystem, Path path, Optional<byte[]> extraFileInfo)
+            throws IOException;
 }

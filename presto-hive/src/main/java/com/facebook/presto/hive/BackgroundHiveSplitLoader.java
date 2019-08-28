@@ -35,7 +35,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -444,9 +443,9 @@ public class BackgroundHiveSplitLoader
         checkState(readBucketCount <= tableBucketCount, "readBucketCount(%s) should be less than or equal to tableBucketCount(%s)", readBucketCount, tableBucketCount);
 
         // list all files in the partition
-        ArrayList<LocatedFileStatus> files = new ArrayList<>(partitionBucketCount);
+        List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(files, directoryLister.list(fileSystem, path, namenodeStats, FAIL));
+            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, path, namenodeStats, FAIL));
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -458,18 +457,18 @@ public class BackgroundHiveSplitLoader
         }
 
         // verify we found one file per bucket
-        if (files.size() != partitionBucketCount) {
+        if (fileInfos.size() != partitionBucketCount) {
             throw new PrestoException(
                     HIVE_INVALID_BUCKET_FILES,
                     format("Hive table '%s' is corrupt. The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
                             new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                            files.size(),
+                            fileInfos.size(),
                             partitionBucketCount,
                             partitionName));
         }
 
         // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
-        files.sort(null);
+        fileInfos.sort(null);
 
         // convert files internal splits
         List<InternalHiveSplit> splitList = new ArrayList<>();
@@ -502,9 +501,9 @@ public class BackgroundHiveSplitLoader
                                 "partition bucket count: " + partitionBucketCount + ", effective reading bucket count: " + readBucketCount + ")");
             }
             if (!eligibleTableBucketNumbers.isEmpty()) {
-                LocatedFileStatus file = files.get(partitionBucketNumber);
+                HiveFileInfo fileInfo = fileInfos.get(partitionBucketNumber);
                 eligibleTableBucketNumbers.stream()
-                        .map(tableBucketNumber -> splitFactory.createInternalHiveSplit(file, readBucketNumber, tableBucketNumber, splittable))
+                        .map(tableBucketNumber -> splitFactory.createInternalHiveSplit(fileInfo, readBucketNumber, tableBucketNumber, splittable))
                         .forEach(optionalSplit -> optionalSplit.ifPresent(splitList::add));
             }
         }
@@ -515,9 +514,9 @@ public class BackgroundHiveSplitLoader
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
         return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
-                .map(file -> {
-                    int virtualBucketNumber = getVirtualBucketNumber(bucketCount, file.getPath());
-                    return splitFactory.createInternalHiveSplit(file, virtualBucketNumber, virtualBucketNumber, splittable);
+                .map(fileInfo -> {
+                    int virtualBucketNumber = getVirtualBucketNumber(bucketCount, fileInfo.getPath());
+                    return splitFactory.createInternalHiveSplit(fileInfo, virtualBucketNumber, virtualBucketNumber, splittable);
                 })
                 .filter(Optional::isPresent)
                 .map(Optional::get)
