@@ -23,12 +23,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.IntArrayBlock;
+import com.facebook.presto.spi.block.SingleRowBlock;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
@@ -37,8 +37,8 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
-import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.type.TypeDeserializer;
@@ -62,7 +62,7 @@ import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
-import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -78,7 +78,6 @@ import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatm
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
-import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -164,15 +163,14 @@ public class TestRowExpressionSerde
     @Test
     public void testRowLiteral()
     {
-        assertEquals(getRoundTrip("ROW(1, 1.1)", true),
-                specialForm(
-                        ROW_CONSTRUCTOR,
-                        RowType.anonymous(
-                                ImmutableList.of(
-                                        INTEGER,
-                                        DOUBLE)),
-                        constant(1L, INTEGER),
-                        constant(1.1, DOUBLE)));
+        RowExpression rowExpression = getRoundTrip("ROW(1, 1.1)", true);
+        assertTrue(rowExpression instanceof ConstantExpression);
+        Object value = ((ConstantExpression) rowExpression).getValue();
+        assertTrue(value instanceof SingleRowBlock);
+        SingleRowBlock block = (SingleRowBlock) value;
+        assertEquals(block.getPositionCount(), 2);
+        assertEquals(block.getInt(0), 1);
+        assertEquals(Double.longBitsToDouble(block.getLong(1)), 1.1);
     }
 
     @Test
@@ -268,8 +266,8 @@ public class TestRowExpressionSerde
     {
         RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION);
         if (optimize) {
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata.getFunctionManager(), TEST_SESSION.toConnectorSession());
-            return optimizer.optimize(rowExpression);
+            RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
+            return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
         }
         return rowExpression;
     }

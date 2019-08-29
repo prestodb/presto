@@ -30,8 +30,8 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
-import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.testing.TestingSession;
@@ -63,6 +63,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
@@ -182,8 +183,8 @@ public class PageProcessorBenchmark
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
         RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, METADATA.getFunctionManager(), METADATA.getTypeManager(), TEST_SESSION);
-        ExpressionOptimizer optimizer = new ExpressionOptimizer(METADATA.getFunctionManager(), TEST_SESSION.toConnectorSession());
-        return optimizer.optimize(rowExpression);
+        RowExpressionOptimizer optimizer = new RowExpressionOptimizer(METADATA);
+        return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
     }
 
     private static Page createPage(List<? extends Type> types, boolean dictionary)
