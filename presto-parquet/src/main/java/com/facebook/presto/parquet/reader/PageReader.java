@@ -26,7 +26,7 @@ import java.util.List;
 import static com.facebook.presto.parquet.ParquetCompressionUtils.decompress;
 import static java.lang.Math.toIntExact;
 
-class PageReader
+public class PageReader
 {
     private final CompressionCodecName codec;
     private final long valueCount;
