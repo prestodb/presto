@@ -44,6 +44,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -127,7 +128,7 @@ public class InCodeGeneratorBenchmark
         RowExpression filter = specialForm(IN, BOOLEAN, arguments);
 
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
+        processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(TEST_SESSION, Optional.of(filter), ImmutableList.of(project)).get();
     }
 
     @Benchmark

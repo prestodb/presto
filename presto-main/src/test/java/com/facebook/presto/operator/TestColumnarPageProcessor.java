@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.SequencePageBuilder.createSequencePageWithDictionaryBlocks;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
@@ -81,6 +82,6 @@ public class TestColumnarPageProcessor
     private PageProcessor newPageProcessor()
     {
         return new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
-                .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, types.get(0)), field(1, types.get(1))), MAX_BATCH_SIZE).get();
+                .compilePageProcessor(TEST_SESSION, Optional.empty(), ImmutableList.of(field(0, types.get(0)), field(1, types.get(1))), MAX_BATCH_SIZE).get();
     }
 }

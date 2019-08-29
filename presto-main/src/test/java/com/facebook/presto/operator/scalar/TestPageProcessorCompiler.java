@@ -38,6 +38,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
@@ -86,15 +87,15 @@ public class TestPageProcessorCompiler
         projectionsBuilder.add(new CallExpression("concat", functionHandle, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
-        PageProcessor pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
-        PageProcessor pageProcessor2 = compiler.compilePageProcessor(Optional.empty(), projections).get();
+        PageProcessor pageProcessor = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections).get();
+        PageProcessor pageProcessor2 = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections).get();
         assertTrue(pageProcessor != pageProcessor2);
     }
 
     @Test
     public void testSanityRLE()
     {
-        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR)), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR)), MAX_BATCH_SIZE).get();
 
         Slice varcharValue = Slices.utf8Slice("hello");
         Page page = new Page(RunLengthEncodedBlock.create(BIGINT, 123L, 100), RunLengthEncodedBlock.create(VARCHAR, varcharValue, 100));
@@ -126,7 +127,7 @@ public class TestPageProcessorCompiler
         FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
-        PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION, Optional.of(filter), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
         Page outputPage = getOnlyElement(
@@ -165,7 +166,7 @@ public class TestPageProcessorCompiler
         FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
-        PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT)), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION, Optional.of(filter), ImmutableList.of(field(0, BIGINT)), MAX_BATCH_SIZE).get();
 
         Page page = new Page(createRLEBlock(5L, 100));
         Page outputPage = getOnlyElement(
@@ -186,7 +187,7 @@ public class TestPageProcessorCompiler
     @Test
     public void testSanityColumnarDictionary()
     {
-        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
         Page outputPage = getOnlyElement(
@@ -214,7 +215,7 @@ public class TestPageProcessorCompiler
         InputReferenceExpression col0 = field(0, BIGINT);
         CallExpression lessThanRandomExpression = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(col0, random));
 
-        PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression), MAX_BATCH_SIZE).get();
+        PageProcessor processor = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), ImmutableList.of(lessThanRandomExpression), MAX_BATCH_SIZE).get();
 
         assertFalse(new RowExpressionDeterminismEvaluator(metadataManager.getFunctionManager()).isDeterministic(lessThanRandomExpression));
 

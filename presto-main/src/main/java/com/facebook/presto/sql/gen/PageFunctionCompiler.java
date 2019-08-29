@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -100,11 +101,23 @@ public class PageFunctionCompiler
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
-    private final LoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
-    private final LoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
+    private final LoadingCache<CacheKey, Supplier<PageProjection>> projectionCache;
+    private final LoadingCache<CacheKey, Supplier<PageFilter>> filterCache;
 
     private final CacheStatsMBean projectionCacheStats;
     private final CacheStatsMBean filterCacheStats;
+
+    private static class CacheKey
+    {
+        private final RowExpression expression;
+        private final Session session;
+
+        public CacheKey(Session session, RowExpression expression)
+        {
+            this.session = requireNonNull(session, "session is null");
+            this.expression = requireNonNull(expression, "expression is null");
+        }
+    }
 
     @Inject
     public PageFunctionCompiler(Metadata metadata, CompilerConfig config)
@@ -121,7 +134,7 @@ public class PageFunctionCompiler
             projectionCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
+                    .build(CacheLoader.from(projection -> compileProjectionInternal(projection.expression, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
         else {
@@ -133,7 +146,7 @@ public class PageFunctionCompiler
             filterCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
+                    .build(CacheLoader.from(filter -> compileFilterInternal(filter.expression, Optional.empty())));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
         else {
@@ -158,12 +171,12 @@ public class PageFunctionCompiler
         return filterCacheStats;
     }
 
-    public Supplier<PageProjection> compileProjection(RowExpression projection, Optional<String> classNameSuffix)
+    public Supplier<PageProjection> compileProjection(Session session, RowExpression projection, Optional<String> classNameSuffix)
     {
         if (projectionCache == null) {
             return compileProjectionInternal(projection, classNameSuffix);
         }
-        return projectionCache.getUnchecked(projection);
+        return projectionCache.getUnchecked(new CacheKey(session, projection));
     }
 
     private Supplier<PageProjection> compileProjectionInternal(RowExpression projection, Optional<String> classNameSuffix)
@@ -357,12 +370,12 @@ public class PageFunctionCompiler
         return method;
     }
 
-    public Supplier<PageFilter> compileFilter(RowExpression filter, Optional<String> classNameSuffix)
+    public Supplier<PageFilter> compileFilter(Session session, RowExpression filter, Optional<String> classNameSuffix)
     {
         if (filterCache == null) {
             return compileFilterInternal(filter, classNameSuffix);
         }
-        return filterCache.getUnchecked(filter);
+        return filterCache.getUnchecked(new CacheKey(session, filter));
     }
 
     private Supplier<PageFilter> compileFilterInternal(RowExpression filter, Optional<String> classNameSuffix)

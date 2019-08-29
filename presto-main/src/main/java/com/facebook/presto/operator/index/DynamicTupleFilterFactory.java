@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjection;
@@ -52,6 +53,7 @@ public class DynamicTupleFilterFactory
     private final List<Supplier<PageProjection>> outputProjections;
 
     public DynamicTupleFilterFactory(
+            Session session,
             int filterOperatorId,
             PlanNodeId planNodeId,
             int[] tupleFilterChannels,
@@ -79,7 +81,7 @@ public class DynamicTupleFilterFactory
 
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.outputProjections = IntStream.range(0, outputTypes.size())
-                .mapToObj(field -> pageFunctionCompiler.compileProjection(Expressions.field(field, outputTypes.get(field)), Optional.empty()))
+                .mapToObj(field -> pageFunctionCompiler.compileProjection(session, Expressions.field(field, outputTypes.get(field)), Optional.empty()))
                 .collect(toImmutableList());
     }
 

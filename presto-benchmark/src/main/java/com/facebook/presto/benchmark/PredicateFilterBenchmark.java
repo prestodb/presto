@@ -59,7 +59,7 @@ public class PredicateFilterBenchmark
                 field(0, DOUBLE),
                 constant(50000.0, DOUBLE));
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(localQueryRunner.getDefaultSession(), Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
 
         FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,

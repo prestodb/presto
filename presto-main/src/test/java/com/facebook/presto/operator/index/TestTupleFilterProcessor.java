@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
@@ -57,6 +58,7 @@ public class TestTupleFilterProcessor
                 .build());
 
         DynamicTupleFilterFactory filterFactory = new DynamicTupleFilterFactory(
+                TEST_SESSION,
                 42,
                 new PlanNodeId("42"),
                 new int[] {0, 1, 2},

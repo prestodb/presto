@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
@@ -56,7 +57,7 @@ public class TestPageFunctionCompiler
     {
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
 
-        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty());
+        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.empty());
         PageProjection projection = projectionSupplier.get();
 
         // process good page and verify we got the expected number of result rows
@@ -88,7 +89,7 @@ public class TestPageFunctionCompiler
         String planNodeId = "7";
         String stageId = "20170707_223500_67496_zguwn.2";
         String classSuffix = stageId + "_" + planNodeId;
-        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of(classSuffix));
+        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of(classSuffix));
         PageProjection projection = projectionSupplier.get();
         Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), createLongBlockPage(0), SelectedPositions.positionsRange(0, 1));
         // class name should look like PageProjectionOutput_20170707_223500_67496_zguwn_2_7_XX
@@ -100,31 +101,31 @@ public class TestPageFunctionCompiler
     {
         PageFunctionCompiler cacheCompiler = new PageFunctionCompiler(createTestMetadataManager(), 100);
         assertSame(
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
+                cacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.empty()),
+                cacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.empty()));
         assertSame(
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")),
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")));
+                cacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of("hint")),
+                cacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of("hint")));
         assertSame(
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")),
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
+                cacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of("hint")),
+                cacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of("hint2")));
         assertSame(
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
+                cacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.empty()),
+                cacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of("hint2")));
 
         PageFunctionCompiler noCacheCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
         assertNotSame(
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
+                noCacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.empty()),
+                noCacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.empty()));
         assertNotSame(
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")),
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")));
+                noCacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of("hint")),
+                noCacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of("hint")));
         assertNotSame(
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")),
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
+                noCacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of("hint")),
+                noCacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of("hint2")));
         assertNotSame(
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
+                noCacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.empty()),
+                noCacheCompiler.compileProjection(TEST_SESSION, ADD_10_EXPRESSION, Optional.of("hint2")));
     }
 
     private Block project(PageProjection projection, Page page, SelectedPositions selectedPositions)
