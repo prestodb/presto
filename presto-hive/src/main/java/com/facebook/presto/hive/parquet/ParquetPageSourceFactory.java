@@ -57,7 +57,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -190,7 +189,8 @@ public class ParquetPageSourceFactory
             List<org.apache.parquet.schema.Type> fields = columns.stream()
                     .filter(column -> column.getColumnType() == REGULAR)
                     .map(column -> getParquetType(typeManager.getType(column.getTypeSignature()), fileSchema, useParquetColumnNames, column.getName(), column.getHiveColumnIndex(), column.getHiveType()))
-                    .filter(Objects::nonNull)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
                     .collect(toList());
 
             MessageType requestedSchema = new MessageType(fileSchema.getName(), fields);
@@ -278,7 +278,7 @@ public class ParquetPageSourceFactory
         return TupleDomain.withColumnDomains(predicate.build());
     }
 
-    public static org.apache.parquet.schema.Type getParquetType(Type prestoType, MessageType messageType, boolean useParquetColumnNames, String columnName, int columnHiveIndex, HiveType hiveType)
+    public static Optional<org.apache.parquet.schema.Type> getParquetType(Type prestoType, MessageType messageType, boolean useParquetColumnNames, String columnName, int columnHiveIndex, HiveType hiveType)
     {
         org.apache.parquet.schema.Type type = null;
         if (useParquetColumnNames) {
@@ -289,7 +289,7 @@ public class ParquetPageSourceFactory
         }
 
         if (type == null) {
-            return null;
+            return Optional.empty();
         }
 
         if (!checkSchemaMatch(type, prestoType)) {
@@ -308,7 +308,7 @@ public class ParquetPageSourceFactory
                                             hiveType,
                                             parquetTypeName));
         }
-        return type;
+        return Optional.of(type);
     }
 
     private static boolean checkSchemaMatch(org.apache.parquet.schema.Type parquetType, Type type)
