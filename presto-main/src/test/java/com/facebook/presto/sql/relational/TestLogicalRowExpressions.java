@@ -28,12 +28,17 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.FALSE_CONSTANT;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.relation.LogicalRowExpressions.extractPredicates;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
@@ -50,6 +55,14 @@ public class TestLogicalRowExpressions
 {
     private FunctionManager functionManager;
     private LogicalRowExpressions logicalRowExpressions;
+    private static final RowExpression a = name("a");
+    private static final RowExpression b = name("b");
+    private static final RowExpression c = name("c");
+    private static final RowExpression d = name("d");
+    private static final RowExpression e = name("e");
+    private static final RowExpression f = name("f");
+    private static final RowExpression g = name("g");
+    private static final RowExpression h = name("h");
 
     @BeforeClass
     public void setup()
@@ -62,12 +75,6 @@ public class TestLogicalRowExpressions
     @Test
     public void testAnd()
     {
-        RowExpression a = name("a");
-        RowExpression b = name("b");
-        RowExpression c = name("c");
-        RowExpression d = name("d");
-        RowExpression e = name("e");
-
         assertEquals(
                 LogicalRowExpressions.and(a, b, c, d, e),
                 and(and(and(a, b), and(c, d)), e));
@@ -92,12 +99,6 @@ public class TestLogicalRowExpressions
     @Test
     public void testOr()
     {
-        RowExpression a = name("a");
-        RowExpression b = name("b");
-        RowExpression c = name("c");
-        RowExpression d = name("d");
-        RowExpression e = name("e");
-
         assertEquals(
                 LogicalRowExpressions.or(a, b, c, d, e),
                 or(or(or(a, b), or(c, d)), e));
@@ -118,8 +119,6 @@ public class TestLogicalRowExpressions
     @Test
     public void testDeterminism()
     {
-        RowExpression a = name("a");
-        RowExpression b = name("b");
         RowExpression nondeterministic = call("random", functionManager.lookupFunction("random", fromTypes()), DOUBLE);
         RowExpression deterministic = call("length", functionManager.lookupFunction("length", fromTypes(VARCHAR)), INTEGER);
 
@@ -132,11 +131,6 @@ public class TestLogicalRowExpressions
     @Test
     public void testPushNegationToLeaves()
     {
-        RowExpression a = name("a");
-        RowExpression b = name("b");
-        RowExpression c = name("c");
-        RowExpression d = name("d");
-
         assertEquals(logicalRowExpressions.pushNegationToLeaves(not(and(a, b))), or(not(a), not(b)));
         assertEquals(logicalRowExpressions.pushNegationToLeaves(not(or(a, b))), and(not(a), not(b)));
         assertEquals(logicalRowExpressions.pushNegationToLeaves(not(or(not(a), not(b)))), and(a, b));
@@ -159,6 +153,118 @@ public class TestLogicalRowExpressions
     }
 
     @Test
+    public void testEliminateConstant()
+    {
+        // Testing eliminate constant
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(or(and(TRUE_CONSTANT, a), and(FALSE_CONSTANT, b))),
+                a);
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(or(and(TRUE_CONSTANT, a), and(FALSE_CONSTANT, b))),
+                a);
+
+        // Testing eliminate constant in nested tree
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(and(a, and(b, or(c, and(FALSE_CONSTANT, d))))),
+                and(and(a, b), c));
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(and(a, and(b, or(c, and(e, or(f, and(FALSE_CONSTANT, d))))))),
+                and(and(a, b), or(c, and(e, f))));
+    }
+
+    @Test
+    public void testEliminateDuplicate()
+    {
+        RowExpression nd = call("random", functionManager.lookupFunction("random", fromTypes()), DOUBLE);
+
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(or(and(TRUE_CONSTANT, a), and(b, b))),
+                or(a, b));
+
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(or(and(a, b), and(a, b))),
+                and(a, b));
+        // we will prefer most simplified expression than correct conjunctive/disjunctive form
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(or(and(a, b), and(a, b))),
+                and(a, b));
+
+        // eliminate duplicated items with different order, prefers the ones appears first.
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(or(and(b, a), and(a, b))),
+                and(b, a));
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(or(and(b, a), and(a, b))),
+                and(b, a));
+
+        // (b && a) || a
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(or(and(b, a), a)),
+                a);
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(or(and(b, a), a)),
+                a);
+        // (b || a) && a
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(and(a, or(b, a))),
+                a);
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(and(a, or(b, a))),
+                a);
+
+        // (b && a) || (a && b && c) -> b && a (should keep b && a instead of a && b as it appears first)
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(or(and(b, a), and(and(a, b), c))),
+                and(b, a));
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(or(and(b, a), and(and(a, b), c))),
+                and(b, a));
+
+        // (b || a) && (a || b) && (a || b || c || d) || (a || b || c) -> b || a (should keep b || a instead of a || b as it appears first)
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(and(or(b, a), and(or(a, b), and(or(or(c, d), or(a, b)), or(a, or(b, c)))))),
+                or(b, a));
+
+        // (b || a)  && (a || b || c) && (a || b) && (a || b || nd) && e
+        // we cannot eliminate nd because it is non-deterministic
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(and(and(or(b, a), and(or(a, or(b, c)), and(or(a, b), or(or(a, b), nd)))), e)),
+                and(and(or(b, a), or(or(a, b), nd)), e));
+        // we cannot convert to disjunctive form because nd is non-deterministic
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(and(and(or(b, a), and(or(a, or(b, c)), and(or(a, b), or(or(a, b), nd)))), e)),
+                and(and(or(b, a), or(or(a, b), nd)), e));
+
+        // (b || a)  && (a || b || c) && (a || b) && (a || b || d) && e
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(and(and(or(b, a), and(or(a, or(b, c)), and(or(a, b), or(or(a, b), d)))), e)),
+                and(or(b, a), e));
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(and(and(or(b, a), and(or(a, or(b, c)), and(or(a, b), or(or(a, b), d)))), e)),
+                or(and(b, e), and(a, e)));
+
+        // (b || a || c) && (a || b || d) && (a || b || e) && (a || b || f)
+        // already conjunctive form
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(and(or(or(b, a), c), and(or(d, or(a, b)), and(or(or(a, b), e), or(or(a, b), f))))),
+                and(and(or(or(b, a), c), or(or(b, a), d)), and(or(or(b, a), e), or(or(b, a), f))));
+        // (b || a || c) && (a || b || d) && (a || b || f) -> b || a || (c && d && e && f)
+        // can be simplified by extract common predicates
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(and(or(or(b, a), c), and(or(d, or(a, b)), and(or(or(a, b), e), or(or(a, b), f))))),
+                or(or(b, a), and(and(c, d), and(e, f))));
+
+        // de-duplicate nested expression
+        // ((a && b) || (a && c) || (a && d)) && ((b && c) || (c && a) || (c && d)) -> a && c
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(and(or(and(a, b), and(a, c), and(a, d)), or(and(c, b), and(c, a), and(c, d)))),
+                and(a, c));
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(and(or(and(a, b), and(a, c), and(a, d)), or(and(c, b), and(c, a), and(c, d)))),
+                and(a, c));
+    }
+
+    @Test
     public void testConvertToCNF()
     {
         // When considering where we want to swap forms (i.e. an AND expression for DNF or OR expression for CNF), there are 3 cases for each argument
@@ -175,20 +281,17 @@ public class TestLogicalRowExpressions
         // left = 3, right = 3 --> (3) expand and distribute both
 
         // Now let us test each of these permutations
-        RowExpression a = name("a");
-        RowExpression b = name("b");
-        RowExpression c = name("c");
-        RowExpression d = name("d");
-        RowExpression e = name("e");
-        RowExpression f = name("f");
-        RowExpression g = name("g");
-        RowExpression h = name("h");
-
         // 1, 1
         assertEquals(
                 logicalRowExpressions.convertToConjunctiveNormalForm(and(a, b)),
                 and(a, b),
                 "Failed 1,1");
+
+        // Should not change shape
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(or(a, b)),
+                or(a, b),
+                "Failed to keep same form if cannot convert");
 
         // 1, 1 with not pushdown
         assertEquals(
@@ -236,7 +339,7 @@ public class TestLogicalRowExpressions
         // 2, 1
         assertEquals(
                 logicalRowExpressions.convertToConjunctiveNormalForm(or(c, or(a, b))),
-                or(c, or(a, b)),
+                or(or(c, a), b),
                 "Failed 2,1");
 
         // 3, 1
@@ -251,30 +354,67 @@ public class TestLogicalRowExpressions
                 and(or(or(e, f), or(a, b)), or(or(g, h), or(a, b))),
                 "Failed 3,2");
 
-        // 3, 3 large with NOT pushdown
+        // 3, 3 large with NOT push down
+        // (a && b && (e || g)) || !(a && b) || !(b || !(c && d)) ==> (a || !a || !b) && (b || !a || !b) && ((e || g) || !a || !b)
+        // notice that a || !a cannot be easily optimized away in SQL since we have to handle if a is unknown (null).
         assertEquals(
                 logicalRowExpressions.convertToConjunctiveNormalForm(or(and(a, and(b, or(e, g))), or(not(and(a, b)), not(or(b, not(and(c, d))))))),
-                and(and(and(and(or(a, or(or(not(a), not(b)), not(b))), or(a, or(or(not(a), not(b)), c))), and(or(a, or(or(not(a), not(b)), d)), or(b, or(or(not(a), not(b)), not(b))))), and(and(or(b, or(or(not(a), not(b)), c)), or(b, or(or(not(a), not(b)), d))), and(or(or(e, g), or(or(not(a), not(b)), not(b))), or(or(e, g), or(or(not(a), not(b)), c))))), or(or(e, g), or(or(not(a), not(b)), d))),
+                and(and(or(or(a, not(a)), not(b)), or(or(b, not(a)), not(b))), or(or(e, g), or(not(a), not(b)))),
                 "Failed 3,3 large with NOT pushdown");
+
+        // a || b || c || d || (d && e) || (e && f) ==> (a || b || c || d || e) && (a || b || c || d || f)
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(
+                or(a, or(b, or(c, or(d, or(and(d, e), and(e, f))))))),
+                and(or(or(or(a, b), or(c, d)), e), or(or(or(a, b), or(c, d)), f)));
+
+        // (a && b && c) || (d && e) can increase size significantly so do not expand.
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(or(and(a, and(b, c)), and(and(d, e), f))),
+                or(and(and(a, b), c), and(and(d, e), f)));
+    }
+
+    @Test
+    public void testBigExpressions()
+    {
+        // Do not expand big list (a0 && b0) || (a1 && b1) || ....
+        RowExpression bigExpression = or(IntStream.range(0, 1000)
+                .boxed()
+                .map(i -> and(name("a" + i), name("b" + i)))
+                .toArray(RowExpression[]::new));
+        assertEquals(logicalRowExpressions.convertToConjunctiveNormalForm(bigExpression), bigExpression);
+
+        // extract common predicates on (a && b0) || (a && b1) || ....
+        RowExpression bigExpressionWithCommonPredicate = or(IntStream.range(0, 10001)
+                .boxed()
+                .map(i -> and(name("a"), name("b" + i)))
+                .toArray(RowExpression[]::new));
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(bigExpressionWithCommonPredicate),
+                or(IntStream.range(0, 10001).boxed().map(i -> and(name("a"), name("b" + i))).toArray(RowExpression[]::new)));
+        // a || (a && b0) || (a && b1) || ... can be simplified to a but if conjunctive is very large, we will skip reduction.
+        assertEquals(
+                logicalRowExpressions.convertToConjunctiveNormalForm(or(a, bigExpressionWithCommonPredicate)),
+                or(Stream.concat(Stream.of(name("a")), IntStream.range(0, 10001).boxed().map(i -> and(name("a"), name("b" + i)))).toArray(RowExpression[]::new)));
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(or(a, bigExpressionWithCommonPredicate)),
+                or(Stream.concat(Stream.of(name("a")), IntStream.range(0, 10001).boxed().map(i -> and(name("a"), name("b" + i)))).toArray(RowExpression[]::new)));
     }
 
     @Test
     public void testConvertToDNF()
     {
-        RowExpression a = name("a");
-        RowExpression b = name("b");
-        RowExpression c = name("c");
-        RowExpression d = name("d");
-        RowExpression e = name("e");
-        RowExpression f = name("f");
-        RowExpression g = name("g");
-        RowExpression h = name("h");
-
         // 1, 1
         assertEquals(
                 logicalRowExpressions.convertToDisjunctiveNormalForm(or(a, b)),
                 or(a, b),
                 "Failed 1,1");
+
+        // Should not change shape
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(and(a, b)),
+                and(a, b),
+                "Failed to keep same form if cannot convert");
 
         // 1, 1 with not pushdown
         assertEquals(
@@ -322,7 +462,7 @@ public class TestLogicalRowExpressions
         // 2, 1
         assertEquals(
                 logicalRowExpressions.convertToDisjunctiveNormalForm(and(c, and(a, b))),
-                and(c, and(a, b)),
+                and(and(c, a), b),
                 "Failed 2,1");
 
         // 3, 1
@@ -340,8 +480,13 @@ public class TestLogicalRowExpressions
         // 3, 3 large with NOT pushdown
         assertEquals(
                 logicalRowExpressions.convertToDisjunctiveNormalForm(and(or(a, or(b, and(e, g))), and(not(or(a, b)), not(and(b, not(or(c, d))))))),
-                or(or(or(or(and(a, and(and(not(a), not(b)), not(b))), and(a, and(and(not(a), not(b)), c))), or(and(a, and(and(not(a), not(b)), d)), and(b, and(and(not(a), not(b)), not(b))))), or(or(and(b, and(and(not(a), not(b)), c)), and(b, and(and(not(a), not(b)), d))), or(and(and(e, g), and(and(not(a), not(b)), not(b))), and(and(e, g), and(and(not(a), not(b)), c))))), and(and(e, g), and(and(not(a), not(b)), d))),
+                or(or(and(and(a, not(a)), not(b)), and(and(b, not(a)), not(b))), and(and(e, g), and(not(a), not(b)))),
                 "Failed 3,3 large with NOT pushdown");
+
+        // (a || b || c) && ( d || e) will expand to too big if we convert to disjunctive form.
+        assertEquals(
+                logicalRowExpressions.convertToDisjunctiveNormalForm(and(or(a, or(b, c)), or(or(d, e), f))),
+                and(or(or(a, b), c), or(or(d, e), f)));
     }
 
     private static RowExpression name(String name)
@@ -362,6 +507,11 @@ public class TestLogicalRowExpressions
     private RowExpression and(RowExpression left, RowExpression right)
     {
         return new SpecialFormExpression(AND, BOOLEAN, left, right);
+    }
+
+    private RowExpression or(RowExpression... expressions)
+    {
+        return logicalRowExpressions.or(expressions);
     }
 
     private RowExpression or(RowExpression left, RowExpression right)
