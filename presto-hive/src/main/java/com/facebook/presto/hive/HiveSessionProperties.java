@@ -86,6 +86,7 @@ public final class HiveSessionProperties
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
+    public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -368,7 +369,12 @@ public final class HiveSessionProperties
                         MAX_BUCKETS_FOR_GROUPED_EXECUTION,
                         "maximum total buckets to allow using grouped execution",
                         hiveClientConfig.getMaxBucketsForGroupedExecution(),
-                        false));
+                        false),
+                booleanProperty(
+                        OFFLINE_DATA_DEBUG_MODE_ENABLED,
+                        "allow reading from tables or partitions that are marked as offline or not readable",
+                        false,
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -620,6 +626,11 @@ public final class HiveSessionProperties
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must not be negative: %s", VIRTUAL_BUCKET_COUNT, virtualBucketCount));
         }
         return virtualBucketCount;
+    }
+
+    public static boolean isOfflineDataDebugModeEnabled(ConnectorSession session)
+    {
+        return session.getProperty(OFFLINE_DATA_DEBUG_MODE_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
