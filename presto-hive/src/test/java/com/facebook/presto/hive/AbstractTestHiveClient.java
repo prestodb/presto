@@ -81,6 +81,7 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
@@ -93,6 +94,7 @@ import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -128,6 +130,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -160,6 +163,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
+import static com.facebook.presto.hive.HiveSessionProperties.OFFLINE_DATA_DEBUG_MODE_ENABLED;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.JSON;
@@ -841,6 +845,71 @@ public abstract class AbstractTestHiveClient
         return new TestingConnectorSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
     }
 
+    protected ConnectorSession newSession(Map<String, Object> extraProperties)
+    {
+        ConnectorSession session = newSession();
+        return new ConnectorSession() {
+            @Override
+            public String getQueryId()
+            {
+                return session.getQueryId();
+            }
+
+            @Override
+            public Optional<String> getSource()
+            {
+                return session.getSource();
+            }
+
+            @Override
+            public ConnectorIdentity getIdentity()
+            {
+                return session.getIdentity();
+            }
+
+            @Override
+            public TimeZoneKey getTimeZoneKey()
+            {
+                return session.getTimeZoneKey();
+            }
+
+            @Override
+            public Locale getLocale()
+            {
+                return session.getLocale();
+            }
+
+            @Override
+            public Optional<String> getTraceToken()
+            {
+                return session.getTraceToken();
+            }
+
+            @Override
+            public long getStartTime()
+            {
+                return session.getStartTime();
+            }
+
+            @Override
+            public boolean isLegacyTimestamp()
+            {
+                return session.isLegacyTimestamp();
+            }
+
+            @Override
+            public <T> T getProperty(String name, Class<T> type)
+            {
+                Object value = extraProperties.get(name);
+                if (value != null) {
+                    return type.cast(value);
+                }
+
+                return session.getProperty(name, type);
+            }
+        };
+    }
+
     protected Transaction newTransaction()
     {
         return new HiveTransaction(transactionManager, metadataFactory.get());
@@ -1473,6 +1542,22 @@ public abstract class AbstractTestHiveClient
                 assertEquals(e.getPartition(), "ds=2012-12-30");
             }
         }
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession(ImmutableMap.of(OFFLINE_DATA_DEBUG_MODE_ENABLED, true));
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableOfflinePartition);
+            assertNotNull(tableHandle);
+
+            ColumnHandle dsColumn = metadata.getColumnHandles(session, tableHandle).get("ds");
+            assertNotNull(dsColumn);
+
+            Domain domain = Domain.singleValue(createUnboundedVarcharType(), utf8Slice("2012-12-30"));
+            TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(dsColumn, domain));
+            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, new Constraint<>(tupleDomain), Optional.empty());
+            getSplitCount(splitManager.getSplits(transaction.getTransactionHandle(), session, getOnlyElement(tableLayoutResults).getTableLayout().getHandle(), SPLIT_SCHEDULING_CONTEXT));
+        }
     }
 
     @Test
@@ -1498,6 +1583,20 @@ public abstract class AbstractTestHiveClient
                 assertEquals(e.getTableName(), tableNotReadable);
                 assertEquals(e.getPartition(), Optional.empty());
             }
+        }
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession(ImmutableMap.of(OFFLINE_DATA_DEBUG_MODE_ENABLED, true));
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableNotReadable);
+            assertNotNull(tableHandle);
+
+            ColumnHandle dsColumn = metadata.getColumnHandles(session, tableHandle).get("ds");
+            assertNotNull(dsColumn);
+
+            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+            getSplitCount(splitManager.getSplits(transaction.getTransactionHandle(), session, getOnlyElement(tableLayoutResults).getTableLayout().getHandle(), SPLIT_SCHEDULING_CONTEXT));
         }
     }
 
