@@ -46,7 +46,6 @@ import static java.util.Objects.requireNonNull;
 public class OrcBatchPageSource
         implements ConnectorPageSource
 {
-    private static final int NULL_ENTRY_SIZE = 0;
     private final OrcBatchRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
