@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.parquet.ColumnReader;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.GroupField;
 import com.facebook.presto.parquet.ParquetCorruptionException;
@@ -75,8 +76,9 @@ public class ParquetReader
     private long currentGroupRowCount;
     private long nextRowInGroup;
     private int batchSize;
+
     private int nextBatchSize = INITIAL_BATCH_SIZE;
-    private final PrimitiveColumnReader[] columnReaders;
+    private final ColumnReader[] columnReaders;
     private long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
     private final long maxReadBlockBytes;
@@ -97,7 +99,7 @@ public class ParquetReader
         this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
         this.maxReadBlockBytes = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null").toBytes();
         columns = messageColumnIO.getLeaves();
-        columnReaders = new PrimitiveColumnReader[columns.size()];
+        columnReaders = new ColumnReader[columns.size()];
         maxBytesPerCell = new long[columns.size()];
     }
 
@@ -209,9 +211,10 @@ public class ParquetReader
             throws IOException
     {
         ColumnDescriptor columnDescriptor = field.getDescriptor();
+
         int fieldId = field.getId();
-        PrimitiveColumnReader columnReader = columnReaders[fieldId];
-        if (columnReader.getPageReader() == null) {
+        ColumnReader columnReader = columnReaders[fieldId];
+        if (!columnReader.isInitialized()) {
             validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
             long startingPosition = metadata.getStartingPos();
@@ -220,10 +223,10 @@ public class ParquetReader
             dataSource.readFully(startingPosition, buffer);
             ColumnChunkDescriptor descriptor = new ColumnChunkDescriptor(columnDescriptor, metadata, totalSize);
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
-            columnReader.setPageReader(columnChunk.readAllPages());
+            columnReader.init(columnChunk.readAllPages(), field);
         }
-        ColumnChunk columnChunk = columnReader.readPrimitive(field);
 
+        ColumnChunk columnChunk = columnReader.readNext();
         // update max size per primitive column chunk
         long bytesPerCell = columnChunk.getBlock().getSizeInBytes() / batchSize;
         if (maxBytesPerCell[fieldId] < bytesPerCell) {
