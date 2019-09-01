@@ -27,7 +27,7 @@ import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
 
 public class BinaryColumnReader
-        extends PrimitiveColumnReader
+        extends AbstractColumnReader
 {
     public BinaryColumnReader(RichColumnDescriptor descriptor)
     {
