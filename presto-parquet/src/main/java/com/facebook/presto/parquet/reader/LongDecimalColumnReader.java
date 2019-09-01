@@ -24,7 +24,7 @@ import java.math.BigInteger;
 public class LongDecimalColumnReader
         extends AbstractColumnReader
 {
-    LongDecimalColumnReader(RichColumnDescriptor descriptor)
+    public LongDecimalColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
     }
