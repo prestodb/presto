@@ -20,7 +20,7 @@ public final class DecimalColumnReaderFactory
 {
     private DecimalColumnReaderFactory() {}
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, int precision, int scale)
+    public static AbstractColumnReader createReader(RichColumnDescriptor descriptor, int precision, int scale)
     {
         DecimalType decimalType = DecimalType.createDecimalType(precision, scale);
         if (decimalType.isShort()) {

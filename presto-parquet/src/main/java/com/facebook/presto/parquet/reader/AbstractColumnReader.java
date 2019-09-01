@@ -50,7 +50,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public abstract class PrimitiveColumnReader
+public abstract class AbstractColumnReader
         implements ColumnReader
 {
     private static final int EMPTY_LEVEL_VALUE = -1;
@@ -106,7 +106,7 @@ public abstract class PrimitiveColumnReader
         }
     }
 
-    private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
+    private static Optional<AbstractColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
     {
         Optional<Type> type = createDecimalType(descriptor);
         if (type.isPresent()) {
@@ -116,7 +116,7 @@ public abstract class PrimitiveColumnReader
         return Optional.empty();
     }
 
-    public PrimitiveColumnReader(RichColumnDescriptor columnDescriptor)
+    public AbstractColumnReader(RichColumnDescriptor columnDescriptor)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
         pageReader = null;

@@ -18,7 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 
 public class LongColumnReader
-        extends PrimitiveColumnReader
+        extends AbstractColumnReader
 {
     public LongColumnReader(RichColumnDescriptor descriptor)
     {
