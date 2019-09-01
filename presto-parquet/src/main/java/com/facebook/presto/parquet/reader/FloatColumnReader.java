@@ -20,7 +20,7 @@ import com.facebook.presto.parquet.RichColumnDescriptor;
 import static java.lang.Float.floatToRawIntBits;
 
 public class FloatColumnReader
-        extends PrimitiveColumnReader
+        extends AbstractColumnReader
 {
     public FloatColumnReader(RichColumnDescriptor descriptor)
     {
