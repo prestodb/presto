@@ -14,7 +14,6 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.ColumnReader;
 import com.facebook.presto.parquet.DataPage;
@@ -26,7 +25,6 @@ import com.facebook.presto.parquet.ParquetEncoding;
 import com.facebook.presto.parquet.ParquetTypeUtils;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.dictionary.Dictionary;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -38,14 +36,11 @@ import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.parquet.ParquetTypeUtils.createDecimalType;
 import static com.facebook.presto.parquet.ValuesType.DEFINITION_LEVEL;
 import static com.facebook.presto.parquet.ValuesType.REPETITION_LEVEL;
 import static com.facebook.presto.parquet.ValuesType.VALUES;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -79,41 +74,6 @@ public abstract class AbstractColumnReader
     protected boolean isValueNull()
     {
         return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
-    }
-
-    public static ColumnReader createReader(RichColumnDescriptor descriptor)
-    {
-        switch (descriptor.getType()) {
-            case BOOLEAN:
-                return new BooleanColumnReader(descriptor);
-            case INT32:
-                return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
-            case INT64:
-                return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
-            case INT96:
-                return new TimestampColumnReader(descriptor);
-            case FLOAT:
-                return new FloatColumnReader(descriptor);
-            case DOUBLE:
-                return new DoubleColumnReader(descriptor);
-            case BINARY:
-                return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
-            case FIXED_LEN_BYTE_ARRAY:
-                return createDecimalColumnReader(descriptor)
-                        .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
-            default:
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getType());
-        }
-    }
-
-    private static Optional<AbstractColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
-    {
-        Optional<Type> type = createDecimalType(descriptor);
-        if (type.isPresent()) {
-            DecimalType decimalType = (DecimalType) type.get();
-            return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, decimalType.getPrecision(), decimalType.getScale()));
-        }
-        return Optional.empty();
     }
 
     public AbstractColumnReader(RichColumnDescriptor columnDescriptor)

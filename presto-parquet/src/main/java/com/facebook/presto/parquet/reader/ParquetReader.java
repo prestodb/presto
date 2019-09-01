@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.parquet.ColumnReader;
+import com.facebook.presto.parquet.ColumnReaderFactory;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.GroupField;
 import com.facebook.presto.parquet.ParquetCorruptionException;
@@ -261,7 +262,7 @@ public class ParquetReader
     {
         for (PrimitiveColumnIO columnIO : columns) {
             RichColumnDescriptor column = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-            columnReaders[columnIO.getId()] = AbstractColumnReader.createReader(column);
+            columnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column);
         }
     }
 

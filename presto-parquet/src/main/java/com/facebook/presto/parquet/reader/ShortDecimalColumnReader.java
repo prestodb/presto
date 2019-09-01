@@ -24,7 +24,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 public class ShortDecimalColumnReader
         extends AbstractColumnReader
 {
-    ShortDecimalColumnReader(RichColumnDescriptor descriptor)
+    public ShortDecimalColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
     }
