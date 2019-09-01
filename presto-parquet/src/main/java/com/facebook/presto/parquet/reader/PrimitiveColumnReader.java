@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.reader;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.parquet.ColumnReader;
 import com.facebook.presto.parquet.DataPage;
 import com.facebook.presto.parquet.DataPageV1;
 import com.facebook.presto.parquet.DataPageV2;
@@ -50,6 +51,7 @@ import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public abstract class PrimitiveColumnReader
+        implements ColumnReader
 {
     private static final int EMPTY_LEVEL_VALUE = -1;
     protected final RichColumnDescriptor columnDescriptor;
@@ -58,6 +60,7 @@ public abstract class PrimitiveColumnReader
     protected int repetitionLevel = EMPTY_LEVEL_VALUE;
     protected ValuesReader valuesReader;
 
+    private Field field;
     private int nextBatchSize;
     private LevelReader repetitionReader;
     private LevelReader definitionReader;
@@ -78,7 +81,7 @@ public abstract class PrimitiveColumnReader
         return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
     }
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor)
+    public static ColumnReader createReader(RichColumnDescriptor descriptor)
     {
         switch (descriptor.getType()) {
             case BOOLEAN:
@@ -119,14 +122,17 @@ public abstract class PrimitiveColumnReader
         pageReader = null;
     }
 
-    public PageReader getPageReader()
+    @Override
+    public boolean isInitialized()
     {
-        return pageReader;
+        return pageReader != null && field != null;
     }
 
-    public void setPageReader(PageReader pageReader)
+    @Override
+    public void init(PageReader pageReader, Field field)
     {
-        this.pageReader = requireNonNull(pageReader, "pageReader");
+        this.pageReader = requireNonNull(pageReader, "pageReader is null");
+        this.field = requireNonNull(field, "field is null");
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
 
         if (dictionaryPage != null) {
@@ -144,14 +150,15 @@ public abstract class PrimitiveColumnReader
         totalValueCount = pageReader.getTotalValueCount();
     }
 
+    @Override
     public void prepareNextRead(int batchSize)
     {
         readOffset = readOffset + nextBatchSize;
         nextBatchSize = batchSize;
     }
 
-    public ColumnChunk readPrimitive(Field field)
-            throws IOException
+    @Override
+    public ColumnChunk readNext()
     {
         IntList definitionLevels = new IntArrayList();
         IntList repetitionLevels = new IntArrayList();
