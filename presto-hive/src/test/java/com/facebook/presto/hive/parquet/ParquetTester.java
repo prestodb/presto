@@ -140,10 +140,11 @@ public class ParquetTester
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
     private static final boolean OPTIMIZED = true;
-    private static final HiveClientConfig HIVE_CLIENT_CONFIG = createHiveClientConfig(false);
+    private static final HiveClientConfig HIVE_CLIENT_CONFIG = createHiveClientConfig(false, false);
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(HIVE_CLIENT_CONFIG, METASTORE_CLIENT_CONFIG);
     private static final TestingConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(HIVE_CLIENT_CONFIG, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
-    private static final TestingConnectorSession SESSION_USE_NAME = new TestingConnectorSession(new HiveSessionProperties(createHiveClientConfig(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+    private static final TestingConnectorSession SESSION_USE_NAME = new TestingConnectorSession(new HiveSessionProperties(createHiveClientConfig(true, false), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+    private static final TestingConnectorSession SESSION_USE_NAME_BATCH_READS = new TestingConnectorSession(new HiveSessionProperties(createHiveClientConfig(true, true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
     private static final List<String> TEST_COLUMN = singletonList("test");
 
     private Set<CompressionCodecName> compressions = ImmutableSet.of();
@@ -170,7 +171,7 @@ public class ParquetTester
         parquetTester.compressions = ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO);
         parquetTester.writerCompressions = ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY);
         parquetTester.versions = ImmutableSet.copyOf(WriterVersion.values());
-        parquetTester.sessions = ImmutableSet.of(SESSION, SESSION_USE_NAME);
+        parquetTester.sessions = ImmutableSet.of(SESSION, SESSION_USE_NAME, SESSION_USE_NAME_BATCH_READS);
         return parquetTester;
     }
 
@@ -550,11 +551,12 @@ public class ParquetTester
         return Collections.unmodifiableList(values);
     }
 
-    private static HiveClientConfig createHiveClientConfig(boolean useParquetColumnNames)
+    private static HiveClientConfig createHiveClientConfig(boolean useParquetColumnNames, boolean batchReadsEnabled)
     {
         HiveClientConfig config = new HiveClientConfig();
         config.setHiveStorageFormat(HiveStorageFormat.PARQUET)
-                .setUseParquetColumnNames(useParquetColumnNames);
+                .setUseParquetColumnNames(useParquetColumnNames)
+                .setParquetBatchReadOptimizationEnabled(batchReadsEnabled);
         return config;
     }
 

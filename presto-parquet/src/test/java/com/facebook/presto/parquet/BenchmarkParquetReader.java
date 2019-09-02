@@ -79,6 +79,8 @@ public class BenchmarkParquetReader
 {
     public static final int ROWS = 10_000_000;
 
+    private static final boolean enableOptimizedReader = true;
+
     public static void main(String[] args)
             throws Throwable
     {
@@ -278,7 +280,7 @@ public class BenchmarkParquetReader
 
             this.field = ColumnIOConverter.constructField(getType(), messageColumnIO.getChild(0)).get();
 
-            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE));
+            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader);
         }
 
         protected boolean getNullability()

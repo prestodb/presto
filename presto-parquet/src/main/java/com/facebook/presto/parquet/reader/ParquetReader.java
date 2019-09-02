@@ -70,6 +70,7 @@ public class ParquetReader
     private final List<PrimitiveColumnIO> columns;
     private final ParquetDataSource dataSource;
     private final AggregatedMemoryContext systemMemoryContext;
+    private final boolean batchReadEnabled;
 
     private int currentBlock;
     private BlockMetaData currentBlockMetadata;
@@ -92,13 +93,15 @@ public class ParquetReader
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
             AggregatedMemoryContext systemMemoryContext,
-            DataSize maxReadBlockSize)
+            DataSize maxReadBlockSize,
+            boolean batchReadEnabled)
     {
         this.blocks = blocks;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
         this.maxReadBlockBytes = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null").toBytes();
+        this.batchReadEnabled = batchReadEnabled;
         columns = messageColumnIO.getLeaves();
         columnReaders = new ColumnReader[columns.size()];
         maxBytesPerCell = new long[columns.size()];
