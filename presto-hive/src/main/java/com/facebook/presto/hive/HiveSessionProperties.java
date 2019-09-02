@@ -101,6 +101,7 @@ public final class HiveSessionProperties
     public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
     public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
     public static final String USE_LIST_DIRECTORY_CACHE = "use_list_directory_cache";
+    private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -456,6 +457,11 @@ public final class HiveSessionProperties
                         PARQUET_OPTIMIZED_WRITER_ENABLED,
                         "Experimental: Enable optimized writer",
                         parquetFileWriterConfig.isParquetOptimizedWriterEnabled(),
+                        false),
+                booleanProperty(
+                        PARQUET_BATCH_READ_OPTIMIZATION_ENABLED,
+                        "Is Parquet batch read optimization enabled",
+                        hiveClientConfig.isParquetBatchReadOptimizationEnabled(),
                         false));
     }
 
@@ -758,6 +764,11 @@ public final class HiveSessionProperties
     public static boolean isShufflePartitionedColumnsForTableWriteEnabled(ConnectorSession session)
     {
         return session.getProperty(SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.class);
+    }
+
+    public static boolean isParquetBatchReadsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

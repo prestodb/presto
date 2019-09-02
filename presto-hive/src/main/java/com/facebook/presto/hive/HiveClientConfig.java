@@ -167,6 +167,7 @@ public class HiveClientConfig
     private List<String> fileStatusCacheTables = ImmutableList.of();
 
     private DataSize pageFileStripeMaxSize = new DataSize(24, MEGABYTE);
+    private boolean parquetBatchReadOptimizationEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -1365,5 +1366,18 @@ public class HiveClientConfig
     {
         this.pageFileStripeMaxSize = pageFileStripeMaxSize;
         return this;
+    }
+
+    @Config("hive.parquet-batch-read-optimization-enabled")
+    @ConfigDescription("enable parquet batch reads optimization")
+    public HiveClientConfig setParquetBatchReadOptimizationEnabled(boolean parquetBatchReadOptimizationEnabled)
+    {
+        this.parquetBatchReadOptimizationEnabled = parquetBatchReadOptimizationEnabled;
+        return this;
+    }
+
+    public boolean isParquetBatchReadOptimizationEnabled()
+    {
+        return this.parquetBatchReadOptimizationEnabled;
     }
 }
