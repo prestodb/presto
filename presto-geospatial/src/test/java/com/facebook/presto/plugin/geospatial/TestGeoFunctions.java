@@ -193,6 +193,16 @@ public class TestGeoFunctions
         // infinity() and nan() distance
         assertFunction("ST_AsText(ST_Buffer(ST_Point(0, 0), infinity()))", VARCHAR, "MULTIPOLYGON EMPTY");
         assertInvalidFunction("ST_Buffer(ST_Point(0, 0), nan())", "distance is NaN");
+
+        // For small polygons, there was a bug in ESRI that throw an NPE.  This
+        // was fixed (https://github.com/Esri/geometry-api-java/pull/243) to
+        // return an empty geometry instead. Ideally, these would return
+        // something approximately like `ST_Buffer(ST_Centroid(geometry))`.
+        assertFunction("ST_IsEmpty(ST_Buffer(ST_Buffer(ST_Point(177.50102959662, 64.726807421691), 0.0000000001), 0.00005))",
+                BOOLEAN, true);
+        assertFunction("ST_IsEmpty(ST_Buffer(ST_GeometryFromText(" +
+                "'POLYGON ((177.0 64.0, 177.0000000001 64.0, 177.0000000001 64.0000000001, 177.0 64.0000000001, 177.0 64.0))'" +
+                "), 0.01))", BOOLEAN, true);
     }
 
     @Test
