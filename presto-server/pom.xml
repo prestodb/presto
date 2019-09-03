@@ -50,7 +50,7 @@
             <type>tar.gz</type>
             <scope>provided</scope>
         </dependency>
-        
+
         <!-- plugins -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -319,7 +319,7 @@
                     </execution>
                 </executions>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
