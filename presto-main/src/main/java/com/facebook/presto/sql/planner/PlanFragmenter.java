@@ -1063,8 +1063,7 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitTableWriter(TableWriterNode node, Void context)
         {
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
-            // TODO (#13098): Remove partitioning and task writer count check after we have TableWriterMergeOperator
-            boolean recoveryEligible = properties.isRecoveryEligible() && (node.getPartitioningScheme().isPresent() || getTaskWriterCount(session) == 1);
+            boolean recoveryEligible = properties.isRecoveryEligible();
             if (node.getTarget() instanceof CreateHandle) {
                 recoveryEligible &= metadata.getConnectorCapabilities(session, ((CreateHandle) node.getTarget()).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
             }
