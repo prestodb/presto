@@ -135,6 +135,7 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -238,6 +239,7 @@ public class LocalQueryRunner
     private final BlockEncodingManager blockEncodingManager;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
+    private final PartitioningProviderManager partitioningProviderManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final ConnectorPlanOptimizerManager planOptimizerManager;
     private final PageSinkManager pageSinkManager;
@@ -306,7 +308,8 @@ public class LocalQueryRunner
                 yieldExecutor,
                 catalogManager,
                 notificationExecutor);
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
+        this.partitioningProviderManager = new PartitioningProviderManager();
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
 
         this.blockEncodingManager = new BlockEncodingManager(typeRegistry);
@@ -343,7 +346,7 @@ public class LocalQueryRunner
                 splitManager,
                 pageSourceManager,
                 indexManager,
-                nodePartitioningManager,
+                partitioningProviderManager,
                 planOptimizerManager,
                 pageSinkManager,
                 new HandleResolver(),

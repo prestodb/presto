@@ -37,6 +37,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
@@ -133,7 +134,8 @@ public class TestCostCalculator
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService));
-        nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
+        PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
+        nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
         planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser());
     }
 
