@@ -45,6 +45,7 @@ public class VerifierConfig
     private double relativeErrorMargin = 1e-4;
     private double absoluteErrorMargin = 1e-12;
     private boolean runTearDownOnResultMismatch;
+    private boolean enableLimitQueryDeterminismAnalyzer = true;
     private int verificationResubmissionLimit = 2;
 
     @NotNull
@@ -228,6 +229,18 @@ public class VerifierConfig
     public VerifierConfig setRunTearDownOnResultMismatch(boolean runTearDownOnResultMismatch)
     {
         this.runTearDownOnResultMismatch = runTearDownOnResultMismatch;
+        return this;
+    }
+
+    public boolean isEnableLimitQueryDeterminismAnalyzer()
+    {
+        return enableLimitQueryDeterminismAnalyzer;
+    }
+
+    @Config("enable-limit-query-determinism-analyzer")
+    public VerifierConfig setEnableLimitQueryDeterminismAnalyzer(boolean enableLimitQueryDeterminismAnalyzer)
+    {
+        this.enableLimitQueryDeterminismAnalyzer = enableLimitQueryDeterminismAnalyzer;
         return this;
     }
 

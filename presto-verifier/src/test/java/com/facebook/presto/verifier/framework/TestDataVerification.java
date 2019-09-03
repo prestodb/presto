@@ -109,7 +109,8 @@ public class TestDataVerification
                 new FailureResolverManager(ImmutableList.of()),
                 verificationContext,
                 verifierConfig,
-                checksumValidator);
+                checksumValidator,
+                new LimitQueryDeterminismAnalyzer(prestoAction, verifierConfig));
     }
 
     @Test
