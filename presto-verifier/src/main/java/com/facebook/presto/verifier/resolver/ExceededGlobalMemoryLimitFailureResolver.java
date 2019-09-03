@@ -38,4 +38,14 @@ public class ExceededGlobalMemoryLimitFailureResolver
         }
         return Optional.empty();
     }
+
+    public static class Factory
+            implements FailureResolverFactory
+    {
+        @Override
+        public FailureResolver create()
+        {
+            return new ExceededGlobalMemoryLimitFailureResolver();
+        }
+    }
 }

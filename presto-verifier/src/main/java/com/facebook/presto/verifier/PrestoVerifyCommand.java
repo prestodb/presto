@@ -21,7 +21,7 @@ import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.ExceededGlobalMemoryLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.ExceededTimeLimitFailureResolver;
-import com.facebook.presto.verifier.resolver.FailureResolver;
+import com.facebook.presto.verifier.resolver.FailureResolverFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
@@ -72,11 +72,11 @@ public class PrestoVerifyCommand
     }
 
     @Override
-    public List<FailureResolver> getFailureResolvers()
+    public List<FailureResolverFactory> getFailureResolverFactories()
     {
         return ImmutableList.of(
-                new ExceededGlobalMemoryLimitFailureResolver(),
-                new ExceededTimeLimitFailureResolver());
+                new ExceededGlobalMemoryLimitFailureResolver.Factory(),
+                new ExceededTimeLimitFailureResolver.Factory());
     }
 
     @Override

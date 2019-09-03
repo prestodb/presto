@@ -17,13 +17,12 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionFactory;
-import com.facebook.presto.verifier.resolver.FailureResolver;
+import com.facebook.presto.verifier.resolver.FailureResolverManager;
+import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.facebook.presto.verifier.rewrite.QueryRewriterFactory;
 
 import javax.inject.Inject;
-
-import java.util.List;
 
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static java.lang.String.format;
@@ -34,8 +33,8 @@ public class VerificationFactory
     private final SqlParser sqlParser;
     private final PrestoActionFactory prestoActionFactory;
     private final QueryRewriterFactory queryRewriterFactory;
+    private final FailureResolverManagerFactory failureResolverManagerFactory;
     private final ChecksumValidator checksumValidator;
-    private final List<FailureResolver> failureResolvers;
     private final VerifierConfig verifierConfig;
 
     @Inject
@@ -43,15 +42,15 @@ public class VerificationFactory
             SqlParser sqlParser,
             PrestoActionFactory prestoActionFactory,
             QueryRewriterFactory queryRewriterFactory,
+            FailureResolverManagerFactory failureResolverManagerFactory,
             ChecksumValidator checksumValidator,
-            List<FailureResolver> failureResolvers,
             VerifierConfig verifierConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.prestoActionFactory = requireNonNull(prestoActionFactory, "prestoActionFactory is null");
         this.queryRewriterFactory = requireNonNull(queryRewriterFactory, "queryRewriterFactory is null");
+        this.failureResolverManagerFactory = requireNonNull(failureResolverManagerFactory, "failureResolverManagerFactory is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
-        this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
         this.verifierConfig = requireNonNull(verifierConfig, "config is null");
     }
 
@@ -63,12 +62,13 @@ public class VerificationFactory
                 VerificationContext verificationContext = new VerificationContext();
                 PrestoAction prestoAction = prestoActionFactory.create(sourceQuery, verificationContext);
                 QueryRewriter queryRewriter = queryRewriterFactory.create(prestoAction);
+                FailureResolverManager failureResolverManager = failureResolverManagerFactory.create();
                 return new DataVerification(
                         verificationResubmitter,
                         prestoAction,
                         sourceQuery,
                         queryRewriter,
-                        failureResolvers,
+                        failureResolverManager,
                         verificationContext,
                         verifierConfig,
                         checksumValidator);
