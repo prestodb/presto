@@ -137,6 +137,7 @@ public final class TaskTestUtils
                 Optional.empty(),
                 pageSourceManager,
                 new IndexManager(),
+                partitioningProviderManager,
                 nodePartitioningManager,
                 new PageSinkManager(),
                 new ExpressionCompiler(metadata, pageFunctionCompiler),

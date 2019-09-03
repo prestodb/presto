@@ -733,6 +733,7 @@ public class LocalQueryRunner
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
+                partitioningProviderManager,
                 nodePartitioningManager,
                 pageSinkManager,
                 expressionCompiler,
