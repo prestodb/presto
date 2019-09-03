@@ -49,6 +49,8 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static com.facebook.presto.verifier.framework.DeterminismAnalysis.DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_COLUMNS;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
@@ -58,6 +60,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestDataVerification
 {
     private static final String SUITE = "test-suite";
@@ -141,7 +144,7 @@ public class TestDataVerification
         assertEvent(
                 event.get(),
                 FAILED,
-                Optional.of(true),
+                Optional.of(DETERMINISTIC),
                 Optional.of("ROW_COUNT_MISMATCH"),
                 Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n\n" +
                         "ROW COUNT MISMATCH\n" +
@@ -156,7 +159,7 @@ public class TestDataVerification
         assertEvent(
                 event.get(),
                 FAILED,
-                Optional.of(true),
+                Optional.of(DETERMINISTIC),
                 Optional.of("COLUMN_MISMATCH"),
                 Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n\n" +
                         "COLUMN MISMATCH\n" +
@@ -211,7 +214,7 @@ public class TestDataVerification
         assertEvent(
                 event.get(),
                 SKIPPED,
-                Optional.of(false),
+                Optional.of(NON_DETERMINISTIC_COLUMNS),
                 Optional.of("COLUMN_MISMATCH"),
                 Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n\n" +
                         "COLUMN MISMATCH\n" +
@@ -232,7 +235,7 @@ public class TestDataVerification
         assertEvent(
                 event.get(),
                 FAILED,
-                Optional.of(true),
+                Optional.of(DETERMINISTIC),
                 Optional.of("COLUMN_MISMATCH"),
                 Optional.of("Test state SUCCEEDED, Control state SUCCEEDED.\n\n" +
                         "COLUMN MISMATCH\n" +
@@ -244,7 +247,7 @@ public class TestDataVerification
     private void assertEvent(
             VerifierQueryEvent event,
             EventStatus expectedStatus,
-            Optional<Boolean> expectedDeterministic,
+            Optional<DeterminismAnalysis> expectedDeterminismAnalysis,
             Optional<String> expectedErrorCode,
             Optional<String> expectedErrorMessageRegex)
     {
@@ -252,7 +255,7 @@ public class TestDataVerification
         assertEquals(event.getTestId(), TEST_ID);
         assertEquals(event.getName(), NAME);
         assertEquals(event.getStatus(), expectedStatus.name());
-        assertEquals(event.getDeterministic(), expectedDeterministic.orElse(null));
+        assertEquals(event.getDeterminismAnalysis(), expectedDeterminismAnalysis.map(DeterminismAnalysis::name).orElse(null));
         assertEquals(event.getErrorCode(), expectedErrorCode.orElse(null));
         if (event.getErrorMessage() == null) {
             assertFalse(expectedErrorMessageRegex.isPresent());

@@ -96,7 +96,7 @@ public abstract class AbstractVerification
 
     protected abstract VerificationResult verify(QueryBundle control, QueryBundle test);
 
-    protected abstract Optional<Boolean> isDeterministic(QueryBundle control, ChecksumResult firstChecksum);
+    protected abstract DeterminismAnalysis analyzeDeterminism(QueryBundle control, ChecksumResult firstChecksum);
 
     @Override
     public SourceQuery getSourceQuery()
@@ -111,7 +111,7 @@ public abstract class AbstractVerification
         QueryBundle control = null;
         QueryBundle test = null;
         VerificationResult verificationResult = null;
-        Optional<Boolean> deterministic = Optional.empty();
+        Optional<DeterminismAnalysis> determinismAnalysis = Optional.empty();
 
         QueryStats controlQueryStats = null;
         QueryStats testQueryStats = null;
@@ -123,10 +123,13 @@ public abstract class AbstractVerification
             testQueryStats = setupAndRun(test, false);
             verificationResult = verify(control, test);
 
-            deterministic = verificationResult.getMatchResult().isMismatchPossiblyCausedByNonDeterminism() ?
-                    isDeterministic(control, verificationResult.getMatchResult().getControlChecksum()) :
-                    Optional.empty();
-            resultMismatched = deterministic.orElse(true) && !verificationResult.getMatchResult().isMatched();
+            if (verificationResult.getMatchResult().isMismatchPossiblyCausedByNonDeterminism()) {
+                determinismAnalysis = Optional.of(analyzeDeterminism(control, verificationResult.getMatchResult().getControlChecksum()));
+            }
+            boolean maybeDeterministic = !determinismAnalysis.isPresent() ||
+                    determinismAnalysis.get().isDeterministic() ||
+                    determinismAnalysis.get().isUnknown();
+            resultMismatched = maybeDeterministic && !verificationResult.getMatchResult().isMatched();
 
             return Optional.of(buildEvent(
                     Optional.of(control),
@@ -135,7 +138,7 @@ public abstract class AbstractVerification
                     Optional.ofNullable(testQueryStats),
                     Optional.empty(),
                     Optional.of(verificationResult),
-                    deterministic));
+                    determinismAnalysis));
         }
         catch (QueryException e) {
             if (verificationResubmitter.resubmit(this, e)) {
@@ -148,7 +151,7 @@ public abstract class AbstractVerification
                     Optional.ofNullable(testQueryStats),
                     Optional.of(e),
                     Optional.ofNullable(verificationResult),
-                    deterministic));
+                    determinismAnalysis));
         }
         catch (Throwable t) {
             log.error(t);
@@ -207,7 +210,7 @@ public abstract class AbstractVerification
             Optional<QueryStats> testStats,
             Optional<QueryException> queryException,
             Optional<VerificationResult> verificationResult,
-            Optional<Boolean> deterministic)
+            Optional<DeterminismAnalysis> determinismAnalysis)
     {
         boolean succeeded = verificationResult.isPresent() && verificationResult.get().getMatchResult().isMatched();
 
@@ -230,7 +233,7 @@ public abstract class AbstractVerification
         }
 
         EventStatus status;
-        Optional<SkippedReason> skippedReason = getSkippedReason(controlState, deterministic);
+        Optional<SkippedReason> skippedReason = getSkippedReason(controlState, determinismAnalysis);
         Optional<String> resolveMessage = Optional.empty();
         if (succeeded) {
             status = SUCCEEDED;
@@ -265,7 +268,7 @@ public abstract class AbstractVerification
                 sourceQuery.getName(),
                 status,
                 skippedReason,
-                deterministic,
+                determinismAnalysis,
                 resolveMessage,
                 buildQueryInfo(
                         sourceQuery.getControlConfiguration(),
@@ -321,7 +324,7 @@ public abstract class AbstractVerification
                 .collect(toImmutableList());
     }
 
-    private static Optional<SkippedReason> getSkippedReason(QueryState controlState, Optional<Boolean> deterministic)
+    private static Optional<SkippedReason> getSkippedReason(QueryState controlState, Optional<DeterminismAnalysis> determinismAnalysis)
     {
         switch (controlState) {
             case FAILED:
@@ -333,7 +336,7 @@ public abstract class AbstractVerification
             case NOT_RUN:
                 return Optional.of(FAILED_BEFORE_CONTROL_QUERY);
         }
-        if (!deterministic.orElse(true)) {
+        if (determinismAnalysis.isPresent() && determinismAnalysis.get().isNonDeterministic()) {
             return Optional.of(NON_DETERMINISTIC);
         }
         return Optional.empty();

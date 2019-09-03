@@ -31,6 +31,12 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED;
+import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_INCONSISTENT_SCHEMA;
+import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_QUERY_FAILURE;
+import static com.facebook.presto.verifier.framework.DeterminismAnalysis.DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_COLUMNS;
+import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_ROW_COUNT;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUMN_MISMATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
@@ -38,6 +44,7 @@ import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEM
 import static com.facebook.presto.verifier.framework.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DataVerification
@@ -79,7 +86,7 @@ public class DataVerification
     }
 
     @Override
-    protected Optional<Boolean> isDeterministic(QueryBundle control, ChecksumResult firstChecksum)
+    protected DeterminismAnalysis analyzeDeterminism(QueryBundle control, ChecksumResult firstChecksum)
     {
         List<Column> columns = getColumns(control.getTableName());
 
@@ -88,20 +95,21 @@ public class DataVerification
         try {
             secondRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
             setupAndRun(secondRun, true);
-            if (!match(columns, columns, firstChecksum, computeChecksum(secondRun, columns).getResult()).isMatched()) {
-                return Optional.of(false);
+            DeterminismAnalysis determinismAnalysis = matchResultToDeterminism(match(columns, columns, firstChecksum, computeChecksum(secondRun, columns).getResult()));
+            if (determinismAnalysis != DETERMINISTIC) {
+                return determinismAnalysis;
             }
 
             thirdRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
             setupAndRun(thirdRun, true);
-            if (!match(columns, columns, firstChecksum, computeChecksum(thirdRun, columns).getResult()).isMatched()) {
-                return Optional.of(false);
-            }
-
-            return Optional.of(true);
+            determinismAnalysis = matchResultToDeterminism(match(columns, columns, firstChecksum, computeChecksum(thirdRun, columns).getResult()));
+            return determinismAnalysis;
+        }
+        catch (QueryException qe) {
+            return ANALYSIS_FAILED_QUERY_FAILURE;
         }
         catch (Throwable t) {
-            return Optional.empty();
+            return ANALYSIS_FAILED;
         }
         finally {
             teardownSafely(secondRun);
@@ -143,6 +151,22 @@ public class DataVerification
                 controlRowCount,
                 testRowCount,
                 mismatchedColumns);
+    }
+
+    private DeterminismAnalysis matchResultToDeterminism(MatchResult matchResult)
+    {
+        switch (matchResult.getMatchType()) {
+            case MATCH:
+                return DETERMINISTIC;
+            case SCHEMA_MISMATCH:
+                return ANALYSIS_FAILED_INCONSISTENT_SCHEMA;
+            case ROW_COUNT_MISMATCH:
+                return NON_DETERMINISTIC_ROW_COUNT;
+            case COLUMN_MISMATCH:
+                return NON_DETERMINISTIC_COLUMNS;
+            default:
+                throw new IllegalArgumentException(format("Invalid MatchResult: %s", matchResult));
+        }
     }
 
     private List<Column> getColumns(QualifiedName tableName)
