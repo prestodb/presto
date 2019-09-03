@@ -3420,6 +3420,9 @@ public class TestHiveIntegrationSmokeTest
 
             assertQuery(notColocated, tableScan, expectedTableScan);
             assertQuery(eligibleTableScans, tableScan, expectedTableScan);
+
+            // Input connector returns non-empty TablePartitioning for unpartitioned table.
+            assertQuery(eligibleTableScans, "SELECT orderkey FROM tpch.tiny.orders", "SELECT orderkey FROM orders");
         }
         finally {
             assertUpdate(session, "DROP TABLE IF EXISTS test_grouped_join1");
