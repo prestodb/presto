@@ -337,13 +337,17 @@ public class HashBuilderOperator
     {
         index.addPage(page);
 
+        // Why not index.getEstimatedSize.toBytes()? Because we are adding a calculation for the expected size of the PagesHash we will build soon
+        int numPositions = index.getPositionCount();
+        long estimatedSizeAfterBuild = index.getEstimatedSize().toBytes() + PagesHash.getEstimatedAdditionalSize(numPositions);
+
         if (spillEnabled) {
-            localRevocableMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+            localRevocableMemoryContext.setBytes(estimatedSizeAfterBuild);
         }
         else {
-            if (!localUserMemoryContext.trySetBytes(index.getEstimatedSize().toBytes())) {
+            if (!localUserMemoryContext.trySetBytes(estimatedSizeAfterBuild)) {
                 index.compact();
-                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes() + PagesHash.getEstimatedAdditionalSize(numPositions));
             }
         }
         operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());

@@ -1527,7 +1527,7 @@ public class TestHashJoinOperator
         }
     }
 
-    private static class DummySpillerFactory
+    public static class DummySpillerFactory
             implements SingleStreamSpillerFactory
     {
         private volatile boolean failSpill;
