@@ -57,7 +57,7 @@ public class HandleResolver
         handleResolvers.put("$info_schema", new MaterializedHandleResolver(new InformationSchemaHandleResolver()));
         handleResolvers.put("$empty", new MaterializedHandleResolver(new EmptySplitHandleResolver()));
 
-        functionHandleResolvers.put("$static", new MaterializedFunctionHandleResolver(new StaticFunctionNamespaceHandleResolver()));
+        functionHandleResolvers.put("$static", new MaterializedFunctionHandleResolver(new BuiltInFunctionNamespaceHandleResolver()));
     }
 
     public void addConnectorName(String name, ConnectorHandleResolver resolver)

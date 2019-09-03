@@ -49,8 +49,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
-import static com.facebook.presto.metadata.StaticFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -77,13 +77,13 @@ public class FunctionManager
         implements FunctionMetadataManager
 {
     private final TypeManager typeManager;
-    private final StaticFunctionNamespaceManager staticFunctionNamespace;
+    private final BuiltInFunctionNamespaceManager builtInFunctionNamespace;
     private final FunctionInvokerProvider functionInvokerProvider;
 
     public FunctionManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.staticFunctionNamespace = new StaticFunctionNamespaceManager(typeManager, blockEncodingSerde, featuresConfig, this);
+        this.builtInFunctionNamespace = new BuiltInFunctionNamespaceManager(typeManager, blockEncodingSerde, featuresConfig, this);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         if (typeManager instanceof TypeRegistry) {
             ((TypeRegistry) typeManager).setFunctionManager(this);
@@ -97,12 +97,12 @@ public class FunctionManager
 
     public void addFunctions(List<? extends SqlFunction> functions)
     {
-        staticFunctionNamespace.addFunctions(functions);
+        builtInFunctionNamespace.addFunctions(functions);
     }
 
     public List<SqlFunction> listFunctions()
     {
-        return staticFunctionNamespace.listFunctions().stream()
+        return builtInFunctionNamespace.listFunctions().stream()
                 .filter(function -> !function.isHidden())
                 .collect(toImmutableList());
     }
@@ -128,10 +128,10 @@ public class FunctionManager
             }
         }
         FullyQualifiedName fullyQualifiedName = FullyQualifiedName.of(DEFAULT_NAMESPACE, name.getSuffix());
-        Collection<SqlFunction> allCandidates = staticFunctionNamespace.getCandidates(null, fullyQualifiedName);
+        Collection<SqlFunction> allCandidates = builtInFunctionNamespace.getCandidates(null, fullyQualifiedName);
         Optional<Signature> match = matchFunctionWithCoercion(allCandidates, parameterTypes);
         if (match.isPresent()) {
-            return new StaticFunctionHandle(match.get());
+            return new BuiltInFunctionHandle(match.get());
         }
 
         if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
@@ -144,7 +144,7 @@ public class FunctionManager
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
 
-            return new StaticFunctionHandle(getMagicLiteralFunctionSignature(type));
+            return new BuiltInFunctionHandle(getMagicLiteralFunctionSignature(type));
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name.getSuffix(), parameterTypes, allCandidates));
@@ -153,22 +153,22 @@ public class FunctionManager
     @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
-        return staticFunctionNamespace.getFunctionMetadata(functionHandle);
+        return builtInFunctionNamespace.getFunctionMetadata(functionHandle);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
     {
-        return staticFunctionNamespace.getWindowFunctionImplementation(functionHandle);
+        return builtInFunctionNamespace.getWindowFunctionImplementation(functionHandle);
     }
 
     public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
-        return staticFunctionNamespace.getAggregateFunctionImplementation(functionHandle);
+        return builtInFunctionNamespace.getAggregateFunctionImplementation(functionHandle);
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        return staticFunctionNamespace.getScalarFunctionImplementation(functionHandle);
+        return builtInFunctionNamespace.getScalarFunctionImplementation(functionHandle);
     }
 
     @VisibleForTesting
@@ -178,7 +178,7 @@ public class FunctionManager
                 .map(OperatorType::getFunctionName)
                 .collect(toImmutableSet());
 
-        return staticFunctionNamespace.listFunctions().stream()
+        return builtInFunctionNamespace.listFunctions().stream()
                 .filter(function -> operatorNames.contains(function.getSignature().getName()))
                 .collect(toImmutableList());
     }
@@ -211,14 +211,14 @@ public class FunctionManager
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
         FullyQualifiedName fullyQualifiedName = FullyQualifiedName.of(DEFAULT_NAMESPACE, name);
-        Collection<SqlFunction> allCandidates = staticFunctionNamespace.getCandidates(null, fullyQualifiedName);
+        Collection<SqlFunction> allCandidates = builtInFunctionNamespace.getCandidates(null, fullyQualifiedName);
         List<SqlFunction> exactCandidates = allCandidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
         Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
         if (match.isPresent()) {
-            return new StaticFunctionHandle(match.get());
+            return new BuiltInFunctionHandle(match.get());
         }
 
         List<SqlFunction> genericCandidates = allCandidates.stream()
@@ -227,7 +227,7 @@ public class FunctionManager
 
         match = matchFunctionExact(genericCandidates, parameterTypes);
         if (match.isPresent()) {
-            return new StaticFunctionHandle(match.get());
+            return new BuiltInFunctionHandle(match.get());
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(name, parameterTypes, allCandidates));
@@ -238,7 +238,7 @@ public class FunctionManager
         Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType, singletonList(fromType), false);
 
         try {
-            staticFunctionNamespace.getScalarFunctionImplementation(signature);
+            builtInFunctionNamespace.getScalarFunctionImplementation(signature);
         }
         catch (PrestoException e) {
             if (castType.isOperatorType() && e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
@@ -246,7 +246,7 @@ public class FunctionManager
             }
             throw e;
         }
-        return staticFunctionNamespace.getFunctionHandle(null, signature);
+        return builtInFunctionNamespace.getFunctionHandle(null, signature);
     }
 
     private String constructFunctionNotFoundErrorMessage(String name, List<TypeSignatureProvider> parameterTypes, Collection<SqlFunction> candidates)
@@ -437,7 +437,7 @@ public class FunctionManager
             Type parameterType = parameterTypes.get(i);
             if (parameterType.equals(UNKNOWN)) {
                 // TODO: This still doesn't feel right. Need to understand function resolution logic better to know what's the right way.
-                StaticFunctionHandle functionHandle = new StaticFunctionHandle(boundSignature);
+                BuiltInFunctionHandle functionHandle = new BuiltInFunctionHandle(boundSignature);
                 if (getFunctionMetadata(functionHandle).isCalledOnNullInput()) {
                     return false;
                 }

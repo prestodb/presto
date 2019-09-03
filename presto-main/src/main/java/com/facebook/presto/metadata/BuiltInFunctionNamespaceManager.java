@@ -345,7 +345,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
-public class StaticFunctionNamespaceManager
+public class BuiltInFunctionNamespaceManager
         implements FunctionNamespaceManager
 {
     public static final FullyQualifiedName.Prefix DEFAULT_NAMESPACE = FullyQualifiedName.of("presto.default.foo").getPrefix();
@@ -358,7 +358,7 @@ public class StaticFunctionNamespaceManager
     private final MagicLiteralFunction magicLiteralFunction;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public StaticFunctionNamespaceManager(
+    public BuiltInFunctionNamespaceManager(
             TypeManager typeManager,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
@@ -686,14 +686,14 @@ public class StaticFunctionNamespaceManager
     @Override
     public FunctionHandle getFunctionHandle(QueryId queryId, Signature signature)
     {
-        return new StaticFunctionHandle(signature);
+        return new BuiltInFunctionHandle(signature);
     }
 
     @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
-        checkArgument(functionHandle instanceof StaticFunctionHandle, "Expect StaticFunctionHandle");
-        Signature signature = ((StaticFunctionHandle) functionHandle).getSignature();
+        checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
+        Signature signature = ((BuiltInFunctionHandle) functionHandle).getSignature();
         SpecializedFunctionKey functionKey;
         try {
             functionKey = specializedFunctionKeyCache.getUnchecked(signature);
@@ -726,8 +726,8 @@ public class StaticFunctionNamespaceManager
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
     {
-        checkArgument(functionHandle instanceof StaticFunctionHandle, "Expect StaticFunctionHandle");
-        Signature signature = ((StaticFunctionHandle) functionHandle).getSignature();
+        checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
+        Signature signature = ((BuiltInFunctionHandle) functionHandle).getSignature();
         checkArgument(signature.getKind() == WINDOW || signature.getKind() == AGGREGATE, "%s is not a window function", signature);
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
 
@@ -742,8 +742,8 @@ public class StaticFunctionNamespaceManager
 
     public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
-        checkArgument(functionHandle instanceof StaticFunctionHandle, "Expect StaticFunctionHandle");
-        Signature signature = ((StaticFunctionHandle) functionHandle).getSignature();
+        checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
+        Signature signature = ((BuiltInFunctionHandle) functionHandle).getSignature();
         checkArgument(signature.getKind() == AGGREGATE, "%s is not an aggregate function", signature);
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
 
@@ -758,8 +758,8 @@ public class StaticFunctionNamespaceManager
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        checkArgument(functionHandle instanceof StaticFunctionHandle, "Expect StaticFunctionHandle");
-        return getScalarFunctionImplementation(((StaticFunctionHandle) functionHandle).getSignature());
+        checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
+        return getScalarFunctionImplementation(((BuiltInFunctionHandle) functionHandle).getSignature());
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)

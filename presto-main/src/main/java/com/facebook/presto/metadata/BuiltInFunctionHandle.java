@@ -23,14 +23,14 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class StaticFunctionHandle
+public class BuiltInFunctionHandle
         implements FunctionHandle
 {
     private static final CatalogSchemaName STATIC_FUNCTION_NAMESPACE_CATALOG_SCHEMA_NAME = new CatalogSchemaName("static", "system");
     private final Signature signature;
 
     @JsonCreator
-    public StaticFunctionHandle(@JsonProperty("signature") Signature signature)
+    public BuiltInFunctionHandle(@JsonProperty("signature") Signature signature)
     {
         this.signature = requireNonNull(signature, "signature is null");
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
@@ -51,7 +51,7 @@ public class StaticFunctionHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        StaticFunctionHandle that = (StaticFunctionHandle) o;
+        BuiltInFunctionHandle that = (BuiltInFunctionHandle) o;
         return Objects.equals(signature, that.signature);
     }
 

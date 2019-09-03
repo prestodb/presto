@@ -54,7 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.StaticFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;

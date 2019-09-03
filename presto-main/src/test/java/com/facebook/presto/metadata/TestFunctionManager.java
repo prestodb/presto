@@ -72,7 +72,7 @@ public class TestFunctionManager
         TypeRegistry typeManager = new TypeRegistry();
         FunctionManager functionManager = createFunctionManager(typeManager);
         FunctionHandle exactOperator = functionManager.lookupCast(CastType.CAST, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
-        assertEquals(exactOperator, new StaticFunctionHandle(new Signature(CAST.getFunctionName(), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
+        assertEquals(exactOperator, new BuiltInFunctionHandle(new Signature(CAST.getFunctionName(), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
     }
 
     @Test
@@ -92,7 +92,7 @@ public class TestFunctionManager
             if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
                 continue;
             }
-            StaticFunctionHandle exactOperator = (StaticFunctionHandle) functionManager.resolveOperator(operatorType, fromTypeSignatures(function.getSignature().getArgumentTypes()));
+            BuiltInFunctionHandle exactOperator = (BuiltInFunctionHandle) functionManager.resolveOperator(operatorType, fromTypeSignatures(function.getSignature().getArgumentTypes()));
             assertEquals(exactOperator.getSignature(), function.getSignature());
             foundOperator = true;
         }
@@ -109,7 +109,7 @@ public class TestFunctionManager
 
         TypeRegistry typeManager = new TypeRegistry();
         FunctionManager functionManager = createFunctionManager(typeManager);
-        StaticFunctionHandle functionHandle = (StaticFunctionHandle) functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(signature.getName().getParts()), fromTypeSignatures(signature.getArgumentTypes()));
+        BuiltInFunctionHandle functionHandle = (BuiltInFunctionHandle) functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(signature.getName().getParts()), fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(functionManager.getFunctionMetadata(functionHandle).getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
@@ -372,7 +372,7 @@ public class TestFunctionManager
 
         public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
         {
-            FunctionHandle expectedFunction = new StaticFunctionHandle(functionSignature.name(TEST_FUNCTION_NAME).build());
+            FunctionHandle expectedFunction = new BuiltInFunctionHandle(functionSignature.name(TEST_FUNCTION_NAME).build());
             FunctionHandle actualFunction = resolveFunctionHandle();
             assertEquals(expectedFunction, actualFunction);
             return this;

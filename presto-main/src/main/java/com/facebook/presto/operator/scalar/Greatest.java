@@ -16,7 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
 
-import static com.facebook.presto.metadata.StaticFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 
 public final class Greatest
         extends AbstractGreatestLeast

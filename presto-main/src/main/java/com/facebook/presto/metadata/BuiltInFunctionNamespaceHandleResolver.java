@@ -16,12 +16,12 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
 
-public class StaticFunctionNamespaceHandleResolver
+public class BuiltInFunctionNamespaceHandleResolver
         implements FunctionHandleResolver
 {
     @Override
     public Class<? extends FunctionHandle> getFunctionHandleClass()
     {
-        return StaticFunctionHandle.class;
+        return BuiltInFunctionHandle.class;
     }
 }
