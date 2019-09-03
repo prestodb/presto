@@ -11,39 +11,53 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.framework;
+package com.facebook.presto.verifier.rewrite;
 
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Property;
+import com.facebook.presto.verifier.annotation.ForControl;
+import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoQueryRewriterFactory
+public class VerificationQueryRewriterFactory
         implements QueryRewriterFactory
 {
     private final SqlParser sqlParser;
     private final List<Property> tablePropertyOverrides;
-    private final VerifierConfig verifierConfig;
+    private final QueryRewriteConfig controlConfig;
+    private final QueryRewriteConfig testConfig;
 
     @Inject
-    public PrestoQueryRewriterFactory(
+    public VerificationQueryRewriterFactory(
             SqlParser sqlParser,
             List<Property> tablePropertyOverrides,
-            VerifierConfig verifierConfig)
+            @ForControl QueryRewriteConfig controlConfig,
+            @ForTest QueryRewriteConfig testConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.tablePropertyOverrides = requireNonNull(tablePropertyOverrides, "tablePropertyOverrides is null");
-        this.verifierConfig = requireNonNull(verifierConfig, "verifierConfig is null");
+        this.controlConfig = requireNonNull(controlConfig, "controlConfig is null");
+        this.testConfig = requireNonNull(testConfig, "testConfig is null");
     }
 
     @Override
     public QueryRewriter create(PrestoAction prestoAction)
     {
-        return new QueryRewriter(sqlParser, prestoAction, tablePropertyOverrides, verifierConfig);
+        return new QueryRewriter(
+                sqlParser,
+                prestoAction,
+                tablePropertyOverrides,
+                ImmutableMap.of(
+                        CONTROL, controlConfig.getTablePrefix(),
+                        TEST, testConfig.getTablePrefix()));
     }
 }

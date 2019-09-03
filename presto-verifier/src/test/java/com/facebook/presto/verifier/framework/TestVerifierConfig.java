@@ -28,8 +28,6 @@ public class TestVerifierConfig
     public void testDefault()
     {
         assertRecordedDefaults(recordDefaults(VerifierConfig.class)
-                .setControlTablePrefix("tmp_verifier_control")
-                .setTestTablePrefix("tmp_verifier_test")
                 .setWhitelist(null)
                 .setBlacklist(null)
                 .setSourceQuerySupplier("mysql")
@@ -51,8 +49,6 @@ public class TestVerifierConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("control.table-prefix", "local.control")
-                .put("test.table-prefix", "local.test")
                 .put("whitelist", "a,b,c")
                 .put("blacklist", "b,d,f")
                 .put("source-query.supplier", "custom-supplier")
@@ -70,8 +66,6 @@ public class TestVerifierConfig
                 .put("verification-resubmission.limit", "1")
                 .build();
         VerifierConfig expected = new VerifierConfig()
-                .setControlTablePrefix("local.control")
-                .setTestTablePrefix("local.test")
                 .setWhitelist("a,b,c")
                 .setBlacklist("b,d,f")
                 .setSourceQuerySupplier("custom-supplier")
