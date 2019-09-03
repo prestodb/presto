@@ -30,7 +30,6 @@ import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCGeometryCollection;
 import com.esri.core.geometry.ogc.OGCLineString;
-import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
@@ -384,33 +383,7 @@ public final class GeoFunctions
             return serialize(createFromEsriGeometry(new Point(), geometry.getEsriSpatialReference()));
         }
 
-        Point centroid;
-        try {
-            switch (geometryType) {
-                case MULTI_POINT:
-                    centroid = computePointsCentroid((MultiVertexGeometry) geometry.getEsriGeometry());
-                    break;
-                case LINE_STRING:
-                case MULTI_LINE_STRING:
-                    centroid = computeLineCentroid((Polyline) geometry.getEsriGeometry());
-                    break;
-                case POLYGON:
-                    centroid = computePolygonCentroid((Polygon) geometry.getEsriGeometry());
-                    break;
-                case MULTI_POLYGON:
-                    centroid = computeMultiPolygonCentroid((OGCMultiPolygon) geometry);
-                    break;
-                default:
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
-            }
-        }
-        catch (RuntimeException e) {
-            if (e instanceof PrestoException && ((PrestoException) e).getErrorCode() == INVALID_FUNCTION_ARGUMENT.toErrorCode()) {
-                throw e;
-            }
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot compute centroid: %s Use ST_IsValid to confirm that input geometry is valid or compute centroid for a bounding box using ST_Envelope.", e.getMessage()), e);
-        }
-        return serialize(createFromEsriGeometry(centroid, geometry.getEsriSpatialReference()));
+        return serialize(geometry.centroid());
     }
 
     @Description("Returns the minimum convex geometry that encloses all input geometries")
@@ -1358,119 +1331,6 @@ public final class GeoFunctions
     private static void verifySameSpatialReference(OGCGeometry leftGeometry, OGCGeometry rightGeometry)
     {
         checkArgument(Objects.equals(leftGeometry.getEsriSpatialReference(), rightGeometry.getEsriSpatialReference()), "Input geometries must have the same spatial reference");
-    }
-
-    // Points centroid is arithmetic mean of the input points
-    private static Point computePointsCentroid(MultiVertexGeometry multiVertex)
-    {
-        double xSum = 0;
-        double ySum = 0;
-        for (int i = 0; i < multiVertex.getPointCount(); i++) {
-            Point point = multiVertex.getPoint(i);
-            xSum += point.getX();
-            ySum += point.getY();
-        }
-        return new Point(xSum / multiVertex.getPointCount(), ySum / multiVertex.getPointCount());
-    }
-
-    // Lines centroid is weighted mean of each line segment, weight in terms of line length
-    private static Point computeLineCentroid(Polyline polyline)
-    {
-        double xSum = 0;
-        double ySum = 0;
-        double weightSum = 0;
-        for (int i = 0; i < polyline.getPathCount(); i++) {
-            Point startPoint = polyline.getPoint(polyline.getPathStart(i));
-            Point endPoint = polyline.getPoint(polyline.getPathEnd(i) - 1);
-            double dx = endPoint.getX() - startPoint.getX();
-            double dy = endPoint.getY() - startPoint.getY();
-            double length = sqrt(dx * dx + dy * dy);
-            weightSum += length;
-            xSum += (startPoint.getX() + endPoint.getX()) * length / 2;
-            ySum += (startPoint.getY() + endPoint.getY()) * length / 2;
-        }
-        return new Point(xSum / weightSum, ySum / weightSum);
-    }
-
-    // Polygon centroid: area weighted average of centroids in case of holes
-    private static Point computePolygonCentroid(Polygon polygon)
-    {
-        int pathCount = polygon.getPathCount();
-
-        if (pathCount == 1) {
-            return getPolygonSansHolesCentroid(polygon);
-        }
-
-        double xSum = 0;
-        double ySum = 0;
-        double areaSum = 0;
-
-        for (int i = 0; i < pathCount; i++) {
-            int startIndex = polygon.getPathStart(i);
-            int endIndex = polygon.getPathEnd(i);
-
-            Polygon sansHoles = getSubPolygon(polygon, startIndex, endIndex);
-
-            Point centroid = getPolygonSansHolesCentroid(sansHoles);
-            double area = sansHoles.calculateArea2D();
-
-            xSum += centroid.getX() * area;
-            ySum += centroid.getY() * area;
-            areaSum += area;
-        }
-
-        return new Point(xSum / areaSum, ySum / areaSum);
-    }
-
-    private static Polygon getSubPolygon(Polygon polygon, int startIndex, int endIndex)
-    {
-        Polyline boundary = new Polyline();
-        boundary.startPath(polygon.getPoint(startIndex));
-        for (int i = startIndex + 1; i < endIndex; i++) {
-            Point current = polygon.getPoint(i);
-            boundary.lineTo(current);
-        }
-
-        final Polygon newPolygon = new Polygon();
-        newPolygon.add(boundary, false);
-        return newPolygon;
-    }
-
-    // Polygon sans holes centroid:
-    // c[x] = (Sigma(x[i] + x[i + 1]) * (x[i] * y[i + 1] - x[i + 1] * y[i]), for i = 0 to N - 1) / (6 * signedArea)
-    // c[y] = (Sigma(y[i] + y[i + 1]) * (x[i] * y[i + 1] - x[i + 1] * y[i]), for i = 0 to N - 1) / (6 * signedArea)
-    private static Point getPolygonSansHolesCentroid(Polygon polygon)
-    {
-        int pointCount = polygon.getPointCount();
-        double xSum = 0;
-        double ySum = 0;
-        double signedArea = 0;
-        for (int i = 0; i < pointCount; i++) {
-            Point current = polygon.getPoint(i);
-            Point next = polygon.getPoint((i + 1) % polygon.getPointCount());
-            double ladder = current.getX() * next.getY() - next.getX() * current.getY();
-            xSum += (current.getX() + next.getX()) * ladder;
-            ySum += (current.getY() + next.getY()) * ladder;
-            signedArea += ladder / 2;
-        }
-        return new Point(xSum / (signedArea * 6), ySum / (signedArea * 6));
-    }
-
-    // MultiPolygon centroid is weighted mean of each polygon, weight in terms of polygon area
-    private static Point computeMultiPolygonCentroid(OGCMultiPolygon multiPolygon)
-    {
-        double xSum = 0;
-        double ySum = 0;
-        double weightSum = 0;
-        for (int i = 0; i < multiPolygon.numGeometries(); i++) {
-            Point centroid = computePolygonCentroid((Polygon) multiPolygon.geometryN(i).getEsriGeometry());
-            Polygon polygon = (Polygon) multiPolygon.geometryN(i).getEsriGeometry();
-            double weight = polygon.calculateArea2D();
-            weightSum += weight;
-            xSum += centroid.getX() * weight;
-            ySum += centroid.getY() * weight;
-        }
-        return new Point(xSum / weightSum, ySum / weightSum);
     }
 
     private static boolean envelopes(Slice left, Slice right, EnvelopesPredicate predicate)
