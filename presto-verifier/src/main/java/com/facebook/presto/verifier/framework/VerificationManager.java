@@ -49,7 +49,6 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
-import static com.facebook.presto.verifier.framework.JdbcDriverUtil.initializeDrivers;
 import static com.facebook.presto.verifier.framework.PrestoExceptionClassifier.shouldResubmit;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
@@ -71,10 +70,6 @@ public class VerificationManager
 
     private final QueryConfigurationOverrides controlOverrides;
     private final QueryConfigurationOverrides testOverrides;
-
-    private final Optional<String> additionalJdbcDriverPath;
-    private final Optional<String> controlJdbcDriverClass;
-    private final Optional<String> testJdbcDriverClass;
 
     private final Optional<Set<String>> whitelist;
     private final Optional<Set<String>> blacklist;
@@ -109,10 +104,6 @@ public class VerificationManager
         this.controlOverrides = requireNonNull(controlOverrides, "controlOverrides is null");
         this.testOverrides = requireNonNull(testOverrides, "testOverride is null");
 
-        this.additionalJdbcDriverPath = requireNonNull(config.getAdditionalJdbcDriverPath(), "additionalJdbcDriverPath is null");
-        this.controlJdbcDriverClass = requireNonNull(config.getControlJdbcDriverClass(), "controlJdbcDriverClass is null");
-        this.testJdbcDriverClass = requireNonNull(config.getTestJdbcDriverClass(), "testJdbcDriverClass is null");
-
         this.whitelist = requireNonNull(config.getWhitelist(), "whitelist is null");
         this.blacklist = requireNonNull(config.getBlacklist(), "blacklist is null");
         this.maxConcurrency = config.getMaxConcurrency();
@@ -125,7 +116,6 @@ public class VerificationManager
     @PostConstruct
     public void start()
     {
-        initializeDrivers(additionalJdbcDriverPath, controlJdbcDriverClass, testJdbcDriverClass);
         this.executor = newFixedThreadPool(maxConcurrency);
         this.completionService = new ExecutorCompletionService<>(executor);
 

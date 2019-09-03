@@ -32,10 +32,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class VerifierConfig
 {
-    private Optional<String> additionalJdbcDriverPath = Optional.empty();
-    private Optional<String> controlJdbcDriverClass = Optional.empty();
-    private Optional<String> testJdbcDriverClass = Optional.empty();
-
     private String controlJdbcUrl;
     private String testJdbcUrl;
 
@@ -66,48 +62,6 @@ public class VerifierConfig
     private boolean runTearDownOnResultMismatch;
     private boolean failureResolverEnabled = true;
     private int verificationResubmissionLimit = 2;
-
-    @NotNull
-    public Optional<String> getAdditionalJdbcDriverPath()
-    {
-        return additionalJdbcDriverPath;
-    }
-
-    @ConfigDescription("Path for test jdbc driver")
-    @Config("additional-jdbc-driver-path")
-    public VerifierConfig setAdditionalJdbcDriverPath(String additionalJdbcDriverPath)
-    {
-        this.additionalJdbcDriverPath = Optional.ofNullable(additionalJdbcDriverPath);
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getControlJdbcDriverClass()
-    {
-        return controlJdbcDriverClass;
-    }
-
-    @ConfigDescription("Fully qualified control JDBC driver name")
-    @Config("control.jdbc-driver-class")
-    public VerifierConfig setControlJdbcDriverClass(String controlJdbcDriverClass)
-    {
-        this.controlJdbcDriverClass = Optional.ofNullable(controlJdbcDriverClass);
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getTestJdbcDriverClass()
-    {
-        return testJdbcDriverClass;
-    }
-
-    @ConfigDescription("Fully qualified test JDBC driver name")
-    @Config("test.jdbc-driver-class")
-    public VerifierConfig setTestJdbcDriverClass(String testJdbcDriverClass)
-    {
-        this.testJdbcDriverClass = Optional.ofNullable(testJdbcDriverClass);
-        return this;
-    }
 
     @NotNull
     public String getControlJdbcUrl()

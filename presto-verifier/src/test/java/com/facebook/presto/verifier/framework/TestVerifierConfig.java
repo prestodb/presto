@@ -31,9 +31,6 @@ public class TestVerifierConfig
     public void testDefault()
     {
         assertRecordedDefaults(recordDefaults(VerifierConfig.class)
-                .setAdditionalJdbcDriverPath(null)
-                .setControlJdbcDriverClass(null)
-                .setTestJdbcDriverClass(null)
                 .setControlJdbcUrl(null)
                 .setTestJdbcUrl(null)
                 .setControlTimeout(new Duration(10, MINUTES))
@@ -63,9 +60,6 @@ public class TestVerifierConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("additional-jdbc-driver-path", "/path/to/file")
-                .put("control.jdbc-driver-class", "ControlDriver")
-                .put("test.jdbc-driver-class", "TestDriver")
                 .put("control.jdbc-url", "jdbc:presto://proxy.presto.fbinfra.net")
                 .put("test.jdbc-url", "jdbc:presto://proxy.presto.fbinfra.net")
                 .put("control.timeout", "1h")
@@ -91,9 +85,6 @@ public class TestVerifierConfig
                 .put("verification-resubmission.limit", "1")
                 .build();
         VerifierConfig expected = new VerifierConfig()
-                .setAdditionalJdbcDriverPath("/path/to/file")
-                .setControlJdbcDriverClass("ControlDriver")
-                .setTestJdbcDriverClass("TestDriver")
                 .setControlJdbcUrl("jdbc:presto://proxy.presto.fbinfra.net")
                 .setTestJdbcUrl("jdbc:presto://proxy.presto.fbinfra.net")
                 .setControlTimeout(new Duration(1, HOURS))
