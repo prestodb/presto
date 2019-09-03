@@ -77,6 +77,7 @@ public class VerificationFactory
                         prestoAction,
                         testResourceClient,
                         failureResolverConfig));
+                LimitQueryDeterminismAnalyzer limitQueryDeterminismAnalyzer = new LimitQueryDeterminismAnalyzer(prestoAction, verifierConfig);
                 return new DataVerification(
                         verificationResubmitter,
                         prestoAction,
@@ -85,7 +86,8 @@ public class VerificationFactory
                         failureResolverManager,
                         verificationContext,
                         verifierConfig,
-                        checksumValidator);
+                        checksumValidator,
+                        limitQueryDeterminismAnalyzer);
             default:
                 throw new IllegalStateException(format("Unsupported query type: %s", queryType));
         }

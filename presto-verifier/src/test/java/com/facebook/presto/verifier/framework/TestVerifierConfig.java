@@ -41,6 +41,7 @@ public class TestVerifierConfig
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
                 .setRunTearDownOnResultMismatch(false)
+                .setEnableLimitQueryDeterminismAnalyzer(true)
                 .setVerificationResubmissionLimit(2));
     }
 
@@ -61,6 +62,7 @@ public class TestVerifierConfig
                 .put("relative-error-margin", "2e-5")
                 .put("absolute-error-margin", "1e-14")
                 .put("run-teardown-on-result-mismatch", "true")
+                .put("enable-limit-query-determinism-analyzer", "false")
                 .put("verification-resubmission.limit", "1")
                 .build();
         VerifierConfig expected = new VerifierConfig()
@@ -77,6 +79,7 @@ public class TestVerifierConfig
                 .setRelativeErrorMargin(2e-5)
                 .setAbsoluteErrorMargin(1e-14)
                 .setRunTearDownOnResultMismatch(true)
+                .setEnableLimitQueryDeterminismAnalyzer(false)
                 .setVerificationResubmissionLimit(1);
 
         assertFullMapping(properties, expected);
