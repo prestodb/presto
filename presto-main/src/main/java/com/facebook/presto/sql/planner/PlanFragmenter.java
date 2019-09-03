@@ -87,6 +87,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isConcurrentWritesToPartitionedTableEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
@@ -112,6 +113,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STR
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -701,36 +703,47 @@ public class PlanFragmenter
             SchemaTableName temporaryTableName = metadata.getTableMetadata(session, tableHandle).getTable();
             InsertHandle insertHandle = new InsertHandle(insertTableHandle, new SchemaTableName(temporaryTableName.getSchemaName(), temporaryTableName.getTableName()));
 
+            PartitioningScheme partitioningScheme = new PartitioningScheme(
+                    Partitioning.create(partitioningHandle, partitioningVariables),
+                    outputs,
+                    Optional.empty(),
+                    false,
+                    Optional.empty());
+
+            ExchangeNode writerRemoteSource = new ExchangeNode(
+                    idAllocator.getNextId(),
+                    REPARTITION,
+                    REMOTE_STREAMING,
+                    partitioningScheme,
+                    sources,
+                    inputs,
+                    Optional.empty());
+
+            ExchangeNode writerSource;
+            if (getTaskWriterCount(session) == 1 || !isConcurrentWritesToPartitionedTableEnabled(session)) {
+                writerSource = gatheringExchange(
+                        idAllocator.getNextId(),
+                        LOCAL,
+                        writerRemoteSource);
+            }
+            else {
+                writerSource = partitionedExchange(
+                        idAllocator.getNextId(),
+                        LOCAL,
+                        writerRemoteSource,
+                        partitioningScheme);
+            }
+
             TableWriterNode tableWriter = new TableWriterNode(
                     idAllocator.getNextId(),
-                    gatheringExchange(
-                            idAllocator.getNextId(),
-                            LOCAL,
-                            new ExchangeNode(
-                                    idAllocator.getNextId(),
-                                    REPARTITION,
-                                    REMOTE_STREAMING,
-                                    new PartitioningScheme(
-                                            Partitioning.create(partitioningHandle, partitioningVariables),
-                                            outputs,
-                                            Optional.empty(),
-                                            false,
-                                            Optional.empty()),
-                                    sources,
-                                    inputs,
-                                    Optional.empty())),
+                    writerSource,
                     insertHandle,
                     variableAllocator.newVariable("partialrows", BIGINT),
                     variableAllocator.newVariable("partialfragments", VARBINARY),
                     variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
                     outputs,
                     outputColumnNames,
-                    Optional.of(new PartitioningScheme(
-                            Partitioning.create(partitioningHandle, partitioningVariables),
-                            outputs,
-                            Optional.empty(),
-                            false,
-                            Optional.empty())),
+                    Optional.of(partitioningScheme),
                     Optional.empty());
 
             PlanNode tableWriterMerge = tableWriter;
