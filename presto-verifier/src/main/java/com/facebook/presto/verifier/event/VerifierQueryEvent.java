@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.event;
 
+import com.facebook.presto.verifier.framework.DeterminismAnalysis;
 import com.facebook.presto.verifier.framework.SkippedReason;
 import com.google.common.collect.ImmutableList;
 import io.airlift.event.client.EventField;
@@ -45,6 +46,7 @@ public class VerifierQueryEvent
     private final String skippedReason;
 
     private final Boolean deterministic;
+    private final String determinismAnalysis;
     private final String resolveMessage;
 
     private final QueryInfo controlQueryInfo;
@@ -62,7 +64,7 @@ public class VerifierQueryEvent
             String name,
             EventStatus status,
             Optional<SkippedReason> skippedReason,
-            Optional<Boolean> deterministic,
+            Optional<DeterminismAnalysis> determinismAnalysis,
             Optional<String> resolveMessage,
             QueryInfo controlQueryInfo,
             QueryInfo testQueryInfo,
@@ -76,7 +78,8 @@ public class VerifierQueryEvent
         this.name = requireNonNull(name, "name is null");
         this.status = status.name();
         this.skippedReason = skippedReason.map(SkippedReason::name).orElse(null);
-        this.deterministic = deterministic.orElse(null);
+        this.deterministic = determinismAnalysis.filter(d -> !d.isUnknown()).map(DeterminismAnalysis::isDeterministic).orElse(null);
+        this.determinismAnalysis = determinismAnalysis.map(DeterminismAnalysis::name).orElse(null);
         this.resolveMessage = resolveMessage.orElse(null);
         this.controlQueryInfo = requireNonNull(controlQueryInfo, "controlQueryInfo is null");
         this.testQueryInfo = requireNonNull(testQueryInfo, "testQueryInfo is null");
@@ -117,9 +120,16 @@ public class VerifierQueryEvent
     }
 
     @EventField
+    @Deprecated
     public Boolean getDeterministic()
     {
         return deterministic;
+    }
+
+    @EventField
+    public String getDeterminismAnalysis()
+    {
+        return determinismAnalysis;
     }
 
     @EventField
