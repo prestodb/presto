@@ -131,6 +131,7 @@ public final class SystemSessionProperties
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
     public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
+    public static final String CONCURRENT_WRITES_TO_PARTITIONED_TABLE_ENABLED = "concurrent_writes_to_partitioned_table_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -632,6 +633,11 @@ public final class SystemSessionProperties
                         TABLE_WRITER_MERGE_OPERATOR_ENABLED,
                         "Experimental: enable table writer merge operator",
                         featuresConfig.isTableWriterMergeOperatorEnabled(),
+                        false),
+                booleanProperty(
+                        CONCURRENT_WRITES_TO_PARTITIONED_TABLE_ENABLED,
+                        "Experimental: enable concurrent writes to partitioned table",
+                        featuresConfig.isConcurrentWritesToPartitionedTableEnabled(),
                         false));
     }
 
@@ -1073,5 +1079,10 @@ public final class SystemSessionProperties
     public static boolean isTableWriterMergeOperatorEnabled(Session session)
     {
         return session.getSystemProperty(TABLE_WRITER_MERGE_OPERATOR_ENABLED, Boolean.class);
+    }
+
+    public static boolean isConcurrentWritesToPartitionedTableEnabled(Session session)
+    {
+        return session.getSystemProperty(CONCURRENT_WRITES_TO_PARTITIONED_TABLE_ENABLED, Boolean.class);
     }
 }
