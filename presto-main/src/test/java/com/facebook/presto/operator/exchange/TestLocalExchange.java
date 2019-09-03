@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.SequencePageBuilder;
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.operator.PageAssertions;
@@ -23,9 +24,12 @@ import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFact
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -41,6 +45,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BRO
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static org.testng.Assert.assertEquals;
@@ -56,6 +61,23 @@ public class TestLocalExchange
     private static final DataSize RETAINED_PAGE_SIZE = new DataSize(createPage(42).getRetainedSizeInBytes(), BYTE);
     private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = new DataSize(32, DataSize.Unit.MEGABYTE);
 
+    private PartitioningProviderManager partitioningProviderManager;
+    private Session session;
+
+    @BeforeClass
+    public void setUp()
+    {
+        partitioningProviderManager = new PartitioningProviderManager();
+        session = testSessionBuilder().build();
+    }
+
+    @AfterClass
+    public void tearDown()
+    {
+        partitioningProviderManager = null;
+        session = null;
+    }
+
     @DataProvider
     public static Object[][] executionStrategy()
     {
@@ -66,6 +88,8 @@ public class TestLocalExchange
     public void testGatherSingleWriter(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                partitioningProviderManager,
+                session,
                 SINGLE_DISTRIBUTION,
                 8,
                 TYPES,
@@ -138,6 +162,8 @@ public class TestLocalExchange
     public void testBroadcast(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                partitioningProviderManager,
+                session,
                 FIXED_BROADCAST_DISTRIBUTION,
                 2,
                 TYPES,
@@ -225,6 +251,8 @@ public class TestLocalExchange
     public void testRandom(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                partitioningProviderManager,
+                session,
                 FIXED_ARBITRARY_DISTRIBUTION,
                 2,
                 TYPES,
@@ -273,6 +301,8 @@ public class TestLocalExchange
     public void testPassthrough(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                partitioningProviderManager,
+                session,
                 FIXED_PASSTHROUGH_DISTRIBUTION,
                 2,
                 TYPES,
@@ -340,6 +370,8 @@ public class TestLocalExchange
     public void testPartition(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                partitioningProviderManager,
+                session,
                 FIXED_HASH_DISTRIBUTION,
                 2,
                 TYPES,
@@ -408,6 +440,8 @@ public class TestLocalExchange
         ImmutableList<Type> types = ImmutableList.of(BIGINT);
 
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                partitioningProviderManager,
+                session,
                 FIXED_BROADCAST_DISTRIBUTION,
                 2,
                 types,
@@ -454,6 +488,8 @@ public class TestLocalExchange
     public void writeUnblockWhenAllReadersFinishAndPagesConsumed(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                partitioningProviderManager,
+                session,
                 FIXED_BROADCAST_DISTRIBUTION,
                 2,
                 TYPES,
@@ -522,6 +558,8 @@ public class TestLocalExchange
         // The most common reason of mismatch is when one of sink/source created the wrong kind of local exchange.
         // In such case, we want to fail loudly.
         LocalExchangeFactory ungroupedLocalExchangeFactory = new LocalExchangeFactory(
+                partitioningProviderManager,
+                session,
                 FIXED_HASH_DISTRIBUTION,
                 2,
                 TYPES,
@@ -538,6 +576,8 @@ public class TestLocalExchange
         }
 
         LocalExchangeFactory groupedLocalExchangeFactory = new LocalExchangeFactory(
+                partitioningProviderManager,
+                session,
                 FIXED_HASH_DISTRIBUTION,
                 2,
                 TYPES,
