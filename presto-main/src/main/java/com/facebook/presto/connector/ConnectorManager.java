@@ -53,7 +53,7 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
-import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.ConnectorRowExpressionService;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -95,7 +95,7 @@ public class ConnectorManager
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
-    private final NodePartitioningManager nodePartitioningManager;
+    private final PartitioningProviderManager partitioningProviderManager;
     private final ConnectorPlanOptimizerManager connectorPlanOptimizerManager;
 
     private final PageSinkManager pageSinkManager;
@@ -126,7 +126,7 @@ public class ConnectorManager
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
             IndexManager indexManager,
-            NodePartitioningManager nodePartitioningManager,
+            PartitioningProviderManager partitioningProviderManager,
             ConnectorPlanOptimizerManager connectorPlanOptimizerManager,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
@@ -146,7 +146,7 @@ public class ConnectorManager
         this.splitManager = splitManager;
         this.pageSourceManager = pageSourceManager;
         this.indexManager = indexManager;
-        this.nodePartitioningManager = nodePartitioningManager;
+        this.partitioningProviderManager = partitioningProviderManager;
         this.connectorPlanOptimizerManager = connectorPlanOptimizerManager;
         this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
@@ -280,7 +280,7 @@ public class ConnectorManager
                 .ifPresent(indexProvider -> indexManager.addIndexProvider(connectorId, indexProvider));
 
         connector.getPartitioningProvider()
-                .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(connectorId, partitioningProvider));
+                .ifPresent(partitioningProvider -> partitioningProviderManager.addPartitioningProvider(connectorId, partitioningProvider));
 
         if (nodeManager.getCurrentNode().isCoordinator()) {
             connector.getPlanOptimizerProvider()
@@ -317,7 +317,7 @@ public class ConnectorManager
         pageSourceManager.removeConnectorPageSourceProvider(connectorId);
         pageSinkManager.removeConnectorPageSinkProvider(connectorId);
         indexManager.removeIndexProvider(connectorId);
-        nodePartitioningManager.removePartitioningProvider(connectorId);
+        partitioningProviderManager.removePartitioningProvider(connectorId);
         metadataManager.getProcedureRegistry().removeProcedures(connectorId);
         accessControlManager.removeCatalogAccessControl(connectorId);
         metadataManager.getTablePropertyManager().removeProperties(connectorId);
