@@ -28,6 +28,7 @@ import com.facebook.presto.verifier.resolver.FailureResolver;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
 import com.facebook.presto.verifier.retry.ForPresto;
 import com.facebook.presto.verifier.retry.RetryConfig;
+import com.facebook.presto.verifier.rewrite.VerificationQueryRewriterModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
@@ -84,10 +85,10 @@ public class VerifierModule
         }
 
         install(new VerificationPrestoActionModule(exceptionClassifier));
+        install(new VerificationQueryRewriterModule());
 
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
         binder.bind(SqlParser.class).in(SINGLETON);
-        binder.bind(QueryRewriterFactory.class).to(PrestoQueryRewriterFactory.class).in(SINGLETON);
         binder.bind(VerificationManager.class).in(SINGLETON);
         binder.bind(VerificationFactory.class).in(SINGLETON);
         binder.bind(ChecksumValidator.class).in(SINGLETON);

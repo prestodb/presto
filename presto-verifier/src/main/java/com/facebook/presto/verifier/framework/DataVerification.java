@@ -22,6 +22,7 @@ import com.facebook.presto.verifier.checksum.ColumnMatchResult;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.resolver.FailureResolver;
+import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;

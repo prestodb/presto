@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.framework;
+package com.facebook.presto.verifier.rewrite;
 
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -26,6 +26,9 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.framework.ClusterType;
+import com.facebook.presto.verifier.framework.QueryBundle;
+import com.facebook.presto.verifier.framework.QueryType;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
 import com.google.common.collect.ImmutableList;
@@ -42,11 +45,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
-import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
-import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.QueryStage.REWRITE;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
@@ -62,24 +64,23 @@ public class QueryRewriter
     private final List<Property> tablePropertyOverrides;
     private final Map<ClusterType, QualifiedName> prefixes;
 
-    public QueryRewriter(SqlParser sqlParser, PrestoAction prestoAction, List<Property> tablePropertyOverrides, VerifierConfig verifierConfig)
+    public QueryRewriter(SqlParser sqlParser, PrestoAction prestoAction, List<Property> tablePropertyOverrides, Map<ClusterType, QualifiedName> tablePrefixes)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.tablePropertyOverrides = requireNonNull(tablePropertyOverrides, "tablePropertyOverrides is null");
-        this.prefixes = ImmutableMap.of(
-                CONTROL, verifierConfig.getControlTablePrefix(),
-                TEST, verifierConfig.getTestTablePrefix());
+        this.prefixes = ImmutableMap.copyOf(tablePrefixes);
     }
 
-    public QueryBundle rewriteQuery(@Language("SQL") String query, ClusterType cluster)
+    public QueryBundle rewriteQuery(@Language("SQL") String query, ClusterType clusterType)
     {
+        checkState(prefixes.containsKey(clusterType), "Unsupported cluster type: %s", clusterType);
         Statement statement = sqlParser.createStatement(query, PARSING_OPTIONS);
         if (QueryType.of(statement).getCategory() != DATA_PRODUCING) {
-            return new QueryBundle(Optional.empty(), ImmutableList.of(), statement, ImmutableList.of(), cluster);
+            return new QueryBundle(Optional.empty(), ImmutableList.of(), statement, ImmutableList.of(), clusterType);
         }
 
-        QualifiedName prefix = prefixes.get(cluster);
+        QualifiedName prefix = prefixes.get(clusterType);
         if (statement instanceof CreateTableAsSelect) {
             CreateTableAsSelect createTableAsSelect = (CreateTableAsSelect) statement;
             QualifiedName temporaryTableName = generateTemporaryTableName(Optional.of(createTableAsSelect.getName()), prefix);
@@ -95,7 +96,7 @@ public class QueryRewriter
                             createTableAsSelect.getColumnAliases(),
                             createTableAsSelect.getComment()),
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
-                    cluster);
+                    clusterType);
         }
         if (statement instanceof Insert) {
             Insert insert = (Insert) statement;
@@ -115,7 +116,7 @@ public class QueryRewriter
                             insert.getColumns(),
                             insert.getQuery()),
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
-                    cluster);
+                    clusterType);
         }
         if (statement instanceof Query) {
             QualifiedName temporaryTableName = generateTemporaryTableName(Optional.empty(), prefix);
@@ -131,7 +132,7 @@ public class QueryRewriter
                             Optional.of(generateStorageColumnAliases((Query) statement)),
                             Optional.empty()),
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
-                    cluster);
+                    clusterType);
         }
 
         throw new IllegalStateException(format("Unsupported query type: %s", statement.getClass()));

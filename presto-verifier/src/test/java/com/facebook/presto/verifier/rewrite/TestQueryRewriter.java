@@ -11,20 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.framework;
+package com.facebook.presto.verifier.rewrite;
 
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Property;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tests.StandaloneQueryRunner;
+import com.facebook.presto.verifier.framework.ClusterType;
+import com.facebook.presto.verifier.framework.QueryBundle;
+import com.facebook.presto.verifier.framework.QueryConfiguration;
+import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -40,6 +46,7 @@ import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
 import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -49,7 +56,7 @@ import static org.testng.Assert.assertTrue;
 @Test
 public class TestQueryRewriter
 {
-    private static final String DEFAULT_PREFIX = "local.tmp";
+    private static final QualifiedName DEFAULT_PREFIX = QualifiedName.of("local", "tmp");
     private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
     private static final List<Property> TABLE_PROPERTIES_OVERRIDE = ImmutableList.of(new Property(new Identifier("test_property"), new LongLiteral("21")));
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
@@ -137,9 +144,9 @@ public class TestQueryRewriter
     @Test
     public void testTemporaryTableName()
     {
-        QueryRewriter tableNameRewriter = getQueryRewriter("tmp");
-        QueryRewriter schemaRewriter = getQueryRewriter("local.tmp");
-        QueryRewriter catalogRewriter = getQueryRewriter("verifier_batch.local.tmp");
+        QueryRewriter tableNameRewriter = getQueryRewriter(QualifiedName.of("tmp"));
+        QueryRewriter schemaRewriter = getQueryRewriter(QualifiedName.of("local", "tmp"));
+        QueryRewriter catalogRewriter = getQueryRewriter(QualifiedName.of("verifier_batch", "local", "tmp"));
 
         @Language("SQL") String query = "INSERT INTO dest_table SELECT * FROM test_table";
         assertTableName(tableNameRewriter, query, "tmp_");
@@ -191,7 +198,7 @@ public class TestQueryRewriter
                 .collect(toImmutableList());
     }
 
-    private QueryRewriter getQueryRewriter(String prefix)
+    private QueryRewriter getQueryRewriter(QualifiedName prefix)
     {
         return new QueryRewriter(
                 sqlParser,
@@ -205,8 +212,6 @@ public class TestQueryRewriter
                         new RetryConfig(),
                         new RetryConfig()),
                 TABLE_PROPERTIES_OVERRIDE,
-                new VerifierConfig()
-                        .setControlTablePrefix(prefix)
-                        .setTestTablePrefix(prefix));
+                ImmutableMap.of(CONTROL, prefix, TEST, prefix));
     }
 }

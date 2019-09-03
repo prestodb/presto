@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
@@ -29,9 +28,6 @@ import static com.facebook.presto.verifier.source.MySqlSourceQuerySupplier.MYSQL
 
 public class VerifierConfig
 {
-    private QualifiedName controlTablePrefix = QualifiedName.of("tmp_verifier_control");
-    private QualifiedName testTablePrefix = QualifiedName.of("tmp_verifier_test");
-
     private Optional<Set<String>> whitelist = Optional.empty();
     private Optional<Set<String>> blacklist = Optional.empty();
 
@@ -51,38 +47,6 @@ public class VerifierConfig
     private boolean runTearDownOnResultMismatch;
     private boolean failureResolverEnabled = true;
     private int verificationResubmissionLimit = 2;
-
-    @NotNull
-    public QualifiedName getControlTablePrefix()
-    {
-        return controlTablePrefix;
-    }
-
-    @ConfigDescription("The prefix to use for temporary control shadow tables. May be fully qualified like 'tmp_catalog.tmp_schema.tmp_'")
-    @Config("control.table-prefix")
-    public VerifierConfig setControlTablePrefix(String controlTablePrefix)
-    {
-        this.controlTablePrefix = controlTablePrefix == null ?
-                null :
-                QualifiedName.of(Splitter.on(".").splitToList(controlTablePrefix));
-        return this;
-    }
-
-    @NotNull
-    public QualifiedName getTestTablePrefix()
-    {
-        return testTablePrefix;
-    }
-
-    @ConfigDescription("The prefix to use for temporary test shadow tables. May be fully qualified like 'tmp_catalog.tmp_schema.tmp_'")
-    @Config("test.table-prefix")
-    public VerifierConfig setTestTablePrefix(String testTablePrefix)
-    {
-        this.testTablePrefix = testTablePrefix == null ?
-                null :
-                QualifiedName.of(Splitter.on(".").splitToList(testTablePrefix));
-        return this;
-    }
 
     @NotNull
     public Optional<Set<String>> getWhitelist()

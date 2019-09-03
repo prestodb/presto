@@ -18,6 +18,8 @@ import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionFactory;
 import com.facebook.presto.verifier.resolver.FailureResolver;
+import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.facebook.presto.verifier.rewrite.QueryRewriterFactory;
 
 import javax.inject.Inject;
 
