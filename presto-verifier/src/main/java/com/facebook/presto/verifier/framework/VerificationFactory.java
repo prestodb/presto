@@ -15,6 +15,8 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
+import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.PrestoActionFactory;
 import com.facebook.presto.verifier.resolver.FailureResolver;
 
 import javax.inject.Inject;

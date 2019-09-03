@@ -22,6 +22,7 @@ import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
 import com.facebook.presto.verifier.checksum.OrderableArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
+import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.resolver.ExceededGlobalMemoryLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.ExceededTimeLimitFailureResolver;
 import com.google.common.collect.ImmutableList;

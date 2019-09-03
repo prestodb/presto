@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.framework;
+package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.framework.QueryStage;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 

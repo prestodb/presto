@@ -11,12 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.framework;
+package com.facebook.presto.verifier.prestoaction;
 
-public interface PrestoActionFactory
+import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.framework.QueryStage;
+
+import java.sql.SQLException;
+import java.util.Optional;
+
+public interface SqlExceptionClassifier
 {
-    PrestoAction create(
-            QueryConfiguration controlConfiguration,
-            QueryConfiguration testConfiguration,
-            VerificationContext verificationContext);
+    QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause);
 }

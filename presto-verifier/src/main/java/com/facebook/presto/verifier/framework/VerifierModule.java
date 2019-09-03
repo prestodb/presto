@@ -22,6 +22,8 @@ import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
 import com.facebook.presto.verifier.checksum.OrderableArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
+import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.VerificationPrestoActionModule;
 import com.facebook.presto.verifier.resolver.FailureResolver;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
 import com.facebook.presto.verifier.retry.ForPresto;
@@ -81,10 +83,11 @@ public class VerifierModule
             binder.bind(customQueryFilterClass).in(SINGLETON);
         }
 
+        install(new VerificationPrestoActionModule(exceptionClassifier));
+
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
         binder.bind(SqlParser.class).in(SINGLETON);
         binder.bind(QueryRewriterFactory.class).to(PrestoQueryRewriterFactory.class).in(SINGLETON);
-        binder.bind(PrestoActionFactory.class).to(JdbcPrestoActionFactory.class).in(SINGLETON);
         binder.bind(VerificationManager.class).in(SINGLETON);
         binder.bind(VerificationFactory.class).in(SINGLETON);
         binder.bind(ChecksumValidator.class).in(SINGLETON);
@@ -92,7 +95,6 @@ public class VerifierModule
         binder.bind(FloatingPointColumnValidator.class).in(SINGLETON);
         binder.bind(OrderableArrayColumnValidator.class).in(SINGLETON);
         binder.bind(new TypeLiteral<List<Predicate<SourceQuery>>>() {}).toProvider(new CustomQueryFilterProvider(customQueryFilterClasses));
-        binder.bind(SqlExceptionClassifier.class).toInstance(exceptionClassifier);
         binder.bind(new TypeLiteral<List<FailureResolver>>() {}).toInstance(failureResolvers);
         binder.bind(new TypeLiteral<List<Property>>() {}).toInstance(tablePropertyOverrides);
     }
