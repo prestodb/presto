@@ -14,7 +14,6 @@
 package com.facebook.presto.verifier.framework;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -22,8 +21,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestVerifierConfig
 {
@@ -31,12 +28,6 @@ public class TestVerifierConfig
     public void testDefault()
     {
         assertRecordedDefaults(recordDefaults(VerifierConfig.class)
-                .setControlJdbcUrl(null)
-                .setTestJdbcUrl(null)
-                .setControlTimeout(new Duration(10, MINUTES))
-                .setTestTimeout(new Duration(30, MINUTES))
-                .setMetadataTimeout(new Duration(3, MINUTES))
-                .setChecksumTimeout(new Duration(20, MINUTES))
                 .setControlTablePrefix("tmp_verifier_control")
                 .setTestTablePrefix("tmp_verifier_test")
                 .setWhitelist(null)
@@ -60,12 +51,6 @@ public class TestVerifierConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("control.jdbc-url", "jdbc:presto://proxy.presto.fbinfra.net")
-                .put("test.jdbc-url", "jdbc:presto://proxy.presto.fbinfra.net")
-                .put("control.timeout", "1h")
-                .put("test.timeout", "2h")
-                .put("metadata.timeout", "3h")
-                .put("checksum.timeout", "4h")
                 .put("control.table-prefix", "local.control")
                 .put("test.table-prefix", "local.test")
                 .put("whitelist", "a,b,c")
@@ -85,12 +70,6 @@ public class TestVerifierConfig
                 .put("verification-resubmission.limit", "1")
                 .build();
         VerifierConfig expected = new VerifierConfig()
-                .setControlJdbcUrl("jdbc:presto://proxy.presto.fbinfra.net")
-                .setTestJdbcUrl("jdbc:presto://proxy.presto.fbinfra.net")
-                .setControlTimeout(new Duration(1, HOURS))
-                .setTestTimeout(new Duration(2, HOURS))
-                .setMetadataTimeout(new Duration(3, HOURS))
-                .setChecksumTimeout(new Duration(4, HOURS))
                 .setControlTablePrefix("local.control")
                 .setTestTablePrefix("local.test")
                 .setWhitelist("a,b,c")

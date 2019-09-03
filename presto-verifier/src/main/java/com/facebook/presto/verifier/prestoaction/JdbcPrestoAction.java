@@ -17,12 +17,10 @@ import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.verifier.framework.ClusterType;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
-import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
 import com.facebook.presto.verifier.retry.ForPresto;
 import com.facebook.presto.verifier.retry.RetryConfig;
@@ -41,8 +39,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
-import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
 import static com.google.common.base.Preconditions.checkState;
@@ -54,12 +50,11 @@ public class JdbcPrestoAction
     private static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
 
     private final SqlExceptionClassifier exceptionClassifier;
-    private final Map<ClusterType, QueryConfiguration> configurations;
-    private final VerificationContext context;
+    private final QueryConfiguration queryConfiguration;
+    private final VerificationContext verificationContext;
 
-    private final Map<ClusterType, String> clusterUrls;
-    private final Duration controlTimeout;
-    private final Duration testTimeout;
+    private final String jdbcUrl;
+    private final Duration queryTimeout;
     private final Duration metadataTimeout;
     private final Duration checksumTimeout;
 
@@ -68,26 +63,20 @@ public class JdbcPrestoAction
 
     public JdbcPrestoAction(
             SqlExceptionClassifier exceptionClassifier,
-            QueryConfiguration controlConfiguration,
-            QueryConfiguration testConfiguration,
-            VerificationContext context,
-            VerifierConfig config,
+            QueryConfiguration queryConfiguration,
+            VerificationContext verificationContext,
+            PrestoClusterConfig prestoClusterConfig,
             @ForClusterConnection RetryConfig networkRetryConfig,
             @ForPresto RetryConfig prestoRetryConfig)
     {
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
-        this.configurations = ImmutableMap.of(
-                CONTROL, controlConfiguration,
-                TEST, testConfiguration);
-        this.context = requireNonNull(context, "context is null");
+        this.queryConfiguration = requireNonNull(queryConfiguration, "queryConfiguration is null");
+        this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
-        this.clusterUrls = ImmutableMap.of(
-                CONTROL, config.getControlJdbcUrl(),
-                TEST, config.getTestJdbcUrl());
-        this.controlTimeout = requireNonNull(config.getControlTimeout(), "controlTimeout is null");
-        this.testTimeout = requireNonNull(config.getTestTimeout(), "testTimeout is null");
-        this.metadataTimeout = requireNonNull(config.getMetadataTimeout(), "metadataTimeout is null");
-        this.checksumTimeout = requireNonNull(config.getChecksumTimeout(), "checksumTimeout is null");
+        this.jdbcUrl = requireNonNull(prestoClusterConfig.getJdbcUrl(), "jdbcUrl is null");
+        this.queryTimeout = requireNonNull(prestoClusterConfig.getQueryTimeout(), "queryTimeout is null");
+        this.metadataTimeout = requireNonNull(prestoClusterConfig.getMetadataTimeout(), "metadataTimeout is null");
+        this.checksumTimeout = requireNonNull(prestoClusterConfig.getChecksumTimeout(), "checksumTimeout is null");
 
         this.networkRetry = new RetryDriver(networkRetryConfig, queryException -> queryException.getType() == CLUSTER_CONNECTION);
         this.prestoRetry = new RetryDriver(prestoRetryConfig, queryException -> queryException.getType() == PRESTO && queryException.isRetryable());
@@ -109,10 +98,10 @@ public class JdbcPrestoAction
     {
         return prestoRetry.run(
                 "presto",
-                context,
+                verificationContext,
                 () -> networkRetry.run(
                         "presto-cluster-connection",
-                        context,
+                        verificationContext,
                         () -> executeOnce(statement, queryStage, converter)));
     }
 
@@ -172,24 +161,23 @@ public class JdbcPrestoAction
     private PrestoConnection getConnection(QueryStage queryStage)
             throws SQLException
     {
-        QueryConfiguration configuration = configurations.get(queryStage.getTargetCluster());
         PrestoConnection connection = DriverManager.getConnection(
-                clusterUrls.get(queryStage.getTargetCluster()),
-                configuration.getUsername().orElse(null),
-                configuration.getPassword().orElse(null))
+                jdbcUrl,
+                queryConfiguration.getUsername().orElse(null),
+                queryConfiguration.getPassword().orElse(null))
                 .unwrap(PrestoConnection.class);
 
         try {
             connection.setClientInfo("ApplicationName", "verifier-test");
-            connection.setCatalog(configuration.getCatalog());
-            connection.setSchema(configuration.getSchema());
+            connection.setCatalog(queryConfiguration.getCatalog());
+            connection.setSchema(queryConfiguration.getSchema());
         }
         catch (SQLClientInfoException ignored) {
             // Do nothing
         }
 
         Map<String, String> sessionProperties = ImmutableMap.<String, String>builder()
-                .putAll(configuration.getSessionProperties())
+                .putAll(queryConfiguration.getSessionProperties())
                 .put(QUERY_MAX_EXECUTION_TIME, getTimeout(queryStage).toString())
                 .build();
         for (Entry<String, String> entry : sessionProperties.entrySet()) {
@@ -200,9 +188,6 @@ public class JdbcPrestoAction
 
     private Duration getTimeout(QueryStage queryStage)
     {
-        ClusterType cluster = queryStage.getTargetCluster();
-        checkState(cluster == CONTROL || cluster == TEST, "Invalid cluster: %s", cluster);
-
         switch (queryStage) {
             case REWRITE:
             case DESCRIBE:
@@ -210,7 +195,7 @@ public class JdbcPrestoAction
             case CHECKSUM:
                 return checksumTimeout;
             default:
-                return cluster == CONTROL ? controlTimeout : testTimeout;
+                return queryTimeout;
         }
     }
 

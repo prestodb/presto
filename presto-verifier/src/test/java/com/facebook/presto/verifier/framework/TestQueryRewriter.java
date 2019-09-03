@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
+import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
@@ -192,23 +193,20 @@ public class TestQueryRewriter
 
     private QueryRewriter getQueryRewriter(String prefix)
     {
-        String gateway = queryRunner.getServer().getBaseUrl().toString().replace("http", "jdbc:presto");
-        VerifierConfig config = new VerifierConfig()
-                .setControlJdbcUrl(gateway)
-                .setTestJdbcUrl(gateway)
-                .setControlTablePrefix(prefix)
-                .setTestTablePrefix(prefix);
         return new QueryRewriter(
                 sqlParser,
                 new JdbcPrestoAction(
                         new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
                         CONFIGURATION,
-                        CONFIGURATION,
                         new VerificationContext(),
-                        config,
+                        new PrestoClusterConfig()
+                                .setHost(queryRunner.getServer().getAddress().getHost())
+                                .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
                         new RetryConfig(),
                         new RetryConfig()),
                 TABLE_PROPERTIES_OVERRIDE,
-                config);
+                new VerifierConfig()
+                        .setControlTablePrefix(prefix)
+                        .setTestTablePrefix(prefix));
     }
 }

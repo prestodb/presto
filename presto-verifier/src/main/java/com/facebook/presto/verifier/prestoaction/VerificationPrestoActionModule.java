@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.presto.verifier.annotation.ForControl;
+import com.facebook.presto.verifier.annotation.ForTest;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class VerificationPrestoActionModule
@@ -32,7 +35,10 @@ public class VerificationPrestoActionModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(PrestoActionFactory.class).to(JdbcPrestoActionFactory.class).in(SINGLETON);
+        configBinder(binder).bindConfig(PrestoClusterConfig.class, ForControl.class, "control");
+        configBinder(binder).bindConfig(PrestoClusterConfig.class, ForTest.class, "test");
+
+        binder.bind(PrestoActionFactory.class).to(RoutingPrestoActionFactory.class).in(SINGLETON);
         binder.bind(SqlExceptionClassifier.class).toInstance(exceptionClassifier);
     }
 }

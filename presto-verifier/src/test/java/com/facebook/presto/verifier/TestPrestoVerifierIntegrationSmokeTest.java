@@ -90,13 +90,16 @@ public class TestPrestoVerifierIntegrationSmokeTest
         configFile = createFile(Paths.get(configDirectory.getAbsolutePath(), "config.properties")).toFile();
         CharSink sink = asCharSink(configFile, UTF_8);
 
-        String gateway = queryRunner.getServer().getBaseUrl().toString().replace("http", "jdbc:presto");
+        String host = queryRunner.getServer().getAddress().getHost();
+        int port = queryRunner.getServer().getAddress().getPort();
         jsonLogFile = Paths.get(configDirectory.getAbsolutePath(), "json.log").toFile();
         humanReadableLogFile = Paths.get(configDirectory.getAbsolutePath(), "human-readable.log").toFile();
         sink.write(format(
                 "test-id=%s\n" +
-                        "control.jdbc-url=%s\n" +
-                        "test.jdbc-url=%s\n" +
+                        "control.host=%s\n" +
+                        "control.jdbc-port=%s\n" +
+                        "test.host=%s\n" +
+                        "test.jdbc-port=%s\n" +
                         "control.table-prefix=local.tmp_verifier_c\n" +
                         "test.table-prefix=local.tmp_verifier_t\n" +
                         "source-query.database=%s\n" +
@@ -107,8 +110,10 @@ public class TestPrestoVerifierIntegrationSmokeTest
                         "human-readable.log-file=%s\n" +
                         "max-concurrency=50\n",
                 TEST_ID,
-                gateway,
-                gateway,
+                host,
+                port,
+                host,
+                port,
                 mySqlServer.getJdbcUrl(XDB),
                 SUITE,
                 jsonLogFile.getAbsolutePath(),
