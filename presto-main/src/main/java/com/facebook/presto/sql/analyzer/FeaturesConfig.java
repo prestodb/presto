@@ -136,6 +136,8 @@ public class FeaturesConfig
 
     private boolean pushdownSubfieldsEnabled;
 
+    private boolean tableWriterMergeOperatorEnabled = true;
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -1043,5 +1045,17 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldsEnabled()
     {
         return pushdownSubfieldsEnabled;
+    }
+
+    public boolean isTableWriterMergeOperatorEnabled()
+    {
+        return tableWriterMergeOperatorEnabled;
+    }
+
+    @Config("experimental.table-writer-merge-operator-enabled")
+    public FeaturesConfig setTableWriterMergeOperatorEnabled(boolean tableWriterMergeOperatorEnabled)
+    {
+        this.tableWriterMergeOperatorEnabled = tableWriterMergeOperatorEnabled;
+        return this;
     }
 }

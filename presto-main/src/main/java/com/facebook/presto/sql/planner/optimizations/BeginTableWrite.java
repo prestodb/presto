@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
@@ -166,6 +167,9 @@ public class BeginTableWrite
                         .map(this::getTarget)
                         .collect(toSet());
                 return Iterables.getOnlyElement(writerTargets);
+            }
+            if (node instanceof TableWriterMergeNode) {
+                return getTarget(((TableWriterMergeNode) node).getSource());
             }
             throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
         }

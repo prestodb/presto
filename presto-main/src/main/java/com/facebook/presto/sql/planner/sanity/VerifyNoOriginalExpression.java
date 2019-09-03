@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 
@@ -134,6 +135,15 @@ public class VerifyNoOriginalExpression
 
         @Override
         public Void visitTableWriter(TableWriterNode node, Void context)
+        {
+            visitPlan(node, context);
+
+            checkStatisticsAggregation(node.getStatisticsAggregation());
+            return null;
+        }
+
+        @Override
+        public Void visitTableWriteMerge(TableWriterMergeNode node, Void context)
         {
             visitPlan(node, context);
 

@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Function;
@@ -67,6 +68,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.spatialJoin;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableFinish;
+import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterMergeNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.values;
 import static com.facebook.presto.sql.planner.plan.Patterns.window;
@@ -103,7 +105,8 @@ public class TranslateExpressions
                 new SpatialJoinExpressionTranslation(),
                 new AggregationExpressionTranslation(),
                 new TableFinishExpressionTranslation(),
-                new TableWriterExpressionTranslation());
+                new TableWriterExpressionTranslation(),
+                new TableWriterMergeExpressionTranslation());
     }
 
     private final class SpatialJoinExpressionTranslation
@@ -430,6 +433,37 @@ public class TranslateExpressions
                         node.getColumns(),
                         node.getColumnNames(),
                         node.getPartitioningScheme(),
+                        rewrittenStatisticsAggregation));
+            }
+            return Result.empty();
+        }
+    }
+
+    private final class TableWriterMergeExpressionTranslation
+            implements Rule<TableWriterMergeNode>
+    {
+        @Override
+        public Pattern<TableWriterMergeNode> getPattern()
+        {
+            return tableWriterMergeNode();
+        }
+
+        @Override
+        public Result apply(TableWriterMergeNode node, Captures captures, Context context)
+        {
+            if (!node.getStatisticsAggregation().isPresent()) {
+                return Result.empty();
+            }
+
+            Optional<StatisticAggregations> rewrittenStatisticsAggregation = translateStatisticAggregation(node.getStatisticsAggregation().get(), context);
+
+            if (rewrittenStatisticsAggregation.isPresent()) {
+                return Result.ofPlanNode(new TableWriterMergeNode(
+                        node.getId(),
+                        node.getSource(),
+                        node.getRowCountVariable(),
+                        node.getFragmentVariable(),
+                        node.getTableCommitContextVariable(),
                         rewrittenStatisticsAggregation));
             }
             return Result.empty();

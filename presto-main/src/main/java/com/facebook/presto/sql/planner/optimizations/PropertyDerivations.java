@@ -67,6 +67,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -687,6 +688,12 @@ public class PropertyDerivations
             return ActualProperties.builder()
                     .global(properties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
                     .build();
+        }
+
+        @Override
+        public ActualProperties visitTableWriteMerge(TableWriterMergeNode node, List<ActualProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties);
         }
 
         @Override

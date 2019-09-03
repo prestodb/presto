@@ -130,6 +130,7 @@ public final class SystemSessionProperties
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
+    public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -626,6 +627,11 @@ public final class SystemSessionProperties
                         PUSHDOWN_SUBFIELDS_ENABLED,
                         "Experimental: enable subfield pruning",
                         featuresConfig.isPushdownSubfieldsEnabled(),
+                        false),
+                booleanProperty(
+                        TABLE_WRITER_MERGE_OPERATOR_ENABLED,
+                        "Experimental: enable table writer merge operator",
+                        featuresConfig.isTableWriterMergeOperatorEnabled(),
                         false));
     }
 
@@ -1062,5 +1068,10 @@ public final class SystemSessionProperties
     public static boolean isPushdownSubfieldsEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isTableWriterMergeOperatorEnabled(Session session)
+    {
+        return session.getSystemProperty(TABLE_WRITER_MERGE_OPERATOR_ENABLED, Boolean.class);
     }
 }

@@ -57,6 +57,7 @@ import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -689,6 +690,19 @@ public class PruneUnreferencedOutputs
                     node.getColumns(),
                     node.getColumnNames(),
                     node.getPartitioningScheme(),
+                    node.getStatisticsAggregation());
+        }
+
+        @Override
+        public PlanNode visitTableWriteMerge(TableWriterMergeNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getSource().getOutputVariables()));
+            return new TableWriterMergeNode(
+                    node.getId(),
+                    source,
+                    node.getRowCountVariable(),
+                    node.getFragmentVariable(),
+                    node.getTableCommitContextVariable(),
                     node.getStatisticsAggregation());
         }
 

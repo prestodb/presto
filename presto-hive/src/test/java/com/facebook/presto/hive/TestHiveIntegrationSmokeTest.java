@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
@@ -1920,6 +1921,7 @@ public class TestHiveIntegrationSmokeTest
                     Session.builder(getSession())
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("writer_min_size", "32MB")
+                            .setSystemProperty("task_writer_count", "1")
                             .build(),
                     "CREATE TABLE scale_writers_small AS SELECT * FROM tpch.tiny.orders",
                     (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
@@ -1931,6 +1933,7 @@ public class TestHiveIntegrationSmokeTest
                     Session.builder(getSession())
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
                             .build(),
                     "CREATE TABLE scale_writers_large WITH (format = 'RCBINARY') AS SELECT * FROM tpch.sf1.orders",
                     (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
@@ -4272,6 +4275,24 @@ public class TestHiveIntegrationSmokeTest
                 .setCatalogSessionProperty(bucketedSession.getCatalog().get(), "ignore_table_bucketing", "true")
                 .build();
         assertQueryFails(ignoreBucketingSession, query, "Table bucketing is ignored\\. The virtual \"\\$bucket\" column cannot be referenced\\.");
+    }
+
+    @Test
+    public void testTableWriterMergeNodeIsPresent()
+    {
+        assertUpdate(
+                getSession(),
+                "CREATE TABLE test_table_writer_merge_operator AS SELECT orderkey FROM orders",
+                15000,
+                assertTableWriterMergeNodeIsPresent());
+    }
+
+    private static Consumer<Plan> assertTableWriterMergeNodeIsPresent()
+    {
+        return plan -> assertTrue(searchFrom(plan.getRoot())
+                .where(node -> node instanceof TableWriterMergeNode)
+                .findFirst()
+                .isPresent());
     }
 
     private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)

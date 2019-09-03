@@ -60,6 +60,7 @@ import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -568,6 +569,15 @@ public final class ValidateDependenciesChecker
 
         @Override
         public Void visitTableWriter(TableWriterNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundVariables); // visit child
+
+            return null;
+        }
+
+        @Override
+        public Void visitTableWriteMerge(TableWriterMergeNode node, Set<VariableReferenceExpression> boundVariables)
         {
             PlanNode source = node.getSource();
             source.accept(this, boundVariables); // visit child

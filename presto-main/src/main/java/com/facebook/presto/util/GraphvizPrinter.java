@@ -51,6 +51,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -99,6 +100,7 @@ public final class GraphvizPrinter
         SAMPLE,
         MARK_DISTINCT,
         TABLE_WRITER,
+        TABLE_WRITER_MERGE,
         TABLE_FINISH,
         INDEX_SOURCE,
         UNNEST,
@@ -122,6 +124,7 @@ public final class GraphvizPrinter
             .put(NodeType.UNION, "turquoise4")
             .put(NodeType.MARK_DISTINCT, "violet")
             .put(NodeType.TABLE_WRITER, "cyan")
+            .put(NodeType.TABLE_WRITER_MERGE, "cyan4")
             .put(NodeType.TABLE_FINISH, "hotpink")
             .put(NodeType.INDEX_SOURCE, "dodgerblue3")
             .put(NodeType.UNNEST, "crimson")
@@ -236,6 +239,13 @@ public final class GraphvizPrinter
                 columns.add(node.getColumnNames().get(i) + " := " + node.getColumns().get(i));
             }
             printNode(node, format("TableWriter[%s]", Joiner.on(", ").join(columns)), NODE_COLORS.get(NodeType.TABLE_WRITER));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitTableWriteMerge(TableWriterMergeNode node, Void context)
+        {
+            printNode(node, "TableWriterMerge", NODE_COLORS.get(NodeType.TABLE_WRITER_MERGE));
             return node.getSource().accept(this, context);
         }
 

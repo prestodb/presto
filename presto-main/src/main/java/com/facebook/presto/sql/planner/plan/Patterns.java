@@ -140,6 +140,11 @@ public class Patterns
         return typeOf(TableWriterNode.class);
     }
 
+    public static Pattern<TableWriterMergeNode> tableWriterMergeNode()
+    {
+        return typeOf(TableWriterMergeNode.class);
+    }
+
     public static Pattern<TopNNode> topN()
     {
         return typeOf(TopNNode.class);

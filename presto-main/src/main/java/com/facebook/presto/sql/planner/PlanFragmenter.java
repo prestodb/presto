@@ -63,6 +63,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
@@ -90,6 +91,7 @@ import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGr
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
@@ -699,6 +701,52 @@ public class PlanFragmenter
             SchemaTableName temporaryTableName = metadata.getTableMetadata(session, tableHandle).getTable();
             InsertHandle insertHandle = new InsertHandle(insertTableHandle, new SchemaTableName(temporaryTableName.getSchemaName(), temporaryTableName.getTableName()));
 
+            TableWriterNode tableWriter = new TableWriterNode(
+                    idAllocator.getNextId(),
+                    gatheringExchange(
+                            idAllocator.getNextId(),
+                            LOCAL,
+                            new ExchangeNode(
+                                    idAllocator.getNextId(),
+                                    REPARTITION,
+                                    REMOTE_STREAMING,
+                                    new PartitioningScheme(
+                                            Partitioning.create(partitioningHandle, partitioningVariables),
+                                            outputs,
+                                            Optional.empty(),
+                                            false,
+                                            Optional.empty()),
+                                    sources,
+                                    inputs,
+                                    Optional.empty())),
+                    insertHandle,
+                    variableAllocator.newVariable("partialrows", BIGINT),
+                    variableAllocator.newVariable("partialfragments", VARBINARY),
+                    variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
+                    outputs,
+                    outputColumnNames,
+                    Optional.of(new PartitioningScheme(
+                            Partitioning.create(partitioningHandle, partitioningVariables),
+                            outputs,
+                            Optional.empty(),
+                            false,
+                            Optional.empty())),
+                    Optional.empty());
+
+            PlanNode tableWriterMerge = tableWriter;
+            if (isTableWriterMergeOperatorEnabled(session)) {
+                tableWriterMerge = new TableWriterMergeNode(
+                        idAllocator.getNextId(),
+                        gatheringExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                tableWriter),
+                        variableAllocator.newVariable("intermediaterows", BIGINT),
+                        variableAllocator.newVariable("intermediatefragments", VARBINARY),
+                        variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
+                        Optional.empty());
+            }
+
             return new TableFinishNode(
                     idAllocator.getNextId(),
                     gatheringExchange(
@@ -707,37 +755,7 @@ public class PlanFragmenter
                             gatheringExchange(
                                     idAllocator.getNextId(),
                                     REMOTE_STREAMING,
-                                    new TableWriterNode(
-                                            idAllocator.getNextId(),
-                                            gatheringExchange(
-                                                    idAllocator.getNextId(),
-                                                    LOCAL,
-                                                    new ExchangeNode(
-                                                            idAllocator.getNextId(),
-                                                            REPARTITION,
-                                                            REMOTE_STREAMING,
-                                                            new PartitioningScheme(
-                                                                    Partitioning.create(partitioningHandle, partitioningVariables),
-                                                                    outputs,
-                                                                    Optional.empty(),
-                                                                    false,
-                                                                    Optional.empty()),
-                                                            sources,
-                                                            inputs,
-                                                            Optional.empty())),
-                                            insertHandle,
-                                            variableAllocator.newVariable("partialrows", BIGINT),
-                                            variableAllocator.newVariable("fragment", VARBINARY),
-                                            variableAllocator.newVariable("tablecommitcontext", VARBINARY),
-                                            outputs,
-                                            outputColumnNames,
-                                            Optional.of(new PartitioningScheme(
-                                                    Partitioning.create(partitioningHandle, partitioningVariables),
-                                                    outputs,
-                                                    Optional.empty(),
-                                                    false,
-                                                    Optional.empty())),
-                                            Optional.empty()))),
+                                    tableWriterMerge)),
                     insertHandle,
                     variableAllocator.newVariable("rows", BIGINT),
                     Optional.empty(),
