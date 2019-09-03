@@ -34,6 +34,7 @@ public class PrestoClusterConfig
 {
     private String host;
     private int jdbcPort;
+    private int httpPort;
     private Map<String, String> jdbcUrlParameters = ImmutableMap.of();
 
     private Duration queryTimeout = new Duration(60, MINUTES);
@@ -66,6 +67,21 @@ public class PrestoClusterConfig
     public PrestoClusterConfig setJdbcPort(int jdbcPort)
     {
         this.jdbcPort = jdbcPort;
+        return this;
+    }
+
+    @Override
+    @Min(0)
+    @Max(65535)
+    public int getHttpPort()
+    {
+        return httpPort;
+    }
+
+    @Config("http-port")
+    public PrestoClusterConfig setHttpPort(int httpPort)
+    {
+        this.httpPort = httpPort;
         return this;
     }
 

@@ -135,6 +135,11 @@ public class PrestoExceptionClassifier
                 && DEFAULT_REQUEUABLE_ERRORS.contains(queryException.getPrestoErrorCode().get());
     }
 
+    public static boolean isClusterConnectionException(Throwable t)
+    {
+        return getClusterConnectionExceptionCause(t).isPresent();
+    }
+
     private static Optional<Throwable> getClusterConnectionExceptionCause(Throwable t)
     {
         while (t != null) {

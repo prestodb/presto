@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.net.URI;
 import java.util.Map;
 
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -34,6 +35,7 @@ public class TestPrestoClusterConfig
         assertRecordedDefaults(recordDefaults(PrestoClusterConfig.class)
                 .setHost(null)
                 .setJdbcPort(0)
+                .setHttpPort(0)
                 .setJdbcUrlParameters(null)
                 .setQueryTimeout(new Duration(60, MINUTES))
                 .setMetadataTimeout(new Duration(3, MINUTES))
@@ -46,6 +48,7 @@ public class TestPrestoClusterConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("host", "proxy.presto.fbinfra.net")
                 .put("jdbc-port", "7778")
+                .put("http-port", "7777")
                 .put("jdbc-url-parameters", "{\"SSL\": false}")
                 .put("query-timeout", "2h")
                 .put("metadata-timeout", "1h")
@@ -54,6 +57,7 @@ public class TestPrestoClusterConfig
         PrestoClusterConfig expected = new PrestoClusterConfig()
                 .setHost("proxy.presto.fbinfra.net")
                 .setJdbcPort(7778)
+                .setHttpPort(7777)
                 .setJdbcUrlParameters("{\"SSL\": false}")
                 .setQueryTimeout(new Duration(2, HOURS))
                 .setMetadataTimeout(new Duration(1, HOURS))
@@ -71,5 +75,16 @@ public class TestPrestoClusterConfig
                 .setJdbcUrlParameters("{\"SSL\": true, \"SSLTrustStorePath\": \"trust-store\", \"SSLKeyStorePath\": \"key-store\"}")
                 .setQueryTimeout(new Duration(60, MINUTES));
         assertEquals(config.getJdbcUrl(), "jdbc:presto://proxy.presto.fbinfra.net:7778?SSL=true&SSLTrustStorePath=trust-store&SSLKeyStorePath=key-store");
+    }
+
+    @Test
+    public void testHttpUri()
+    {
+        PrestoClusterConfig config = new PrestoClusterConfig()
+                .setHost("proxy.presto.fbinfra.net")
+                .setJdbcPort(7778)
+                .setHttpPort(7777)
+                .setQueryTimeout(new Duration(60, MINUTES));
+        assertEquals(config.getHttpUri("/v1/node"), URI.create("http://proxy.presto.fbinfra.net:7777/v1/node"));
     }
 }

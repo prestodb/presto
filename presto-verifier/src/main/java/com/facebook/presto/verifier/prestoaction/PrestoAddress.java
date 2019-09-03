@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import java.net.URI;
 import java.util.Map;
 
 import static java.lang.String.format;
@@ -24,6 +25,8 @@ public interface PrestoAddress
 
     int getJdbcPort();
 
+    int getHttpPort();
+
     Map<String, String> getJdbcUrlParameters();
 
     default String getJdbcUrl()
@@ -32,5 +35,10 @@ public interface PrestoAddress
                 .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
                 .collect(joining("&"));
         return format("jdbc:presto://%s:%s?%s", getHost(), getJdbcPort(), query);
+    }
+
+    default URI getHttpUri(String path)
+    {
+        return URI.create(format("http://%s:%s", getHost(), getHttpPort())).resolve(path);
     }
 }
