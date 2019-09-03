@@ -15,11 +15,17 @@ package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForTest;
+import com.facebook.presto.verifier.retry.ForClusterConnection;
+import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
+import io.airlift.http.client.HttpClient;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static java.util.Objects.requireNonNull;
 
 public class VerificationPrestoActionModule
@@ -38,7 +44,19 @@ public class VerificationPrestoActionModule
         configBinder(binder).bindConfig(PrestoClusterConfig.class, ForControl.class, "control");
         configBinder(binder).bindConfig(PrestoClusterConfig.class, ForTest.class, "test");
 
+        httpClientBinder(binder).bindHttpClient("test", ForTest.class);
         binder.bind(PrestoActionFactory.class).to(RoutingPrestoActionFactory.class).in(SINGLETON);
         binder.bind(SqlExceptionClassifier.class).toInstance(exceptionClassifier);
+    }
+
+    @Provides
+    @ForTest
+    @Singleton
+    public PrestoResourceClient providesTestHttpPrestoResourceClient(
+            @ForTest HttpClient httpClient,
+            @ForTest PrestoClusterConfig prestoClusterConfig,
+            @ForClusterConnection RetryConfig networkRetryConfig)
+    {
+        return new HttpPrestoResourceClient(httpClient, prestoClusterConfig, networkRetryConfig);
     }
 }

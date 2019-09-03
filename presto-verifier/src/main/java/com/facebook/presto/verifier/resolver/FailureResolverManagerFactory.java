@@ -34,12 +34,12 @@ public class FailureResolverManagerFactory
         this.enabled = failureResolverConfig.isEnabled();
     }
 
-    public FailureResolverManager create()
+    public FailureResolverManager create(FailureResolverFactoryContext context)
     {
         List<FailureResolver> failureResolvers = ImmutableList.of();
         if (enabled) {
             failureResolvers = failureResolverFactories.stream()
-                    .map(FailureResolverFactory::create)
+                    .map(factory -> factory.create(context))
                     .collect(toImmutableList());
         }
         return new FailureResolverManager(failureResolvers);

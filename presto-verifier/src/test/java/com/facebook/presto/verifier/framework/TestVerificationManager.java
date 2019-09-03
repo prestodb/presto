@@ -24,12 +24,14 @@ import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
 import com.facebook.presto.verifier.checksum.OrderableArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.PrestoResourceClient;
 import com.facebook.presto.verifier.resolver.FailureResolverConfig;
 import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -69,6 +71,16 @@ public class TestVerificationManager
                 ResultSetConverter<R> converter)
         {
             throw QueryException.forPresto(new RuntimeException(), Optional.of(errorCode), false, Optional.empty(), queryStage);
+        }
+    }
+
+    private static class MockPrestoResourceClient
+            implements PrestoResourceClient
+    {
+        @Override
+        public <V> V getJsonResponse(String path, JsonCodec<V> responseCodec)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 
@@ -122,8 +134,10 @@ public class TestVerificationManager
                         (sourceQuery, verificationContext) -> prestoAction,
                         presto -> new QueryRewriter(SQL_PARSER, presto, ImmutableList.of(), ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX)),
                         new FailureResolverManagerFactory(ImmutableList.of(), new FailureResolverConfig().setEnabled(false)),
+                        new MockPrestoResourceClient(),
                         new ChecksumValidator(new SimpleColumnValidator(), new FloatingPointColumnValidator(verifierConfig), new OrderableArrayColumnValidator()),
-                        verifierConfig),
+                        verifierConfig,
+                        new FailureResolverConfig().setEnabled(false)),
                 SQL_PARSER,
                 ImmutableSet.of(),
                 ImmutableList.of(),

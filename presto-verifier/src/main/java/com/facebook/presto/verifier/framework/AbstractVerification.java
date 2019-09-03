@@ -241,7 +241,7 @@ public abstract class AbstractVerification
         else {
             if (controlState == QueryState.SUCCEEDED && queryException.isPresent()) {
                 checkState(controlStats.isPresent(), "control succeeded but control stats is missing");
-                resolveMessage = failureResolverManager.resolve(controlStats.get(), queryException.get());
+                resolveMessage = failureResolverManager.resolve(controlStats.get(), queryException.get(), test);
             }
             status = resolveMessage.isPresent() ? FAILED_RESOLVED : FAILED;
         }
