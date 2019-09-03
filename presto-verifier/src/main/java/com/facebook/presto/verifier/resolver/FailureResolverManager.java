@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 
 import java.util.List;
@@ -30,10 +31,10 @@ public class FailureResolverManager
         this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
     }
 
-    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException)
+    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         for (FailureResolver failureResolver : failureResolvers) {
-            Optional<String> resolveMessage = failureResolver.resolve(controlQueryStats, queryException);
+            Optional<String> resolveMessage = failureResolver.resolve(controlQueryStats, queryException, test);
             if (resolveMessage.isPresent()) {
                 return resolveMessage;
             }

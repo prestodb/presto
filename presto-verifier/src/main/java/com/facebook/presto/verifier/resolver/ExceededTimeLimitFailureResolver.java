@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.verifier.framework.QueryBundle;
 
 import java.util.Optional;
 
@@ -30,7 +31,7 @@ public class ExceededTimeLimitFailureResolver
     }
 
     @Override
-    public Optional<String> resolveTestQueryFailure(ErrorCodeSupplier errorCode, QueryStats controlQueryStats, QueryStats testQueryStats)
+    public Optional<String> resolveTestQueryFailure(ErrorCodeSupplier errorCode, QueryStats controlQueryStats, QueryStats testQueryStats, Optional<QueryBundle> test)
     {
         if (errorCode == EXCEEDED_TIME_LIMIT) {
             return Optional.of("Auto Resolved: Test cluster has less computing resource");
@@ -42,7 +43,7 @@ public class ExceededTimeLimitFailureResolver
             implements FailureResolverFactory
     {
         @Override
-        public FailureResolver create()
+        public FailureResolver create(FailureResolverFactoryContext context)
         {
             return new ExceededTimeLimitFailureResolver();
         }

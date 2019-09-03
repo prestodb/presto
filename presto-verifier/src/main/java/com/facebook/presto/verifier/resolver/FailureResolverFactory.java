@@ -15,5 +15,5 @@ package com.facebook.presto.verifier.resolver;
 
 public interface FailureResolverFactory
 {
-    FailureResolver create();
+    FailureResolver create(FailureResolverFactoryContext context);
 }

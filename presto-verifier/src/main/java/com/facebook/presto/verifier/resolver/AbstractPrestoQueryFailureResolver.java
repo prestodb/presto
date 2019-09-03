@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 
@@ -33,10 +34,10 @@ public abstract class AbstractPrestoQueryFailureResolver
         this.expectedQueryStage = requireNonNull(expectedQueryStage, "expectedQueryOrigin is null");
     }
 
-    public abstract Optional<String> resolveTestQueryFailure(ErrorCodeSupplier errorCode, QueryStats controlQueryStats, QueryStats testQueryStats);
+    public abstract Optional<String> resolveTestQueryFailure(ErrorCodeSupplier errorCode, QueryStats controlQueryStats, QueryStats testQueryStats, Optional<QueryBundle> test);
 
     @Override
-    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException)
+    public Optional<String> resolve(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         if (queryException.getQueryStage() != expectedQueryStage ||
                 queryException.getType() != PRESTO ||
@@ -45,6 +46,6 @@ public abstract class AbstractPrestoQueryFailureResolver
             return Optional.empty();
         }
 
-        return resolveTestQueryFailure(queryException.getPrestoErrorCode().get(), controlQueryStats, queryException.getQueryStats().get());
+        return resolveTestQueryFailure(queryException.getPrestoErrorCode().get(), controlQueryStats, queryException.getQueryStats().get(), test);
     }
 }

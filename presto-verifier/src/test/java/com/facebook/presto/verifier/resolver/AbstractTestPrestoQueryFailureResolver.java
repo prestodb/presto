@@ -50,7 +50,8 @@ public class AbstractTestPrestoQueryFailureResolver
                         Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                         false,
                         Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_MEMORY_BYTES / 2)),
-                        TEST_SETUP))
+                        TEST_SETUP),
+                Optional.empty())
                 .isPresent());
     }
 
@@ -59,7 +60,8 @@ public class AbstractTestPrestoQueryFailureResolver
     {
         assertFalse(failureResolver.resolve(
                 CONTROL_QUERY_STATS,
-                QueryException.forClusterConnection(new SocketTimeoutException(), TEST_MAIN))
+                QueryException.forClusterConnection(new SocketTimeoutException(), TEST_MAIN),
+                Optional.empty())
                 .isPresent());
     }
 
@@ -73,7 +75,8 @@ public class AbstractTestPrestoQueryFailureResolver
                         Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
                         false,
                         Optional.empty(),
-                        TEST_MAIN))
+                        TEST_MAIN),
+                Optional.empty())
                 .isPresent());
     }
 
@@ -87,7 +90,8 @@ public class AbstractTestPrestoQueryFailureResolver
                         Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT),
                         false,
                         Optional.empty(),
-                        TEST_MAIN))
+                        TEST_MAIN),
+                Optional.empty())
                 .isPresent());
     }
 
