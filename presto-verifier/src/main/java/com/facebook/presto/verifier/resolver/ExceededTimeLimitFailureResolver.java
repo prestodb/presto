@@ -37,4 +37,14 @@ public class ExceededTimeLimitFailureResolver
         }
         return Optional.empty();
     }
+
+    public static class Factory
+            implements FailureResolverFactory
+    {
+        @Override
+        public FailureResolver create()
+        {
+            return new ExceededTimeLimitFailureResolver();
+        }
+    }
 }

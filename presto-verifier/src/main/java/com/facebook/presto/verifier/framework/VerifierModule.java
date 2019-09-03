@@ -24,7 +24,8 @@ import com.facebook.presto.verifier.checksum.OrderableArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.VerificationPrestoActionModule;
-import com.facebook.presto.verifier.resolver.FailureResolver;
+import com.facebook.presto.verifier.resolver.FailureResolverFactory;
+import com.facebook.presto.verifier.resolver.FailureResolverModule;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
 import com.facebook.presto.verifier.retry.ForPresto;
 import com.facebook.presto.verifier.retry.RetryConfig;
@@ -52,20 +53,20 @@ public class VerifierModule
     private final SqlParserOptions sqlParserOptions;
     private final List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses;
     private final SqlExceptionClassifier exceptionClassifier;
-    private final List<FailureResolver> failureResolvers;
+    private final List<FailureResolverFactory> failureResolverFactories;
     private final List<Property> tablePropertyOverrides;
 
     public VerifierModule(
             SqlParserOptions sqlParserOptions,
             List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses,
             SqlExceptionClassifier exceptionClassifier,
-            List<FailureResolver> failureResolvers,
+            List<FailureResolverFactory> failureResolverFactories,
             List<Property> tablePropertyOverrides)
     {
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.customQueryFilterClasses = ImmutableList.copyOf(customQueryFilterClasses);
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
-        this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
+        this.failureResolverFactories = requireNonNull(failureResolverFactories, "failureResolverFactories is null");
         this.tablePropertyOverrides = requireNonNull(tablePropertyOverrides, "tablePropertyOverrides is null");
     }
 
@@ -86,6 +87,7 @@ public class VerifierModule
 
         install(new VerificationPrestoActionModule(exceptionClassifier));
         install(new VerificationQueryRewriterModule());
+        install(new FailureResolverModule(failureResolverFactories));
 
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
         binder.bind(SqlParser.class).in(SINGLETON);
@@ -96,7 +98,6 @@ public class VerifierModule
         binder.bind(FloatingPointColumnValidator.class).in(SINGLETON);
         binder.bind(OrderableArrayColumnValidator.class).in(SINGLETON);
         binder.bind(new TypeLiteral<List<Predicate<SourceQuery>>>() {}).toProvider(new CustomQueryFilterProvider(customQueryFilterClasses));
-        binder.bind(new TypeLiteral<List<FailureResolver>>() {}).toInstance(failureResolvers);
         binder.bind(new TypeLiteral<List<Property>>() {}).toInstance(tablePropertyOverrides);
     }
 

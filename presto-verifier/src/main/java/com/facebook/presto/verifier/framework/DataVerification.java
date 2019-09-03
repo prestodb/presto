@@ -21,7 +21,7 @@ import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.resolver.FailureResolver;
+import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableMap;
 
@@ -50,12 +50,12 @@ public class DataVerification
             PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
-            List<FailureResolver> failureResolvers,
+            FailureResolverManager failureResolverManager,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
             ChecksumValidator checksumValidator)
     {
-        super(verificationResubmitter, prestoAction, sourceQuery, queryRewriter, failureResolvers, verificationContext, verifierConfig);
+        super(verificationResubmitter, prestoAction, sourceQuery, queryRewriter, failureResolverManager, verificationContext, verifierConfig);
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
     }
 

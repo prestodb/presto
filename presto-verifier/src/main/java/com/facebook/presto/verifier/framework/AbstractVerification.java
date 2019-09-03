@@ -22,7 +22,7 @@ import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.resolver.FailureResolver;
+import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -68,19 +68,18 @@ public abstract class AbstractVerification
     private final PrestoAction prestoAction;
     private final SourceQuery sourceQuery;
     private final QueryRewriter queryRewriter;
-    private final List<FailureResolver> failureResolvers;
+    private final FailureResolverManager failureResolverManager;
     private final VerificationContext verificationContext;
 
     private final String testId;
     private final boolean runTearDownOnResultMismatch;
-    private final boolean failureResolverEnabled;
 
     public AbstractVerification(
             VerificationResubmitter verificationResubmitter,
             PrestoAction prestoAction,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
-            List<FailureResolver> failureResolvers,
+            FailureResolverManager failureResolverManager,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig)
     {
@@ -88,12 +87,11 @@ public abstract class AbstractVerification
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
-        this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
+        this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
         this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
         this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
         this.runTearDownOnResultMismatch = verifierConfig.isRunTearDownOnResultMismatch();
-        this.failureResolverEnabled = verifierConfig.isFailureResolverEnabled();
     }
 
     protected abstract VerificationResult verify(QueryBundle control, QueryBundle test);
@@ -243,7 +241,7 @@ public abstract class AbstractVerification
         else {
             if (controlState == QueryState.SUCCEEDED && queryException.isPresent()) {
                 checkState(controlStats.isPresent(), "control succeeded but control stats is missing");
-                resolveMessage = resolveFailure(controlStats.get(), queryException.get());
+                resolveMessage = failureResolverManager.resolve(controlStats.get(), queryException.get());
             }
             status = resolveMessage.isPresent() ? FAILED_RESOLVED : FAILED;
         }
@@ -287,20 +285,6 @@ public abstract class AbstractVerification
                 Optional.ofNullable(errorMessage),
                 queryException.map(QueryException::toQueryFailure),
                 verificationContext.getQueryFailures());
-    }
-
-    private Optional<String> resolveFailure(QueryStats controlStats, QueryException queryException)
-    {
-        if (!failureResolverEnabled) {
-            return Optional.empty();
-        }
-        for (FailureResolver failureResolver : failureResolvers) {
-            Optional<String> resolveMessage = failureResolver.resolve(controlStats, queryException);
-            if (resolveMessage.isPresent()) {
-                return resolveMessage;
-            }
-        }
-        return Optional.empty();
     }
 
     private static QueryInfo buildQueryInfo(
