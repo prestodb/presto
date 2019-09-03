@@ -11,13 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.framework;
+package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.event.QueryFailure;
+import com.facebook.presto.verifier.framework.QueryConfiguration;
+import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.framework.QueryResult;
+import com.facebook.presto.verifier.framework.QueryStage;
+import com.facebook.presto.verifier.framework.VerificationContext;
+import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

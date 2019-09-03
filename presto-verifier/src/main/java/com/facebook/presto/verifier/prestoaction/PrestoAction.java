@@ -11,10 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.framework;
+package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.framework.QueryResult;
+import com.facebook.presto.verifier.framework.QueryStage;
 import com.google.common.collect.ImmutableList;
 
 import java.sql.ResultSet;

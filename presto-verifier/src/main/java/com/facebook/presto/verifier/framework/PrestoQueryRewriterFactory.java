@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Property;
+import com.facebook.presto.verifier.prestoaction.PrestoAction;
 
 import javax.inject.Inject;
 

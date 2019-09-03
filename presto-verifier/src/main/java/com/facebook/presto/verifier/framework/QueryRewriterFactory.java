@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.verifier.prestoaction.PrestoAction;
+
 public interface QueryRewriterFactory
 {
     QueryRewriter create(PrestoAction prestoAction);

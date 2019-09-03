@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.framework;
+package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.connector.thrift.ThriftErrorCode;
 import com.facebook.presto.hive.HiveErrorCode;
@@ -19,6 +19,8 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.framework.QueryStage;
 import com.google.common.collect.ImmutableSet;
 
 import java.io.EOFException;
