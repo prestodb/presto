@@ -18,6 +18,7 @@ import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
+import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
@@ -51,15 +52,14 @@ public class JdbcPrestoAction
 
     private final SqlExceptionClassifier exceptionClassifier;
     private final QueryConfiguration queryConfiguration;
-    private final VerificationContext verificationContext;
 
     private final String jdbcUrl;
     private final Duration queryTimeout;
     private final Duration metadataTimeout;
     private final Duration checksumTimeout;
 
-    private final RetryDriver networkRetry;
-    private final RetryDriver prestoRetry;
+    private final RetryDriver<QueryException> networkRetry;
+    private final RetryDriver<QueryException> prestoRetry;
 
     public JdbcPrestoAction(
             SqlExceptionClassifier exceptionClassifier,
@@ -71,15 +71,22 @@ public class JdbcPrestoAction
     {
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.queryConfiguration = requireNonNull(queryConfiguration, "queryConfiguration is null");
-        this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
         this.jdbcUrl = requireNonNull(prestoClusterConfig.getJdbcUrl(), "jdbcUrl is null");
         this.queryTimeout = requireNonNull(prestoClusterConfig.getQueryTimeout(), "queryTimeout is null");
         this.metadataTimeout = requireNonNull(prestoClusterConfig.getMetadataTimeout(), "metadataTimeout is null");
         this.checksumTimeout = requireNonNull(prestoClusterConfig.getChecksumTimeout(), "checksumTimeout is null");
 
-        this.networkRetry = new RetryDriver(networkRetryConfig, queryException -> queryException.getType() == CLUSTER_CONNECTION);
-        this.prestoRetry = new RetryDriver(prestoRetryConfig, queryException -> queryException.getType() == PRESTO && queryException.isRetryable());
+        this.networkRetry = new RetryDriver<>(
+                networkRetryConfig,
+                queryException -> queryException.getType() == CLUSTER_CONNECTION,
+                QueryException.class,
+                verificationContext::addException);
+        this.prestoRetry = new RetryDriver<>(
+                prestoRetryConfig,
+                queryException -> queryException.getType() == PRESTO && queryException.isRetryable(),
+                QueryException.class,
+                verificationContext::addException);
     }
 
     @Override
@@ -98,10 +105,8 @@ public class JdbcPrestoAction
     {
         return prestoRetry.run(
                 "presto",
-                verificationContext,
                 () -> networkRetry.run(
                         "presto-cluster-connection",
-                        verificationContext,
                         () -> executeOnce(statement, queryStage, converter)));
     }
 
