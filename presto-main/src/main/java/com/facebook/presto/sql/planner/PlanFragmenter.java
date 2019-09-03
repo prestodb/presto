@@ -1060,13 +1060,16 @@ public class PlanFragmenter
                 return GroupedExecutionProperties.notCapable();
             }
             List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
-            boolean recoveryEligible = metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE);
-            boolean useful = isGroupedExecutionForEligibleTableScansEnabled(session);
             if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
-                return new GroupedExecutionProperties(false, useful, ImmutableList.of(), 1, recoveryEligible);
+                return GroupedExecutionProperties.notCapable();
             }
             else {
-                return new GroupedExecutionProperties(true, useful, ImmutableList.of(node.getId()), partitionHandles.size(), recoveryEligible);
+                return new GroupedExecutionProperties(
+                        true,
+                        isGroupedExecutionForEligibleTableScansEnabled(session),
+                        ImmutableList.of(node.getId()),
+                        partitionHandles.size(),
+                        metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE));
             }
         }
 
