@@ -95,10 +95,15 @@ public final class HiveQueryRunner
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
         setupLogging();
 
+        Map<String, String> systemProperties = ImmutableMap.<String, String>builder()
+                .put("task.writer-count", "2")
+                .putAll(extraProperties)
+                .build();
+
         DistributedQueryRunner queryRunner =
                 DistributedQueryRunner.builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
                         .setNodeCount(4)
-                        .setExtraProperties(extraProperties)
+                        .setExtraProperties(systemProperties)
                         .setBaseDataDir(baseDataDir)
                         .build();
         try {

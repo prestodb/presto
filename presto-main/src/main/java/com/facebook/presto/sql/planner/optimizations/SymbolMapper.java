@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -258,6 +259,17 @@ public class SymbolMapper
                 map(node.getRowCountVariable()),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
+    }
+
+    public TableWriterMergeNode map(TableWriterMergeNode node, PlanNode source)
+    {
+        return new TableWriterMergeNode(
+                node.getId(),
+                source,
+                map(node.getRowCountVariable()),
+                map(node.getFragmentVariable()),
+                map(node.getTableCommitContextVariable()),
+                node.getStatisticsAggregation().map(this::map));
     }
 
     private PartitioningScheme canonicalize(PartitioningScheme scheme, PlanNode source)

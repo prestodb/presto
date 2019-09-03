@@ -83,6 +83,7 @@ import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -920,6 +921,13 @@ public class PlanPrinter
                     .orElse(0);
             nodeOutput.appendDetailsLine("Statistics collected: %s", statisticsCollected);
 
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitTableWriteMerge(TableWriterMergeNode node, Void context)
+        {
+            addNode(node, "TableWriterMerge");
             return processChildren(node, context);
         }
 

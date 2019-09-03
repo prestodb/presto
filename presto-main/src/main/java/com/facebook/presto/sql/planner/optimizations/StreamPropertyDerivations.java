@@ -53,6 +53,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -420,6 +421,12 @@ public final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
             // table writer only outputs the row count
             return properties.withUnspecifiedPartitioning();
+        }
+
+        @Override
+        public StreamProperties visitTableWriteMerge(TableWriterMergeNode node, List<StreamProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties);
         }
 
         @Override

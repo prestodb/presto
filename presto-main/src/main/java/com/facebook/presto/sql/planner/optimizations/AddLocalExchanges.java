@@ -47,8 +47,10 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
+import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
@@ -66,6 +68,9 @@ import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
+import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -113,12 +118,14 @@ public class AddLocalExchanges
     private class Rewriter
             extends InternalPlanVisitor<PlanWithProperties, StreamPreferredProperties>
     {
+        private final PlanVariableAllocator variableAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
         private final TypeProvider types;
 
         public Rewriter(PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Session session)
         {
+            this.variableAllocator = variableAllocator;
             this.types = variableAllocator.getTypes();
             this.idAllocator = idAllocator;
             this.session = session;
@@ -473,19 +480,59 @@ public class AddLocalExchanges
         //
 
         @Override
-        public PlanWithProperties visitTableWriter(TableWriterNode node, StreamPreferredProperties parentPreferences)
+        public PlanWithProperties visitTableWriter(TableWriterNode originalTableWriterNode, StreamPreferredProperties parentPreferences)
         {
-            StreamPreferredProperties requiredProperties;
-            StreamPreferredProperties preferredProperties;
-            if (getTaskWriterCount(session) > 1) {
-                requiredProperties = fixedParallelism();
-                preferredProperties = fixedParallelism();
+            if (getTaskWriterCount(session) == 1) {
+                return planAndEnforceChildren(originalTableWriterNode, singleStream(), defaultParallelism(session));
             }
-            else {
-                requiredProperties = singleStream();
-                preferredProperties = defaultParallelism(session);
+
+            if (!isTableWriterMergeOperatorEnabled(session)) {
+                return planAndEnforceChildren(originalTableWriterNode, fixedParallelism(), fixedParallelism());
             }
-            return planAndEnforceChildren(node, requiredProperties, preferredProperties);
+
+            Optional<StatisticAggregations.Parts> statisticAggregations = originalTableWriterNode
+                    .getStatisticsAggregation()
+                    .map(aggregations -> aggregations.splitIntoPartialAndIntermediate(
+                            variableAllocator,
+                            metadata.getFunctionManager()));
+
+            PlanWithProperties tableWriter = planAndEnforceChildren(
+                    new TableWriterNode(
+                            originalTableWriterNode.getId(),
+                            originalTableWriterNode.getSource(),
+                            originalTableWriterNode.getTarget(),
+                            variableAllocator.newVariable("partialrowcount", BIGINT),
+                            variableAllocator.newVariable("partialfragments", VARBINARY),
+                            variableAllocator.newVariable("partialcontext", VARBINARY),
+                            originalTableWriterNode.getColumns(),
+                            originalTableWriterNode.getColumnNames(),
+                            originalTableWriterNode.getPartitioningScheme(),
+                            statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation)),
+                    fixedParallelism(),
+                    fixedParallelism());
+
+            PlanWithProperties gatheringExchange = deriveProperties(
+                    gatheringExchange(
+                            idAllocator.getNextId(),
+                            LOCAL,
+                            tableWriter.getNode()),
+                    tableWriter.getProperties());
+
+            return deriveProperties(
+                    new TableWriterMergeNode(
+                            idAllocator.getNextId(),
+                            gatheringExchange.getNode(),
+                            originalTableWriterNode.getRowCountVariable(),
+                            originalTableWriterNode.getFragmentVariable(),
+                            originalTableWriterNode.getTableCommitContextVariable(),
+                            statisticAggregations.map(StatisticAggregations.Parts::getIntermediateAggregation)),
+                    gatheringExchange.getProperties());
+        }
+
+        @Override
+        public PlanWithProperties visitTableWriteMerge(TableWriterMergeNode node, StreamPreferredProperties context)
+        {
+            throw new IllegalArgumentException("Unexpected TableWriterMergeNode");
         }
 
         //

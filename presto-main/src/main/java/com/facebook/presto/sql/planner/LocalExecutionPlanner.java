@@ -72,6 +72,7 @@ import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggreg
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TableFinishOperator.LifespanCommitter;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
+import com.facebook.presto.operator.TableWriterMergeOperator.TableWriterMergeOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
@@ -168,6 +169,7 @@ import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -247,6 +249,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BRO
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
@@ -2224,6 +2227,61 @@ public class LocalExecutionPlanner
                     node.isRowCountEnabled(),
                     descriptor);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+        }
+
+        @Override
+        public PhysicalOperation visitTableWriteMerge(TableWriterMergeNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMapping = ImmutableMap.builder();
+            outputMapping.put(node.getRowCountVariable(), ROW_COUNT_CHANNEL);
+            outputMapping.put(node.getFragmentVariable(), FRAGMENT_CHANNEL);
+            outputMapping.put(node.getTableCommitContextVariable(), CONTEXT_CHANNEL);
+
+            OperatorFactory statisticsAggregation = node.getStatisticsAggregation().map(aggregation -> {
+                List<VariableReferenceExpression> groupingVariables = aggregation.getGroupingVariables();
+                if (groupingVariables.isEmpty()) {
+                    return createAggregationOperatorFactory(
+                            node.getId(),
+                            aggregation.getAggregations(),
+                            INTERMEDIATE,
+                            STATS_START_CHANNEL,
+                            outputMapping,
+                            source,
+                            context,
+                            true);
+                }
+                return createHashAggregationOperatorFactory(
+                        node.getId(),
+                        aggregation.getAggregations(),
+                        ImmutableSet.of(),
+                        groupingVariables,
+                        INTERMEDIATE,
+                        Optional.empty(),
+                        Optional.empty(),
+                        source,
+                        false,
+                        false,
+                        false,
+                        new DataSize(0, BYTE),
+                        context,
+                        STATS_START_CHANNEL,
+                        outputMapping,
+                        200,
+                        Optional.empty(),
+                        true);
+            }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
+
+            OperatorFactory operatorFactory = new TableWriterMergeOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    statisticsAggregation,
+                    tableCommitContextCodec,
+                    session,
+                    getVariableTypes(node.getOutputVariables()));
+
+            return new PhysicalOperation(operatorFactory, outputMapping.build(), context, source);
         }
 
         @Override
