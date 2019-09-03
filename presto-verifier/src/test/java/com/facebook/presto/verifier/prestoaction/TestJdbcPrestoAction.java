@@ -23,7 +23,6 @@ import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
-import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -40,7 +39,6 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
 import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
-import static com.facebook.presto.verifier.VerifierTestUtil.getJdbcUrl;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.QueryException.Type.PRESTO;
@@ -75,16 +73,14 @@ public class TestJdbcPrestoAction
     @BeforeMethod
     public void setup()
     {
-        String jdbcUrl = getJdbcUrl(queryRunner);
         verificationContext = new VerificationContext();
         prestoAction = new JdbcPrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
                 CONFIGURATION,
-                CONFIGURATION,
                 verificationContext,
-                new VerifierConfig()
-                        .setControlJdbcUrl(jdbcUrl)
-                        .setTestJdbcUrl(jdbcUrl),
+                new PrestoClusterConfig()
+                        .setHost(queryRunner.getServer().getAddress().getHost())
+                        .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
                 new RetryConfig(),
                 new RetryConfig());
     }

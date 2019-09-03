@@ -29,8 +29,6 @@ import static org.testng.Assert.assertTrue;
 public class TestSourceQueryModule
 {
     private static final Map<String, String> DEFAULT_CONFIGURATION_PROPERTIES = ImmutableMap.<String, String>builder()
-            .put("control.jdbc-url", "test")
-            .put("test.jdbc-url", "test")
             .put("test-id", "test")
             .build();
 

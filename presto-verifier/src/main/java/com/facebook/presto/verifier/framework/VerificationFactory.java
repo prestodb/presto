@@ -59,10 +59,7 @@ public class VerificationFactory
         switch (queryType.getCategory()) {
             case DATA_PRODUCING:
                 VerificationContext verificationContext = new VerificationContext();
-                PrestoAction prestoAction = prestoActionFactory.create(
-                        sourceQuery.getControlConfiguration(),
-                        sourceQuery.getTestConfiguration(),
-                        verificationContext);
+                PrestoAction prestoAction = prestoActionFactory.create(sourceQuery, verificationContext);
                 QueryRewriter queryRewriter = queryRewriterFactory.create(prestoAction);
                 return new DataVerification(
                         verificationResubmitter,

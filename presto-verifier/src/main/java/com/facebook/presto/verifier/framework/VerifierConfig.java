@@ -18,8 +18,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -28,18 +26,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.verifier.source.MySqlSourceQuerySupplier.MYSQL_SOURCE_QUERY_SUPPLIER;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class VerifierConfig
 {
-    private String controlJdbcUrl;
-    private String testJdbcUrl;
-
-    private Duration controlTimeout = new Duration(10, MINUTES);
-    private Duration testTimeout = new Duration(30, MINUTES);
-    private Duration metadataTimeout = new Duration(3, MINUTES);
-    private Duration checksumTimeout = new Duration(20, MINUTES);
-
     private QualifiedName controlTablePrefix = QualifiedName.of("tmp_verifier_control");
     private QualifiedName testTablePrefix = QualifiedName.of("tmp_verifier_test");
 
@@ -62,88 +51,6 @@ public class VerifierConfig
     private boolean runTearDownOnResultMismatch;
     private boolean failureResolverEnabled = true;
     private int verificationResubmissionLimit = 2;
-
-    @NotNull
-    public String getControlJdbcUrl()
-    {
-        return controlJdbcUrl;
-    }
-
-    @ConfigDescription("URL for the control cluster")
-    @Config("control.jdbc-url")
-    public VerifierConfig setControlJdbcUrl(String controlJdbcUrl)
-    {
-        this.controlJdbcUrl = controlJdbcUrl;
-        return this;
-    }
-
-    @NotNull
-    public String getTestJdbcUrl()
-    {
-        return testJdbcUrl;
-    }
-
-    @ConfigDescription("URL for the test cluster")
-    @Config("test.jdbc-url")
-    public VerifierConfig setTestJdbcUrl(String testJdbcUrl)
-    {
-        this.testJdbcUrl = testJdbcUrl;
-        return this;
-    }
-
-    @MinDuration("1s")
-    public Duration getControlTimeout()
-    {
-        return controlTimeout;
-    }
-
-    @ConfigDescription("Timeout for queries to the control cluster")
-    @Config("control.timeout")
-    public VerifierConfig setControlTimeout(Duration controlTimeout)
-    {
-        this.controlTimeout = controlTimeout;
-        return this;
-    }
-
-    @MinDuration("1s")
-    public Duration getTestTimeout()
-    {
-        return testTimeout;
-    }
-
-    @ConfigDescription("Timeout for queries to the test cluster")
-    @Config("test.timeout")
-    public VerifierConfig setTestTimeout(Duration testTimeout)
-    {
-        this.testTimeout = testTimeout;
-        return this;
-    }
-
-    @MinDuration("1s")
-    public Duration getMetadataTimeout()
-    {
-        return metadataTimeout;
-    }
-
-    @Config("metadata.timeout")
-    public VerifierConfig setMetadataTimeout(Duration metadataTimeout)
-    {
-        this.metadataTimeout = metadataTimeout;
-        return this;
-    }
-
-    @MinDuration("1s")
-    public Duration getChecksumTimeout()
-    {
-        return checksumTimeout;
-    }
-
-    @Config("checksum.timeout")
-    public VerifierConfig setChecksumTimeout(Duration checksumTimeout)
-    {
-        this.checksumTimeout = checksumTimeout;
-        return this;
-    }
 
     @NotNull
     public QualifiedName getControlTablePrefix()

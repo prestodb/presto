@@ -13,10 +13,24 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import com.facebook.presto.verifier.framework.SourceQuery;
-import com.facebook.presto.verifier.framework.VerificationContext;
+import java.util.Map;
 
-public interface PrestoActionFactory
+import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+
+public interface PrestoAddress
 {
-    PrestoAction create(SourceQuery sourceQuery, VerificationContext verificationContext);
+    String getHost();
+
+    int getJdbcPort();
+
+    Map<String, String> getJdbcUrlParameters();
+
+    default String getJdbcUrl()
+    {
+        String query = getJdbcUrlParameters().entrySet().stream()
+                .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
+                .collect(joining("&"));
+        return format("jdbc:presto://%s:%s?%s", getHost(), getJdbcPort(), query);
+    }
 }

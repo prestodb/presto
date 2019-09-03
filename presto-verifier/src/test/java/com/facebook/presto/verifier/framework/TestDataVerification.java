@@ -24,6 +24,7 @@ import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +39,6 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.verifier.VerifierTestUtil.CATALOG;
 import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
-import static com.facebook.presto.verifier.VerifierTestUtil.getJdbcUrl;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
@@ -69,21 +69,19 @@ public class TestDataVerification
 
     private DataVerification createVerification(String controlQuery, String testQuery)
     {
-        String jdbcUrl = getJdbcUrl(queryRunner);
         QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
         VerificationContext verificationContext = new VerificationContext();
         RetryConfig retryConfig = new RetryConfig();
         VerifierConfig verifierConfig = new VerifierConfig()
-                .setControlJdbcUrl(jdbcUrl)
-                .setTestJdbcUrl(jdbcUrl)
                 .setTestId(TEST_ID)
                 .setFailureResolverEnabled(false);
         PrestoAction prestoAction = new JdbcPrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
                 configuration,
-                configuration,
                 verificationContext,
-                verifierConfig,
+                new PrestoClusterConfig()
+                        .setHost(queryRunner.getServer().getAddress().getHost())
+                        .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
                 retryConfig,
                 retryConfig);
         QueryRewriter queryRewriter = new QueryRewriter(

@@ -113,7 +113,7 @@ public class TestVerificationManager
                 () -> sourceQueries,
                 new VerificationFactory(
                         SQL_PARSER,
-                        (controlConfiguration, testConfiguration, verificationContext) -> prestoAction,
+                        (sourceQuery, verificationContext) -> prestoAction,
                         presto -> new QueryRewriter(SQL_PARSER, presto, ImmutableList.of(), verifierConfig),
                         new ChecksumValidator(new SimpleColumnValidator(), new FloatingPointColumnValidator(verifierConfig), new OrderableArrayColumnValidator()),
                         ImmutableList.of(new ExceededGlobalMemoryLimitFailureResolver(), new ExceededTimeLimitFailureResolver()),
