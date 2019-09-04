@@ -17,7 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.tree.CoalesceExpression;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -27,16 +31,19 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -181,7 +188,7 @@ public final class Partitioning
                 Set<VariableReferenceExpression> mappedColumns = leftToRightMappings.apply((VariableReferenceExpression) leftArgument);
                 return mappedColumns.contains(rightArgument);
             }
-            else {
+            else if (rightArgument instanceof ConstantExpression) {
                 // variable == constant
                 // Normally, this would be a false condition, but if we happen to have an external
                 // mapping from the variable to a constant value and that constant value matches the
@@ -189,29 +196,48 @@ public final class Partitioning
                 Optional<ConstantExpression> leftConstant = leftConstantMapping.apply((VariableReferenceExpression) leftArgument);
                 return leftConstant.isPresent() && leftConstant.get().equals(rightArgument);
             }
+            else {
+                // variable == coalesce
+                return false;
+            }
         }
-        else {
+        else if (leftArgument instanceof ConstantExpression) {
             if (rightArgument instanceof ConstantExpression) {
                 // constant == constant
                 return leftArgument.equals(rightArgument);
             }
-            else {
+            else if (rightArgument instanceof VariableReferenceExpression) {
                 // constant == variable
                 Optional<ConstantExpression> rightConstant = rightConstantMapping.apply((VariableReferenceExpression) rightArgument);
                 return rightConstant.isPresent() && rightConstant.get().equals(leftArgument);
             }
+            else {
+                // constant == coalesce
+                return false;
+            }
+        }
+        else {
+            // coalesce == ?
+            return false;
         }
     }
 
     public boolean isPartitionedOn(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> knownConstants)
     {
-        // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
-        // can safely ignore all constant columns when comparing partition properties
-        return arguments.stream()
-                .filter(VariableReferenceExpression.class::isInstance)
-                .map(VariableReferenceExpression.class::cast)
-                .filter(variable -> !knownConstants.contains(variable))
-                .allMatch(columns::contains);
+        for (RowExpression argument : arguments) {
+            // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
+            // can safely ignore all constant columns when comparing partition properties
+            if (argument instanceof ConstantExpression) {
+                continue;
+            }
+            if (!(argument instanceof VariableReferenceExpression)) {
+                return false;
+            }
+            if (!knownConstants.contains(argument) && !columns.contains(argument)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public boolean isEffectivelySinglePartition(Set<VariableReferenceExpression> knownConstants)
@@ -253,13 +279,104 @@ public final class Partitioning
             if (argument instanceof ConstantExpression) {
                 newArguments.add(argument);
             }
-            else {
-                checkArgument(argument instanceof VariableReferenceExpression, format("Expect argument to be VariableReferenceExpression, but get %s (%s)", argument.getClass(), argument));
+            else if (argument instanceof VariableReferenceExpression) {
                 Optional<RowExpression> newArgument = translator.apply((VariableReferenceExpression) argument);
                 if (!newArgument.isPresent()) {
                     return Optional.empty();
                 }
                 newArguments.add(newArgument.get());
+            }
+            else {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.of(new Partitioning(handle, newArguments.build()));
+    }
+
+    // Maps VariableReferenceExpression in both partitions to an COALESCE expression, keeps constant arguments unchanged.
+    public Optional<Partitioning> translateToCoalesce(Partitioning other)
+    {
+        checkArgument(this.handle.equals(other.handle), "incompatible partitioning handles: %s != %s", this.handle, other.handle);
+        checkArgument(this.arguments.size() == other.arguments.size(), "incompatible number of partitioning arguments: %s != %s", this.arguments.size(), other.arguments.size());
+        ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
+        for (int i = 0; i < this.arguments.size(); i++) {
+            RowExpression leftArgument = this.arguments.get(i);
+            RowExpression rightArgument = other.arguments.get(i);
+            if (leftArgument instanceof ConstantExpression) {
+                arguments.add(leftArgument);
+            }
+            else if (rightArgument instanceof ConstantExpression) {
+                arguments.add(rightArgument);
+            }
+            else if (leftArgument instanceof VariableReferenceExpression && rightArgument instanceof VariableReferenceExpression) {
+                VariableReferenceExpression leftVariable = (VariableReferenceExpression) leftArgument;
+                VariableReferenceExpression rightVariable = (VariableReferenceExpression) rightArgument;
+                checkArgument(leftVariable.getType().equals(rightVariable.getType()), "incompatible types: %s != %s", leftVariable.getType(), rightVariable.getType());
+                arguments.add(new SpecialFormExpression(COALESCE, leftVariable.getType(), ImmutableList.of(leftVariable, rightVariable)));
+            }
+            else {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(new Partitioning(this.handle, arguments.build()));
+    }
+
+    public Optional<Partitioning> translateRowExpression(Map<VariableReferenceExpression, RowExpression> inputToOutputMappings, Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
+    {
+        ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
+        for (RowExpression argument : arguments) {
+            if (argument instanceof ConstantExpression) {
+                newArguments.add(argument);
+            }
+            else if (argument instanceof VariableReferenceExpression) {
+                if (!inputToOutputMappings.containsKey(argument)) {
+                    return Optional.empty();
+                }
+                newArguments.add(inputToOutputMappings.get(argument));
+            }
+            else {
+                checkArgument(argument instanceof SpecialFormExpression && ((SpecialFormExpression) argument).getForm().equals(COALESCE), "Expect argument to be COALESCE");
+                Set<RowExpression> coalesceArguments = ImmutableSet.copyOf(((SpecialFormExpression) argument).getArguments());
+                checkArgument(coalesceArguments.stream().allMatch(VariableReferenceExpression.class::isInstance), "Expect arguments of COALESCE to be VariableReferenceExpression");
+                // We are using the property that the result of coalesce from full outer join keys would not be null despite of the order
+                // of the arguments. Thus we extract and compare the variables of the COALESCE as a set rather than compare COALESCE directly.
+                VariableReferenceExpression translated = null;
+                for (Map.Entry<VariableReferenceExpression, RowExpression> entry : assignments.entrySet()) {
+                    if (isExpression(entry.getValue())) {
+                        if (castToExpression(entry.getValue()) instanceof CoalesceExpression) {
+                            Set<Expression> coalesceOperands = ImmutableSet.copyOf(((CoalesceExpression) castToExpression(entry.getValue())).getOperands());
+                            if (!coalesceOperands.stream().allMatch(SymbolReference.class::isInstance)) {
+                                continue;
+                            }
+
+                            if (coalesceOperands.stream()
+                                    .map(operand -> new VariableReferenceExpression(((SymbolReference) operand).getName(), types.get(operand)))
+                                    .collect(toImmutableSet())
+                                    .equals(coalesceArguments)) {
+                                translated = entry.getKey();
+                                break;
+                            }
+                        }
+                    }
+                    else {
+                        if (entry.getValue() instanceof SpecialFormExpression && ((SpecialFormExpression) entry.getValue()).getForm().equals(COALESCE)) {
+                            Set<RowExpression> assignmentArguments = ImmutableSet.copyOf(((SpecialFormExpression) entry.getValue()).getArguments());
+                            if (!assignmentArguments.stream().allMatch(VariableReferenceExpression.class::isInstance)) {
+                                continue;
+                            }
+
+                            if (assignmentArguments.equals(coalesceArguments)) {
+                                translated = entry.getKey();
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (translated == null) {
+                    return Optional.empty();
+                }
+                newArguments.add(translated);
             }
         }
 
