@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
+import com.facebook.presto.sql.planner.optimizations.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -139,7 +140,7 @@ public class BasePlanTest
                     sql,
                     ImmutableList.<PlanOptimizer>builder()
                             .addAll(optimizers)
-                            .add(queryRunner.translateExpressions()).build(), // To avoid assert plan failure not printing out plan (#12885)
+                            .add(getExpressionTranslator()).build(), // To avoid assert plan failure not printing out plan (#12885)
                     stage,
                     WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
@@ -167,7 +168,7 @@ public class BasePlanTest
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                queryRunner.translateExpressions()); // To avoid assert plan failure not printing out plan (#12885)
+                getExpressionTranslator()); // To avoid assert plan failure not printing out plan (#12885)
 
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
     }
@@ -214,6 +215,16 @@ public class BasePlanTest
     protected Metadata getMetadata()
     {
         return getQueryRunner().getMetadata();
+    }
+
+    // Translate all OriginalExpression in planNodes to RowExpression so that we can do plan pattern asserting and printing on RowExpression only.
+    protected PlanOptimizer getExpressionTranslator()
+    {
+        return new IterativeOptimizer(
+                new RuleStatsRecorder(),
+                getQueryRunner().getStatsCalculator(),
+                getQueryRunner().getCostCalculator(),
+                ImmutableSet.copyOf(new TranslateExpressions(getMetadata(), getQueryRunner().getSqlParser()).rules()));
     }
 
     public interface LocalQueryRunnerSupplier
