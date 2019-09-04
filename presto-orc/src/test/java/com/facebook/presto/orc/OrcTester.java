@@ -745,9 +745,12 @@ public class OrcTester
                 if (nestedValue == null) {
                     return filter == IS_NULL;
                 }
-                int index = toIntExact(((Subfield.LongSubscript) pathElement).getIndex());
+                int index = toIntExact(((Subfield.LongSubscript) pathElement).getIndex()) - 1;
                 nestedType = ((ArrayType) nestedType).getElementType();
-                nestedValue = ((List) nestedValue).get(index - 1);
+                if (index >= ((List) nestedValue).size()) {
+                    return true;
+                }
+                nestedValue = ((List) nestedValue).get(index);
             }
             else {
                 fail("Unsupported type: " + type);
@@ -808,6 +811,7 @@ public class OrcTester
         if (StandardTypes.ARRAY.equals(baseType)) {
             List<?> actualArray = (List<?>) actual;
             List<?> expectedArray = (List<?>) expected;
+            assertEquals(actualArray == null, expectedArray == null);
             assertEquals(actualArray.size(), expectedArray.size());
 
             Type elementType = type.getTypeParameters().get(0);

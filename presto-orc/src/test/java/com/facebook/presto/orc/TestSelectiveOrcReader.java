@@ -18,6 +18,7 @@ import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -70,6 +71,8 @@ import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestSelectiveOrcReader
 {
@@ -371,12 +374,63 @@ public class TestSelectiveOrcReader
     }
 
     @Test
+    public void testArrayIndexOutOfBounds()
+            throws Exception
+    {
+        Random random = new Random(0);
+
+        // non-null arrays of varying sizes
+        try {
+            tester.testRoundTrip(arrayType(INTEGER),
+                    IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList()),
+                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2]"), IS_NULL)));
+            fail("Expected 'Array subscript out of bounds' exception");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
+        }
+
+        // non-null nested arrays of varying sizes
+        try {
+            tester.testRoundTrip(arrayType(arrayType(INTEGER)),
+                    IntStream.range(0, 30_000).mapToObj(i -> ImmutableList.of(makeArray(random.nextInt(5), random), makeArray(random.nextInt(5), random))).collect(toImmutableList()),
+                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)));
+            fail("Expected 'Array subscript out of bounds' exception");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
+        }
+
+        // empty arrays
+        try {
+            tester.testRoundTrip(arrayType(INTEGER),
+                    nCopies(30_000, ImmutableList.of()),
+                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2]"), IS_NULL)));
+            fail("Expected 'Array subscript out of bounds' exception");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
+        }
+
+        // empty nested arrays
+        try {
+            tester.testRoundTrip(arrayType(arrayType(INTEGER)),
+                    nCopies(30_000, ImmutableList.of()),
+                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)));
+            fail("Expected 'Array subscript out of bounds' exception");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
+        }
+    }
+
+    @Test
     public void testArraysOfNulls()
             throws Exception
     {
-        for (Type type : ImmutableList.of(BOOLEAN, BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL, TIMESTAMP)) {
+        for (Type type : ImmutableList.of(BOOLEAN, BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL, TIMESTAMP, arrayType(INTEGER))) {
             tester.testRoundTrip(arrayType(type),
-                    IntStream.range(0, 30_000).mapToObj(i -> Collections.nCopies(5, null)).collect(toImmutableList()),
+                    nCopies(30_000, nCopies(5, null)),
                     ImmutableList.of(
                             ImmutableMap.of(new Subfield("c[2]"), IS_NULL),
                             ImmutableMap.of(new Subfield("c[2]"), IS_NOT_NULL)));
@@ -418,7 +472,7 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(
                         IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
                         IntStream.range(0, 30_000).boxed().map(i -> createMap(i)).collect(toImmutableList())),
-                ImmutableList.of(
+                toSubfieldFilters(
                         ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
                         ImmutableMap.of(1, IS_NOT_NULL),
                         ImmutableMap.of(1, IS_NULL)));
@@ -429,7 +483,7 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(
                         IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
                         IntStream.range(0, 30_000).boxed().map(i -> i % 5 == 0 ? null : createMap(i)).collect(toList())),
-                ImmutableList.of(
+                toSubfieldFilters(
                         ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
                         ImmutableMap.of(1, IS_NOT_NULL),
                         ImmutableMap.of(1, IS_NULL),
@@ -442,7 +496,7 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(
                         IntStream.range(0, 30_000).boxed().map(i -> i % 5 == 0 ? null : createMap(i)).collect(toList()),
                         IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList())),
-                ImmutableList.of(
+                toSubfieldFilters(
                         ImmutableMap.of(0, IS_NULL, 1, BigintRange.of(0, Integer.MAX_VALUE, false)),
                         ImmutableMap.of(0, IS_NOT_NULL, 1, BigintRange.of(0, Integer.MAX_VALUE, false))));
     }
