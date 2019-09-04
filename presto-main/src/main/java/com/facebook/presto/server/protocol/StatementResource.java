@@ -172,12 +172,12 @@ public class StatementResource
     }
 
     @GET
-    @Path("{queryId}/{slug}/{token}")
+    @Path("{queryId}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public void getQueryResults(
             @PathParam("queryId") QueryId queryId,
-            @PathParam("slug") String slug,
             @PathParam("token") long token,
+            @QueryParam("slug") String slug,
             @QueryParam("maxWait") Duration maxWait,
             @QueryParam("targetResultSize") DataSize targetResultSize,
             @HeaderParam(X_FORWARDED_PROTO) String proto,
@@ -274,12 +274,12 @@ public class StatementResource
     }
 
     @DELETE
-    @Path("{queryId}/{slug}/{token}")
+    @Path("{queryId}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response cancelQuery(
             @PathParam("queryId") QueryId queryId,
-            @PathParam("slug") String slug,
-            @PathParam("token") long token)
+            @PathParam("token") long token,
+            @QueryParam("slug") String slug)
     {
         Query query = getQuery(queryId, slug);
         if (query == null) {
