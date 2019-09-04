@@ -599,25 +599,30 @@ public class OrcTester
                     break;
                 }
 
-                if (page.getPositionCount() == 0) {
+                int positionCount = page.getPositionCount();
+                if (positionCount == 0) {
                     continue;
                 }
+
+                assertTrue(expectedValues.get(0).size() >= rowsProcessed + positionCount);
 
                 for (int i = 0; i < types.size(); i++) {
                     Type type = types.get(i);
                     Block block = page.getBlock(i);
 
-                    List<Object> data = new ArrayList<>(block.getPositionCount());
-                    for (int position = 0; position < block.getPositionCount(); position++) {
+                    assertEquals(block.getPositionCount(), positionCount);
+
+                    List<Object> data = new ArrayList<>(positionCount);
+                    for (int position = 0; position < positionCount; position++) {
                         data.add(type.getObjectValue(SESSION, block, position));
                     }
 
-                    for (int j = 0; j < block.getPositionCount(); j++) {
+                    for (int j = 0; j < positionCount; j++) {
                         assertColumnValueEquals(type, data.get(j), expectedValues.get(i).get(rowsProcessed + j));
                     }
                 }
 
-                rowsProcessed += page.getPositionCount();
+                rowsProcessed += positionCount;
             }
 
             assertEquals(rowsProcessed, expectedValues.get(0).size());
