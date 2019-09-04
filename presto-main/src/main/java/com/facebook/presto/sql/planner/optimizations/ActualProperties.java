@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
@@ -169,7 +170,7 @@ public class ActualProperties
         return global.isStreamRepartitionEffective(keys, constants.keySet());
     }
 
-    public ActualProperties translate(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator)
+    public ActualProperties translateVariable(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator)
     {
         Map<VariableReferenceExpression, ConstantExpression> translatedConstants = new HashMap<>();
         for (Map.Entry<VariableReferenceExpression, ConstantExpression> entry : constants.entrySet()) {
@@ -179,7 +180,13 @@ public class ActualProperties
             }
         }
         return builder()
-                .global(global.translate(translator, symbol -> Optional.ofNullable(constants.get(symbol))))
+                .global(global.translateVariableToRowExpression(variable -> {
+                    Optional<RowExpression> translated = translator.apply(variable).map(RowExpression.class::cast);
+                    if (!translated.isPresent()) {
+                        translated = Optional.ofNullable(constants.get(variable));
+                    }
+                    return translated;
+                }))
                 .local(LocalProperties.translate(localProperties, translator))
                 .constants(translatedConstants)
                 .build();
@@ -494,13 +501,12 @@ public class ActualProperties
             return (!streamPartitioning.isPresent() || streamPartitioning.get().isRepartitionEffective(keys, constants)) && !nullsAndAnyReplicated;
         }
 
-        private Global translate(
-                Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator,
-                Function<VariableReferenceExpression, Optional<ConstantExpression>> constants)
+        private Global translateVariableToRowExpression(
+                Function<VariableReferenceExpression, Optional<RowExpression>> translator)
         {
             return new Global(
-                    nodePartitioning.flatMap(partitioning -> partitioning.translate(translator, constants)),
-                    streamPartitioning.flatMap(partitioning -> partitioning.translate(translator, constants)),
+                    nodePartitioning.flatMap(partitioning -> partitioning.translateVariableToRowExpression(translator)),
+                    streamPartitioning.flatMap(partitioning -> partitioning.translateVariableToRowExpression(translator)),
                     nullsAndAnyReplicated);
         }
 
