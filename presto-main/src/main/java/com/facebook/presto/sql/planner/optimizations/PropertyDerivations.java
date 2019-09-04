@@ -100,6 +100,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.ARBITRARY
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOnCoalesce;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -440,10 +441,20 @@ public class PropertyDerivations
                             .unordered(true)
                             .build();
                 case FULL:
-                    // We can't say anything about the partitioning scheme because any partition of
-                    // a hash-partitioned join can produce nulls in case of a lack of matches
+                    if (probeProperties.isSingleNode()) {
+                        return ActualProperties.builder()
+                                .global(singleStreamPartition())
+                                .build();
+                    }
+
+                    if (probeProperties.getNodePartitioning().isPresent() && buildProperties.getNodePartitioning().isPresent()) {
+                        return ActualProperties.builder()
+                                .global(partitionedOnCoalesce(probeProperties.getNodePartitioning().get(), buildProperties.getNodePartitioning().get()))
+                                .build();
+                    }
+
                     return ActualProperties.builder()
-                            .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                            .global(arbitraryPartition())
                             .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
@@ -622,9 +633,7 @@ public class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments().getMap(), types);
-
-            ActualProperties translatedProperties = properties.translateVariable(column -> Optional.ofNullable(identities.get(column)));
+            ActualProperties translatedProperties = properties.translateRowExpression(node.getAssignments().getMap(), types);
 
             // Extract additional constants
             Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
@@ -798,25 +807,6 @@ public class PropertyDerivations
             }
 
             return Optional.of(ImmutableList.copyOf(builder.build()));
-        }
-
-        private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
-        {
-            Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
-            for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
-                RowExpression expression = assignment.getValue();
-                if (isExpression(expression)) {
-                    if (castToExpression(expression) instanceof SymbolReference) {
-                        inputToOutput.put(toVariableReference(castToExpression(expression), types), assignment.getKey());
-                    }
-                }
-                else {
-                    if (expression instanceof VariableReferenceExpression) {
-                        inputToOutput.put((VariableReferenceExpression) expression, assignment.getKey());
-                    }
-                }
-            }
-            return inputToOutput;
         }
     }
 

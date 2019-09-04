@@ -22,6 +22,8 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,9 +39,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -188,6 +193,42 @@ public class ActualProperties
                     return translated;
                 }))
                 .local(LocalProperties.translate(localProperties, translator))
+                .constants(translatedConstants)
+                .build();
+    }
+
+    public ActualProperties translateRowExpression(Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
+    {
+        Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutputVariables = new HashMap<>();
+        for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
+            RowExpression expression = assignment.getValue();
+            if (isExpression(expression)) {
+                if (castToExpression(expression) instanceof SymbolReference) {
+                    inputToOutputVariables.put(toVariableReference(castToExpression(expression), types), assignment.getKey());
+                }
+            }
+            else {
+                if (expression instanceof VariableReferenceExpression) {
+                    inputToOutputVariables.put((VariableReferenceExpression) expression, assignment.getKey());
+                }
+            }
+        }
+
+        Map<VariableReferenceExpression, ConstantExpression> translatedConstants = new HashMap<>();
+        for (Map.Entry<VariableReferenceExpression, ConstantExpression> entry : constants.entrySet()) {
+            if (inputToOutputVariables.containsKey(entry.getKey())) {
+                translatedConstants.put(inputToOutputVariables.get(entry.getKey()), entry.getValue());
+            }
+        }
+
+        ImmutableMap.Builder<VariableReferenceExpression, RowExpression> inputToOutputMappings = ImmutableMap.builder();
+        inputToOutputMappings.putAll(inputToOutputVariables);
+        constants.entrySet().stream()
+                .filter(entry -> !inputToOutputVariables.containsKey(entry.getKey()))
+                .forEach(inputToOutputMappings::put);
+        return builder()
+                .global(global.translateRowExpression(inputToOutputMappings.build(), assignments, types))
+                .local(LocalProperties.translate(localProperties, variable -> Optional.ofNullable(inputToOutputVariables.get(variable))))
                 .constants(translatedConstants)
                 .build();
     }
@@ -389,6 +430,11 @@ public class ActualProperties
                     false);
         }
 
+        public static Global partitionedOnCoalesce(Partitioning one, Partitioning other)
+        {
+            return new Global(one.translateToCoalesce(other), Optional.empty(), false);
+        }
+
         public Global withReplicatedNulls(boolean replicatedNulls)
         {
             return new Global(nodePartitioning, streamPartitioning, replicatedNulls);
@@ -507,6 +553,14 @@ public class ActualProperties
             return new Global(
                     nodePartitioning.flatMap(partitioning -> partitioning.translateVariableToRowExpression(translator)),
                     streamPartitioning.flatMap(partitioning -> partitioning.translateVariableToRowExpression(translator)),
+                    nullsAndAnyReplicated);
+        }
+
+        private Global translateRowExpression(Map<VariableReferenceExpression, RowExpression> inputToOutputMappings, Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
+        {
+            return new Global(
+                    nodePartitioning.flatMap(partitioning -> partitioning.translateRowExpression(inputToOutputMappings, assignments, types)),
+                    streamPartitioning.flatMap(partitioning -> partitioning.translateRowExpression(inputToOutputMappings, assignments, types)),
                     nullsAndAnyReplicated);
         }
 
