@@ -232,19 +232,21 @@ public final class Partitioning
         return !nonConstantArgs.equals(keysWithoutConstants);
     }
 
-    public Partitioning translate(Function<VariableReferenceExpression, VariableReferenceExpression> translator)
+    // Translates VariableReferenceExpression in arguments according to translator, keeps other arguments unchanged.
+    public Partitioning translateVariable(Function<VariableReferenceExpression, VariableReferenceExpression> translator)
     {
         return new Partitioning(handle, arguments.stream()
                 .map(argument -> {
-                    if (argument instanceof ConstantExpression) {
-                        return argument;
+                    if (argument instanceof VariableReferenceExpression) {
+                        return translator.apply((VariableReferenceExpression) argument);
                     }
-                    return translator.apply((VariableReferenceExpression) argument);
+                    return argument;
                 })
                 .collect(toImmutableList()));
     }
 
-    public Optional<Partitioning> translate(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator, Function<VariableReferenceExpression, Optional<ConstantExpression>> constants)
+    // Tries to translate VariableReferenceExpression in arguments according to translator, keeps constant arguments unchanged. If any arguments failed to translate, return empty partitioning.
+    public Optional<Partitioning> translateVariableToRowExpression(Function<VariableReferenceExpression, Optional<RowExpression>> translator)
     {
         ImmutableList.Builder<RowExpression> newArguments = ImmutableList.builder();
         for (RowExpression argument : arguments) {
@@ -253,13 +255,7 @@ public final class Partitioning
             }
             else {
                 checkArgument(argument instanceof VariableReferenceExpression, format("Expect argument to be VariableReferenceExpression, but get %s (%s)", argument.getClass(), argument));
-                Optional<RowExpression> newArgument = translator.apply((VariableReferenceExpression) argument).map(RowExpression.class::cast);
-                if (!newArgument.isPresent()) {
-                    // As a last resort, check for a constant mapping for the variable
-                    // Note: this MUST be last because we want to favor the variable representation
-                    // as it makes further optimizations possible.
-                    newArgument = constants.apply((VariableReferenceExpression) argument).map(RowExpression.class::cast);
-                }
+                Optional<RowExpression> newArgument = translator.apply((VariableReferenceExpression) argument);
                 if (!newArgument.isPresent()) {
                     return Optional.empty();
                 }

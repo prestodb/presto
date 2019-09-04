@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.google.common.collect.ImmutableList;
@@ -267,7 +268,7 @@ class PreferredProperties
             if (!isDistributed()) {
                 return this;
             }
-            return distributed(partitioningProperties.flatMap(properties -> properties.translate(translator)));
+            return distributed(partitioningProperties.flatMap(properties -> properties.translateVariable(translator)));
         }
 
         @Override
@@ -374,7 +375,7 @@ class PreferredProperties
             return common.isEmpty() ? this : partitioned(common).withNullsAndAnyReplicated(nullsAndAnyReplicated);
         }
 
-        public Optional<PartitioningProperties> translate(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator)
+        public Optional<PartitioningProperties> translateVariable(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator)
         {
             Set<VariableReferenceExpression> newPartitioningColumns = partitioningColumns.stream()
                     .map(translator)
@@ -391,7 +392,7 @@ class PreferredProperties
                 return Optional.of(new PartitioningProperties(newPartitioningColumns, Optional.empty(), nullsAndAnyReplicated));
             }
 
-            Optional<Partitioning> newPartitioning = partitioning.get().translate(translator, symbol -> Optional.empty());
+            Optional<Partitioning> newPartitioning = partitioning.get().translateVariableToRowExpression(variable -> translator.apply(variable).map(RowExpression.class::cast));
             if (!newPartitioning.isPresent()) {
                 return Optional.empty();
             }

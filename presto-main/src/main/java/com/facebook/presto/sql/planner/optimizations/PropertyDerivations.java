@@ -182,7 +182,7 @@ public class PropertyDerivations
         public ActualProperties visitOutput(OutputNode node, List<ActualProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties)
-                    .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputVariables(), column));
+                    .translateVariable(column -> PropertyDerivations.filterIfMissing(node.getOutputVariables(), column));
         }
 
         @Override
@@ -292,7 +292,7 @@ public class PropertyDerivations
                 inputToOutputMappings.putIfAbsent(argument, argument);
             }
 
-            return Iterables.getOnlyElement(inputProperties).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
+            return Iterables.getOnlyElement(inputProperties).translateVariable(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
         }
 
         @Override
@@ -300,7 +300,7 @@ public class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            ActualProperties translated = properties.translate(variable -> node.getGroupingKeys().contains(variable) ? Optional.of(variable) : Optional.empty());
+            ActualProperties translated = properties.translateVariable(variable -> node.getGroupingKeys().contains(variable) ? Optional.of(variable) : Optional.empty());
 
             return ActualProperties.builderFrom(translated)
                     .local(LocalProperties.grouped(node.getGroupingKeys()))
@@ -393,7 +393,7 @@ public class PropertyDerivations
         public ActualProperties visitDelete(DeleteNode node, List<ActualProperties> inputProperties)
         {
             // drop all symbols in property because delete doesn't pass on any of the columns
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
+            return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
         }
 
         @Override
@@ -407,8 +407,8 @@ public class PropertyDerivations
 
             switch (node.getType()) {
                 case INNER:
-                    probeProperties = probeProperties.translate(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column));
-                    buildProperties = buildProperties.translate(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column));
+                    probeProperties = probeProperties.translateVariable(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column));
+                    buildProperties = buildProperties.translateVariable(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column));
 
                     Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
                     constants.putAll(probeProperties.getConstants());
@@ -429,13 +429,13 @@ public class PropertyDerivations
                             .unordered(unordered)
                             .build();
                 case LEFT:
-                    return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(outputVariableReferences, column)))
+                    return ActualProperties.builderFrom(probeProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
                             .unordered(unordered)
                             .build();
                 case RIGHT:
-                    buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputVariables(), column));
+                    buildProperties = buildProperties.translateVariable(column -> filterIfMissing(node.getOutputVariables(), column));
 
-                    return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(outputVariableReferences, column)))
+                    return ActualProperties.builderFrom(buildProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
                             .local(ImmutableList.of())
                             .unordered(true)
                             .build();
@@ -465,8 +465,8 @@ public class PropertyDerivations
 
             switch (node.getType()) {
                 case INNER:
-                    probeProperties = probeProperties.translate(column -> filterIfMissing(outputs, column));
-                    buildProperties = buildProperties.translate(column -> filterIfMissing(outputs, column));
+                    probeProperties = probeProperties.translateVariable(column -> filterIfMissing(outputs, column));
+                    buildProperties = buildProperties.translateVariable(column -> filterIfMissing(outputs, column));
 
                     Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
                     constants.putAll(probeProperties.getConstants());
@@ -476,7 +476,7 @@ public class PropertyDerivations
                             .constants(constants)
                             .build();
                 case LEFT:
-                    return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(outputs, column)))
+                    return ActualProperties.builderFrom(probeProperties.translateVariable(column -> filterIfMissing(outputs, column)))
                             .build();
                 default:
                     throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
@@ -528,7 +528,7 @@ public class PropertyDerivations
                     inputToOutput.put(inputVariables.get(i), node.getOutputVariables().get(i));
                 }
 
-                ActualProperties translated = inputProperties.get(sourceIndex).translate(variable -> Optional.ofNullable(inputToOutput.get(variable)));
+                ActualProperties translated = inputProperties.get(sourceIndex).translateVariable(variable -> Optional.ofNullable(inputToOutput.get(variable)));
 
                 entries = (entries == null) ? translated.getConstants().entrySet() : Sets.intersection(entries, translated.getConstants().entrySet());
             }
@@ -624,7 +624,7 @@ public class PropertyDerivations
 
             Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments().getMap(), types);
 
-            ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)));
+            ActualProperties translatedProperties = properties.translateVariable(column -> Optional.ofNullable(identities.get(column)));
 
             // Extract additional constants
             Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
@@ -707,7 +707,7 @@ public class PropertyDerivations
         {
             Set<VariableReferenceExpression> passThroughInputs = ImmutableSet.copyOf(node.getReplicateVariables());
 
-            return Iterables.getOnlyElement(inputProperties).translate(column -> {
+            return Iterables.getOnlyElement(inputProperties).translateVariable(column -> {
                 if (passThroughInputs.contains(column)) {
                     return Optional.of(column);
                 }

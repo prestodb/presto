@@ -294,7 +294,7 @@ public class UnaliasSymbolReferences
             }
 
             PartitioningScheme partitioningScheme = new PartitioningScheme(
-                    node.getPartitioningScheme().getPartitioning().translate(this::canonicalize),
+                    node.getPartitioningScheme().getPartitioning().translateVariable(this::canonicalize),
                     outputs.build(),
                     canonicalize(node.getPartitioningScheme().getHashColumn()),
                     node.getPartitioningScheme().isReplicateNullsAndAny(),

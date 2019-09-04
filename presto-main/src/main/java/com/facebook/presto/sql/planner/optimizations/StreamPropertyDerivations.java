@@ -741,7 +741,7 @@ public final class StreamPropertyDerivations
                         }
                         return Optional.of(newPartitioningColumns.build());
                     }),
-                    ordered, otherActualProperties.translate(translator));
+                    ordered, otherActualProperties.translateVariable(translator));
         }
 
         public Optional<List<VariableReferenceExpression>> getPartitioningColumns()

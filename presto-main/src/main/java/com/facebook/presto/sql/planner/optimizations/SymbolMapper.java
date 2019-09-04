@@ -275,7 +275,7 @@ public class SymbolMapper
     private PartitioningScheme canonicalize(PartitioningScheme scheme, PlanNode source)
     {
         return new PartitioningScheme(
-                scheme.getPartitioning().translate(this::map),
+                scheme.getPartitioning().translateVariable(this::map),
                 mapAndDistinctVariable(source.getOutputVariables()),
                 scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
