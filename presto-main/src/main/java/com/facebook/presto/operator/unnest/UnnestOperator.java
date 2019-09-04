@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.unnest;
 
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
