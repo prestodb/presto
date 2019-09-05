@@ -539,7 +539,7 @@ public class PlanFragmenter
                 if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
                     throw new PrestoException(
                             NOT_SUPPORTED,
-                            format("Catalog \"%s\" does not support temporary tables. The exchange cannot be materialized.", connectorId.getCatalogName()),
+                            format("Temporary table cannot be created in catalog \"%s\": %s", connectorId.getCatalogName(), e.getMessage()),
                             e);
                 }
                 throw e;
