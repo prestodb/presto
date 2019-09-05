@@ -13,56 +13,74 @@
  */
 package com.facebook.presto.operator.unnest;
 
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ColumnarArray;
 import com.facebook.presto.spi.type.Type;
 
-import javax.annotation.Nullable;
-
+import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
-public class ArrayUnnester
-        implements Unnester
+/**
+ * Unnester for a nested column with array type, only when array elements are NOT of type {@code RowType}.
+ * Maintains a {@link ColumnarArray} object to get underlying elements block from the array block.
+ *
+ * All protected methods implemented here assume that they are being invoked when {@code columnarArray} is non-null.
+ */
+class ArrayUnnester
+        extends Unnester
 {
-    private final Type elementType;
-    private Block arrayBlock;
-
-    private int position;
-    private int positionCount;
+    private ColumnarArray columnarArray;
 
     public ArrayUnnester(Type elementType)
     {
-        this.elementType = requireNonNull(elementType, "elementType is null");
+        super(elementType);
     }
 
     @Override
-    public boolean hasNext()
-    {
-        return position < positionCount;
-    }
-
-    @Override
-    public final int getChannelCount()
+    public int getChannelCount()
     {
         return 1;
     }
 
     @Override
-    public final void appendNext(PageBuilder pageBuilder, int outputChannelOffset)
+    protected int getInputEntryCount()
     {
-        checkState(arrayBlock != null, "arrayBlock is null");
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
-        elementType.appendTo(arrayBlock, position, blockBuilder);
-        position++;
+        if (columnarArray == null) {
+            return 0;
+        }
+        return columnarArray.getPositionCount();
     }
 
     @Override
-    public void setBlock(@Nullable Block arrayBlock)
+    protected void resetColumnarStructure(Block block)
     {
-        this.arrayBlock = arrayBlock;
-        this.position = 0;
-        this.positionCount = arrayBlock == null ? 0 : arrayBlock.getPositionCount();
+        this.columnarArray = toColumnarArray(block);
+    }
+
+    @Override
+    protected Block getElementsBlock(int channel)
+    {
+        checkState(channel == 0, "index is not 0");
+        return columnarArray.getElementsBlock();
+    }
+
+    @Override
+    protected void processCurrentPosition(int requiredOutputCount)
+    {
+        // Translate indices
+        int startElementIndex = columnarArray.getOffset(getCurrentPosition());
+        int length = columnarArray.getLength(getCurrentPosition());
+
+        // Append elements and nulls
+        getBlockBuilder(0).appendRange(startElementIndex, length);
+        for (int i = 0; i < requiredOutputCount - length; i++) {
+            getBlockBuilder(0).appendNull();
+        }
+    }
+
+    @Override
+    protected int getElementsLength(int index)
+    {
+        return columnarArray.getLength(index);
     }
 }
