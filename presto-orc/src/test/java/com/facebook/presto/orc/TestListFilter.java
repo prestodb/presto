@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.PositionalFilter;
+import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.reader.ListFilter;
 import com.facebook.presto.spi.Subfield;
 import com.google.common.collect.ImmutableList;
@@ -196,9 +197,12 @@ public class TestListFilter
     {
         DummyOrcDataSource orcDataSource = new DummyOrcDataSource();
 
-        StreamDescriptor streamDescriptor = new StreamDescriptor("a", 0, "a", INT, orcDataSource, ImmutableList.of());
+        OrcType intType = new OrcType(INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
+        OrcType listType = new OrcType(LIST, ImmutableList.of(1), ImmutableList.of("item"), Optional.empty(), Optional.empty(), Optional.empty());
+
+        StreamDescriptor streamDescriptor = new StreamDescriptor("a", 0, "a", intType, orcDataSource, ImmutableList.of());
         for (int i = 0; i < levels; i++) {
-            streamDescriptor = new StreamDescriptor("a", 0, "a", LIST, orcDataSource, ImmutableList.of(streamDescriptor));
+            streamDescriptor = new StreamDescriptor("a", 0, "a", listType, orcDataSource, ImmutableList.of(streamDescriptor));
         }
 
         return streamDescriptor;
