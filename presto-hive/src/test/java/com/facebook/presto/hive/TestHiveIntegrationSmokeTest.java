@@ -2645,7 +2645,7 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 materializeAllWrongPartitioningProvider,
                 "SELECT orderkey, COUNT(*) lines FROM lineitem GROUP BY orderkey",
-                "Catalog \"tpch\" does not support custom partitioning and cannot be used as a partitioning provider");
+                "Catalog \"tpch\" cannot be used as a partitioning provider: This connector does not support custom partitioning");
 
         // make sure that bucketing is not ignored for temporary tables
         Session bucketingIgnored = Session.builder(materializeExchangesSession)

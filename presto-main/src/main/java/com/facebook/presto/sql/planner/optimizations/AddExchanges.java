@@ -1326,7 +1326,10 @@ public class AddExchanges
                 if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
                     throw new PrestoException(
                             NOT_SUPPORTED,
-                            format("Catalog \"%s\" does not support custom partitioning and cannot be used as a partitioning provider", partitioningProviderCatalog),
+                            format(
+                                    "Catalog \"%s\" cannot be used as a partitioning provider: %s",
+                                    partitioningProviderCatalog,
+                                    e.getMessage()),
                             e);
                 }
                 throw e;
