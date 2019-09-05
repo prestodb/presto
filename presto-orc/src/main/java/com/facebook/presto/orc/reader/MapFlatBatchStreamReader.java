@@ -269,7 +269,7 @@ public class MapFlatBatchStreamReader
                 streamDescriptor.getStreamName(),
                 streamDescriptor.getStreamId(),
                 streamDescriptor.getFieldName(),
-                streamDescriptor.getOrcTypeKind(),
+                streamDescriptor.getOrcType(),
                 streamDescriptor.getOrcDataSource(),
                 streamDescriptors,
                 sequence);
