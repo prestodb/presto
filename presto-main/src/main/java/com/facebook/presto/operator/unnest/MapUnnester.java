@@ -13,59 +13,83 @@
  */
 package com.facebook.presto.operator.unnest;
 
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ColumnarMap;
 import com.facebook.presto.spi.type.Type;
 
-import javax.annotation.Nullable;
-
+import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
-public class MapUnnester
-        implements Unnester
+/**
+ * Unnester for a nested column with map type.
+ * Maintains a {@link ColumnarMap} object to get underlying keys and values block from the map block.
+ *
+ * All protected methods implemented here assume that they are being invoked when {@code columnarMap} is non-null.
+ */
+class MapUnnester
+        extends Unnester
 {
-    private final Type keyType;
-    private final Type valueType;
-    private Block block;
-
-    private int position;
-    private int positionCount;
+    private ColumnarMap columnarMap;
 
     public MapUnnester(Type keyType, Type valueType)
     {
-        this.keyType = requireNonNull(keyType, "keyType is null");
-        this.valueType = requireNonNull(valueType, "valueType is null");
+        super(keyType, valueType);
     }
 
     @Override
-    public boolean hasNext()
+    protected void processCurrentPosition(int requiredOutputCount)
     {
-        return position < positionCount;
+        // Translate indices
+        int mapLength = columnarMap.getEntryCount(getCurrentPosition());
+        int startingOffset = columnarMap.getOffset(getCurrentPosition());
+
+        // Append elements and nulls for keys Block
+        getBlockBuilder(0).appendRange(startingOffset, mapLength);
+        for (int i = 0; i < requiredOutputCount - mapLength; i++) {
+            getBlockBuilder(0).appendNull();
+        }
+
+        // Append elements and nulls for values Block
+        getBlockBuilder(1).appendRange(startingOffset, mapLength);
+        for (int i = 0; i < requiredOutputCount - mapLength; i++) {
+            getBlockBuilder(1).appendNull();
+        }
     }
 
     @Override
-    public final int getChannelCount()
+    public int getChannelCount()
     {
         return 2;
     }
 
     @Override
-    public final void appendNext(PageBuilder pageBuilder, int outputChannelOffset)
+    public int getInputEntryCount()
     {
-        checkState(block != null, "block is null");
-        BlockBuilder keyBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
-        BlockBuilder valueBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset + 1);
-        keyType.appendTo(block, position++, keyBlockBuilder);
-        valueType.appendTo(block, position++, valueBlockBuilder);
+        if (columnarMap == null) {
+            return 0;
+        }
+        return columnarMap.getPositionCount();
     }
 
     @Override
-    public void setBlock(@Nullable Block mapBlock)
+    protected void resetColumnarStructure(Block block)
     {
-        this.block = mapBlock;
-        this.position = 0;
-        this.positionCount = mapBlock == null ? 0 : mapBlock.getPositionCount();
+        this.columnarMap = toColumnarMap(block);
+    }
+
+    @Override
+    protected Block getElementsBlock(int channel)
+    {
+        checkState(channel == 0 || channel == 1, "index is not 0 or 1");
+        if (channel == 0) {
+            return columnarMap.getKeysBlock();
+        }
+        return columnarMap.getValuesBlock();
+    }
+
+    @Override
+    protected int getElementsLength(int index)
+    {
+        return columnarMap.getEntryCount(index);
     }
 }
