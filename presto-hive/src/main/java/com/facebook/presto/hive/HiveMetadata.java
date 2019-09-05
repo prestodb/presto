@@ -175,7 +175,6 @@ import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
-import static com.facebook.presto.hive.HiveUtil.assignFieldNamesForAnonymousRowColumns;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
@@ -183,6 +182,8 @@ import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
+import static com.facebook.presto.hive.HiveUtil.translateHiveUnsupportedTypeForTemporaryTable;
+import static com.facebook.presto.hive.HiveUtil.translateHiveUnsupportedTypesForTemporaryTable;
 import static com.facebook.presto.hive.HiveUtil.verifyPartitionTypeSupported;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
@@ -755,9 +756,11 @@ public class HiveMetadata
         });
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(
-                // Hive doesn't support anonymous rows
-                // Since this method doesn't create a real table, it is fine to assign dummy field names to the anonymous rows
-                assignFieldNamesForAnonymousRowColumns(columns, typeManager),
+                // Hive doesn't support anonymous rows and unknown type
+                // Since this method doesn't create a real table, it is fine
+                // to assign dummy field names to the anonymous rows and translate unknown
+                // type to the boolean type that is binary compatible
+                translateHiveUnsupportedTypesForTemporaryTable(columns, typeManager),
                 ImmutableSet.of(),
                 typeTranslator);
         storageFormat.validateColumns(columnHandles);
@@ -2011,7 +2014,7 @@ public class HiveMetadata
         return new HivePartitioningHandle(
                 partitionCount,
                 partitionTypes.stream()
-                        .map(type -> toHiveType(typeTranslator, type))
+                        .map(type -> toHiveType(typeTranslator, translateHiveUnsupportedTypeForTemporaryTable(type, typeManager)))
                         .collect(toImmutableList()),
                 OptionalInt.empty());
     }
