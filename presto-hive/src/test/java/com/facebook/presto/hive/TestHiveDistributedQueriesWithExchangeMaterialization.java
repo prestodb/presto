@@ -57,12 +57,6 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     }
 
     @Override
-    public void testNullOnLhsOfInPredicateAllowed()
-    {
-        // unknown type is not supported by the Hive hash code function
-    }
-
-    @Override
     public void testQuantifiedComparison()
     {
         // decimal type is not supported by the Hive hash code function
@@ -75,12 +69,6 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     }
 
     @Override
-    public void testUnion()
-    {
-        // unknown type is not supported by the Hive hash code function
-    }
-
-    @Override
     public void testUnionRequiringCoercion()
     {
         // decimal type is not supported by the Hive hash code function
@@ -90,12 +78,6 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     public void testValues()
     {
         // decimal type is not supported by the Hive hash code function
-    }
-
-    @Override
-    public void testAntiJoinNullHandling()
-    {
-        // Unsupported Hive type: unknown
     }
 
     @Test

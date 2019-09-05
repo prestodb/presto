@@ -1067,12 +1067,16 @@ public final class HiveUtil
         return physicalNameOrdinalMap.build();
     }
 
-    public static List<ColumnMetadata> assignFieldNamesForAnonymousRowColumns(List<ColumnMetadata> columns, TypeManager typeManager)
+    /**
+     * Translates Presto type that is incompatible (cannot be stored in a Hive table) to a compatible type with the same physical layout.
+     * This allows to store more data types in a Hive temporary table than the Hive permanent tables support.
+     */
+    public static List<ColumnMetadata> translateHiveUnsupportedTypesForTemporaryTable(List<ColumnMetadata> columns, TypeManager typeManager)
     {
         return columns.stream()
                 .map(column -> new ColumnMetadata(
                         column.getName(),
-                        typeManager.getType(assignFieldNamesForAnonymousRowType(column.getType().getTypeSignature())),
+                        translateHiveUnsupportedTypeForTemporaryTable(column.getType(), typeManager),
                         column.isNullable(),
                         column.getComment(),
                         column.getExtraInfo(),
@@ -1081,9 +1085,18 @@ public final class HiveUtil
                 .collect(toImmutableList());
     }
 
-    private static TypeSignature assignFieldNamesForAnonymousRowType(TypeSignature typeSignature)
+    public static Type translateHiveUnsupportedTypeForTemporaryTable(Type type, TypeManager typeManager)
+    {
+        return typeManager.getType(translateHiveUnsupportedTypeSignatureForTemporaryTable(type.getTypeSignature()));
+    }
+
+    private static TypeSignature translateHiveUnsupportedTypeSignatureForTemporaryTable(TypeSignature typeSignature)
     {
         List<TypeSignatureParameter> parameters = typeSignature.getParameters();
+
+        if (typeSignature.getBase().equals("unknown")) {
+            return new TypeSignature(StandardTypes.BOOLEAN);
+        }
 
         if (typeSignature.getBase().equals(StandardTypes.ROW)) {
             ImmutableList.Builder<TypeSignatureParameter> updatedParameters = ImmutableList.builder();
@@ -1093,7 +1106,7 @@ public final class HiveUtil
                 NamedTypeSignature namedTypeSignature = typeSignatureParameter.getNamedTypeSignature();
                 updatedParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(
                         Optional.of(namedTypeSignature.getFieldName().orElse(new RowFieldName("_field_" + i, false))),
-                        assignFieldNamesForAnonymousRowType(namedTypeSignature.getTypeSignature()))));
+                        translateHiveUnsupportedTypeSignatureForTemporaryTable(namedTypeSignature.getTypeSignature()))));
             }
             return new TypeSignature(StandardTypes.ROW, updatedParameters.build());
         }
@@ -1107,13 +1120,13 @@ public final class HiveUtil
                         updatedParameters.add(parameter);
                         continue;
                     case TYPE:
-                        updatedParameters.add(TypeSignatureParameter.of(assignFieldNamesForAnonymousRowType(parameter.getTypeSignature())));
+                        updatedParameters.add(TypeSignatureParameter.of(translateHiveUnsupportedTypeSignatureForTemporaryTable(parameter.getTypeSignature())));
                         break;
                     case NAMED_TYPE:
                         NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                         updatedParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(
                                 namedTypeSignature.getFieldName(),
-                                assignFieldNamesForAnonymousRowType(namedTypeSignature.getTypeSignature()))));
+                                translateHiveUnsupportedTypeSignatureForTemporaryTable(namedTypeSignature.getTypeSignature()))));
                         break;
                     default:
                         throw new IllegalArgumentException("Unexpected parameter type: " + parameter.getKind());
