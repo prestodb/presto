@@ -499,6 +499,13 @@ public class TestSelectiveOrcReader
                 toSubfieldFilters(
                         ImmutableMap.of(0, IS_NULL, 1, BigintRange.of(0, Integer.MAX_VALUE, false)),
                         ImmutableMap.of(0, IS_NOT_NULL, 1, BigintRange.of(0, Integer.MAX_VALUE, false))));
+
+        // empty maps
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
+                        Collections.nCopies(30_000, ImmutableMap.of())),
+                ImmutableList.of());
     }
 
     private static Map<Integer, Integer> createMap(int seed)

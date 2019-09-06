@@ -335,7 +335,7 @@ public class MapBlock
 
             int[] hashTables = new int[getRawKeyBlock().getPositionCount() * HASH_MULTIPLIER];
             Arrays.fill(hashTables, -1);
-            for (int i = 0; i < startOffset + positionCount; i++) {
+            for (int i = startOffset; i < startOffset + positionCount; i++) {
                 int keyOffset = offsets[i];
                 int keyCount = offsets[i + 1] - keyOffset;
                 if (keyCount < 0) {

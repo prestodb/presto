@@ -256,12 +256,20 @@ public class TestHivePushdownFilterQueries
     @Test
     public void testMaps()
     {
-        getQueryRunner().execute("CREATE TABLE test_maps AS SELECT orderkey, linenumber, IF (keys IS NULL, null, MAP(ARRAY[1, 2, 3], keys)) AS map_keys FROM lineitem_ex");
+        getQueryRunner().execute("CREATE TABLE test_maps AS " +
+                "SELECT orderkey, " +
+                "   linenumber, " +
+                "   IF (keys IS NULL, null, MAP(ARRAY[1, 2, 3], keys)) AS map_keys, " +
+                "   IF (flags IS NULL, null, MAP(ARRAY[1, 2], flags)) AS map_flags " +
+                "FROM lineitem_ex");
 
         Function<String, String> rewriter = query -> query.replaceAll("map_keys", "keys")
+                .replaceAll("map_flags", "flags")
                 .replaceAll("test_maps", "lineitem_ex")
                 .replaceAll("cardinality", "array_length");
         try {
+            assertQueryUsingH2Cte("SELECT map_keys[1] FROM test_maps WHERE linenumber < 3", rewriter);
+
             assertQueryUsingH2Cte("SELECT cardinality(map_keys) FROM test_maps", rewriter);
             assertQueryUsingH2Cte("SELECT cardinality(map_keys) FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
 
@@ -273,6 +281,8 @@ public class TestHivePushdownFilterQueries
 
             assertQueryUsingH2Cte("SELECT map_keys[2] FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
             assertQueryUsingH2Cte("SELECT map_keys[1], map_keys[3] FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
+
+            assertQueryUsingH2Cte("SELECT map_keys[1], map_flags[2] FROM test_maps WHERE map_keys IS NOT NULL AND map_flags IS NOT NULL AND map_keys[1] % 2 = 0", rewriter);
 
             assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[1] % 2 = 0", "Key not present in map: 5");
             assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[4] % 2 = 0", "Key not present in map: 4");
