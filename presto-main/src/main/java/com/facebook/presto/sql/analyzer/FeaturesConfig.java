@@ -147,6 +147,16 @@ public class FeaturesConfig
 
     private boolean listBuiltInFunctionsOnly = true;
 
+    private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
+
+    public enum PartitioningPrecisionStrategy
+    {
+        // Let Presto decide when to repartition
+        AUTOMATIC,
+        // Use exact partitioning until Presto becomes smarter WRT to picking when to repartition
+        PREFER_EXACT_PARTITIONING
+    }
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -1144,6 +1154,19 @@ public class FeaturesConfig
     public FeaturesConfig setListBuiltInFunctionsOnly(boolean listBuiltInFunctionsOnly)
     {
         this.listBuiltInFunctionsOnly = listBuiltInFunctionsOnly;
+        return this;
+    }
+
+    public PartitioningPrecisionStrategy getPartitioningPrecisionStrategy()
+    {
+        return partitioningPrecisionStrategy;
+    }
+
+    @Config("partitioning-precision-strategy")
+    @ConfigDescription("Set strategy used to determine whether to repartition (AUTOMATIC, PREFER_EXACT)")
+    public FeaturesConfig setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy partitioningPrecisionStrategy)
+    {
+        this.partitioningPrecisionStrategy = partitioningPrecisionStrategy;
         return this;
     }
 }

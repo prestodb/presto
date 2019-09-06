@@ -24,6 +24,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMe
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -138,6 +139,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
     public static final String AGGREGATION_PARTITIONING_MERGING_STRATEGY = "aggregation_partitioning_merging_strategy";
     public static final String LIST_BUILT_IN_FUNCTIONS_ONLY = "list_built_in_functions_only";
+    public static final String PARTITIONING_PRECISION_STRATEGY = "partitioning_precision_strategy";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -684,7 +686,19 @@ public final class SystemSessionProperties
                         LIST_BUILT_IN_FUNCTIONS_ONLY,
                         "Only List built-in functions in SHOW FUNCTIONS",
                         featuresConfig.isListBuiltInFunctionsOnly(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        PARTITIONING_PRECISION_STRATEGY,
+                        format("The strategy to use to pick when to repartition. Options are %s",
+                                Stream.of(PartitioningPrecisionStrategy.values())
+                                        .map(PartitioningPrecisionStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        PartitioningPrecisionStrategy.class,
+                        featuresConfig.getPartitioningPrecisionStrategy(),
+                        false,
+                        value -> PartitioningPrecisionStrategy.valueOf(((String) value).toUpperCase()),
+                        PartitioningPrecisionStrategy::name));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1163,5 +1177,11 @@ public final class SystemSessionProperties
     public static boolean isListBuiltInFunctionsOnly(Session session)
     {
         return session.getSystemProperty(LIST_BUILT_IN_FUNCTIONS_ONLY, Boolean.class);
+    }
+
+    public static boolean isExactPartitioningPreferred(Session session)
+    {
+        return session.getSystemProperty(PARTITIONING_PRECISION_STRATEGY, PartitioningPrecisionStrategy.class)
+                == PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING;
     }
 }

@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -125,7 +126,8 @@ public class TestFeaturesConfig
                 .setOptimizeFullOuterJoinWithCoalesce(true)
                 .setIndexLoaderTimeout(new Duration(20, SECONDS))
                 .setOptimizedRepartitioningEnabled(false)
-                .setListBuiltInFunctionsOnly(true));
+                .setListBuiltInFunctionsOnly(true)
+                .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.AUTOMATIC));
     }
 
     @Test
@@ -208,6 +210,7 @@ public class TestFeaturesConfig
                 .put("index-loader-timeout", "10s")
                 .put("experimental.optimized-repartitioning", "true")
                 .put("list-built-in-functions-only", "false")
+                .put("partitioning-precision-strategy", "PREFER_EXACT_PARTITIONING")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -286,7 +289,8 @@ public class TestFeaturesConfig
                 .setOptimizeFullOuterJoinWithCoalesce(false)
                 .setIndexLoaderTimeout(new Duration(10, SECONDS))
                 .setOptimizedRepartitioningEnabled(true)
-                .setListBuiltInFunctionsOnly(false);
+                .setListBuiltInFunctionsOnly(false)
+                .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING);
         assertFullMapping(properties, expected);
     }
 
