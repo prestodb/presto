@@ -128,7 +128,7 @@ public class MapDirectSelectiveStreamReader
         Optional<Type> keyOutputType = outputType.map(MapType.class::cast).map(MapType::getKeyType);
         Optional<Type> valueOutputType = outputType.map(MapType.class::cast).map(MapType::getValueType);
 
-        Map<Subfield, TupleDomainFilter> keyFilter = makeKeyFilter(nestedStreams.get(0).getStreamType(), requiredSubfields)
+        Map<Subfield, TupleDomainFilter> keyFilter = makeKeyFilter(nestedStreams.get(0).getOrcTypeKind(), requiredSubfields)
                 .map(f -> ImmutableMap.of(new Subfield("c"), f))
                 .orElse(ImmutableMap.of());
 
