@@ -15,6 +15,7 @@ package com.facebook.presto.parquet;
 
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.parquet.batchreader.Int32FlatBatchReader;
 import com.facebook.presto.parquet.reader.AbstractColumnReader;
 import com.facebook.presto.parquet.reader.BinaryColumnReader;
 import com.facebook.presto.parquet.reader.BooleanColumnReader;
@@ -38,8 +39,19 @@ public class ColumnReaderFactory
     {
     }
 
-    public static ColumnReader createReader(RichColumnDescriptor descriptor)
+    public static ColumnReader createReader(RichColumnDescriptor descriptor, boolean batchReadEnabled)
     {
+        if (batchReadEnabled) {
+            final boolean isNested = descriptor.getPath().length > 1;
+            switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
+                case INT32:
+                case FLOAT:
+                    if (!isNested) {
+                        return new Int32FlatBatchReader(descriptor);
+                    }
+            }
+        }
+
         switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
             case BOOLEAN:
                 return new BooleanColumnReader(descriptor);
