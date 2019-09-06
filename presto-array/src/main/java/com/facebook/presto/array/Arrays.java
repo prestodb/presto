@@ -13,14 +13,37 @@
  */
 package com.facebook.presto.array;
 
+import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
+import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
+import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
+
 public class Arrays
 {
     private Arrays() {}
 
     public static int[] ensureCapacity(int[] buffer, int capacity)
     {
-        if (buffer == null || buffer.length < capacity) {
-            return new int[capacity];
+        return ensureCapacity(buffer, capacity, SMALL, NONE);
+    }
+
+    public static int[] ensureCapacity(int[] buffer, int capacity, ExpansionFactor expansionFactor, ExpansionOption expansionOption)
+    {
+        int newCapacity = (int) (capacity * expansionFactor.expansionFactor);
+
+        if (buffer == null) {
+            buffer = new int[newCapacity];
+        }
+        else if (buffer.length < capacity) {
+            if (expansionOption == PRESERVE) {
+                buffer = java.util.Arrays.copyOf(buffer, newCapacity);
+            }
+            else {
+                buffer = new int[newCapacity];
+            }
+        }
+        else if (expansionOption == INITIALIZE) {
+            java.util.Arrays.fill(buffer, 0);
         }
 
         return buffer;
@@ -29,7 +52,7 @@ public class Arrays
     public static long[] ensureCapacity(long[] buffer, int capacity)
     {
         if (buffer == null || buffer.length < capacity) {
-            return new long[capacity];
+            return new long[(int) (capacity * SMALL.expansionFactor)];
         }
 
         return buffer;
@@ -38,7 +61,7 @@ public class Arrays
     public static boolean[] ensureCapacity(boolean[] buffer, int capacity)
     {
         if (buffer == null || buffer.length < capacity) {
-            return new boolean[capacity];
+            return new boolean[(int) (capacity * SMALL.expansionFactor)];
         }
 
         return buffer;
@@ -47,7 +70,7 @@ public class Arrays
     public static byte[] ensureCapacity(byte[] buffer, int capacity)
     {
         if (buffer == null || buffer.length < capacity) {
-            return new byte[capacity];
+            return new byte[(int) (capacity * SMALL.expansionFactor)];
         }
 
         return buffer;
@@ -69,5 +92,48 @@ public class Arrays
         }
 
         return buffer;
+    }
+
+    public static byte[] ensureCapacity(byte[] buffer, int capacity, ExpansionFactor expansionFactor, ExpansionOption expansionOption)
+    {
+        int newCapacity = (int) (capacity * expansionFactor.expansionFactor);
+
+        if (buffer == null) {
+            buffer = new byte[newCapacity];
+        }
+        else if (buffer.length < capacity) {
+            if (expansionOption == PRESERVE) {
+                buffer = java.util.Arrays.copyOf(buffer, newCapacity);
+            }
+            else {
+                buffer = new byte[newCapacity];
+            }
+        }
+        else if (expansionOption == INITIALIZE) {
+            java.util.Arrays.fill(buffer, (byte) 0);
+        }
+
+        return buffer;
+    }
+
+    public enum ExpansionFactor
+    {
+        SMALL(1.0),
+        MEDIUM(1.5),
+        LARGE(2.0);
+
+        private final double expansionFactor;
+
+        ExpansionFactor(double expansionFactor)
+        {
+            this.expansionFactor = expansionFactor;
+        }
+    }
+
+    public enum ExpansionOption
+    {
+        PRESERVE,
+        INITIALIZE,
+        NONE;
     }
 }
