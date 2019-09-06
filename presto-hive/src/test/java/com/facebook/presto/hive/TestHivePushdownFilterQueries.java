@@ -381,6 +381,8 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT info.orderkey, info.shipdate FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
 
         assertQueryUsingH2Cte("SELECT dates FROM lineitem_ex WHERE dates[1].day % 2 = 0", rewriter);
+
+        assertQueryUsingH2Cte("SELECT info.orderkey, dates FROM lineitem_ex WHERE info IS NOT NULL AND dates IS NOT NULL AND info.orderkey % 7 = 0", rewriter);
     }
 
     private void assertFilterProject(String filter, String projections)
