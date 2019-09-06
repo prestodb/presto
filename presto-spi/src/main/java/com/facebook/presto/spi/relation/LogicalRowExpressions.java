@@ -328,7 +328,7 @@ public final class LogicalRowExpressions
 
     public RowExpression convertToNormalForm(RowExpression expression, Form clauseJoiner)
     {
-        return pushNegationToLeaves(expression).accept(new ConvertNormalFormVisitor(), clauseJoiner);
+        return pushNegationToLeaves(expression).accept(new ConvertNormalFormVisitor(), rootContext(clauseJoiner));
     }
 
     public RowExpression filterDeterministicConjuncts(RowExpression expression)
@@ -476,11 +476,33 @@ public final class LogicalRowExpressions
         }
     }
 
+    private static ConvertNormalFormVisitorContext rootContext(Form clauseJoiner)
+    {
+        return new ConvertNormalFormVisitorContext(clauseJoiner, 0);
+    }
+
+    private static class ConvertNormalFormVisitorContext
+    {
+        private final Form clauseJoiner;
+        private final int levelFromRoot;
+
+        public ConvertNormalFormVisitorContext(Form clauseJoiner, int levelFromRoot)
+        {
+            this.clauseJoiner = clauseJoiner;
+            this.levelFromRoot = levelFromRoot;
+        }
+
+        public ConvertNormalFormVisitorContext childContext()
+        {
+            return new ConvertNormalFormVisitorContext(clauseJoiner, levelFromRoot + 1);
+        }
+    }
+
     private class ConvertNormalFormVisitor
-            implements RowExpressionVisitor<RowExpression, Form>
+            implements RowExpressionVisitor<RowExpression, ConvertNormalFormVisitorContext>
     {
         @Override
-        public RowExpression visitSpecialForm(SpecialFormExpression specialFormExpression, Form clauseJoiner)
+        public RowExpression visitSpecialForm(SpecialFormExpression specialFormExpression, ConvertNormalFormVisitorContext context)
         {
             if (!isConjunctionOrDisjunction(specialFormExpression)) {
                 return specialFormExpression;
@@ -490,7 +512,7 @@ public final class LogicalRowExpressions
                     specialFormExpression.getForm(),
                     extractPredicates(specialFormExpression.getForm(), specialFormExpression)
                             .stream()
-                            .map(subPredicate -> subPredicate.accept(this, clauseJoiner))
+                            .map(subPredicate -> subPredicate.accept(this, context.childContext()))
                             .collect(toList()));
 
             if (!isConjunctionOrDisjunction(rewritten)) {
@@ -513,16 +535,12 @@ public final class LogicalRowExpressions
                 subPredicates = flippedSubPredicates;
                 currentForm = flip(currentForm);
             }
-            // prefer to keep the result form same as clauseJoiner
-            if (currentForm == clauseJoiner) {
-                return combine(currentForm, subPredicates);
-            }
 
             int currentSize = subPredicates.stream()
                     .mapToInt(List::size)
                     .sum();
 
-            // The end result can be a cartesian cross product list of list where sublist size is same as number of subPredicates on level 1
+            // The end result can be a cartesian cross product list of list
             int expectedSize;
             try {
                 expectedSize = Math.multiplyExact(subPredicates.stream()
@@ -542,42 +560,42 @@ public final class LogicalRowExpressions
             // If we have expression like (a || b || c), and we expect conjunct, we will not change the expression.
             // TODO we can change (a || b || c) to not(a) && not(b) && not(c)
             // Do not expand too much or if there is non-deterministic element or we already get expected clauseJoiner.
-            if (expectedSize == currentSize || expectedSize > 2 * currentSize || !deterministic) {
+            if (currentForm == context.clauseJoiner || expectedSize == currentSize || expectedSize > 2 * currentSize || !deterministic || context.levelFromRoot > 0) {
                 return combine(currentForm, subPredicates);
             }
 
             // else, we expand and rewrite based on distributive property of Boolean algebra, for example
             // (l1 OR l2) AND (r1 OR r2) <=> (l1 AND r1) OR (l1 AND r2) OR (l2 AND r1) OR (l2 AND r2)
             subPredicates = crossProduct(subPredicates);
-            return combine(clauseJoiner, subPredicates);
+            return combine(context.clauseJoiner, subPredicates);
         }
 
         @Override
-        public RowExpression visitCall(CallExpression call, Form clauseJoiner)
+        public RowExpression visitCall(CallExpression call, ConvertNormalFormVisitorContext context)
         {
             return call;
         }
 
         @Override
-        public RowExpression visitInputReference(InputReferenceExpression reference, SpecialFormExpression.Form clauseJoiner)
+        public RowExpression visitInputReference(InputReferenceExpression reference, ConvertNormalFormVisitorContext context)
         {
             return reference;
         }
 
         @Override
-        public RowExpression visitConstant(ConstantExpression literal, SpecialFormExpression.Form clauseJoiner)
+        public RowExpression visitConstant(ConstantExpression literal, ConvertNormalFormVisitorContext context)
         {
             return literal;
         }
 
         @Override
-        public RowExpression visitLambda(LambdaDefinitionExpression lambda, SpecialFormExpression.Form clauseJoiner)
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, ConvertNormalFormVisitorContext context)
         {
             return lambda;
         }
 
         @Override
-        public RowExpression visitVariableReference(VariableReferenceExpression reference, SpecialFormExpression.Form clauseJoiner)
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, ConvertNormalFormVisitorContext context)
         {
             return reference;
         }

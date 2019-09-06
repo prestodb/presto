@@ -165,7 +165,7 @@ public class TestLogicalRowExpressions
         assertEquals(logicalRowExpressions.convertToConjunctiveNormalForm(and(a, and(b, or(c, and(FALSE_CONSTANT, d))))),
                 and(and(a, b), c));
         assertEquals(logicalRowExpressions.convertToConjunctiveNormalForm(and(a, and(b, or(c, and(e, or(f, and(FALSE_CONSTANT, d))))))),
-                and(and(a, b), and(or(c, e), or(c, f))));
+                and(and(a, b), or(c, and(e, f))));
     }
 
     @Test
