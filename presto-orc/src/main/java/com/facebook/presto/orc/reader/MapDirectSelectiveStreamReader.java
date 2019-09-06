@@ -44,6 +44,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -95,6 +96,7 @@ public class MapDirectSelectiveStreamReader
     private boolean[] nulls;
     private int[] outputPositions;
     private int outputPositionCount;
+    private boolean outputPositionsReadOnly;
     private boolean allNulls;
     private int[] nestedLengths;
     private int[] nestedOffsets;
@@ -220,6 +222,7 @@ public class MapDirectSelectiveStreamReader
         }
         else {
             outputPositions = positions;
+            outputPositionsReadOnly = true;
         }
 
         offsets = ensureCapacity(offsets, positionCount + 1);
@@ -276,6 +279,7 @@ public class MapDirectSelectiveStreamReader
 
         outputPositions = positions;
         outputPositionCount = positionCount;
+        outputPositionsReadOnly = true;
         readOffset = offset + streamPosition;
 
         readKeyValueStreams(nestedPositionCount);
@@ -527,6 +531,11 @@ public class MapDirectSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
+        if (outputPositionsReadOnly) {
+            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+            outputPositionsReadOnly = false;
+        }
+
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         int nestedSkipped = 0;
