@@ -19,6 +19,8 @@ import com.facebook.presto.spi.memory.Caches;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.cache.RemovalListener;
+import com.google.common.cache.RemovalNotification;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import org.weakref.jmx.Managed;
@@ -31,19 +33,24 @@ import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
     import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Thread.currentThread;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class FileCache
 {
     private static final long MAX_PREFETCH_SIZE = 4L << 30;
-    private static final int MAX_ENTRIES = 50000;
+    private static final int MAX_ENTRIES = 200000;
     // Constant from MurMur hash.
     private static final long M = 0xc6a4a7935bd1e995L;
     private static final Logger log = Logger.get(FileCache.class);
@@ -63,6 +70,8 @@ public class FileCache
     private static int statsClockHand;
     private static long statsTime;
     private static boolean useThreshold = true;
+    // True until being at capacity for the first time.
+    private static boolean initializing = true;
 
     static {
         byteArrayPool = Caches.getByteArrayPool();
@@ -74,7 +83,7 @@ public class FileCache
     private static AtomicLong totalSize = new AtomicLong();
     private static AtomicLong prefetchSize = new AtomicLong();
     private static long targetSize = 20 * (1L << 30);
-
+    private static long bytesAllocated;
     private static long numGcdBuffers;
     private static long numGcdBytes;
     private static long numGets;
@@ -83,14 +92,18 @@ public class FileCache
     private static long numEvicts;
     private static long sumEvictAge;
     private static long numPrefetch;
-    private static long numPrefetchBytes;
+    private static long prefetchBytes;
+    private static long numPrefetchRead;
+    private static long prefetchReadBytes;
     private static long numLatePrefetch;
     private static long numWastedPrefetch;
-    private static long numWastedPrefetchBytes;
+    private static long wastedPrefetchBytes;
     private static long numConcurrentMiss;
     private static long numAllInUse;
     private static long prefetchMicros;
     private static long operatorReadMicros;
+    private static long numOperatorRead;
+    private static long operatorReadBytes;
     private static long readWaitMicros;
 
     private static ExecutorService prefetchExecutor;
@@ -100,6 +113,12 @@ public class FileCache
     private static final LoadingCache<String, Listener> listeners =
             CacheBuilder.newBuilder()
             .maximumSize(10000)
+            .removalListener(new RemovalListener<String, Listener>() {
+                public void onRemoval(RemovalNotification<String, Listener> notification)
+                {
+                    defaultListener.merge(notification.getValue());
+                }
+            })
             .build(CacheLoader.from(key -> new Listener(key)));
     private static final Listener defaultListener = new Listener("unspecified");
 
@@ -131,6 +150,12 @@ public class FileCache
             public boolean equals(Object other)
         {
             return this == other;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "FileToken:" + path;
         }
     }
 
@@ -172,7 +197,9 @@ public class FileCache
     {
         private final String label;
         private final AtomicLong numHits = new AtomicLong();
+        private final AtomicLong hitSize = new AtomicLong();
         private final AtomicLong numMisses = new AtomicLong();
+        private final AtomicLong missSize = new AtomicLong();
         private final AtomicLong size = new AtomicLong();
 
         public Listener(String label)
@@ -183,17 +210,52 @@ public class FileCache
         public void loaded(Entry entry)
         {
             size.addAndGet(entry.dataSize);
+            missSize.addAndGet(entry.dataSize);
             numMisses.addAndGet(1);
         }
 
         public void hit(Entry entry)
         {
             numHits.addAndGet(1);
+            hitSize.addAndGet(entry.dataSize);
         }
 
         public void evicted(Entry entry, long now, boolean wasPrefetch)
         {
             size.addAndGet(-entry.dataSize);
+        }
+
+        public void merge(Listener other)
+        {
+            size.addAndGet(other.size.get());
+            numHits.addAndGet(other.numHits.get());
+            hitSize.addAndGet(other.hitSize.get());
+            numMisses.addAndGet(other.numMisses.get());
+            missSize.addAndGet(other.missSize.get());
+        }
+
+        // The one with the larger hitVolume comes first.
+        public int compare(Listener other)
+        {
+            return hitSize.get() > other.hitSize.get() ? -1 : 1;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return label.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object other)
+        {
+            return this == other;
+        }
+
+        @Override
+        public String toString()
+        {
+            return label + " size " + size.get() + " hits " + numHits.get() + " (" + (hitSize.get() / (1L << 20)) + "MB) " + " misses " + numMisses.get() + " (" + (missSize.get() / (1L << 20)) + "MB) ";
         }
     }
 
@@ -213,17 +275,17 @@ public class FileCache
     private static class BufferReference
             extends SoftReference<byte[]>
     {
-        private final int hashTableBucket;
+        private final int bucketIndex;
 
-        BufferReference(byte[] buffer, ReferenceQueue queue, int hashTableBucket)
+        BufferReference(byte[] buffer, ReferenceQueue queue, int bucketIndex)
         {
             super(buffer, queue);
-            this.hashTableBucket = hashTableBucket;
+            this.bucketIndex = bucketIndex;
         }
 
         public int getBucket()
         {
-            return hashTableBucket;
+            return bucketIndex;
         }
     }
 
@@ -235,6 +297,7 @@ public class FileCache
         BufferReference softBuffer;
         byte[] buffer;
         SettableFuture<Boolean> loadingFuture;
+        Thread loadingThread;
         Listener listener;
         int dataSize;
         int bufferSize;
@@ -246,6 +309,7 @@ public class FileCache
         // When finding an Entry with isTemporary set, wait for the loading future and then retry the get. A temporary entry must not be returned to a caller.
         final boolean isTemporary;
         boolean isPrefetch;
+        private byte sizeIndex;
 
         Entry(int pinCount)
         {
@@ -266,6 +330,7 @@ public class FileCache
             entry.offset = offset;
             entry.isPrefetch = isPrefetch;
             entry.loadingFuture = SettableFuture.create();
+            entry.loadingThread = currentThread();
             return entry;
         }
 
@@ -281,9 +346,11 @@ public class FileCache
                 return;
             }
             synchronized (entryHashTable[softBuffer.getBucket()]) {
-                if (pinCount == 0) {
-                    log.warn("Negative pin count");
+                if (pinCount <= 0) {
+                    log.warn("FileCache: Negative pin count" + toString());
+                    verify(false);
                 }
+                verify(buffer != null);
                 pinCount--;
                 if (pinCount == 0) {
                     buffer = null;
@@ -318,10 +385,10 @@ public class FileCache
             if (reference == null) {
                 return false;
             }
-            return removeFromBucket(reference.getBucket(), false, reference);
+            return removeFromBucket(reference.getBucket(), false, reference, false);
         }
 
-        public boolean removeFromBucket(int bucketIndex, boolean force, BufferReference reference)
+        public boolean removeFromBucket(int bucketIndex, boolean force, BufferReference reference, boolean mustFind)
         {
             List<Entry> bucket = entryHashTable[bucketIndex];
             synchronized (bucket) {
@@ -336,13 +403,13 @@ public class FileCache
                         bucket.remove(i);
                         if (isPrefetch) {
                             numWastedPrefetch++;
-                            numWastedPrefetchBytes += dataSize;
+                            wastedPrefetchBytes += dataSize;
                             isPrefetch = false;
                         }
                         return true;
                     }
                 }
-                if (force) {
+                if (mustFind) {
                     verify(false, "Attempting to remove an entry that is not in its bucket");
                 }
             }
@@ -358,9 +425,13 @@ public class FileCache
             checkState(isTemporary);
             checkState(loadingFuture != null);
             other.loadingFuture = loadingFuture;
+            other.loadingThread = loadingThread;
             other.isPrefetch = isPrefetch;
             other.listener = listener;
             other.retentionWeight = retentionWeight;
+            if (other.softBuffer.getBucket() != bucketIndex) {
+                verify(false, "Inserting entry with bad bucket index " + other.softBuffer.getBucket() + " into " + bucketIndex + " " + other.toString());
+            }
             synchronized (bucket) {
                 for (int i = 0; i < bucket.size(); i++) {
                     if (bucket.get(i) == this) {
@@ -374,8 +445,16 @@ public class FileCache
 
         public void ensureBuffer(int size, int bucketIndex)
         {
-            if (softBuffer == null) {
-                buffer = byteArrayPool.allocate(size);
+            BufferReference reference = softBuffer;
+            if (reference != null) {
+                buffer = reference.get();
+                if (buffer != null && buffer.length >= size) {
+                    softBuffer = new BufferReference(buffer, gcdBuffers, bucketIndex);
+                    return;
+                }
+            }
+            if (reference == null) {
+                buffer = newBuffer(size);
                 softBuffer = new BufferReference(buffer, gcdBuffers, bucketIndex);
             }
             else {
@@ -384,7 +463,7 @@ public class FileCache
                     numGcdBuffers++;
                     numGcdBytes += bufferSize;
                     totalSize.addAndGet(-bufferSize);
-                    buffer = byteArrayPool.allocate(size);
+                    buffer = newBuffer(size);
                 }
                 softBuffer = new BufferReference(buffer, gcdBuffers, bucketIndex);
             }
@@ -394,10 +473,37 @@ public class FileCache
 
         public void loadDone()
         {
-            // Remove the future from the entry before marking it done. otherwise a waiting thread may see the same future on its next try and keep looping until this thread sets loadingFuture to null.
+            // Remove the future from the entry before marking it done. otherwise a waiting thread may see the same future on its next try and keep looping until this thread sets loadingFuture to null. Idempotent.
             SettableFuture<Boolean> future = loadingFuture;
             loadingFuture = null;
-            future.set(true);
+            if (future != null) {
+                loadingThread = null;
+                future.set(true);
+            }
+        }
+
+        public void removeAndThrow(Exception e, int bucketIndex)
+                throws IOException
+        {
+            log.warn("FileCache: Removing bad entry " + toString() + " caused by " + e.toString());
+            removeFromBucket(bucketIndex, true, null, true);
+            loadDone();
+            throw new IOException(e);
+        }
+
+        @Override
+        public String toString()
+        {
+            BufferReference reference = softBuffer;
+            byte[] referencedBuffer = reference != null ? reference.get() : null;
+            return toStringHelper(this)
+                .addValue(isTemporary ? "Temporary" : "")
+                .addValue(token)
+                .add("offset", offset)
+                .add("size", dataSize)
+                .add("pins ", pinCount)
+                .add("buffer", referencedBuffer != null ? "byte[" + referencedBuffer.length + "]" : "null")
+                .toString();
         }
     }
 
@@ -420,27 +526,35 @@ public class FileCache
     {
         FileToken token = dataSource.getToken();
         long hash = hashMix(token.hashCode(), offset);
-        int hashTableBucket = (int) hash & (entryHashTable.length - 1);
-        List<Entry> list = entryHashTable[hashTableBucket];
+        int bucketIndex = (int) hash & (entryHashTable.length - 1);
+        List<Entry> list = entryHashTable[bucketIndex];
         if (list == null) {
             synchronized (FileCache.class) {
-                list = entryHashTable[hashTableBucket];
+                list = entryHashTable[bucketIndex];
                 if (offset == 2711273783L) {
                     System.out.println("bing");
                 }
                 if (list == null) {
                     list = new ArrayList();
-                    entryHashTable[hashTableBucket] = list;
+                    entryHashTable[bucketIndex] = list;
                 }
             }
         }
+        int retryCount = 0;
         while (true) {
             trimGcd();
             SettableFuture futureToWait = null;
+            Entry entryToWait = null;
             Entry entryToLoad = null;
             Entry hitEntry = null;
             synchronized (list) {
                 for (Entry entry : list) {
+                    if (entry.softBuffer == null) {
+                        verify(entry.loadingFuture != null);
+                    }
+                    else if (entry.softBuffer.getBucket() != bucketIndex) {
+                        verify(false, "Entry has bucket " + entry.softBuffer.getBucket() + " while in bucket " + bucketIndex + " " + entry.toString());
+                    }
                     if (entry.matches(token, offset)) {
                         futureToWait = entry.loadingFuture;
                         if (futureToWait != null && isPrefetch) {
@@ -454,6 +568,7 @@ public class FileCache
                         }
                         if (futureToWait != null) {
                             numConcurrentMiss++;
+                            entryToWait = entry;
                             break;
                         }
                         entry.buffer = entry.softBuffer.get();
@@ -470,10 +585,12 @@ public class FileCache
                             entryToLoad = entry;
                             entry.pinCount++;
                             entry.loadingFuture = SettableFuture.create();
+                            entry.loadingThread = currentThread();
                             break;
                         }
                         if (entry.dataSize < size) {
                             entry.loadingFuture = SettableFuture.create();
+                            entry.loadingThread = currentThread();
                             entry.pinCount++;
                             entry.isPrefetch = isPrefetch;
                             entryToLoad = entry;
@@ -488,7 +605,6 @@ public class FileCache
                             numHits++;
                             numHitBytes += entry.dataSize;
                         }
-                        verify(entry.pinCount > 0 && entry.loadingFuture == null);
                         hitEntry = entry;
                         break;
                     }
@@ -506,12 +622,28 @@ public class FileCache
             if (futureToWait != null) {
                 try {
                     long startWait = System.nanoTime();
-                    futureToWait.get();
+                    futureToWait.get(20000, MILLISECONDS);
                     now = System.nanoTime();
                     readWaitMicros += (now - startWait) / 1000;
                 }
+                catch (TimeoutException e) {
+                    log.warn("FileCache: Exceeded 20s waiting for other thread to load " + entryToWait.toString());
+                    retryCount++;
+                    if (retryCount > 2) {
+                        // The entry stays in loading state. The
+                        // loading thread is presumed to have errored
+                        // out without removing the entry from the
+                        // cache. This is an inconsistency that we
+                        // cleanup here, otherwise the whole process
+                        // will hang every time hitting the unfinished
+                        // entry.
+                        log.warn("FileCache: Entry in loading state for over 1 minute. Removing the entry from its bucket" + entryToWait.toString());
+                        entryToWait.removeFromBucket(bucketIndex, true, null, false);
+                    }
+                    continue;
+                }
                 catch (Exception e) {
-                    throw new IOException("Error in read signalled on other thread");
+                    throw new IOException("Error in read signalled on other thread" + e.toString());
                 }
                 // The future was completed, the entry should be in.
                 continue;
@@ -522,16 +654,30 @@ public class FileCache
                 if (!wasPrefetch && hitEntry.listener != null) {
                     hitEntry.listener.hit(hitEntry);
                 }
+                try {
+                    verify(hitEntry.pinCount > 0);
+                    verify(hitEntry.buffer != null);
+                    verify(hitEntry.buffer.length >= size);
+                }
+                catch (Exception e) {
+                    hitEntry.removeAndThrow(e, bucketIndex);
+                }
                 return hitEntry;
             }
-            Entry result = load(entryToLoad, size, dataSource, isPrefetch, hashTableBucket, now);
+            Entry result = load(entryToLoad, size, dataSource, isPrefetch, bucketIndex, now);
             if (isPrefetch) {
                 verify(result == null);
             }
             else {
-                verify(result.loadingFuture == null && (result.isTemporary || result.pinCount > 0));
+                try {
+                    verify(result.loadingFuture == null && (result.isTemporary || result.pinCount > 0));
+                    verify(result.buffer.length >= size);
+                }
+                catch (Exception e) {
+                    result.removeAndThrow(e, bucketIndex);
+                }
+                return result;
             }
-            return result;
         }
     }
 
@@ -544,74 +690,104 @@ public class FileCache
             throws IOException
     {
         checkState(entry.loadingFuture != null);
-        if (entry.isTemporary) {
-            Entry permanentEntry = getPermanentEntry(entry, size, bucketIndex, now);
-            if (permanentEntry != null) {
-                verify(permanentEntry.loadingFuture != null && permanentEntry.pinCount == 1);
-                entry = permanentEntry;
-                entry.ensureBuffer(size, bucketIndex);
-            }
-            else {
-                // If this is not a prefetch, this must succeed. Remove the temporary entry from the hash table and give it a buffer not owned by the cache.
-                entry.removeFromBucket(bucketIndex, true, null);
-                if (isPrefetch) {
-                    entry.loadDone();
-                    return null;
+        Entry tempEntry = null;
+        try {
+            if (entry.isTemporary) {
+                tempEntry = entry;
+                Entry permanentEntry = getPermanentEntry(entry, size, bucketIndex, now);
+                if (permanentEntry != null) {
+                    verify(permanentEntry.loadingFuture != null && permanentEntry.pinCount == 1);
+                    entry = permanentEntry;
                 }
-                entry.buffer = byteArrayPool.allocate(size);
-            }
-            dataSource.readFully(entry.offset, entry.buffer, 0, size);
-        }
-        else {
-            // If an entry is requested with a greater size than last request, there may be references to the buffer. Make a new buffer and replace only after loading.
-            BufferReference reference = entry.softBuffer;
-            byte[] oldBuffer = reference != null ? reference.get() : null;
-            byte[] newBuffer;
-            if (oldBuffer == null || oldBuffer.length < size) {
-                newBuffer = byteArrayPool.allocate(size);
-                totalSize.addAndGet(newBuffer.length - (oldBuffer != null ? oldBuffer.length : 0));
+                else {
+                    // If this is not a prefetch, this must succeed. Remove the temporary entry from the hash table and give it a buffer not owned by the cache.
+                    entry.removeFromBucket(bucketIndex, true, null, true);
+                    if (isPrefetch) {
+                        entry.loadDone();
+                        return null;
+                    }
+                    entry.buffer = newBuffer(size);
+                }
+                long startRead = 0;
+                if (!isPrefetch) {
+                    startRead = System.nanoTime();
+                }
+                dataSource.readFully(entry.offset, entry.buffer, 0, size);
+                if (isPrefetch) {
+                    numPrefetchRead++;
+                    prefetchReadBytes += size;
+                }
+                else {
+                    numOperatorRead++;
+                    operatorReadMicros += (System.nanoTime() - startRead) / 1000;
+                    operatorReadBytes += size;
+                }
             }
             else {
-                newBuffer = oldBuffer;
-            }
-            long startRead = 0;
-            if (!isPrefetch) {
-                startRead = System.nanoTime();
-            }
-            try {
+                // If an entry is requested with a greater size than last request, there may be references to the buffer. Make a new buffer and replace only after loading.
+                BufferReference reference = entry.softBuffer;
+                byte[] oldBuffer = reference != null ? reference.get() : null;
+                byte[] newBuffer;
+                if (oldBuffer == null || oldBuffer.length < size) {
+                    newBuffer = newBuffer(size);
+                    totalSize.addAndGet(newBuffer.length - (oldBuffer != null ? oldBuffer.length : 0));
+                }
+                else {
+                    newBuffer = oldBuffer;
+                }
+                long startRead = 0;
+                if (!isPrefetch) {
+                    startRead = System.nanoTime();
+                }
                 dataSource.readFully(entry.offset, newBuffer, 0, size);
+                if (isPrefetch) {
+                    numPrefetchRead++;
+                    prefetchReadBytes += size;
+                }
+                else {
+                    numOperatorRead++;
+                    operatorReadMicros += (System.nanoTime() - startRead) / 1000;
+                    operatorReadBytes += size;
+                }
+                entry.buffer = newBuffer;
+                entry.bufferSize = newBuffer.length;
+                entry.softBuffer = new BufferReference(newBuffer, gcdBuffers, bucketIndex);
+                entry.dataSize = size;
             }
-            catch (Exception e) {
-                entry.removeFromBucket();
-                entry.loadDone();
-                throw e;
+            entry.accessCount = 0;
+            entry.accessTime = System.nanoTime();
+            if (!entry.isTemporary && tempEntry != null) {
+                int count = entry.pinCount;
+                if (count != 1) {
+                    log.warn("FileCache: pin count after load must always be 1: " + count + " seen, " + entry.toString());
+                    verify(false, "A newly acquired permanent entry has pinCount != 1: " + entry.toString());
+                }
             }
-            if (!isPrefetch) {
-                operatorReadMicros += (System.nanoTime() - startRead) / 1000;
+            entry.loadDone();
+            if (entry.listener != null) {
+                entry.listener.loaded(entry);
             }
-            entry.buffer = newBuffer;
-            entry.bufferSize = newBuffer.length;
-            entry.softBuffer = new BufferReference(newBuffer, gcdBuffers, bucketIndex);
-            entry.dataSize = size;
+            if (isPrefetch) {
+                entry.close();
+                return null;
+            }
+            verify(entry.loadingFuture == null);
+            return entry;
         }
-        entry.accessCount = 0;
-        entry.accessTime = System.nanoTime();
-        if (!entry.isTemporary) {
-            int count = entry.pinCount;
-            if (count != 1) {
-                log.warn("pin count after load must always be 1");
-            }
-        }
-        entry.loadDone();
-        if (entry.listener != null) {
-            entry.listener.loaded(entry);
-        }
-        if (isPrefetch) {
+        catch (Exception e) {
+            log.warn("FileCache: Error loading " + entry.toString() + ": " + e.toString());
             entry.close();
-            return null;
+            entry.removeFromBucket();
+            entry.loadDone();
+            throw e;
         }
-        verify(entry.loadingFuture == null);
-        return entry;
+    }
+
+    private static byte[] newBuffer(int size)
+    {
+        byte[] buffer = byteArrayPool.allocate(size);
+        bytesAllocated += buffer.length;
+        return buffer;
     }
 
     private static void trimGcd()
@@ -645,6 +821,12 @@ public class FileCache
         // Finds a suitably old entry to reuse. Periodically updates stats. If no entry with the size is found, removes an equivalent amount of different size entries and makes a new buffer of the requested size. Does a dirty read of the pin counts and scores. When finding a suitable entry, synchronizes on its bucket and removes it, checking that the score and pin count are still as needed. If size is at max and nothing is reusable, returns null.
         size = byteArrayPool.getStandardSize(size);
         int numLoops = 0;
+        boolean allEntriesExist = numEntries >= MAX_ENTRIES;
+        long bestAge = Long.MIN_VALUE;
+        long bestAgeWithSize = Long.MIN_VALUE;
+        Entry best = null;
+        Entry bestWithSize = null;
+        Entry empty = null;
         while (true) {
             int end = numEntries;
             if (numGets - numGetsForStats > end / 8) {
@@ -665,28 +847,30 @@ public class FileCache
                 now = System.nanoTime();
                 updateEvictionThreshold(now);
             }
+            long threshold = evictionThreshold;
+            if (threshold > Long.MIN_VALUE && numLoops > 40) {
+                threshold = (long) (threshold / Math.max(1.1, (numLoops / 300.0)));
+            }
             numLoops += 20;
-            long bestAge = Long.MIN_VALUE;
-            long bestAgeWithSize = Long.MIN_VALUE;
-            Entry best = null;
-            Entry bestWithSize = null;
-            Entry empty = null;
             int startIndex = (clockHand & 0xffffff) % end;
             clockHand += 20;
-            boolean atCapacity = totalSize.get() > targetSize || freeMemory() < 20 << (1 << 20);
+            boolean atCapacity = totalSize.get() + size > targetSize || freeMemory() < 200 << (1 << 20);
+            if (initializing && atCapacity) {
+                initializing = false;
+            }
             for (int i = 0; i < 20; i++, startIndex = startIndex >= end - 1 ? 0 : startIndex + 1) {
                 Entry entry = entries[startIndex];
                 if (entry.pinCount == 0 && entry.loadingFuture == null) {
                     BufferReference reference = entry.softBuffer;
                     if (reference == null || reference.get() == null) {
                         empty = entry;
-                        if (!atCapacity) {
+                        if (initializing || (!atCapacity && numLoops > end / 2)) {
                             break;
                         }
                         continue;
                     }
                     long age = entry.age(now);
-                    if (age < evictionThreshold + (now - statsTime)) {
+                    if (numLoops < end && age < evictionThreshold + (now - statsTime)) {
                         continue;
                     }
                     if (entry.bufferSize == size && age > bestAgeWithSize) {
@@ -694,27 +878,16 @@ public class FileCache
                         bestAgeWithSize = age;
                         continue;
                     }
-                    if (age > bestAge) {
+                    if (best != null && entry.bufferSize > best.bufferSize || age > bestAge) {
                         bestAge = age;
                         best = entry;
                     }
                 }
             }
             // If all memory used, free the oldest that does not have the size and recycle the oldest that had the size.
-            if (atCapacity) {
-                boolean wasPrefetch = best != null && best.isPrefetch;
-                if (best != null && best.removeFromBucket()) {
-                    sumEvictAge += now - best.accessTime;
-                    numEvicts++;
-                    if (best.listener != null) {
-                        best.listener.evicted(best, now, wasPrefetch);
-                    }
-                    // This is safe, only one thread can successfully remove.
-                    totalSize.addAndGet(-best.bufferSize);
-                    best.softBuffer = null;
-                    best.buffer = null;
-                }
-                wasPrefetch = bestWithSize != null && bestWithSize.isPrefetch;
+            if (atCapacity || (allEntriesExist && empty == null) ||
+                    (!initializing && numLoops < 100)) {
+                boolean wasPrefetch = bestWithSize != null && bestWithSize.isPrefetch;
                 if (bestWithSize != null && bestWithSize.removeFromBucket()) {
                     sumEvictAge += now - bestWithSize.accessTime;
                     numEvicts++;
@@ -723,13 +896,38 @@ public class FileCache
                     }
                     checkState(bestWithSize.pinCount == 0);
                     bestWithSize.pinCount = 1;
+                    bestWithSize.ensureBuffer(size, newBucket);
                     tempEntry.replaceInBucket(bestWithSize, newBucket);
                     return bestWithSize;
                 }
+                wasPrefetch = best != null && best.isPrefetch;
+                if (atCapacity && numLoops > end && best != null && best.removeFromBucket()) {
+                    // This is safe, only one thread can successfully remove.
+                    sumEvictAge += now - best.accessTime;
+                    numEvicts++;
+                    if (best.listener != null) {
+                        best.listener.evicted(best, now, wasPrefetch);
+                    }
+                    BufferReference reference = best.softBuffer;
+                    byte[] buffer = reference == null ? null : reference.get();
+                    if (buffer == null || buffer.length != best.bufferSize) {
+                        log.warn("FileCache: Bad decrement of totalSize: " + best.toString());
+                    }
+                    totalSize.addAndGet(-best.bufferSize);
+                    best.softBuffer = null;
+                    best.buffer = null;
+                }
             }
             else {
-                if (numLoops > 100 && empty == null) {
+                if (numLoops > 30 && empty == null) {
                     empty = findOrMakeEmpty();
+                    if (empty != null) {
+                        // This is a new guaranteed unused empty.
+                        empty.pinCount = 1;
+                        empty.ensureBuffer(size, newBucket);
+                        tempEntry.replaceInBucket(empty, newBucket);
+                        return empty;
+                    }
                 }
                 if (empty != null) {
                     // Synchronize Cache-wide to see that empty is still empty.
@@ -739,6 +937,7 @@ public class FileCache
                         }
                         empty.pinCount = 1;
                     }
+                    empty.ensureBuffer(size, newBucket);
                     tempEntry.replaceInBucket(empty, newBucket);
                     return empty;
                 }
@@ -780,11 +979,15 @@ public class FileCache
 
     private static Entry findOrMakeEmpty()
     {
+        if (numEntries >= MAX_ENTRIES) {
+            return null;
+        }
+        Entry newEntry = new Entry(0);
         synchronized (FileCache.class) {
             if (numEntries == MAX_ENTRIES) {
                 return null;
             }
-            entries[numEntries] = new Entry(0);
+            entries[numEntries] = newEntry;
             // All below numEntries must appear filled for dirty readers.
             numEntries++;
             return entries[numEntries - 1];
@@ -816,14 +1019,14 @@ public class FileCache
             String name = currentThread().getName();
             try {
                 numPrefetch++;
-                numPrefetchBytes += size;
+                prefetchBytes += size;
                 currentThread().setName("prefetch");
                 long startTime = System.nanoTime();
                 FileCache.getInternal(dataSource, offset, size, true, startTime, listener, retentionWeight);
                 prefetchMicros += (System.nanoTime() - startTime) / 1000;
             }
             catch (Exception e) {
-                log.warn("Error in prefetch " + e.toString());
+                log.warn("FileCache: Error in prefetch " + e.toString());
             }
             finally {
                 currentThread().setName(name);
@@ -877,7 +1080,7 @@ public class FileCache
         @Managed
         public long getPrefetchBytes()
         {
-            return numPrefetchBytes;
+            return prefetchBytes;
         }
 
         @Managed
@@ -895,7 +1098,7 @@ public class FileCache
         @Managed
         public long getWastedPrefetchBytes()
         {
-            return numWastedPrefetchBytes;
+            return wastedPrefetchBytes;
         }
 
         @Managed
@@ -914,6 +1117,12 @@ public class FileCache
         public long getTotalSize()
         {
             return totalSize.get();
+        }
+
+        @Managed
+        public long getNumEntries()
+        {
+            return numEntries;
         }
 
         @Managed
@@ -943,13 +1152,43 @@ public class FileCache
         }
 
         @Managed
+        public long getAllocatedSize()
+        {
+            long size = 0;
+            int end = numEntries;
+            for (int i = 0; i < end; i++) {
+                BufferReference reference = entries[i].softBuffer;
+                byte[] buffer = reference == null ? null : reference.get();
+                if (buffer != null) {
+                    size += buffer.length;
+                }
+            }
+            return size;
+        }
+
+        @Managed
+        public long getUsedSize()
+        {
+            long size = 0;
+            int end = numEntries;
+            for (int i = 0; i < end; i++) {
+                BufferReference reference = entries[i].softBuffer;
+                byte[] buffer = reference == null ? null : reference.get();
+                if (buffer != null) {
+                    size += entries[i].dataSize;
+                }
+            }
+            return size;
+        }
+
+        @Managed
         public long getPendingPrefetch()
         {
             return prefetchSize.get();
         }
 
         @Managed
-        public long getAverageLifetimeMs()
+        public long getAverageLifetimeMillis()
         {
             return sumEvictAge / 1000000 / (numEvicts | 1);
         }
@@ -961,9 +1200,33 @@ public class FileCache
         }
 
         @Managed
+        public long getNumPrefetchRead()
+        {
+            return numPrefetchRead;
+        }
+
+        @Managed
+        public long getPrefetchReadBytes()
+        {
+            return prefetchReadBytes;
+        }
+
+        @Managed
         public long getReadWaitMicros()
         {
             return readWaitMicros;
+        }
+
+        @Managed
+        public long getNumOperatorRead()
+        {
+            return numOperatorRead;
+        }
+
+        @Managed
+        public long getOperatorReadBytes()
+        {
+            return operatorReadBytes;
         }
 
         @Managed
@@ -971,5 +1234,72 @@ public class FileCache
         {
             return operatorReadMicros;
         }
+
+        @Managed
+        public long getBytesAllocated()
+        {
+            return bytesAllocated;
+        }
+
+        @Managed
+        public String getSizeReport()
+        {
+            int numSizes = byteArrayPool.getStandardSizes().length;
+            long[] ages = new long[numSizes];
+            long[] unhitPrefetchBytes = new long[numSizes];
+            int[] counts = new int[numSizes];
+            int end = numEntries;
+            long now = System.nanoTime();
+            for (int i = 0; i < end; i++) {
+                Entry entry = entries[i];
+                BufferReference reference = entry.softBuffer;
+                byte[] buffer = reference == null ? null : reference.get();
+                if (buffer != null) {
+                    int sizeIndex = byteArrayPool.getSizeIndex(buffer.length);
+                    ages[sizeIndex] += entry.age(now);
+                    counts[sizeIndex]++;
+                    if (entry.isPrefetch) {
+                        unhitPrefetchBytes[sizeIndex] += entry.bufferSize;
+                    }
+                }
+            }
+            String result = "Sizes:\n";
+            for (int i = 0; i < numSizes; i++) {
+                if (counts[i] > 0) {
+                    int size = byteArrayPool.getStandardSizes()[i];
+                    long percent = ((long) size * counts[i] * 100) / totalSize.get();
+                    long pendingSize = unhitPrefetchBytes[i] / 1024;
+                    result = result + (size / 1024) + "K: " + percent + "% " + counts[i] + " Age ms: " + ages[i] / counts[i] / 1000000 + (pendingSize > 0 ? " pending use " + pendingSize + "K" : "") + "\n";
+                }
+            }
+            return result;
+        }
+
+        @Managed
+        public String getHitReport()
+        {
+            Set<Listener> listeners = new HashSet();
+            int end = numEntries;
+            for (int i = 0; i < end; i++) {
+                Entry entry = entries[i];
+                BufferReference reference = entry.softBuffer;
+                byte[] buffer = reference == null ? null : reference.get();
+                if (buffer != null) {
+                    Listener listener = entry.listener;
+                    if (listener != null) {
+                        listeners.add(listener);
+                    }
+                }
+            }
+            Listener[] array = listeners.toArray(new Listener[listeners.size()]);
+            Arrays.sort(array, (Listener a, Listener b) -> a.compare(b));
+            StringBuilder result = new StringBuilder();
+            for (int i = 0; i < 100 && i < array.length; i++) {
+                Listener listener = array[i];
+                result.append(listener.toString());
+                result.append("\n");
+            }
+            return result.toString();
+        }
     }
-    }
+}

@@ -389,7 +389,7 @@ public final class HiveSessionProperties
                 booleanProperty(
                         BLOCK_CACHE_ENABLED,
                         "Experimental: enable file block caching",
-                        false,
+                        true,
                         false),
                 integerProperty(
                         VIRTUAL_BUCKET_COUNT,

@@ -37,6 +37,7 @@ import static com.facebook.presto.orc.OrcDataSourceUtils.getDiskRangeSlice;
 import static com.facebook.presto.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -47,6 +48,7 @@ public abstract class AbstractOrcDataSource
     private final long size;
     private final DataSize maxMergeDistance;
     private final DataSize maxBufferSize;
+    private DataSize effectiveBufferSize;
     private final DataSize streamBufferSize;
     private final boolean lazyReadSmallRanges;
     private long readTimeNanos;
@@ -127,12 +129,15 @@ public abstract class AbstractOrcDataSource
         if (useCache() && toClose == null) {
             toClose = new ArrayList();
         }
+        if (effectiveBufferSize == null) {
+            effectiveBufferSize = useCache() ? new DataSize(FileCacheInput.MAX_BUFFER_SIZE, BYTE) : maxBufferSize;
+        }
         //
         // Note: this code does not use the Java 8 stream APIs to avoid any extra object allocation
         //
 
         // split disk ranges into "big" and "small"
-        long maxReadSizeBytes = maxBufferSize.toBytes();
+        long maxReadSizeBytes = effectiveBufferSize.toBytes();
         ImmutableMap.Builder<K, DiskRange> smallRangesBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<K, DiskRange> largeRangesBuilder = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
@@ -161,7 +166,7 @@ public abstract class AbstractOrcDataSource
             return ImmutableMap.of();
         }
 
-        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance, maxBufferSize);
+        Iterable<DiskRange> mergedRanges = mergeAdjacentDiskRanges(diskRanges.values(), maxMergeDistance, effectiveBufferSize);
 
         ImmutableMap.Builder<K, OrcDataSourceInput> slices = ImmutableMap.builder();
         if (lazyReadSmallRanges) {

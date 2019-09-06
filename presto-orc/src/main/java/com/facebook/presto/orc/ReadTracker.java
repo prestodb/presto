@@ -14,7 +14,6 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.spi.PrestoException;
-
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -100,23 +99,23 @@ class ReadTracker
                                 tracker.totalReads = other.totalReads;
                                 for (int i = 0; i < numStreams; i++) {
                                     StreamId otherStream = other.readOrder.get(i);
-                                if (otherStream == null) {
-                                    continue;
-                                }
-                                long otherCount = other.readCounts.getLong(otherStream);
-                                if (otherCount > 0) {
-                                    long ownCount = tracker.readCounts.getLong(otherStream);
-                                    if (ownCount == 0) {
-                                        tracker.readOrder.add(otherStream);
-                                        tracker.readCounts.put(otherStream, otherCount);
+                                    if (otherStream == null) {
+                                        continue;
                                     }
-                                }
+                                    long otherCount = other.readCounts.getLong(otherStream);
+                                    if (otherCount > 0) {
+                                        long ownCount = tracker.readCounts.getLong(otherStream);
+                                        if (ownCount == 0) {
+                                            tracker.readOrder.add(otherStream);
+                                            tracker.readCounts.put(otherStream, otherCount);
+                                        }
+                                    }
                                 }
                             }
                             break;
                         }
                     }
-                    }
+                }
             }
             return tracker;
         }

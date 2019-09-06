@@ -70,6 +70,18 @@ public class CachingOrcDataSource
         return dataSource.getToken();
     }
 
+    @Override
+    public boolean useCache()
+    {
+        return dataSource.useCache();
+    }
+
+    @Override
+    public String getSplitLabel()
+    {
+        return dataSource.getSplitLabel();
+    }
+
     @VisibleForTesting
     void readCacheAt(long offset)
             throws IOException

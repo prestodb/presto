@@ -139,6 +139,11 @@ public class ArrayPool<T>
         return idx >= arrayObjectSizes.length ? size : arrayObjectSizes[idx];
     }
 
+    public int[] getStandardSizes()
+    {
+        return arrayObjectSizes;
+    }
+
     private T allocate(int size, boolean init)
     {
         int idx = getSizeIndex(size);
@@ -254,11 +259,6 @@ public class ArrayPool<T>
     {
         int idx = Arrays.binarySearch(arrayObjectSizes, size);
         return idx < 0 ? -1 - idx : idx;
-    }
-
-    public int[] getArraySizes()
-    {
-        return arrayObjectSizes;
     }
 
     private void trim()

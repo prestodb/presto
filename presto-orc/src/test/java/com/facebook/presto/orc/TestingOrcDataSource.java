@@ -87,7 +87,7 @@ class TestingOrcDataSource
     }
 
     @Override
-    public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+    public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges, ReadTracker tracker)
             throws IOException
     {
         readCount += diskRanges.size();

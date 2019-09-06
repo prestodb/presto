@@ -261,7 +261,7 @@ public class TestListFilter
         }
 
         @Override
-        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges, ReadTracker tracker)
         {
             return null;
         }

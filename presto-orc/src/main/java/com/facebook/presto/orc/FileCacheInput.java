@@ -63,7 +63,7 @@ final class FileCacheInput
         checkArgument(viewLength > 0, "viewLength must be at least 1");
         checkArgument(viewLength <= Integer.MAX_VALUE, "viewLength must be less than 2GB");
         checkArgument(viewLength + viewOffset <= loadLength, "viewOffset + viewLength must fit in loadLength bytes");
-        checkArgument(viewOffset > 0 ? loadLength <= MAX_BUFFER_SIZE : true, "An offset view applies only to small disk ranges");
+        verify(viewOffset > 0 ? loadLength <= MAX_BUFFER_SIZE : true, "An offset view applies only to small disk ranges");
         this.tracker = requireNonNull(tracker);
         this.streamId = requireNonNull(streamId);
         this.loadOffset = loadOffset;
@@ -73,7 +73,7 @@ final class FileCacheInput
         this.position = viewOffset;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         if (streamId.getLabel() != null) {
-            listener = FileCache.getListener(streamId.getLabel());
+            listener = FileCache.getListener(dataSource.getSplitLabel() + streamId.getLabel());
         }
     }
 

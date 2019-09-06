@@ -37,6 +37,12 @@ public interface OrcDataSource
     <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges, ReadTracker tracker)
             throws IOException;
 
+    default <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+            throws IOException
+    {
+        return readFully(diskRanges, null);
+    }
+
     @Override
     default void close()
             throws IOException
@@ -51,5 +57,11 @@ public interface OrcDataSource
     default boolean useCache()
     {
         return false;
+    }
+
+    // Returns a string identifying the table/partition for access tracking.
+    default String getSplitLabel()
+    {
+        return "";
     }
 }
