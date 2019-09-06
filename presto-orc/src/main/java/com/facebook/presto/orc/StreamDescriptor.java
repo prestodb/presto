@@ -63,7 +63,7 @@ public final class StreamDescriptor
         return sequence;
     }
 
-    public OrcTypeKind getStreamType()
+    public OrcTypeKind getOrcTypeKind()
     {
         return streamType;
     }
