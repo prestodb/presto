@@ -39,6 +39,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -95,6 +96,7 @@ public class ListSelectiveStreamReader
     @Nullable
     private int[] outputPositions;
     private int outputPositionCount;
+    private boolean outputPositionsReadOnly;
     private boolean[] indexOutOfBounds;
     private boolean allNulls;
 
@@ -212,6 +214,7 @@ public class ListSelectiveStreamReader
         }
         else {
             outputPositions = positions;
+            outputPositionsReadOnly = true;
         }
 
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
@@ -603,6 +606,11 @@ public class ListSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
+        if (outputPositionsReadOnly) {
+            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+            outputPositionsReadOnly = false;
+        }
+
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         int skippedElements = 0;

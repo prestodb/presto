@@ -39,6 +39,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -83,6 +84,7 @@ public class StructSelectiveStreamReader
     private boolean[] nulls;
     private int[] outputPositions;
     private int outputPositionCount;
+    private boolean outputPositionsReadOnly;
     private boolean allNulls;
     private int[] nestedPositions;
     private int[] nestedOutputPositions;
@@ -160,6 +162,7 @@ public class StructSelectiveStreamReader
         }
         else {
             outputPositions = positions;
+            outputPositionsReadOnly = true;
         }
 
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
@@ -171,6 +174,7 @@ public class StructSelectiveStreamReader
                 readOffset = offset + positions[positionCount - 1];
                 outputPositions = positions;
                 outputPositionCount = positionCount;
+                outputPositionsReadOnly = true;
             }
             else {
                 outputPositionCount = 0;
@@ -377,6 +381,11 @@ public class StructSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
+        if (outputPositionsReadOnly) {
+            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+            outputPositionsReadOnly = false;
+        }
+
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         int nestedIndex = 0;

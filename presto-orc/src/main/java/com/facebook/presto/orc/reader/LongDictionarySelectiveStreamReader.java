@@ -110,6 +110,7 @@ public class LongDictionarySelectiveStreamReader
         }
         else {
             outputPositions = positions;
+            outputPositionsReadOnly = true;
         }
 
         // account memory used by values, nulls and outputPositions

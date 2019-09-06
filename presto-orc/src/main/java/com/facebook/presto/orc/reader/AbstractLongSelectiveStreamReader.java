@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static com.facebook.presto.array.Arrays.ensureCapacity;
@@ -48,6 +49,7 @@ abstract class AbstractLongSelectiveStreamReader
     @Nullable
     protected int[] outputPositions;
     protected int outputPositionCount;
+    protected boolean outputPositionsReadOnly;
 
     private int[] intValues;
     private boolean intValuesPopulated;
@@ -290,6 +292,11 @@ abstract class AbstractLongSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
+        if (outputPositionsReadOnly) {
+            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+            outputPositionsReadOnly = false;
+        }
+
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         for (int i = 0; i < outputPositionCount; i++) {
