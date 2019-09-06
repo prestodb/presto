@@ -14,6 +14,8 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
@@ -26,7 +28,12 @@ import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
 import com.facebook.presto.orc.TupleDomainFilter.MultiRange;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.Symbol;
@@ -47,6 +54,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -76,6 +84,9 @@ import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -101,6 +112,13 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTupleDomainFilterUtils
 {
+    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+
+    static {
+        // associate TYPE_MANAGER with a function manager
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+    }
+
     private static final Session TEST_SESSION = testSessionBuilder()
             .setCatalog("tpch")
             .setSchema("tiny")
@@ -130,6 +148,9 @@ public class TestTupleDomainFilterUtils
     private static final Symbol C_SMALLINT = new Symbol("c_smallint");
     private static final Symbol C_TINYINT = new Symbol("c_tinyint");
     private static final Symbol C_REAL = new Symbol("c_real");
+    private static final Symbol C_ARRAY = new Symbol("c_array");
+    private static final Symbol C_MAP = new Symbol("c_map");
+    private static final Symbol C_STRUCT = new Symbol("c_struct");
 
     private static final TypeProvider TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder()
             .put(C_BIGINT.getName(), BIGINT)
@@ -156,6 +177,11 @@ public class TestTupleDomainFilterUtils
             .put(C_SMALLINT.getName(), SMALLINT)
             .put(C_TINYINT.getName(), TINYINT)
             .put(C_REAL.getName(), REAL)
+            .put(C_ARRAY.getName(), TYPE_MANAGER.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.of(INTEGER.getTypeSignature()))))
+            .put(C_MAP.getName(), TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(INTEGER.getTypeSignature()), TypeSignatureParameter.of(BOOLEAN.getTypeSignature()))))
+            .put(C_STRUCT.getName(), TYPE_MANAGER.getParameterizedType(ROW, ImmutableList.of(
+                    TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("field_0", false)), INTEGER.getTypeSignature())),
+                    TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("field_1", false)), BOOLEAN.getTypeSignature())))))
             .build());
 
     private Metadata metadata;
@@ -318,6 +344,27 @@ public class TestTupleDomainFilterUtils
         assertEquals(toFilter(lessThanOrEqual(C_DATE, dateLiteral("2019-06-01"))), BigintRange.of(Long.MIN_VALUE, days, false));
         assertEquals(toFilter(not(lessThan(C_DATE, dateLiteral("2019-06-01")))), BigintRange.of(days, Long.MAX_VALUE, false));
         assertEquals(toFilter(not(lessThanOrEqual(C_DATE, dateLiteral("2019-06-01")))), BigintRange.of(days + 1, Long.MAX_VALUE, false));
+    }
+
+    @Test
+    public void testMap()
+    {
+        assertEquals(toFilter(isNotNull(C_MAP)), IS_NOT_NULL);
+        assertEquals(toFilter(isNull(C_MAP)), IS_NULL);
+    }
+
+    @Test
+    public void testArray()
+    {
+        assertEquals(toFilter(isNotNull(C_ARRAY)), IS_NOT_NULL);
+        assertEquals(toFilter(isNull(C_ARRAY)), IS_NULL);
+    }
+
+    @Test
+    public void testStruct()
+    {
+        assertEquals(toFilter(isNotNull(C_STRUCT)), IS_NOT_NULL);
+        assertEquals(toFilter(isNull(C_STRUCT)), IS_NULL);
     }
 
     private static byte[] toBytes(String value)

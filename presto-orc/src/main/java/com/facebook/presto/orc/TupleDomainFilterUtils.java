@@ -62,10 +62,21 @@ public class TupleDomainFilterUtils
     public static TupleDomainFilter toFilter(Domain domain)
     {
         ValueSet values = domain.getValues();
+        boolean nullAllowed = domain.isNullAllowed();
+
+        if (values.isAll()) {
+            checkArgument(!nullAllowed, "Unexpected allways-true filter");
+            return IS_NOT_NULL;
+        }
+
+        if (values.isNone()) {
+            checkArgument(nullAllowed, "Unexpected allways-false filter");
+            return IS_NULL;
+        }
+
         checkArgument(values instanceof SortedRangeSet, "Unexpected domain type: " + values.getClass().getSimpleName());
 
         List<Range> ranges = ((SortedRangeSet) values).getOrderedRanges();
-        boolean nullAllowed = domain.isNullAllowed();
 
         if (ranges.isEmpty() && nullAllowed) {
             return IS_NULL;
