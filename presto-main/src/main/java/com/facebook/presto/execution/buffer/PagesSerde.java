@@ -66,39 +66,8 @@ public class PagesSerde
     {
         SliceOutput serializationBuffer = new DynamicSliceOutput(toIntExact(page.getSizeInBytes() + Integer.BYTES)); // block length is an int
         writeRawPage(page, serializationBuffer, blockEncodingSerde);
-        Slice slice = serializationBuffer.slice();
 
-        int uncompressedSize = serializationBuffer.size();
-        byte markers = PageCodecMarker.none();
-
-        if (compressor.isPresent()) {
-            int maxCompressedSize = compressor.get().maxCompressedLength(uncompressedSize);
-            compressionBuffer = ensureCapacity(compressionBuffer, maxCompressedSize);
-            int compressedSize = compressor.get().compress(
-                    (byte[]) slice.getBase(),
-                    (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET),
-                    uncompressedSize,
-                    compressionBuffer,
-                    0,
-                    maxCompressedSize);
-
-            if (compressedSize / (double) uncompressedSize <= MINIMUM_COMPRESSION_RATIO) {
-                slice = Slices.copyOf(Slices.wrappedBuffer(compressionBuffer, 0, compressedSize));
-                markers = COMPRESSED.set(markers);
-            }
-        }
-
-        if (spillCipher.isPresent()) {
-            slice = Slices.wrappedBuffer(spillCipher.get().encrypt(slice.toByteBuffer()));
-            markers = ENCRYPTED.set(markers);
-        }
-        else {
-            //  Encryption disabled, slice data is likely much smaller than its backing buffer
-            //  either because of compression or dynamic sizing of the initial output slice
-            slice = Slices.copyOf(slice);
-        }
-
-        return new SerializedPage(slice, markers, page.getPositionCount(), uncompressedSize);
+        return wrapSlice(serializationBuffer.slice(), page.getPositionCount());
     }
 
     public Page deserialize(SerializedPage serializedPage)
@@ -136,5 +105,38 @@ public class PagesSerde
     public long getRetainedSizeInBytes()
     {
         return sizeOf(compressionBuffer);
+    }
+
+    private SerializedPage wrapSlice(Slice slice, int positionCount)
+    {
+        int uncompressedSize = slice.length();
+        byte markers = PageCodecMarker.none();
+
+        if (compressor.isPresent()) {
+            int maxCompressedSize = compressor.get().maxCompressedLength(uncompressedSize);
+            compressionBuffer = ensureCapacity(compressionBuffer, maxCompressedSize);
+            int compressedSize = compressor.get().compress(
+                    (byte[]) slice.getBase(),
+                    (int) (slice.getAddress() - ARRAY_BYTE_BASE_OFFSET),
+                    uncompressedSize,
+                    compressionBuffer,
+                    0,
+                    maxCompressedSize);
+
+            if (compressedSize / (double) uncompressedSize <= MINIMUM_COMPRESSION_RATIO) {
+                slice = Slices.copyOf(Slices.wrappedBuffer(compressionBuffer, 0, compressedSize));
+                markers = COMPRESSED.set(markers);
+            }
+        }
+
+        if (spillCipher.isPresent()) {
+            slice = Slices.wrappedBuffer(spillCipher.get().encrypt(slice.toByteBuffer()));
+            markers = ENCRYPTED.set(markers);
+        }
+        else if (!slice.isCompact()) {
+            slice = Slices.copyOf(slice);
+        }
+
+        return new SerializedPage(slice, markers, positionCount, uncompressedSize);
     }
 }
