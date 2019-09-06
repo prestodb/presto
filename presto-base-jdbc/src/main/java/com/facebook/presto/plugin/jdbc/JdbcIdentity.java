@@ -26,21 +26,28 @@ public class JdbcIdentity
 {
     public static JdbcIdentity from(ConnectorSession session)
     {
-        return new JdbcIdentity(session.getIdentity().getUser(), session.getIdentity().getExtraCredentials());
+        return new JdbcIdentity(session.getIdentity().getUser(), session.getQueryId(), session.getIdentity().getExtraCredentials());
     }
 
     private final String user;
+    private final String queryId;
     private final Map<String, String> extraCredentials;
 
-    public JdbcIdentity(String user, Map<String, String> extraCredentials)
+    public JdbcIdentity(String user, String queryId, Map<String, String> extraCredentials)
     {
         this.user = requireNonNull(user, "user is null");
+        this.queryId = queryId;
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
     }
 
     public String getUser()
     {
         return user;
+    }
+
+    public String getQueryId()
+    {
+        return queryId;
     }
 
     public Map<String, String> getExtraCredentials()
@@ -73,6 +80,7 @@ public class JdbcIdentity
     {
         return toStringHelper(this)
                 .add("user", user)
+                .add("queryId", queryId)
                 .add("extraCredentials", extraCredentials.keySet())
                 .toString();
     }

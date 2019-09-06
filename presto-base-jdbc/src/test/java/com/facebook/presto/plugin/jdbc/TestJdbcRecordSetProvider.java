@@ -47,7 +47,7 @@ import static org.testng.Assert.assertNotNull;
 @Test
 public class TestJdbcRecordSetProvider
 {
-    private static final JdbcIdentity IDENTITY = new JdbcIdentity("user", ImmutableMap.of());
+    private static final JdbcIdentity IDENTITY = new JdbcIdentity("user", "12345", ImmutableMap.of());
 
     private TestingDatabase database;
     private JdbcClient jdbcClient;
