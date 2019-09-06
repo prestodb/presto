@@ -332,7 +332,7 @@ public class OrcSelectivePageSourceFactory
 
         Map<Integer, Set<Subfield>> requiredSubfields = new HashMap<>();
         physicalColumns.stream()
-                .filter(column -> outputColumns.contains(column))
+                .filter(column -> outputColumns.contains(column.getHiveColumnIndex()))
                 .forEach(column -> requiredSubfields.put(column.getHiveColumnIndex(), new HashSet<>(column.getRequiredSubfields())));
 
         for (int index : outputColumns) {

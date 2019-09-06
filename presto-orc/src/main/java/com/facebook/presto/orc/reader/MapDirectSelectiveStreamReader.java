@@ -339,13 +339,12 @@ public class MapDirectSelectiveStreamReader
 
         nestedOffsets[nonNullPositionCount] = nestedOffset;
 
-        int nestedPositionCount = populateNestedPositions(nonNullPositionCount, nestedOffset);
-
-        if (nestedPositionCount > 0) {
-            readKeyValueStreams(nestedPositionCount);
+        if (nonNullPositionCount == 0) {
+            allNulls = true;
         }
         else {
-            allNulls = true;
+            int nestedPositionCount = populateNestedPositions(nonNullPositionCount, nestedOffset);
+            readKeyValueStreams(nestedPositionCount);
         }
 
         readOffset = offset + streamPosition;
@@ -367,11 +366,19 @@ public class MapDirectSelectiveStreamReader
     private void readKeyValueStreams(int positionCount)
             throws IOException
     {
+        if (positionCount == 0) {
+            nestedOutputPositionCount = 0;
+            return;
+        }
+
         int readCount = keyReader.read(nestedReadOffset, nestedPositions, positionCount);
         int[] readPositions = keyReader.getReadPositions();
 
         if (readCount == 0) {
             nestedOutputPositionCount = 0;
+            for (int i = 0; i <= outputPositionCount; i++) {
+                offsets[i] = 0;
+            }
             return;
         }
 
@@ -383,7 +390,7 @@ public class MapDirectSelectiveStreamReader
             for (int i = 0; i < outputPositionCount; i++) {
                 int length = 0;
                 for (int j = previousOffset; j < offsets[i + 1]; j++) {
-                    if (j == nextPosition) {
+                    if (nestedPositions[j] == nextPosition) {
                         length++;
                         positionIndex++;
                         if (positionIndex >= readCount) {
@@ -442,8 +449,16 @@ public class MapDirectSelectiveStreamReader
 
         boolean includeNulls = nullsAllowed && presentStream != null;
         if (outputPositionCount == positionCount) {
-            Block keyBlock = keyReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
-            Block valueBlock = valueReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
+            Block keyBlock;
+            Block valueBlock;
+            if (nestedOutputPositionCount == 0) {
+                keyBlock = createEmptyBlock(outputType.getKeyType());
+                valueBlock = createEmptyBlock(outputType.getValueType());
+            }
+            else {
+                keyBlock = keyReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
+                valueBlock = valueReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
+            }
 
             Block block = outputType.createBlockFromKeyValue(positionCount, Optional.ofNullable(includeNulls ? nulls : null), offsets, keyBlock, valueBlock);
             nulls = null;
@@ -488,18 +503,28 @@ public class MapDirectSelectiveStreamReader
             nextPosition = positions[positionIndex];
         }
 
+        Block keyBlock;
+        Block valueBlock;
         if (nestedOutputPositionCount == 0) {
-            return createNullBlock(outputType, positionCount);
+            keyBlock = createEmptyBlock(outputType.getKeyType());
+            valueBlock = createEmptyBlock(outputType.getValueType());
+        }
+        else {
+            keyBlock = keyReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
+            valueBlock = valueReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
         }
 
-        Block keyBlock = keyReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
-        Block valueBlock = valueReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
         return outputType.createBlockFromKeyValue(positionCount, Optional.ofNullable(includeNulls ? nullsCopy : null), offsetsCopy, keyBlock, valueBlock);
     }
 
     private static RunLengthEncodedBlock createNullBlock(Type type, int positionCount)
     {
         return new RunLengthEncodedBlock(type.createBlockBuilder(null, 1).appendNull().build(), positionCount);
+    }
+
+    private static Block createEmptyBlock(Type type)
+    {
+        return type.createBlockBuilder(null, 0).build();
     }
 
     @Override
@@ -517,11 +542,10 @@ public class MapDirectSelectiveStreamReader
         boolean includeNulls = nullsAllowed && presentStream != null;
         if (positionCount != outputPositionCount) {
             compactValues(positions, positionCount, includeNulls);
+        }
 
-            if (nestedOutputPositionCount == 0) {
-                allNulls = true;
-                return newLease(createNullBlock(outputType, positionCount));
-            }
+        if (nestedOutputPositionCount == 0) {
+            return newLease(outputType.createBlockFromKeyValue(positionCount, Optional.ofNullable(includeNulls ? nulls : null), offsets, createEmptyBlock(outputType.getKeyType()), createEmptyBlock(outputType.getValueType())));
         }
 
         BlockLease keyBlockLease = keyReader.getBlockView(nestedOutputPositions, nestedOutputPositionCount);
