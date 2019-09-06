@@ -265,7 +265,7 @@ public class ParquetReader
     {
         for (PrimitiveColumnIO columnIO : columns) {
             RichColumnDescriptor column = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-            columnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column);
+            columnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, batchReadEnabled);
         }
     }
 
