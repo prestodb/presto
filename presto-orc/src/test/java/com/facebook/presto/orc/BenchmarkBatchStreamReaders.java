@@ -28,6 +28,7 @@ import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
@@ -74,17 +75,26 @@ import static org.joda.time.DateTimeZone.UTC;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
-@OutputTimeUnit(TimeUnit.SECONDS)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)
 @Warmup(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @Measurement(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
+@OperationsPerInvocation(BenchmarkBatchStreamReaders.ROWS)
 public class BenchmarkBatchStreamReaders
 {
-    public static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 5);
-    public static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 10);
     public static final int ROWS = 10_000_000;
-    public static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
+
+    private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 5);
+    private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 10);
+    private static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
+
+    @Benchmark
+    public Object readAllNull(AllNullBenchmarkData data)
+            throws Throwable
+    {
+        return readAllBlocks(data.createRecordReader(), data.getType());
+    }
 
     @Benchmark
     public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)
@@ -95,13 +105,6 @@ public class BenchmarkBatchStreamReaders
 
     @Benchmark
     public Object readBooleanWithNull(BooleanWithNullBenchmarkData data)
-            throws Throwable
-    {
-        return readAllBlocks(data.createRecordReader(), data.getType());
-    }
-
-    @Benchmark
-    public Object readAllNull(AllNullBenchmarkData data)
             throws Throwable
     {
         return readAllBlocks(data.createRecordReader(), data.getType());
@@ -236,6 +239,7 @@ public class BenchmarkBatchStreamReaders
         private Type type;
         private File temporaryDirectory;
         private File orcFile;
+        private OrcDataSource dataSource;
 
         public void setup(Type type)
                 throws Exception
@@ -244,6 +248,7 @@ public class BenchmarkBatchStreamReaders
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
             writeOrcColumnHive(orcFile, ORC_12, NONE, type, createValues());
+            dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
         }
 
         @TearDown
@@ -263,7 +268,6 @@ public class BenchmarkBatchStreamReaders
         OrcBatchRecordReader createRecordReader()
                 throws IOException
         {
-            OrcDataSource dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
             OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
             return orcReader.createBatchRecordReader(
                     ImmutableMap.of(0, type),
@@ -278,7 +282,6 @@ public class BenchmarkBatchStreamReaders
     public static class AllNullBenchmarkData
             extends BenchmarkData
     {
-        @SuppressWarnings("unused")
         @Param({
                 "boolean",
 
@@ -313,7 +316,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BooleanNoNullBenchmarkData
             extends BenchmarkData
@@ -336,7 +338,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BooleanWithNullBenchmarkData
             extends BenchmarkData
@@ -359,7 +360,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TinyIntNoNullBenchmarkData
             extends BenchmarkData
@@ -382,7 +382,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TinyIntWithNullBenchmarkData
             extends BenchmarkData
@@ -410,7 +409,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class ShortDecimalNoNullBenchmarkData
             extends BenchmarkData
@@ -433,7 +431,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class ShortDecimalWithNullBenchmarkData
             extends BenchmarkData
@@ -461,7 +458,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class LongDecimalNoNullBenchmarkData
             extends BenchmarkData
@@ -484,7 +480,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class LongDecimalWithNullBenchmarkData
             extends BenchmarkData
@@ -512,7 +507,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class DoubleNoNullBenchmarkData
             extends BenchmarkData
@@ -535,7 +529,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class DoubleWithNullBenchmarkData
             extends BenchmarkData
@@ -563,7 +556,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class FloatNoNullBenchmarkData
             extends BenchmarkData
@@ -586,7 +578,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class FloatWithNullBenchmarkData
             extends BenchmarkData
@@ -614,7 +605,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BigintNoNullBenchmarkData
             extends BenchmarkData
@@ -637,7 +627,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BigintWithNullBenchmarkData
             extends BenchmarkData
@@ -655,7 +644,7 @@ public class BenchmarkBatchStreamReaders
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(Long.valueOf(random.nextLong()));
+                    values.add(random.nextLong());
                 }
                 else {
                     values.add(null);
@@ -665,7 +654,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class VarcharNoNullBenchmarkData
             extends BenchmarkData
@@ -688,7 +676,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class VarcharWithNullBenchmarkData
             extends BenchmarkData
@@ -716,7 +703,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TimestampNoNullBenchmarkData
             extends BenchmarkData
@@ -739,7 +725,6 @@ public class BenchmarkBatchStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TimestampWithNullBenchmarkData
             extends BenchmarkData
