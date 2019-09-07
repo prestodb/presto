@@ -79,6 +79,7 @@ public class BenchmarkBatchStreamReaders
     public static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 5);
     public static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 10);
     public static final int ROWS = 10_000_000;
+    public static final int MAX_STRING = 10;
     public static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
     @Benchmark
@@ -115,7 +116,8 @@ public class BenchmarkBatchStreamReaders
                 "timestamp",
                 "real",
                 "double",
-                "varchar",
+                "varchar_direct",
+                "varchar_dictionary",
         })
         private String typeSignature;
 
@@ -131,7 +133,13 @@ public class BenchmarkBatchStreamReaders
         public void setup()
                 throws Exception
         {
-            type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
+            if (typeSignature.startsWith("varchar")) {
+                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature("varchar"));
+            }
+            else {
+                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
+            }
+
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
             writeOrcColumnHive(orcFile, ORC_12, NONE, type, createValues());
@@ -179,8 +187,10 @@ public class BenchmarkBatchStreamReaders
                     return random.nextFloat();
                 case "double":
                     return random.nextDouble();
-                case "varchar":
-                    return Strings.repeat("0", 4);
+                case "varchar_dictionary":
+                    return Strings.repeat("0", MAX_STRING);
+                case "varchar_direct":
+                    return randomAsciiString(random);
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + typeSignature);
@@ -197,6 +207,15 @@ public class BenchmarkBatchStreamReaders
                     UTC, // arbitrary
                     newSimpleAggregatedMemoryContext(),
                     INITIAL_BATCH_SIZE);
+        }
+
+        private static String randomAsciiString(Random random)
+        {
+            char[] value = new char[random.nextInt(MAX_STRING)];
+            for (int i = 0; i < value.length; i++) {
+                value[i] = (char) random.nextInt(Byte.MAX_VALUE);
+            }
+            return new String(value);
         }
 
         public enum Nulls
