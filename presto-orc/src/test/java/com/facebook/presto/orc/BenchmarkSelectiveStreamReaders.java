@@ -100,8 +100,8 @@ import static org.joda.time.DateTimeZone.UTC;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkSelectiveStreamReaders
 {
-    public static final int ROWS = 10_000_000;
-    public static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
+    private static final int ROWS = 10_000_000;
+    private static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
     private static final DecimalType SHORT_DECIMAL_TYPE = DecimalType.createDecimalType(10, 5);
     private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(30, 10);
     private static final int MAX_STRING_LENGTH = 10;
