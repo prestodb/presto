@@ -107,6 +107,8 @@ public class BenchmarkBatchStreamReaders
         @Param({
                 "boolean",
                 "tinyint",
+                "smallint",
+                "integer",
                 "bigint",
                 "decimal(10,5)",
                 "decimal(30,10)",
@@ -161,6 +163,10 @@ public class BenchmarkBatchStreamReaders
                     return random.nextBoolean();
                 case "tinyint":
                     return Long.valueOf(random.nextLong()).byteValue();
+                case "smallint":
+                    return (short) random.nextInt();
+                case "integer":
+                    return random.nextInt();
                 case "bigint":
                     return random.nextLong();
                 case "decimal(10,5)":
