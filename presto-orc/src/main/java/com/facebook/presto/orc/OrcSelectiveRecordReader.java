@@ -390,8 +390,13 @@ public class OrcSelectiveRecordReader
 
         boolean filterFunctionsApplied = filterFunctionsWithInputs.isEmpty();
         for (int columnIndex : streamReaderOrder) {
+            if (positionCount == 0){
+                break;
+            }
             if (!filterFunctionsApplied && !hasAnyFilter(columnIndex)) {
+
                 positionCount = applyFilterFunctionsWithInput(positionsToRead, positionCount);
+
                 if (positionCount == 0) {
                     break;
                 }
@@ -402,7 +407,7 @@ public class OrcSelectiveRecordReader
 
             SelectiveStreamReader streamReader = getStreamReader(columnIndex);
             positionCount = streamReader.read(getNextRowInGroup(), positionsToRead, positionCount);
-            if (positionCount == 0) {
+            if (positionCount == 0) { // can we delete this? I think we can
                 break;
             }
 
@@ -410,6 +415,7 @@ public class OrcSelectiveRecordReader
         }
 
         if (positionCount > 0 && !filterFunctionsApplied) {
+
             positionCount = applyFilterFunctionsWithInput(positionsToRead, positionCount);
             positionsToRead = outputPositions;
         }
@@ -506,7 +512,6 @@ public class OrcSelectiveRecordReader
                 blocks[columnIndex] = blockLeases[columnIndex].get();
             }
         }
-
         try {
             initializeOutputPositions(positionCount);
 

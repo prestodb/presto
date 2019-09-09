@@ -165,19 +165,41 @@ public class TestHivePushdownFilterQueries
     @Test
     public void testNumeric()
     {
-        assertQuery("SELECT orderkey, custkey, orderdate, shippriority FROM orders");
+//        assertQuery("SELECT orderkey, custkey, orderdate, shippriority FROM orders");
+//
+//        assertQuery("SELECT count(*) FROM orders WHERE orderkey BETWEEN 100 AND 1000 AND custkey BETWEEN 500 AND 800");
+//
+//        assertQuery("SELECT custkey, orderdate, shippriority FROM orders WHERE orderkey BETWEEN 100 AND 1000 AND custkey BETWEEN 500 AND 800");
+//
+//        assertQuery("SELECT orderkey, orderdate FROM orders WHERE orderdate BETWEEN date '1994-01-01' AND date '1997-03-30'");
+//
+//        assertQueryUsingH2Cte("SELECT count(*) FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
+//
+//        assertQueryUsingH2Cte("SELECT linenumber, orderkey, ship_by_air, is_returned FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
+//
+//        assertQueryUsingH2Cte("SELECT linenumber, ship_by_air, is_returned FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
+//
+//        // ordering
+//        assertQueryUsingH2Cte("SELECT * FROM lineitem_ex WHERE keys[2] = 1 AND extendedprice >=  40794.96 AND quantity <> 24 AND discount > 0.05 AND linenumber > 1 AND orderkey = 3652");
+//
+//        // Filter on rand (with deterministic results)
+//        assertQuery("SELECT quantity, orderkey FROM lineitem WHERE linenumber = 1");
+//
+//        assertQuery("SELECT quantity, orderkey FROM lineitem WHERE quantity + 1 >= rand()");
+//
+//        assertQuery("SELECT discount, orderkey FROM lineitem WHERE rand() >= -1");
+//
+//        assertQuery("SELECT discount, orderkey FROM lineitem WHERE rand() >= .5");
 
-        assertQuery("SELECT count(*) FROM orders WHERE orderkey BETWEEN 100 AND 1000 AND custkey BETWEEN 500 AND 800");
+//        assertQuery("SELECT discount, orderkey FROM lineitem WHERE rand() >= -1 AND orderkey > 1 AND quantity + 1 > rand()");
+//
+//        assertQuery("SELECT discount FROM lineitem WHERE rand() >= -1 AND orderkey > 1 AND orderkey < 1000 AND orderkey + 1 > rand() AND quantity + 1 > rand() AND quantity < 5 ");
+//
+//        assertQuery("SELECT discount FROM lineitem WHERE rand() * 0 + orderkey % 2 = 0");
+//
+//        assertQuery("SELECT orderkey FROM lineitem WHERE rand() * 0 + orderkey % 2 = 0 AND rand() < 2 AND ");
 
-        assertQuery("SELECT custkey, orderdate, shippriority FROM orders WHERE orderkey BETWEEN 100 AND 1000 AND custkey BETWEEN 500 AND 800");
-
-        assertQuery("SELECT orderkey, orderdate FROM orders WHERE orderdate BETWEEN date '1994-01-01' AND date '1997-03-30'");
-
-        assertQueryUsingH2Cte("SELECT count(*) FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
-
-        assertQueryUsingH2Cte("SELECT linenumber, orderkey, ship_by_air, is_returned FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
-
-        assertQueryUsingH2Cte("SELECT linenumber, ship_by_air, is_returned FROM lineitem_ex WHERE orderkey < 30000 AND ship_by_air = true");
+        assertQuery("SELECT count(*) FROM lineitem WHERE rand() * 10 % 5 > 1 AND rand() * 10 % 7 > 1 AND orderkey % 5 <> 0");
     }
 
     @Test
