@@ -19,6 +19,7 @@ import com.esri.core.geometry.ogc.OGCPoint;
 import com.facebook.presto.geospatial.GeometryUtils;
 import com.facebook.presto.geospatial.Rectangle;
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.GraphLayout;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -207,20 +208,25 @@ public class TestFlatbush
     @Test
     public void testChildrenOffsets()
     {
-        int numRectangles = 10;
+        int numRectangles = 65;
         int degree = 8;
         Random random = new Random(122);
 
-        int firstParentIndex = 2 * degree * ENVELOPE_SIZE;
+        int level0nodes = (int) Math.ceil(1.0 * numRectangles / degree);
+        int level0capacity = (int) Math.ceil(1.0 * level0nodes / degree) * degree;
+        int level1nodes = (int) Math.ceil(1.0 * level0capacity / degree);
+        int level1capacity = (int) Math.ceil(1.0 * level1nodes / degree) * degree;
+
+        int firstParentIndex = level0capacity * ENVELOPE_SIZE;
         int secondParentIndex = firstParentIndex + ENVELOPE_SIZE;
-        int grandparentIndex = 3 * degree * ENVELOPE_SIZE;
+        int grandparentIndex = (level0capacity + level1capacity) * ENVELOPE_SIZE;
 
         List<Rectangle> rectangles = makeRectangles(random, numRectangles);
         Flatbush<Rectangle> rtree = new Flatbush<>(rectangles.toArray(new Rectangle[] {}), degree);
         assertEquals(rtree.getHeight(), 3);
+        assertEquals(rtree.getChildrenOffset(grandparentIndex, 2), firstParentIndex);
         assertEquals(rtree.getChildrenOffset(firstParentIndex, 1), 0);
         assertEquals(rtree.getChildrenOffset(secondParentIndex, 1), degree * ENVELOPE_SIZE);
-        assertEquals(rtree.getChildrenOffset(grandparentIndex, 2), 2 * degree * ENVELOPE_SIZE);
     }
 
     private static <T extends HasExtent> List<T> findIntersections(Flatbush<T> rtree, Rectangle rectangle)
@@ -275,5 +281,45 @@ public class TestFlatbush
         {
             return RECTANGLE_COMPARATOR.compare(this.getExtent(), other.getExtent());
         }
+    }
+
+    @Test
+    public void calculateObjectTreeSizes()
+    {
+        calculateObjectTreeSize(10);
+        calculateObjectTreeSize(100);
+        calculateObjectTreeSize(1000);
+        calculateObjectTreeSize(10_000);
+        calculateObjectTreeSize(100_000);
+        calculateObjectTreeSize(1_000_000);
+
+        assert(false);
+    }
+
+    private void calculateObjectTreeSize(int numRectangles) {
+        long[] countAndSize;
+        Random random = new Random(42);
+        System.err.println("Number rectangles: " + numRectangles);
+
+        List<Rectangle> buildRectangles = makeRectangles(random, numRectangles);
+        reportSizeAndCount(buildRectangles, "buildRectangles");
+
+        Flatbush<Rectangle> flatbush = new Flatbush<>(buildRectangles.toArray(new Rectangle[] {}));
+        reportSizeAndCount(flatbush, "Flatbush (full)");
+
+//        STRtree strTree = new STRtree();
+//        for (Rectangle rectangle: buildRectangles) {
+//            Envelope envelope = new Envelope(rectangle.getXMin(), rectangle.getXMax(), rectangle.getYMin(), rectangle.getYMax());
+//            strTree.insert(envelope, envelope);
+//        }
+//        reportSizeAndCount(strTree, "StrTree (prebuild)");
+//        strTree.build();
+//        reportSizeAndCount(strTree, "StrTree (postbuild)");
+    }
+
+    private void reportSizeAndCount(Object obj, String name) {
+        GraphLayout graph = GraphLayout.parseInstance(obj);
+        System.err.println(name + " tree memory: " + graph.totalSize());
+        System.err.println(name + " tree count: " + graph.totalCount());
     }
 }

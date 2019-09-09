@@ -123,6 +123,8 @@ public class Flatbush<T extends HasExtent>
      */
     private static int[] calculateLevelOffsets(int numItems, int degree)
     {
+        // HACK This is correct, but there is probably a better way to do it.
+        numItems = (int) Math.ceil(1.0 * numItems / degree);
         List<Integer> offsets = new ArrayList<>();
         // Leaf nodes start at 0, root is the last element.
         offsets.add(0);
@@ -149,23 +151,48 @@ public class Flatbush<T extends HasExtent>
             sortByHilbertIndex(items);
         }
 
+        double xMin = Double.POSITIVE_INFINITY;
+        double yMin = Double.POSITIVE_INFINITY;
+        double xMax = Double.NEGATIVE_INFINITY;
+        double yMax = Double.NEGATIVE_INFINITY;
         int writeOffset = 0;
-        for (T item : items) {
-            tree.set(writeOffset++, item.getExtent().getXMin());
-            tree.set(writeOffset++, item.getExtent().getYMin());
-            tree.set(writeOffset++, item.getExtent().getXMax());
-            tree.set(writeOffset++, item.getExtent().getYMax());
+        int numChildren = 0;
+        int item = 0;
+        for (; item < items.length; item++) {
+            xMin = min(xMin, items[item].getExtent().getXMin());
+            yMin = min(yMin, items[item].getExtent().getYMin());
+            xMax = max(xMax, items[item].getExtent().getXMax());
+            yMax = max(yMax, items[item].getExtent().getYMax());
+
+            if ((item + 1) % degree == 0) {
+                numChildren++;
+                tree.set(writeOffset++, xMin);
+                tree.set(writeOffset++, yMin);
+                tree.set(writeOffset++, xMax);
+                tree.set(writeOffset++, yMax);
+                xMin = Double.POSITIVE_INFINITY;
+                yMin = Double.POSITIVE_INFINITY;
+                xMax = Double.NEGATIVE_INFINITY;
+                yMax = Double.NEGATIVE_INFINITY;
+            }
         }
 
-        int numChildren = items.length;
+        if (item % degree != 0) {
+            numChildren++;
+            tree.set(writeOffset++, xMin);
+            tree.set(writeOffset++, yMin);
+            tree.set(writeOffset++, xMax);
+            tree.set(writeOffset++, yMax);
+        }
+
         for (int level = 0; level < levelOffsets.length - 1; level++) {
             int readOffset = levelOffsets[level];
             writeOffset = levelOffsets[level + 1];
             int numParents = 0;
-            double xMin = Double.POSITIVE_INFINITY;
-            double yMin = Double.POSITIVE_INFINITY;
-            double xMax = Double.NEGATIVE_INFINITY;
-            double yMax = Double.NEGATIVE_INFINITY;
+            xMin = Double.POSITIVE_INFINITY;
+            yMin = Double.POSITIVE_INFINITY;
+            xMax = Double.NEGATIVE_INFINITY;
+            yMax = Double.NEGATIVE_INFINITY;
             int child = 0;
             for (; child < numChildren; child++) {
                 xMin = min(xMin, tree.get(readOffset++));
@@ -226,8 +253,13 @@ public class Flatbush<T extends HasExtent>
             int level = todoLevels.popInt();
 
             if (level == 0) {
-                // This is a leaf node
-                consumer.accept(items[nodeIndex / ENVELOPE_SIZE]);
+                // This is a leaf node; iterate over the children
+                int itemOffset = (nodeIndex / ENVELOPE_SIZE) * degree;
+                for (int offset = itemOffset; offset < (itemOffset + degree) && offset < items.length; offset++) {
+                    if (query.intersects(items[offset].getExtent())) {
+                        consumer.accept(items[offset]);
+                    }
+                }
             }
             else {
                 int childrenOffset = getChildrenOffset(nodeIndex, level);
