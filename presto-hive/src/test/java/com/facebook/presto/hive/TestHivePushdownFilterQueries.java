@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -76,34 +77,36 @@ public class TestHivePushdownFilterQueries
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true"),
-                Optional.empty());
+                Optional.of(Paths.get("~/aria/test_data/")));
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem_ex")) {
 
-        queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, discount, tax_real, ship_day_month, keys, doubles, nested_keys, flags, reals, info, dates, timestamps) AS " +
-                        "SELECT linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, " +
-                        "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
-                        "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
-                        "   IF (linenumber % 4 = 0, null, CAST(day(shipdate) AS TINYINT)) AS ship_day, " +
-                        "   IF (linenumber % 6 = 0, null, CAST(month(shipdate) AS TINYINT)) AS ship_month, " +
-                        "   IF (linenumber % 3 = 0, null, CAST(shipdate AS TIMESTAMP)) AS ship_timestamp, " +
-                        "   IF (orderkey % 3 = 0, null, CAST(commitdate AS TIMESTAMP)) AS commit_timestamp, " +
-                        "   IF (orderkey % 5 = 0, null, CAST(discount AS REAL)) AS discount_real, " +
-                        "   IF (orderkey % 43 = 0, null, discount) AS discount, " +
-                        "   IF (orderkey % 7 = 0, null, CAST(tax AS REAL)) AS tax_real, " +
-                        "   IF (linenumber % 2 = 0, null, ARRAY[CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT)]) AS ship_day_month, " +
-                        "   IF (orderkey % 11 = 0, null, ARRAY[orderkey, partkey, suppkey]) AS keys, " +
-                        "   IF (orderkey % 41 = 0, null, ARRAY[extendedprice, discount, tax]) AS doubles, " +
-                        "   IF (orderkey % 13 = 0, null, ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], IF (orderkey % 17 = 0, null, ARRAY[orderkey, partkey])]) AS nested_keys, " +
-                        "   IF (orderkey % 17 = 0, null, ARRAY[shipmode = 'AIR', returnflag = 'R']) AS flags, " +
-                        "   IF (orderkey % 19 = 0, null, ARRAY[CAST(discount AS REAL), CAST(tax AS REAL)]), " +
-                        "   IF (orderkey % 23 = 0, null, CAST(ROW(orderkey, linenumber, ROW(day(shipdate), month(shipdate), year(shipdate))) " +
-                        "       AS ROW(orderkey BIGINT, linenumber INTEGER, shipdate ROW(ship_day TINYINT, ship_month TINYINT, ship_year INTEGER)))), " +
-                        "   IF (orderkey % 31 = 0, NULL, ARRAY[" +
-                        "       CAST(ROW(day(shipdate), month(shipdate), year(shipdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
-                        "       CAST(ROW(day(commitdate), month(commitdate), year(commitdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
-                        "       CAST(ROW(day(receiptdate), month(receiptdate), year(receiptdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER))]), " +
-                        "   IF (orderkey % 37 = 0, NULL, ARRAY[CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)]) AS timestamps " +
-                        "FROM lineitem");
+            queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
+                    "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, discount, tax_real, ship_day_month, keys, doubles, nested_keys, flags, reals, info, dates, timestamps) AS " +
+                            "SELECT linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, " +
+                            "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
+                            "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
+                            "   IF (linenumber % 4 = 0, null, CAST(day(shipdate) AS TINYINT)) AS ship_day, " +
+                            "   IF (linenumber % 6 = 0, null, CAST(month(shipdate) AS TINYINT)) AS ship_month, " +
+                            "   IF (linenumber % 3 = 0, null, CAST(shipdate AS TIMESTAMP)) AS ship_timestamp, " +
+                            "   IF (orderkey % 3 = 0, null, CAST(commitdate AS TIMESTAMP)) AS commit_timestamp, " +
+                            "   IF (orderkey % 5 = 0, null, CAST(discount AS REAL)) AS discount_real, " +
+                            "   IF (orderkey % 43 = 0, null, discount) AS discount, " +
+                            "   IF (orderkey % 7 = 0, null, CAST(tax AS REAL)) AS tax_real, " +
+                            "   IF (linenumber % 2 = 0, null, ARRAY[CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT)]) AS ship_day_month, " +
+                            "   IF (orderkey % 11 = 0, null, ARRAY[orderkey, partkey, suppkey]) AS keys, " +
+                            "   IF (orderkey % 41 = 0, null, ARRAY[extendedprice, discount, tax]) AS doubles, " +
+                            "   IF (orderkey % 13 = 0, null, ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], IF (orderkey % 17 = 0, null, ARRAY[orderkey, partkey])]) AS nested_keys, " +
+                            "   IF (orderkey % 17 = 0, null, ARRAY[shipmode = 'AIR', returnflag = 'R']) AS flags, " +
+                            "   IF (orderkey % 19 = 0, null, ARRAY[CAST(discount AS REAL), CAST(tax AS REAL)]), " +
+                            "   IF (orderkey % 23 = 0, null, CAST(ROW(orderkey, linenumber, ROW(day(shipdate), month(shipdate), year(shipdate))) " +
+                            "       AS ROW(orderkey BIGINT, linenumber INTEGER, shipdate ROW(ship_day TINYINT, ship_month TINYINT, ship_year INTEGER)))), " +
+                            "   IF (orderkey % 31 = 0, NULL, ARRAY[" +
+                            "       CAST(ROW(day(shipdate), month(shipdate), year(shipdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
+                            "       CAST(ROW(day(commitdate), month(commitdate), year(commitdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
+                            "       CAST(ROW(day(receiptdate), month(receiptdate), year(receiptdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER))]), " +
+                            "   IF (orderkey % 37 = 0, NULL, ARRAY[CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)]) AS timestamps " +
+                            "FROM lineitem");
+        }
         return queryRunner;
     }
 
@@ -222,7 +225,7 @@ public class TestHivePushdownFilterQueries
 
         assertFilterProject("quantity = 4 AND discount = 0 AND tax = .05", "orderkey");
 
-        assertFilterProject("(discount + tax) < (quantity / 10)", "tax");
+        assertFilterProject("(discount + tax) < (quantity / 10)", "tax"); //here
 
         assertFilterProject("doubles[1] > 0.01", "count(*)");
 
@@ -401,6 +404,46 @@ public class TestHivePushdownFilterQueries
         assertQueryFails("SELECT * FROM lineitem_ex WHERE nested_keys[1][5] > 0 AND orderkey % 5 = 0", "Array subscript out of bounds");
 
         assertFilterProject("nested_keys[1][5] > 0 AND orderkey % 5 > 10", "keys");
+    }
+
+    @Test
+    public void testOrdering(){
+//        // Not exactly a real test, because the real "test" is in stepping through the debugger, not in the correctness of the test.
+//        // ordering
+//
+//        assertQueryUsingH2Cte("SELECT * FROM lineitem_ex WHERE keys[2] = 1 AND extendedprice >=  40794.96 AND quantity <> 24 AND discount > 0.05 AND linenumber > 1 AND orderkey = 3652");
+//
+//        // Filter on rand (with deterministic results)
+//        assertQuery("SELECT quantity, orderkey FROM lineitem WHERE linenumber = 1");
+//
+//        assertQuery("SELECT quantity, orderkey FROM lineitem WHERE quantity + 1 >= rand()");
+//
+//        assertQuery("SELECT discount, orderkey FROM lineitem WHERE rand() >= -1");
+//
+//        assertQuery("SELECT discount, orderkey FROM lineitem WHERE rand() >= -1 AND orderkey > 1 AND quantity + 1 > rand()");
+//
+//        assertQuery("SELECT discount FROM lineitem WHERE rand() >= -1 AND orderkey > 1 AND orderkey < 1000 AND orderkey + 1 > rand() AND quantity + 1 > rand() AND quantity < 5 ");
+//
+//        assertQuery("SELECT discount FROM lineitem WHERE rand() * 0 + orderkey % 2 = 0");
+
+        assertQuery("SELECT orderkey FROM lineitem WHERE (orderkey % 2) = 0");
+
+        assertQuery("SELECT orderkey FROM lineitem WHERE rand() < 2");
+
+        assertQuery("SELECT discount FROM lineitem WHERE (orderkey % 2) = 0 AND rand() < 10");
+
+        assertQuery("SELECT orderkey FROM lineitem WHERE (orderkey % 2) = 0 AND rand() < 10");
+
+        assertQuery("SELECT orderkey FROM lineitem WHERE (orderkey % 2) = 0 AND (rand() < 2)");
+
+        assertQuery("SELECT orderkey FROM lineitem WHERE (rand() * 0) + (orderkey % 2) = 0 AND (rand() < 2) ORDER BY orderkey");
+
+        // These will fail (even with hardcoded rand)
+        // But very useful for stepping through with the debugger
+        // assertQuery("SELECT discount, orderkey FROM lineitem WHERE rand(5) >= .5");
+        // assertQuery("SELECT count(*) FROM lineitem WHERE rand(5) * 10 % 5 > 1 AND rand(5) * 10 % 7 > 1 AND orderkey % 5 <> 0");
+
+
     }
 
     @Test

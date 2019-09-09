@@ -20,6 +20,8 @@ import com.facebook.presto.orc.metadata.PostScript;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
+import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.orc.reader.SelectiveStreamReader;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
@@ -29,6 +31,7 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
@@ -38,13 +41,16 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createStreamReader;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -59,6 +65,8 @@ public class OrcSelectiveRecordReader
     private final Map<Integer, Type> columnTypes;                     // key: index into hiveColumnIndices array
     private final Object[] constantValues;                            // aligned with hiveColumnIndices array
     private final List<FilterFunction> filterFunctions;
+    private final List<FilterFunction> filterFunctionsWithInputs;     // List of filterFunctions that take inputs
+    private final List<FilterFunction> filterFunctionsWithNoInput;    // List of filterFunctions that have no input channels
     private final Map<Integer, Integer> filterFunctionInputMapping;   // channel-to-index-into-hiveColumnIndices-array mapping
     private final Set<Integer> filterFunctionInputs;                  // channels
     private final Set<Integer> columnsWithFilters;                    // elements are indices into hiveColumnIndices array
@@ -149,8 +157,16 @@ public class OrcSelectiveRecordReader
         this.hiveColumnIndices = hiveColumnIndices.stream().mapToInt(i -> i).toArray();
         this.outputColumns = outputColumns.stream().map(zeroBasedIndices::get).collect(toImmutableList());
         this.columnTypes = includedColumns.entrySet().stream().collect(toImmutableMap(entry -> zeroBasedIndices.get(entry.getKey()), Map.Entry::getValue));
+        this.filterFunctionsWithInputs = filterFunctions
+                .stream()
+                .filter(x -> x.getInputChannels().length > 0)
+                .collect(Collectors.toList());
         this.filterFunctions = filterFunctions;
         this.filterFunctionInputMapping = Maps.transformValues(filterFunctionInputMapping, zeroBasedIndices::get);
+        this.filterFunctionsWithNoInput = filterFunctions.stream()
+            .filter(x -> x.getInputChannels().length == 0)
+            .collect(Collectors.toList());
+
         filterFunctionInputs = filterFunctions.stream()
                 .flatMapToInt(function -> Arrays.stream(function.getInputChannels()))
                 .boxed()
@@ -169,6 +185,121 @@ public class OrcSelectiveRecordReader
         //  - followed by readers for columns that provide input to filter functions
         //  - followed by readers for columns that doesn't have any filtering
         streamReaderOrder = orderStreamReaders(columnTypes.keySet().stream().filter(index -> this.constantValues[index] == null).collect(toImmutableSet()), columnsWithFilters, filterFunctionInputs);
+
+
+
+        // Sahar additions here
+        Map<Integer, Map<Subfield, TupleDomainFilter>> filtersWithNewIndices = filters
+                .entrySet()
+                .stream()
+                .collect(toImmutableMap(entry -> zeroBasedIndices.get(entry.getKey()), Map.Entry::getValue ))
+                ;
+
+        // Initial order of stream readers is:
+        //  - readers with integer equality
+        //  - readers with integer range / values
+        //  - readers with filters
+        //  - followed by readers for columns that provide input to filter functions
+        //  - followed by readers for columns that doesn't have any filtering
+
+        int[] new_StreamReaderOrder = new_orderStreamReaders(columnTypes.keySet().stream().filter(index -> this.constantValues[index] == null).collect(toImmutableSet()), filtersWithNewIndices, filterFunctionInputs);
+        boolean sameLength = streamReaderOrder.length == new_StreamReaderOrder.length;
+
+        Set<Integer> oldSet = Arrays.stream(streamReaderOrder).boxed().collect(toImmutableSet());
+        Set<Integer> newSet = Arrays.stream(new_StreamReaderOrder).boxed().collect(toImmutableSet());
+        boolean sameContent =  oldSet.equals(newSet);
+        if(!sameLength){
+            throw new UnknownError();
+        }
+        if(!sameContent){
+            throw new UnsupportedOperationException();
+        }
+        if(!Arrays.equals(streamReaderOrder, new_StreamReaderOrder)){
+            //hello debugger
+            boolean debugme = true;
+        }
+        streamReaderOrder = new_StreamReaderOrder;
+    }
+
+    private static int scoreFilter(Map<Subfield, TupleDomainFilter> filters){
+        final int lowestScore = 10;
+        final int lowScore = 50;
+        final int mediumScore = 100;
+        final int maxScore = 1000;
+
+        checkArgument(!filters.isEmpty());
+
+        if (filters.size() > 1){
+            // This can only be true if this column is a complex type.
+            // Complex types are expensive!
+            return maxScore;
+        }
+
+        checkArgument(filters.size() == 1);
+
+        Map.Entry<Subfield, TupleDomainFilter> filter = Iterables.getOnlyElement(filters.entrySet());
+
+        if(! filter.getKey().getPath().isEmpty()){
+            // The column is a complex type. Expensive!
+            return maxScore;
+        }
+
+        TupleDomainFilter tdf = filter.getValue();
+
+        if(tdf instanceof BigintRange) {
+            if(((BigintRange) tdf).isSingleValue()){
+                // An equality! Easy and good
+                return lowestScore;
+            }
+            return lowScore;
+        }
+
+        if(tdf instanceof BigintValues) {
+            return lowScore;
+        }
+
+        return mediumScore;
+
+    }
+
+    private static int[] new_orderStreamReaders(Collection<Integer> columnIndices, Map<Integer, Map<Subfield, TupleDomainFilter>> filtersWithNewIndices, Set<Integer> filterFunctionInputs)
+    {
+        int[] order = new int[columnIndices.size()];
+        int i = 0;
+
+        Map<Integer, Integer> columnToFilterScore =
+                filtersWithNewIndices.entrySet().stream()
+                .collect(
+                        Collectors.toMap(
+                                entry -> entry.getKey(),
+                                entry -> scoreFilter(entry.getValue()) )
+                );
+
+        List<Integer> sortedColumnsByFilterScore = columnToFilterScore.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue())
+                .map(entry -> entry.getKey())
+                .collect(Collectors.toList());
+
+        for (int columnIndex : sortedColumnsByFilterScore) {
+            if (columnIndices.contains(columnIndex)) {
+                order[i++] = columnIndex;
+            }
+        }
+
+        for (int columnIndex : filterFunctionInputs) {
+            if (columnIndices.contains(columnIndex) && !sortedColumnsByFilterScore.contains(columnIndex)) {
+                order[i++] = columnIndex;
+            }
+        }
+
+        for (int columnIndex : columnIndices) {
+            if (!sortedColumnsByFilterScore.contains(columnIndex) && !filterFunctionInputs.contains(columnIndex)) {
+                order[i++] = columnIndex;
+            }
+        }
+
+        return order;
     }
 
     private static int[] orderStreamReaders(Collection<Integer> columnIndices, Set<Integer> columnsWithFilters, Set<Integer> filterFunctionInputs)
@@ -244,13 +375,23 @@ public class OrcSelectiveRecordReader
         }
 
         initializePositions(batchSize);
-
         int[] positionsToRead = this.positions;
         int positionCount = batchSize;
-        boolean filterFunctionsApplied = filterFunctions.isEmpty();
+
+        // Sahar did this
+        if (!filterFunctionsWithNoInput.isEmpty()){
+            positionCount = applyFilterFunctionsNoInput(positionsToRead, positionCount);
+            positionsToRead = outputPositions;
+        }
+
+        if (positionCount == 0){
+            return new Page(0);
+        }
+
+        boolean filterFunctionsApplied = filterFunctionsWithInputs.isEmpty();
         for (int columnIndex : streamReaderOrder) {
             if (!filterFunctionsApplied && !hasAnyFilter(columnIndex)) {
-                positionCount = applyFilterFunctions(positionsToRead, positionCount);
+                positionCount = applyFilterFunctionsWithInput(positionsToRead, positionCount);
                 if (positionCount == 0) {
                     break;
                 }
@@ -269,7 +410,7 @@ public class OrcSelectiveRecordReader
         }
 
         if (positionCount > 0 && !filterFunctionsApplied) {
-            positionCount = applyFilterFunctions(positionsToRead, positionCount);
+            positionCount = applyFilterFunctionsWithInput(positionsToRead, positionCount);
             positionsToRead = outputPositions;
         }
 
@@ -325,10 +466,37 @@ public class OrcSelectiveRecordReader
         }
     }
 
-    private int applyFilterFunctions(int[] positions, int positionCount)
+    private int applyFilterFunctionsNoInput(int[] positions, int positionCount){
+        initializeOutputPositions(positionCount);
+
+        for (FilterFunction function : filterFunctionsWithNoInput) {
+            Page page = new Page(positionCount, new Block[0]);
+            positionCount = function.filter(page, outputPositions, positionCount, errors);
+            if (positionCount == 0) {
+                break;
+            }
+        }
+
+        for (int i = 0; i < positionCount; i++) {
+            if (errors[i] != null) {
+                throw errors[i];
+            }
+        }
+
+        // at this point outputPositions are relative to page, e.g. they are indices into positions array
+        // translate outputPositions to positions relative to the start of the row group,
+        // e.g. make outputPositions a subset of positions array
+        for (int i = 0; i < positionCount; i++) {
+            outputPositions[i] = positions[outputPositions[i]];
+        }
+        return positionCount;
+    }
+
+    private int applyFilterFunctionsWithInput(int[] positions, int positionCount)
     {
         BlockLease[] blockLeases = new BlockLease[hiveColumnIndices.length];
         Block[] blocks = new Block[hiveColumnIndices.length];
+
         for (int columnIndex : filterFunctionInputs) {
             if (constantValues[columnIndex] != null) {
                 blocks[columnIndex] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex], positionCount);
@@ -342,7 +510,7 @@ public class OrcSelectiveRecordReader
         try {
             initializeOutputPositions(positionCount);
 
-            for (FilterFunction function : filterFunctions) {
+            for (FilterFunction function : filterFunctionsWithInputs) {
                 int[] inputs = function.getInputChannels();
                 Block[] inputBlocks = new Block[inputs.length];
 
