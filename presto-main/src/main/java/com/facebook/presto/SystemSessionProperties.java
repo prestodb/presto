@@ -132,6 +132,7 @@ public final class SystemSessionProperties
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
     public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
     public static final String CONCURRENT_WRITES_TO_PARTITIONED_TABLE_ENABLED = "concurrent_writes_to_partitioned_table_enabled";
+    public static final String OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE = "optimize_full_outer_join_with_coalesce";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -638,6 +639,11 @@ public final class SystemSessionProperties
                         CONCURRENT_WRITES_TO_PARTITIONED_TABLE_ENABLED,
                         "Experimental: enable concurrent writes to partitioned table",
                         featuresConfig.isConcurrentWritesToPartitionedTableEnabled(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE,
+                        "optimize partition properties for queries using COALESCE + FULL OUTER JOIN",
+                        featuresConfig.isOptimizeFullOuterJoinWithCoalesce(),
                         false));
     }
 
@@ -1084,5 +1090,10 @@ public final class SystemSessionProperties
     public static boolean isConcurrentWritesToPartitionedTableEnabled(Session session)
     {
         return session.getSystemProperty(CONCURRENT_WRITES_TO_PARTITIONED_TABLE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isOptimizeFullOuterJoinWithCoalesce(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE, Boolean.class);
     }
 }
