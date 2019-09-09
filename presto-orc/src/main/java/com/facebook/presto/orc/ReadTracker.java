@@ -30,6 +30,7 @@ class ReadTracker
     private final List<StreamId> readOrder = new ArrayList();
     private final Object2LongOpenHashMap<StreamId> readCounts = new Object2LongOpenHashMap();
     private long totalReads;
+    private boolean hasData;
 
     private static final LoadingCache<String, ReadTracker> readTrackers =
             CacheBuilder.newBuilder()
@@ -47,6 +48,7 @@ class ReadTracker
         synchronized (this) {
             if (count == 0) {
                 readOrder.add(streamId);
+                hasData = true;
             }
             readCounts.put(streamId, count + 1);
             totalReads++;
@@ -85,17 +87,17 @@ class ReadTracker
         String threadName = Thread.currentThread().getName();
         try {
             ReadTracker tracker = readTrackers.get(threadName);
-            if (tracker.readOrder.size() == 0) {
+            if (!tracker.hasData) {
                 // This is a new tracker, see if there is another with data about this query/task.
                 int prefixLength = taskIdPrefixLength(threadName);
                 Map<String, ReadTracker> map = readTrackers.asMap();
                 for (Map.Entry<String, ReadTracker> entry : map.entrySet()) {
                     if (entry.getKey().regionMatches(0, threadName, 0, prefixLength)) {
                         ReadTracker other = entry.getValue();
-                        int numStreams = other.readOrder.size();
-                        if (numStreams > 0) {
-                            // Dirty read of the read order of the other to init read order of this.
+                        if (other.hasData) {
+                            // Read the read order of the other to init read order of this.
                             synchronized (other) {
+                                int numStreams = other.readOrder.size();
                                 tracker.totalReads = other.totalReads;
                                 for (int i = 0; i < numStreams; i++) {
                                     StreamId otherStream = other.readOrder.get(i);
@@ -111,6 +113,7 @@ class ReadTracker
                                         }
                                     }
                                 }
+                                tracker.hasData = true;
                             }
                             break;
                         }
