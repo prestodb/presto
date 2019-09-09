@@ -225,7 +225,7 @@ public class TestHivePushdownFilterQueries
 
         assertFilterProject("quantity = 4 AND discount = 0 AND tax = .05", "orderkey");
 
-        assertFilterProject("(discount + tax) < (quantity / 10)", "tax"); //here
+        assertFilterProject("(discount + tax) < (quantity / 10)", "tax");
 
         assertFilterProject("doubles[1] > 0.01", "count(*)");
 

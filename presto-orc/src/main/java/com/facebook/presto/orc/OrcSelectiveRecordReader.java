@@ -41,7 +41,6 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,7 +63,6 @@ public class OrcSelectiveRecordReader
     private final List<Integer> outputColumns;                        // elements are hive column indices
     private final Map<Integer, Type> columnTypes;                     // key: index into hiveColumnIndices array
     private final Object[] constantValues;                            // aligned with hiveColumnIndices array
-    private final List<FilterFunction> filterFunctions;
     private final List<FilterFunction> filterFunctionsWithInputs;     // List of filterFunctions that take inputs
     private final List<FilterFunction> filterFunctionsWithNoInput;    // List of filterFunctions that have no input channels
     private final Map<Integer, Integer> filterFunctionInputMapping;   // channel-to-index-into-hiveColumnIndices-array mapping
@@ -78,7 +76,7 @@ public class OrcSelectiveRecordReader
     // This array may grow, but cannot shrink. The values don't change.
     private int[] positions;
 
-    // Used in applyFilterFunctions; mutable
+    // Used in applyFilterFunctions<withinput/withoutinput>; mutable
     private int[] outputPositions;
     private RuntimeException[] errors;
 
@@ -161,18 +159,17 @@ public class OrcSelectiveRecordReader
                 .stream()
                 .filter(x -> x.getInputChannels().length > 0)
                 .collect(Collectors.toList());
-        this.filterFunctions = filterFunctions;
+        this.filterFunctionsWithNoInput = filterFunctions
+                .stream()
+                .filter(x -> x.getInputChannels().length == 0)
+                .collect(Collectors.toList());
         this.filterFunctionInputMapping = Maps.transformValues(filterFunctionInputMapping, zeroBasedIndices::get);
-        this.filterFunctionsWithNoInput = filterFunctions.stream()
-            .filter(x -> x.getInputChannels().length == 0)
-            .collect(Collectors.toList());
-
-        filterFunctionInputs = filterFunctions.stream()
+        this.filterFunctionInputs = filterFunctions.stream()
                 .flatMapToInt(function -> Arrays.stream(function.getInputChannels()))
                 .boxed()
                 .map(this.filterFunctionInputMapping::get)
                 .collect(toImmutableSet());
-        columnsWithFilters = filters.keySet().stream().map(zeroBasedIndices::get).collect(toImmutableSet());
+        this.columnsWithFilters = filters.keySet().stream().map(zeroBasedIndices::get).collect(toImmutableSet());
 
         requireNonNull(constantValues, "constantValues is null");
         this.constantValues = new Object[this.hiveColumnIndices.length];
