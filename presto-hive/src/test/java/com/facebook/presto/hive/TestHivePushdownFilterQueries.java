@@ -408,23 +408,23 @@ public class TestHivePushdownFilterQueries
 
     @Test
     public void testOrdering(){
-//        // Not exactly a real test, because the real "test" is in stepping through the debugger, not in the correctness of the test.
-//        // ordering
-//
-//        assertQueryUsingH2Cte("SELECT * FROM lineitem_ex WHERE keys[2] = 1 AND extendedprice >=  40794.96 AND quantity <> 24 AND discount > 0.05 AND linenumber > 1 AND orderkey = 3652");
-//
-//        // Filter on rand (with deterministic results)
-//        assertQuery("SELECT quantity, orderkey FROM lineitem WHERE linenumber = 1");
-//
-//        assertQuery("SELECT quantity, orderkey FROM lineitem WHERE quantity + 1 >= rand()");
-//
-//        assertQuery("SELECT discount, orderkey FROM lineitem WHERE rand() >= -1");
-//
-//        assertQuery("SELECT discount, orderkey FROM lineitem WHERE rand() >= -1 AND orderkey > 1 AND quantity + 1 > rand()");
-//
-//        assertQuery("SELECT discount FROM lineitem WHERE rand() >= -1 AND orderkey > 1 AND orderkey < 1000 AND orderkey + 1 > rand() AND quantity + 1 > rand() AND quantity < 5 ");
-//
-//        assertQuery("SELECT discount FROM lineitem WHERE rand() * 0 + orderkey % 2 = 0");
+        // Not exactly a real test, because the real "test" is in stepping through the debugger, not in the correctness of the test.
+        // ordering
+
+        assertQueryUsingH2Cte("SELECT * FROM lineitem_ex WHERE keys[2] = 1 AND extendedprice >=  40794.96 AND quantity <> 24 AND discount > 0.05 AND linenumber > 1 AND orderkey = 3652");
+
+        // Filter on rand (with deterministic results)
+        assertQuery("SELECT quantity, orderkey FROM lineitem WHERE linenumber = 1");
+
+        assertQuery("SELECT quantity, orderkey FROM lineitem WHERE quantity + 1 >= rand()");
+
+        assertQuery("SELECT discount, orderkey FROM lineitem WHERE rand() >= -1");
+
+        assertQuery("SELECT discount, orderkey FROM lineitem WHERE rand() >= -1 AND orderkey > 1 AND quantity + 1 > rand()");
+
+        assertQuery("SELECT discount FROM lineitem WHERE rand() >= -1 AND orderkey > 1 AND orderkey < 1000 AND orderkey + 1 > rand() AND quantity + 1 > rand() AND quantity < 5 ");
+
+        assertQuery("SELECT discount FROM lineitem WHERE rand() * 0 + orderkey % 2 = 0");
 
         assertQuery("SELECT orderkey FROM lineitem WHERE (orderkey % 2) = 0");
 
