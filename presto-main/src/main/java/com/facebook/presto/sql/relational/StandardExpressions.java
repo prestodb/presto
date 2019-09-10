@@ -28,6 +28,7 @@ import static com.facebook.presto.metadata.CastType.TRY_CAST;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Arrays.asList;
 
 public class StandardExpressions
 {
@@ -92,6 +93,17 @@ public class StandardExpressions
     {
         checkArgument(expression instanceof CallExpression && ((CallExpression) expression).getArguments().size() == 2, "must be binary call expression");
         return ((CallExpression) expression).getArguments().get(1);
+    }
+
+    public static RowExpression coalesce(RowExpression... expressions)
+    {
+        return coalesce(asList(expressions));
+    }
+
+    public static RowExpression coalesce(List<RowExpression> expressions)
+    {
+        checkArgument(expressions.size() > 0, "must contains at least one argument");
+        return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, expressions.get(0).getType(), expressions);
     }
 
     public boolean isComparison(RowExpression expression)
