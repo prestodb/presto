@@ -71,7 +71,6 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -107,6 +106,7 @@ import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.LimitNode.Step.PARTIAL;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.getNumberOfTableScans;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleTableScans;
 import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
@@ -129,7 +129,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExcha
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -544,7 +543,7 @@ public class AddExchanges
         public PlanWithProperties visitFilter(FilterNode node, PreferredProperties preferredProperties)
         {
             if (node.getSource() instanceof TableScanNode) {
-                return planTableScan((TableScanNode) node.getSource(), castToExpression(node.getPredicate()));
+                return planTableScan((TableScanNode) node.getSource(), node.getPredicate());
             }
 
             return rebaseAndDeriveProperties(node, planChild(node, preferredProperties));
@@ -553,7 +552,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
         {
-            return planTableScan(node, TRUE_LITERAL);
+            return planTableScan(node, TRUE_CONSTANT);
         }
 
         @Override
@@ -587,9 +586,9 @@ public class AddExchanges
             return rebaseAndDeriveProperties(node, source);
         }
 
-        private PlanWithProperties planTableScan(TableScanNode node, Expression predicate)
+        private PlanWithProperties planTableScan(TableScanNode node, RowExpression predicate)
         {
-            PlanNode plan = pushPredicateIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
+            PlanNode plan = pushPredicateIntoTableScan(node, predicate, true, session, idAllocator, metadata);
             // TODO: Support selecting layout with best local property once connector can participate in query optimization.
             return new PlanWithProperties(plan, derivePropertiesRecursively(plan));
         }
