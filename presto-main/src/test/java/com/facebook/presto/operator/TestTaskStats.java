@@ -50,6 +50,7 @@ public class TestTaskStats
             new DataSize(12, BYTE),
             new DataSize(13, BYTE),
             new DataSize(14, BYTE),
+            26,
             new Duration(15, NANOSECONDS),
             new Duration(16, NANOSECONDS),
             new Duration(18, NANOSECONDS),
@@ -105,6 +106,7 @@ public class TestTaskStats
         assertEquals(actual.getUserMemoryReservation(), new DataSize(12, BYTE));
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(13, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(14, BYTE));
+        assertEquals(actual.getPeakTotalMemoryInBytes(), 26);
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));
