@@ -435,15 +435,6 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new ReorderJoins(costComparator))));
 
-        builder.add(new OptimizeMixedDistinctAggregations(metadata));
-        builder.add(new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                estimatedExchangesCostCalculator,
-                ImmutableSet.of(
-                        new CreatePartialTopN(),
-                        new PushTopNThroughUnion())));
-
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
         builder.add(new IterativeOptimizer(
@@ -452,6 +443,16 @@ public class PlanOptimizers
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
+        builder.add(new OptimizeMixedDistinctAggregations(metadata));
+
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(
+                        new CreatePartialTopN(),
+                        new PushTopNThroughUnion())));
+
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
