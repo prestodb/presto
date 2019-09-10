@@ -509,7 +509,7 @@ public class PlanOptimizers
                         .build()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
-        builder.add(new AddLocalExchanges(metadata, sqlParser));
+        builder.add(new AddLocalExchanges(metadata));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
