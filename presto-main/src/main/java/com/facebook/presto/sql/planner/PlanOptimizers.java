@@ -385,8 +385,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new SimplifyCountOverConstant(metadata.getFunctionManager()))),
-                new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
-                new WindowFilterPushDown(metadata)); // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
+                new LimitPushDown()); // Run LimitPushDown before WindowFilterPushDown
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -397,7 +396,8 @@ public class PlanOptimizers
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
 
-        builder.add(new IterativeOptimizer(
+        builder.add(new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
+                new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
