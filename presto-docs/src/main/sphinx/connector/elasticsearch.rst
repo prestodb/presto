@@ -27,8 +27,8 @@ replacing the properties as appropriate:
 .. code-block:: none
 
     connector.name=elasticsearch
-    elasticsearch.default-schema=default
-    elasticsearch.table-description-directory=etc/elasticsearch/
+    elasticsearch.default-schema-name=default
+    elasticsearch.table-description-directory=etc/elasticsearch
     elasticsearch.scroll-size=1000
     elasticsearch.scroll-timeout=2s
     elasticsearch.request-timeout=2s
@@ -43,7 +43,7 @@ The following configuration properties are available:
 ============================================= ==============================================================================
 Property Name                                 Description
 ============================================= ==============================================================================
-``elasticsearch.default-schema``              Default schema name for tables.
+``elasticsearch.default-schema-name``         Default schema name for tables.
 ``elasticsearch.table-description-directory`` Directory containing JSON table description files.
 ``elasticsearch.scroll-size``                 Maximum number of hits to be returned with each Elasticsearch scroll request.
 ``elasticsearch.scroll-timeout``              Amount of time Elasticsearch will keep the search context alive for scroll requests.
@@ -53,7 +53,7 @@ Property Name                                 Description
 ``elasticsearch.max-request-retry-time``      Use exponential backoff starting at 1s up to the value specified by this configuration when retrying failed requests.
 ============================================= ==============================================================================
 
-``elasticsearch.default-schema``
+``elasticsearch.default-schema-name``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Defines the schema that will contain all tables defined without
