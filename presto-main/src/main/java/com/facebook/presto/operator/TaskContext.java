@@ -96,6 +96,7 @@ public class TaskContext
 
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
+    private final AtomicLong peakTotalMemoryInBytes = new AtomicLong(0);
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastUserMemoryReservation;
@@ -475,6 +476,9 @@ public class TaskContext
         Duration fullGcTime = getFullGcTime();
 
         long userMemory = taskMemoryContext.getUserMemory();
+        long systemMemory = taskMemoryContext.getSystemMemory();
+
+        peakTotalMemoryInBytes.accumulateAndGet(userMemory + systemMemory, Math::max);
 
         synchronized (cumulativeMemoryLock) {
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
@@ -512,7 +516,8 @@ public class TaskContext
                 cumulativeUserMemory.get(),
                 succinctBytes(userMemory),
                 succinctBytes(taskMemoryContext.getRevocableMemory()),
-                succinctBytes(taskMemoryContext.getSystemMemory()),
+                succinctBytes(systemMemory),
+                peakTotalMemoryInBytes.get(),
                 succinctNanos(totalScheduledTime),
                 succinctNanos(totalCpuTime),
                 succinctNanos(totalBlockedTime),
