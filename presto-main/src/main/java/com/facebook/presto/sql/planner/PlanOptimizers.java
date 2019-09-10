@@ -402,8 +402,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new MetadataQueryOptimizer(metadata));
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -414,7 +413,8 @@ public class PlanOptimizers
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
 
-        builder.add(new IterativeOptimizer(
+        builder.add(new MetadataQueryOptimizer(metadata),
+                new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
