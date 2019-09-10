@@ -111,7 +111,7 @@ public class SingleMapBlockEncoding
                 new int[] {0, keyBlock.getPositionCount()},
                 keyBlock,
                 valueBlock,
-                new HashTables(Optional.ofNullable(hashTable), hashTableLength),
+                new HashTables(Optional.ofNullable(hashTable), 1, hashTableLength),
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,

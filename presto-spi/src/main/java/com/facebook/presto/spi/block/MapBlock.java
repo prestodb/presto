@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.spi.block.MapBlockBuilder.buildHashTable;
+import static com.facebook.presto.spi.block.MapBlockBuilder.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -76,7 +77,7 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 valueBlock,
-                new HashTables(Optional.empty(), keyBlock.getPositionCount() * HASH_MULTIPLIER),
+                new HashTables(Optional.empty(), positionCount, keyBlock.getPositionCount() * HASH_MULTIPLIER),
                 mapType.getKeyType(),
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -335,7 +336,10 @@ public class MapBlock
 
             int[] hashTables = new int[getRawKeyBlock().getPositionCount() * HASH_MULTIPLIER];
             Arrays.fill(hashTables, -1);
-            for (int i = 0; i < startOffset + positionCount; i++) {
+
+            verify(this.hashTables.getExpectedHashTableCount() <= offsets.length, "incorrect offsets size");
+
+            for (int i = 0; i < this.hashTables.getExpectedHashTableCount(); i++) {
                 int keyOffset = offsets[i];
                 int keyCount = offsets[i + 1] - keyOffset;
                 if (keyCount < 0) {
