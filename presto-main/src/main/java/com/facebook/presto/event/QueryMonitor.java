@@ -48,7 +48,7 @@ import com.facebook.presto.spi.eventlistener.QueryInputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
-import com.facebook.presto.spi.eventlistener.StageCpuDistribution;
+import com.facebook.presto.spi.eventlistener.ResourceDistribution;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.transaction.TransactionId;
@@ -506,19 +506,19 @@ public class QueryMonitor
                 queryEndTime);
     }
 
-    private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)
+    private static List<ResourceDistribution> getCpuDistributions(QueryInfo queryInfo)
     {
         if (!queryInfo.getOutputStage().isPresent()) {
             return ImmutableList.of();
         }
 
-        ImmutableList.Builder<StageCpuDistribution> builder = ImmutableList.builder();
+        ImmutableList.Builder<ResourceDistribution> builder = ImmutableList.builder();
         populateDistribution(queryInfo.getOutputStage().get(), builder);
 
         return builder.build();
     }
 
-    private static void populateDistribution(StageInfo stageInfo, ImmutableList.Builder<StageCpuDistribution> distributions)
+    private static void populateDistribution(StageInfo stageInfo, ImmutableList.Builder<ResourceDistribution> distributions)
     {
         distributions.add(computeCpuDistribution(stageInfo));
         for (StageInfo subStage : stageInfo.getSubStages()) {
@@ -526,7 +526,7 @@ public class QueryMonitor
         }
     }
 
-    private static StageCpuDistribution computeCpuDistribution(StageInfo stageInfo)
+    private static ResourceDistribution computeCpuDistribution(StageInfo stageInfo)
     {
         Distribution cpuDistribution = new Distribution();
 
@@ -536,7 +536,7 @@ public class QueryMonitor
 
         DistributionSnapshot snapshot = cpuDistribution.snapshot();
 
-        return new StageCpuDistribution(
+        return new ResourceDistribution(
                 stageInfo.getStageId().getId(),
                 stageInfo.getLatestAttemptExecutionInfo().getTasks().size(),
                 snapshot.getP25(),

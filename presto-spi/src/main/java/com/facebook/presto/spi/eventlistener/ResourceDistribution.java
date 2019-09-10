@@ -16,7 +16,7 @@ package com.facebook.presto.spi.eventlistener;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class StageCpuDistribution
+public class ResourceDistribution
 {
     private final int stageId;
     private final int tasks;
@@ -32,7 +32,7 @@ public class StageCpuDistribution
     private final double average;
 
     @JsonCreator
-    public StageCpuDistribution(
+    public ResourceDistribution(
             @JsonProperty("stageId") int stageId,
             @JsonProperty("tasks") int tasks,
             @JsonProperty("p25") long p25,
