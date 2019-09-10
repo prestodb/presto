@@ -14,18 +14,21 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.LogicalRowExpressions;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.facebook.presto.sql.relational.StandardExpressions;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
@@ -36,32 +39,33 @@ import java.util.LinkedHashSet;
 import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.sql.ExpressionUtils.and;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
-import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode.toMultiJoinNode;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static org.testng.Assert.assertEquals;
 
 public class TestJoinNodeFlattener
 {
     private static final int DEFAULT_JOIN_LIMIT = 10;
 
     private LocalQueryRunner queryRunner;
+    private ReorderJoins reorderJoins;
+    private StandardExpressions standardExpressions;
+    private LogicalRowExpressions logicalRowExpressions;
 
     @BeforeClass
     public void setUp()
     {
         queryRunner = new LocalQueryRunner(testSessionBuilder().build());
+        FunctionManager functionManager = queryRunner.getMetadata().getFunctionManager();
+        reorderJoins = new ReorderJoins(queryRunner.getMetadata(), new CostComparator(1.0, 1.0, 1.0));
+        standardExpressions = new StandardExpressions(functionManager);
+        logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager));
     }
 
     @AfterClass(alwaysRun = true)
@@ -84,7 +88,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(equiJoinClause(a1, b1)),
                 ImmutableList.of(a1, b1),
                 Optional.empty());
-        toMultiJoinNode(outerJoin, noLookup(), DEFAULT_JOIN_LIMIT);
+        reorderJoins.toMultiJoinNode(outerJoin, noLookup(), DEFAULT_JOIN_LIMIT);
     }
 
     @Test
@@ -110,11 +114,11 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1, b1, c1),
                 Optional.empty());
 
-        MultiJoinNode expected = MultiJoinNode.builder()
+        MultiJoinNode expected = reorderJoins.multiNodeBuilder()
                 .setSources(leftJoin, valuesC).setFilter(createEqualsExpression(a1, c1))
                 .setOutputVariables(a1, b1, c1)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
+        assertEquals(reorderJoins.toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
     }
 
     @Test
@@ -142,12 +146,12 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(equiJoinClause(a1, b1)),
                 ImmutableList.of(a1, b1),
                 Optional.empty());
-        MultiJoinNode expected = MultiJoinNode.builder()
+        MultiJoinNode expected = reorderJoins.multiNodeBuilder()
                 .setSources(valuesA, valuesB, valuesC)
                 .setFilter(and(createEqualsExpression(b1, c1), createEqualsExpression(a1, b1)))
                 .setOutputVariables(a1, b1)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
+        assertEquals(reorderJoins.toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
     }
 
     @Test
@@ -162,14 +166,14 @@ public class TestJoinNodeFlattener
         ValuesNode valuesA = p.values(a1);
         ValuesNode valuesB = p.values(b1, b2);
         ValuesNode valuesC = p.values(c1, c2);
-        Expression bcFilter = and(
-                new ComparisonExpression(GREATER_THAN, new SymbolReference(c2.getName()), new LongLiteral("0")),
-                new ComparisonExpression(NOT_EQUAL, new SymbolReference(c2.getName()), new LongLiteral("7")),
-                new ComparisonExpression(GREATER_THAN, new SymbolReference(b2.getName()), new SymbolReference(c2.getName())));
-        ComparisonExpression abcFilter = new ComparisonExpression(
-                LESS_THAN,
-                new ArithmeticBinaryExpression(ADD, new SymbolReference(a1.getName()), new SymbolReference(c1.getName())),
-                new SymbolReference(b1.getName()));
+        RowExpression bcFilter = and(
+                standardExpressions.compare(OperatorType.GREATER_THAN, c2, constant(0L, BIGINT)),
+                standardExpressions.compare(OperatorType.NOT_EQUAL, c2, constant(7L, BIGINT)),
+                standardExpressions.compare(OperatorType.GREATER_THAN, b2, c2));
+        RowExpression abcFilter = standardExpressions.compare(
+                OperatorType.LESS_THAN,
+                standardExpressions.arithmetic(OperatorType.ADD, a1, c1),
+                b1);
         JoinNode joinNode = p.join(
                 INNER,
                 valuesA,
@@ -179,15 +183,15 @@ public class TestJoinNodeFlattener
                         valuesC,
                         ImmutableList.of(equiJoinClause(b1, c1)),
                         ImmutableList.of(b1, b2, c1, c2),
-                        Optional.of(castToRowExpression(bcFilter))),
+                        Optional.of(bcFilter)),
                 ImmutableList.of(equiJoinClause(a1, b1)),
                 ImmutableList.of(a1, b1, b2, c1, c2),
-                Optional.of(castToRowExpression(abcFilter)));
-        MultiJoinNode expected = new MultiJoinNode(
+                Optional.of(abcFilter));
+        MultiJoinNode expected = reorderJoins.createMultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
-                and(new ComparisonExpression(EQUAL, new SymbolReference(b1.getName()), new SymbolReference(c1.getName())), new ComparisonExpression(EQUAL, new SymbolReference(a1.getName()), new SymbolReference(b1.getName())), bcFilter, abcFilter),
+                and(standardExpressions.compare(OperatorType.EQUAL, b1, c1), standardExpressions.compare(OperatorType.EQUAL, a1, b1), bcFilter, abcFilter),
                 ImmutableList.of(a1, b1, b2, c1, c2));
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
+        assertEquals(reorderJoins.toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
     }
 
     @Test
@@ -233,12 +237,12 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(equiJoinClause(b1, e1)),
                 ImmutableList.of(a1, b1, c1, d1, d2, e1, e2),
                 Optional.empty());
-        MultiJoinNode expected = MultiJoinNode.builder()
+        MultiJoinNode expected = reorderJoins.multiNodeBuilder()
                 .setSources(valuesA, valuesB, valuesC, valuesD, valuesE)
                 .setFilter(and(createEqualsExpression(a1, b1), createEqualsExpression(a1, c1), createEqualsExpression(d1, e1), createEqualsExpression(d2, e2), createEqualsExpression(b1, e1)))
                 .setOutputVariables(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), 5), expected);
+        assertEquals(reorderJoins.toMultiJoinNode(joinNode, noLookup(), 5), expected);
     }
 
     @Test
@@ -286,17 +290,22 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(equiJoinClause(b1, e1)),
                 ImmutableList.of(a1, b1, c1, d1, d2, e1, e2),
                 Optional.empty());
-        MultiJoinNode expected = MultiJoinNode.builder()
+        MultiJoinNode expected = reorderJoins.multiNodeBuilder()
                 .setSources(join1, join2, valuesC)
                 .setFilter(and(createEqualsExpression(a1, c1), createEqualsExpression(b1, e1)))
                 .setOutputVariables(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), 2), expected);
+        assertEquals(reorderJoins.toMultiJoinNode(joinNode, noLookup(), 2), expected);
     }
 
-    private ComparisonExpression createEqualsExpression(VariableReferenceExpression left, VariableReferenceExpression right)
+    private RowExpression createEqualsExpression(VariableReferenceExpression left, VariableReferenceExpression right)
     {
-        return new ComparisonExpression(EQUAL, new SymbolReference(left.getName()), new SymbolReference(right.getName()));
+        return standardExpressions.compare(OperatorType.EQUAL, left, right);
+    }
+
+    private RowExpression and(RowExpression... expressions)
+    {
+        return logicalRowExpressions.and(expressions);
     }
 
     private EquiJoinClause equiJoinClause(VariableReferenceExpression variable1, VariableReferenceExpression variable2)

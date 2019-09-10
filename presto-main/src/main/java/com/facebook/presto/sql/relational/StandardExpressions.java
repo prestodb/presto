@@ -103,6 +103,15 @@ public class StandardExpressions
         return false;
     }
 
+    public Optional<OperatorType> getOperation(RowExpression expression)
+    {
+        if (expression instanceof CallExpression) {
+            CallExpression call = (CallExpression) expression;
+            return functionResolution.getOperator(call.getFunctionHandle());
+        }
+        return Optional.empty();
+    }
+
     public boolean isDeterministic(RowExpression expression)
     {
         return new RowExpressionDeterminismEvaluator(functionManager).isDeterministic(expression);

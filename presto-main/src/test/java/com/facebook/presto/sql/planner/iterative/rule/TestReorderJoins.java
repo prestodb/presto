@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.VariableStatsEstimate;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -495,6 +496,6 @@ public class TestReorderJoins
 
     private RuleAssert assertReorderJoins()
     {
-        return tester.assertThat(new ReorderJoins(new CostComparator(1, 1, 1)));
+        return tester.assertThat(new ReorderJoins(MetadataManager.createTestMetadataManager(), new CostComparator(1, 1, 1)));
     }
 }

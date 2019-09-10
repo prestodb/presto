@@ -423,18 +423,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new PushdownSubfields(metadata),
-
-                // Because ReorderJoins runs only once,
-                // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
-                // need to run beforehand in order to produce an optimal join order
-                // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new ReorderJoins(costComparator))));
-
+                new PushdownSubfields(metadata));
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
         builder.add(new IterativeOptimizer(
@@ -443,6 +432,17 @@ public class PlanOptimizers
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
+
+        // Because ReorderJoins runs only once,
+        // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
+        // need to run beforehand in order to produce an optimal join order
+        // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(new ReorderJoins(metadata, costComparator))));
+
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
 
         builder.add(new IterativeOptimizer(

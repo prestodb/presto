@@ -42,9 +42,9 @@ import java.util.LinkedHashSet;
 import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
-import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.generatePartitions;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static org.testng.Assert.assertEquals;
@@ -90,16 +90,16 @@ public class TestJoinEnumerator
     @Test
     public void testDoesNotCreateJoinWhenPartitionedOnCrossJoin()
     {
+        ReorderJoins rule = new ReorderJoins(queryRunner.getMetadata(), new CostComparator(1, 1, 1));
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         PlanBuilder p = new PlanBuilder(TEST_SESSION, idAllocator, queryRunner.getMetadata());
         VariableReferenceExpression a1 = p.variable("A1");
         VariableReferenceExpression b1 = p.variable("B1");
-        MultiJoinNode multiJoinNode = new MultiJoinNode(
+        MultiJoinNode multiJoinNode = rule.createMultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(p.values(a1), p.values(b1))),
-                TRUE_LITERAL,
+                TRUE_CONSTANT,
                 ImmutableList.of(a1, b1));
-        JoinEnumerator joinEnumerator = new JoinEnumerator(
-                new CostComparator(1, 1, 1),
+        JoinEnumerator joinEnumerator = rule.createJoinEnumerator(
                 multiJoinNode.getFilter(),
                 createContext());
         JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputVariables(), ImmutableSet.of(0));
