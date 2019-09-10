@@ -144,7 +144,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), newHashTableEntries),
+                new HashTables(Optional.ofNullable(newRawHashTables), length, newHashTableEntries),
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -218,6 +218,7 @@ public abstract class AbstractMapBlock
                 Integer.BYTES * HASH_MULTIPLIER * (long) usedEntryCount +
                 getHashTables().getInstanceSizeInBytes();
     }
+
     @Override
     public Block copyRegion(int position, int length)
     {
@@ -250,7 +251,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), expectedNewHashTableEntries),
+                new HashTables(Optional.ofNullable(newRawHashTables), length, expectedNewHashTableEntries),
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -305,7 +306,7 @@ public abstract class AbstractMapBlock
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), expectedNewHashTableEntries),
+                new HashTables(Optional.ofNullable(newRawHashTables), 1, expectedNewHashTableEntries),
                 keyType,
                 keyBlockNativeEquals,
                 keyNativeHashCode,
@@ -370,10 +371,13 @@ public abstract class AbstractMapBlock
         @Nullable
         private volatile int[] hashTables;
 
-        // The number of entries of hashTables array as if they are always built. It's used to calculate the retained size.
+        // The number of hash tables. Each map row corresponds to one hash table if it's built.
+        private int expectedHashTableCount;
+
+        // The total number of entries of all hashTables as if they are always built. It's used to calculate the retained size.
         private int expectedEntryCount;
 
-        HashTables(Optional<int[]> hashTables, int expectedEntryCount)
+        HashTables(Optional<int[]> hashTables, int expectedHashTableCount, int expectedEntryCount)
         {
             if (hashTables.isPresent() && hashTables.get().length != expectedEntryCount) {
                 throw new IllegalArgumentException("hashTables size does not match expectedEntryCount");
@@ -381,6 +385,7 @@ public abstract class AbstractMapBlock
 
             this.hashTables = hashTables.orElse(null);
             this.expectedEntryCount = expectedEntryCount;
+            this.expectedHashTableCount = expectedHashTableCount;
         }
 
         Optional<int[]> get()
@@ -395,6 +400,11 @@ public abstract class AbstractMapBlock
 
             // The passed in hashTables are always sized as if they are fully built.
             this.expectedEntryCount = hashTables.length;
+        }
+
+        int getExpectedHashTableCount()
+        {
+            return expectedHashTableCount;
         }
 
         public long getInstanceSizeInBytes()
