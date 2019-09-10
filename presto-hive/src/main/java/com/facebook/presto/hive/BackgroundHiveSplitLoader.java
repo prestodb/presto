@@ -508,7 +508,7 @@ public class BackgroundHiveSplitLoader
     private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
-        return stream(directoryLister.list(fileSystem, path, namenodeStats, RECURSE))
+        return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
                 .map(file -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, file.getPath());
                     return splitFactory.createInternalHiveSplit(file, virtualBucketNumber, virtualBucketNumber, splittable);
