@@ -47,7 +47,7 @@ public class QueryStatistics
     private final int completedSplits;
     private final boolean complete;
 
-    private final List<StageCpuDistribution> cpuTimeDistribution;
+    private final List<ResourceDistribution> cpuTimeDistribution;
 
     private final List<String> operatorSummaries;
 
@@ -72,7 +72,7 @@ public class QueryStatistics
             List<StageGcStatistics> stageGcStatistics,
             int completedSplits,
             boolean complete,
-            List<StageCpuDistribution> cpuTimeDistribution,
+            List<ResourceDistribution> cpuTimeDistribution,
             List<String> operatorSummaries)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
@@ -199,7 +199,7 @@ public class QueryStatistics
         return complete;
     }
 
-    public List<StageCpuDistribution> getCpuTimeDistribution()
+    public List<ResourceDistribution> getCpuTimeDistribution()
     {
         return cpuTimeDistribution;
     }
