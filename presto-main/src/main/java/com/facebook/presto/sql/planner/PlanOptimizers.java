@@ -386,8 +386,18 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new SimplifyCountOverConstant(metadata.getFunctionManager()))),
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
-                new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
-                new IterativeOptimizer(
+                new WindowFilterPushDown(metadata)); // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
+
+        // TODO: move this before optimization if possible!!
+        // Replace all expressions with row expressions
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                new TranslateExpressions(metadata, sqlParser).rules()));
+        // After this point, all planNodes should not contain OriginalExpression
+
+        builder.add(new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -402,18 +412,8 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
-
-        // TODO: move this before optimization if possible!!
-        // Replace all expressions with row expressions
-        builder.add(new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                new TranslateExpressions(metadata, sqlParser).rules()));
-        // After this point, all planNodes should not contain OriginalExpression
-
-        builder.add(new MetadataQueryOptimizer(metadata),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                new MetadataQueryOptimizer(metadata),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
