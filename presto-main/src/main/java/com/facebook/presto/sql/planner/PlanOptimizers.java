@@ -373,12 +373,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
-                                new PushAggregationThroughOuterJoin(metadata.getFunctionManager()))),
-                inlineProjections,
-                simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
-                projectionPushDown,
-                new UnaliasSymbolReferences(metadata.getFunctionManager()), // Run again because predicate pushdown and projection pushdown might add more projections
-                new PruneUnreferencedOutputs()); // Make sure to run this before index join. Filtered projections may not have all the columns.
+                                new PushAggregationThroughOuterJoin(metadata.getFunctionManager()))));
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -389,7 +384,12 @@ public class PlanOptimizers
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
 
-        builder.add(new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
+        builder.add(inlineProjections,
+                simplifyRowExpressionOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
+                projectionPushDown,
+                new UnaliasSymbolReferences(metadata.getFunctionManager()), // Run again because predicate pushdown and projection pushdown might add more projections
+                new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
+                new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
