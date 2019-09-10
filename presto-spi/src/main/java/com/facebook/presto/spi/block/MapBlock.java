@@ -333,9 +333,10 @@ public class MapBlock
                 return;
             }
 
-            int[] hashTables = new int[getRawKeyBlock().getPositionCount() * HASH_MULTIPLIER];
+            int keyPositionCount = getRawKeyBlock().getPositionCount();
+            int[] hashTables = new int[keyPositionCount * HASH_MULTIPLIER];
             Arrays.fill(hashTables, -1);
-            for (int i = startOffset; i < startOffset + positionCount; i++) {
+            for (int i = 0; i < offsets.length - 1; i++) {
                 int keyOffset = offsets[i];
                 int keyCount = offsets[i + 1] - keyOffset;
                 if (keyCount < 0) {
@@ -352,6 +353,10 @@ public class MapBlock
                         hashTables,
                         keyOffset * HASH_MULTIPLIER,
                         keyCount * HASH_MULTIPLIER);
+
+                if (offsets[i + 1] == keyPositionCount) {
+                    break;
+                }
             }
             this.hashTables.set(hashTables);
         }
