@@ -291,6 +291,40 @@ public class TestSelectiveOrcReader
     }
 
     @Test
+    public void testFilterOrder()
+            throws Exception
+    {
+        Random random = new Random(0);
+
+        tester.testRoundTripTypesWithOrder(ImmutableList.of(INTEGER, INTEGER),
+                ImmutableList.of(newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11)), NUM_ROWS)), randomIntegers(NUM_ROWS, random)),
+                toSubfieldFilters(
+                        ImmutableMap.of(
+                                0, BigintRange.of(1, 1, true),
+                                1, BigintRange.of(2, 200, true))),
+                ImmutableList.of(ImmutableList.of(0, 1)));
+
+        tester.testRoundTripTypesWithOrder(ImmutableList.of(INTEGER, INTEGER),
+                ImmutableList.of(newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11)), NUM_ROWS)), randomIntegers(NUM_ROWS, random)),
+                toSubfieldFilters(
+                        ImmutableMap.of(
+                                0, BigintRange.of(100, 100, false),
+                                1, BigintRange.of(2, 200, true))),
+                ImmutableList.of(ImmutableList.of(0)));
+
+        tester.testRoundTripTypesWithOrder(
+                ImmutableList.of(INTEGER, INTEGER, DOUBLE, arrayType(INTEGER)),
+                ImmutableList.of(newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11)), NUM_ROWS)), createList(NUM_ROWS, i -> random.nextInt(200)), doubleSequence(0, 0.1, NUM_ROWS), nCopies(NUM_ROWS, randomIntegers(5, random))),
+                ImmutableList.of(
+                        ImmutableMap.of(
+                                0, toSubfieldFilter(BigintRange.of(1, 1, true)),
+                                1, toSubfieldFilter(BigintRange.of(0, 200, true)),
+                                2, toSubfieldFilter(DoubleRange.of(0, false, false, 0.1, false, false, true)),
+                                3, toSubfieldFilter("c[1]", BigintRange.of(4, 4, false)))),
+                ImmutableList.of(ImmutableList.of(0, 1, 2, 3)));
+    }
+
+    @Test
     public void testArrays()
             throws Exception
     {

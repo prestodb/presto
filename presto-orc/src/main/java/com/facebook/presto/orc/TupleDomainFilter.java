@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -423,7 +425,8 @@ public interface TupleDomainFilter
         private final long lower;
         private final long upper;
 
-        private BigintRange(long lower, long upper, boolean nullAllowed)
+        @VisibleForTesting
+        protected BigintRange(long lower, long upper, boolean nullAllowed)
         {
             super(true, nullAllowed);
             checkArgument(lower <= upper, "lower must be less than or equal to upper");
@@ -614,7 +617,8 @@ public interface TupleDomainFilter
         private final double lower;
         private final double upper;
 
-        private DoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
+        @VisibleForTesting
+        protected DoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
             super(lowerUnbounded, lowerExclusive, upperUnbounded, upperExclusive, nullAllowed);
             this.lower = lower;
@@ -624,6 +628,16 @@ public interface TupleDomainFilter
         public static DoubleRange of(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
             return new DoubleRange(lower, lowerUnbounded, lowerExclusive, upper, upperUnbounded, upperExclusive, nullAllowed);
+        }
+
+        public double getLower()
+        {
+            return lower;
+        }
+
+        public double getUpper()
+        {
+            return upper;
         }
 
         @Override
