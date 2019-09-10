@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.orc.OrcBatchRecordReader;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterStats;
@@ -90,9 +91,10 @@ public final class OrcPageFileRewriter
     public OrcFileInfo rewrite(Map<String, Type> allColumnTypes, Path input, Path output, BitSet rowsToDelete)
             throws IOException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
+                OrcDataSource dataSource = orcDataEnvironment.createOrcDataSource(input, readerAttributes)) {
             OrcReader reader = new OrcReader(
-                    orcDataEnvironment.createOrcDataSource(input, readerAttributes),
+                    dataSource,
                     ORC,
                     readerAttributes.getMaxMergeDistance(),
                     readerAttributes.getTinyStripeThreshold(),
