@@ -90,7 +90,7 @@ public class TestEliminateSorts
     {
         List<PlanOptimizer> optimizersBeforeTranslation = ImmutableList.of(
                 new UnaliasSymbolReferences(getMetadata().getFunctionManager()),
-                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser()),
+                new AddExchanges(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
@@ -104,7 +104,7 @@ public class TestEliminateSorts
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         List<PlanOptimizer> optimizersAfterTranslation = ImmutableList.of(
-                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser()),
+                new AddExchanges(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),

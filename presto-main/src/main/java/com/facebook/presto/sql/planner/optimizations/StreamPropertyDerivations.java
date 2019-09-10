@@ -129,9 +129,7 @@ public final class StreamPropertyDerivations
                         .map(properties -> properties.otherActualProperties)
                         .collect(toImmutableList()),
                 metadata,
-                session,
-                types,
-                parser);
+                session);
 
         StreamProperties result = node.accept(new Visitor(metadata, session, types), inputProperties)
                 .withOtherActualProperties(otherProperties);
