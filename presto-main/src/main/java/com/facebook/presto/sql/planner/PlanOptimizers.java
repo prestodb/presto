@@ -408,9 +408,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new EliminateCrossJoins())), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
-                predicatePushDown,
-                simplifyOptimizer); // Should be always run after PredicatePushDown
+                        ImmutableSet.of(new EliminateCrossJoins()))); // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
         builder.add(new IterativeOptimizer(
@@ -420,7 +418,9 @@ public class PlanOptimizers
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
 
-        builder.add(new IterativeOptimizer(
+        builder.add(rowExpressionPredicatePushDown,
+                simplifyRowExpressionOptimizer, // Should be always run after PredicatePushDown
+                new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
