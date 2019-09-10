@@ -17,6 +17,10 @@ import com.facebook.hive.orc.OrcConf;
 import com.facebook.hive.orc.lazy.OrcLazyObject;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.orc.TrackingTupleDomainFilter.TestBigintRange;
+import com.facebook.presto.orc.TrackingTupleDomainFilter.TestDoubleRange;
+import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
+import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
@@ -47,6 +51,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -173,6 +178,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -479,25 +485,54 @@ public class OrcTester
     public void testRoundTripTypes(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
             throws Exception
     {
+        testRoundTripTypes(types, readValues, filters, ImmutableList.of());
+    }
+
+    public void testRoundTripTypes(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters, List<List<Integer>> expectedFilterOrder)
+            throws Exception
+    {
         assertEquals(types.size(), readValues.size());
+        if (!expectedFilterOrder.isEmpty()) {
+            assertEquals(filters.size(), expectedFilterOrder.size());
+        }
 
         // forward order
-        assertRoundTrip(types, readValues, filters);
+        assertRoundTrip(types, readValues, filters, expectedFilterOrder);
 
         // reverse order
         if (reverseTestsEnabled) {
-            assertRoundTrip(types, Lists.transform(readValues, OrcTester::reverse), filters);
+            assertRoundTrip(types, Lists.transform(readValues, OrcTester::reverse), filters, expectedFilterOrder);
         }
 
         if (nullTestsEnabled) {
             // forward order with nulls
-            assertRoundTrip(types, insertNulls(types, readValues), filters);
+            assertRoundTrip(types, insertNulls(types, readValues), filters, expectedFilterOrder);
 
             // reverse order with nulls
             if (reverseTestsEnabled) {
-                assertRoundTrip(types, insertNulls(types, Lists.transform(readValues, OrcTester::reverse)), filters);
+                assertRoundTrip(types, insertNulls(types, Lists.transform(readValues, OrcTester::reverse)), filters, expectedFilterOrder);
             }
         }
+    }
+
+    public void testRoundTripTypesWithOrder(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters, List<List<Integer>> expectedFilterOrder)
+            throws Exception
+    {
+        assertNotNull(expectedFilterOrder);
+        assertEquals(filters.size(), expectedFilterOrder.size());
+
+        // Forward order
+        testRoundTripTypes(types, readValues, filters, expectedFilterOrder);
+
+        // Reverse order
+        int columnCount = types.size();
+        List<Map<Integer, Map<Subfield, TupleDomainFilter>>> reverseFilters = filters.stream()
+                .map(filtersEntry -> filtersEntry.entrySet().stream().collect(toImmutableMap(entry -> columnCount - 1 - entry.getKey(), Entry::getValue)))
+                .collect(toImmutableList());
+        List<List<Integer>> reverseFilterOrder = expectedFilterOrder.stream()
+                .map(columns -> columns.stream().map(column -> columnCount - 1 - column).collect(toImmutableList()))
+                .collect(toImmutableList());
+        testRoundTripTypes(Lists.reverse(types), Lists.reverse(readValues), reverseFilters, reverseFilterOrder);
     }
 
     private List<List<?>> insertNulls(List<Type> types, List<List<?>> values)
@@ -527,19 +562,19 @@ public class OrcTester
         assertRoundTrip(type, type, readValues, readValues, verifyWithHiveReader, ImmutableList.of());
     }
 
-    public void assertRoundTrip(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
+    public void assertRoundTrip(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters, List<List<Integer>> expectedFilterOrder)
             throws Exception
     {
-        assertRoundTrip(types, types, readValues, readValues, true, filters);
+        assertRoundTrip(types, types, readValues, readValues, true, filters, expectedFilterOrder);
     }
 
     private void assertRoundTrip(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean verifyWithHiveReader, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
             throws Exception
     {
-        assertRoundTrip(ImmutableList.of(writeType), ImmutableList.of(readType), ImmutableList.of(writeValues), ImmutableList.of(readValues), verifyWithHiveReader, filters);
+        assertRoundTrip(ImmutableList.of(writeType), ImmutableList.of(readType), ImmutableList.of(writeValues), ImmutableList.of(readValues), verifyWithHiveReader, filters, ImmutableList.of());
     }
 
-    private void assertRoundTrip(List<Type> writeTypes, List<Type> readTypes, List<List<?>> writeValues, List<List<?>> readValues, boolean verifyWithHiveReader, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
+    private void assertRoundTrip(List<Type> writeTypes, List<Type> readTypes, List<List<?>> writeValues, List<List<?>> readValues, boolean verifyWithHiveReader, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters, List<List<Integer>> expectedFilterOrder)
             throws Exception
     {
         assertEquals(writeTypes.size(), readTypes.size());
@@ -560,7 +595,7 @@ public class OrcTester
                 if (hiveSupported) {
                     try (TempFile tempFile = new TempFile()) {
                         writeOrcColumnsHive(tempFile.getFile(), format, compression, writeTypes, writeValues);
-                        assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, true, useSelectiveOrcReader, filters);
+                        assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, true, useSelectiveOrcReader, filters, expectedFilterOrder);
                     }
                 }
 
@@ -572,14 +607,14 @@ public class OrcTester
                         assertFileContentsHive(readTypes, tempFile, format, readValues);
                     }
 
-                    assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, false, useSelectiveOrcReader, filters);
+                    assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, false, useSelectiveOrcReader, filters, expectedFilterOrder);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContentsPresto(readTypes, tempFile, readValues, true, false, orcEncoding, format, false, useSelectiveOrcReader, filters);
+                        assertFileContentsPresto(readTypes, tempFile, readValues, true, false, orcEncoding, format, false, useSelectiveOrcReader, filters, expectedFilterOrder);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContentsPresto(readTypes, tempFile, readValues, false, true, orcEncoding, format, false, useSelectiveOrcReader, filters);
+                        assertFileContentsPresto(readTypes, tempFile, readValues, false, true, orcEncoding, format, false, useSelectiveOrcReader, filters, expectedFilterOrder);
                     }
                 }
             }
@@ -641,6 +676,22 @@ public class OrcTester
         }
     }
 
+    private static Map<Integer, Map<Subfield, TupleDomainFilter>> addOrderTracking(Map<Integer, Map<Subfield, TupleDomainFilter>> filters, TupleDomainFilterOrderChecker orderChecker)
+    {
+        return Maps.transformEntries(filters, (column, columnFilters) -> Maps.transformValues(columnFilters, filter -> addOrderTracking(filter, orderChecker, column)));
+    }
+
+    private static TupleDomainFilter addOrderTracking(TupleDomainFilter filter, TupleDomainFilterOrderChecker orderChecker, int column)
+    {
+        if (filter instanceof BigintRange) {
+            return TestBigintRange.of((BigintRange) filter, unused -> orderChecker.call(column));
+        }
+        if (filter instanceof DoubleRange) {
+            return TestDoubleRange.of((DoubleRange) filter, unused -> orderChecker.call(column));
+        }
+        throw new UnsupportedOperationException("Unsupported filter type: " + filter.getClass().getSimpleName());
+    }
+
     private static void assertFileContentsPresto(
             List<Type> types,
             TempFile tempFile,
@@ -651,15 +702,27 @@ public class OrcTester
             Format format,
             boolean isHiveWriter,
             boolean useSelectiveOrcReader,
-            List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
-            throws IOException
+            List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters,
+            List<List<Integer>> expectedFilterOrder)
+            throws Exception
     {
         OrcPredicate orcPredicate = createOrcPredicate(types, expectedValues, format, isHiveWriter);
         if (useSelectiveOrcReader) {
             assertFileContentsPresto(types, tempFile.getFile(), expectedValues, orcEncoding, orcPredicate, Optional.empty(), ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of());
+            for (int i = 0; i < filters.size(); i++) {
+                Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters = filters.get(i);
+                List<List<?>> filteredRows = filterRows(types, expectedValues, columnFilters);
 
-            for (Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters : filters) {
-                assertFileContentsPresto(types, tempFile.getFile(), filterRows(types, expectedValues, columnFilters), orcEncoding, orcPredicate, Optional.of(columnFilters), ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of());
+                Optional<TupleDomainFilterOrderChecker> orderChecker = Optional.empty();
+                if (!expectedFilterOrder.isEmpty()) {
+                    orderChecker = Optional.of(new TupleDomainFilterOrderChecker(expectedFilterOrder.get(i)));
+                }
+
+                Optional<Map<Integer, Map<Subfield, TupleDomainFilter>>> transformedFilters = Optional.of(orderChecker.map(checker -> addOrderTracking(columnFilters, checker)).orElse(columnFilters));
+
+                assertFileContentsPresto(types, tempFile.getFile(), filteredRows, orcEncoding, orcPredicate, transformedFilters, ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of());
+
+                orderChecker.ifPresent(TupleDomainFilterOrderChecker::assertOrder);
             }
 
             return;
