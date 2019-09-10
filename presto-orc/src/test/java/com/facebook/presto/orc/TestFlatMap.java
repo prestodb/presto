@@ -397,7 +397,6 @@ public class TestFlatMap
                 OrcEncoding.DWRF,
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
                 new DataSize(1, DataSize.Unit.MEGABYTE));
         Type mapType = TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,

@@ -18,12 +18,14 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.function.LongUnaryOperator;
 
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -43,7 +45,7 @@ public final class GenericLongFunction
 
     GenericLongFunction(String suffix, LongUnaryOperator longUnaryOperator)
     {
-        super(new Signature("generic_long_" + requireNonNull(suffix, "suffix is null"), SCALAR,
+        super(new Signature(FullyQualifiedName.of(DEFAULT_NAMESPACE, "generic_long_" + requireNonNull(suffix, "suffix is null")), SCALAR,
                 emptyList(), emptyList(), parseTypeSignature(BIGINT), singletonList(parseTypeSignature(BIGINT)), false));
         this.longUnaryOperator = longUnaryOperator;
     }

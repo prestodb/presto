@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
@@ -26,6 +27,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -43,7 +45,7 @@ public class StatefulSleepingSum
     private StatefulSleepingSum()
     {
         super(new Signature(
-                "stateful_sleeping_sum",
+                FullyQualifiedName.of(DEFAULT_NAMESPACE, "stateful_sleeping_sum"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("bigint")),
                 ImmutableList.of(),

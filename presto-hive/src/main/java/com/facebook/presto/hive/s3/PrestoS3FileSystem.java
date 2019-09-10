@@ -876,7 +876,10 @@ public class PrestoS3FileSystem
                                 while (read < length) {
                                     int n = stream.read(buffer, offset + read, length - read);
                                     if (n <= 0) {
-                                        break;
+                                        if (read > 0) {
+                                            return read;
+                                        }
+                                        return -1;
                                     }
                                     read += n;
                                 }

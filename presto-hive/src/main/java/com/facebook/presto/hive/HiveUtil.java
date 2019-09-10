@@ -19,6 +19,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
@@ -28,8 +29,13 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -1059,5 +1065,63 @@ public final class HiveUtil
         }
 
         return physicalNameOrdinalMap.build();
+    }
+
+    public static List<ColumnMetadata> assignFieldNamesForAnonymousRowColumns(List<ColumnMetadata> columns, TypeManager typeManager)
+    {
+        return columns.stream()
+                .map(column -> new ColumnMetadata(
+                        column.getName(),
+                        typeManager.getType(assignFieldNamesForAnonymousRowType(column.getType().getTypeSignature())),
+                        column.isNullable(),
+                        column.getComment(),
+                        column.getExtraInfo(),
+                        column.isHidden(),
+                        column.getProperties()))
+                .collect(toImmutableList());
+    }
+
+    private static TypeSignature assignFieldNamesForAnonymousRowType(TypeSignature typeSignature)
+    {
+        List<TypeSignatureParameter> parameters = typeSignature.getParameters();
+
+        if (typeSignature.getBase().equals(StandardTypes.ROW)) {
+            ImmutableList.Builder<TypeSignatureParameter> updatedParameters = ImmutableList.builder();
+            for (int i = 0; i < parameters.size(); i++) {
+                TypeSignatureParameter typeSignatureParameter = parameters.get(i);
+                checkArgument(typeSignatureParameter.isNamedTypeSignature(), "unexpected row type signature parameter: %s", typeSignatureParameter);
+                NamedTypeSignature namedTypeSignature = typeSignatureParameter.getNamedTypeSignature();
+                updatedParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                        Optional.of(namedTypeSignature.getFieldName().orElse(new RowFieldName("_field_" + i, false))),
+                        assignFieldNamesForAnonymousRowType(namedTypeSignature.getTypeSignature()))));
+            }
+            return new TypeSignature(StandardTypes.ROW, updatedParameters.build());
+        }
+
+        if (!parameters.isEmpty()) {
+            ImmutableList.Builder<TypeSignatureParameter> updatedParameters = ImmutableList.builder();
+            for (TypeSignatureParameter parameter : parameters) {
+                switch (parameter.getKind()) {
+                    case LONG:
+                    case VARIABLE:
+                        updatedParameters.add(parameter);
+                        continue;
+                    case TYPE:
+                        updatedParameters.add(TypeSignatureParameter.of(assignFieldNamesForAnonymousRowType(parameter.getTypeSignature())));
+                        break;
+                    case NAMED_TYPE:
+                        NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
+                        updatedParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(
+                                namedTypeSignature.getFieldName(),
+                                assignFieldNamesForAnonymousRowType(namedTypeSignature.getTypeSignature()))));
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unexpected parameter type: " + parameter.getKind());
+                }
+            }
+            return new TypeSignature(typeSignature.getBase(), updatedParameters.build());
+        }
+
+        return typeSignature;
     }
 }

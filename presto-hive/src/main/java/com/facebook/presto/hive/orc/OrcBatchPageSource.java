@@ -23,9 +23,9 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +46,6 @@ import static java.util.Objects.requireNonNull;
 public class OrcBatchPageSource
         implements ConnectorPageSource
 {
-    private static final int NULL_ENTRY_SIZE = 0;
     private final OrcBatchRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
@@ -96,11 +95,7 @@ public class OrcBatchPageSource
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
             if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
-                BlockBuilder blockBuilder = type.createBlockBuilder(null, MAX_BATCH_SIZE, NULL_ENTRY_SIZE);
-                for (int i = 0; i < MAX_BATCH_SIZE; i++) {
-                    blockBuilder.appendNull();
-                }
-                constantBlocks[columnIndex] = blockBuilder.build();
+                constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_BATCH_SIZE);
             }
         }
         types = typesBuilder.build();

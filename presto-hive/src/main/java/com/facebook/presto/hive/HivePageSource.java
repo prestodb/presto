@@ -474,13 +474,14 @@ public class HivePageSource
             ColumnarMap mapBlock = toColumnarMap(block);
             Block keysBlock = keyCoercer == null ? mapBlock.getKeysBlock() : keyCoercer.apply(mapBlock.getKeysBlock());
             Block valuesBlock = valueCoercer == null ? mapBlock.getValuesBlock() : valueCoercer.apply(mapBlock.getValuesBlock());
-            boolean[] valueIsNull = new boolean[mapBlock.getPositionCount()];
-            int[] offsets = new int[mapBlock.getPositionCount() + 1];
-            for (int i = 0; i < mapBlock.getPositionCount(); i++) {
+            int positionCount = mapBlock.getPositionCount();
+            boolean[] valueIsNull = new boolean[positionCount];
+            int[] offsets = new int[positionCount + 1];
+            for (int i = 0; i < positionCount; i++) {
                 valueIsNull[i] = mapBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
             }
-            return ((MapType) toType).createBlockFromKeyValue(Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
+            return ((MapType) toType).createBlockFromKeyValue(positionCount, Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
         }
     }
 

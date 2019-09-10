@@ -31,14 +31,16 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -55,6 +57,7 @@ public class ByteSelectiveStreamReader
     private final boolean nullsAllowed;
     private final boolean outputRequired;
     private final LocalMemoryContext systemMemoryContext;
+    private final boolean nonDeterministicFilter;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     private InputStreamSource<ByteInputStream> dataStreamSource = missingStreamSource(ByteInputStream.class);
@@ -73,6 +76,7 @@ public class ByteSelectiveStreamReader
     @Nullable
     private int[] outputPositions;
     private int outputPositionCount;
+    private boolean outputPositionsReadOnly;
     private boolean allNulls;
     private boolean valuesInUse;
 
@@ -86,7 +90,8 @@ public class ByteSelectiveStreamReader
         this.filter = filter.orElse(null);
         this.outputRequired = outputRequired;
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.nullsAllowed = this.filter == null || this.filter.testNull();
+        this.nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
+        this.nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
     }
 
     @Override
@@ -146,6 +151,7 @@ public class ByteSelectiveStreamReader
         }
         else {
             outputPositions = positions;
+            outputPositionsReadOnly = true;
         }
 
         // account memory used by values, nulls and outputPositions
@@ -183,7 +189,7 @@ public class ByteSelectiveStreamReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if (nullsAllowed) {
+                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                     if (outputRequired) {
                         nulls[outputPositionCount] = true;
                     }
@@ -205,6 +211,21 @@ public class ByteSelectiveStreamReader
                 }
             }
             streamPosition++;
+
+            if (filter != null) {
+                outputPositionCount -= filter.getPrecedingPositionsToFail();
+                int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
+                if (succeedingPositionsToFail > 0) {
+                    int positionsToSkip = 0;
+                    for (int j = 0; j < succeedingPositionsToFail; j++) {
+                        i++;
+                        int nextPosition = positions[i];
+                        positionsToSkip += 1 + nextPosition - streamPosition;
+                        streamPosition = nextPosition + 1;
+                    }
+                    skip(positionsToSkip);
+                }
+            }
         }
         return streamPosition;
     }
@@ -214,14 +235,26 @@ public class ByteSelectiveStreamReader
     {
         presentStream.skip(positions[positionCount - 1]);
 
-        if (nullsAllowed) {
+        if (nonDeterministicFilter) {
+            outputPositionCount = 0;
+            for (int i = 0; i < positionCount; i++) {
+                if (filter.testNull()) {
+                    outputPositionCount++;
+                }
+                else {
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+                    i += filter.getSucceedingPositionsToFail();
+                }
+            }
+        }
+        else if (nullsAllowed) {
             outputPositionCount = positionCount;
-            allNulls = true;
         }
         else {
             outputPositionCount = 0;
         }
 
+        allNulls = true;
         return positions[positionCount - 1] + 1;
     }
 
@@ -366,6 +399,11 @@ public class ByteSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
+        if (outputPositionsReadOnly) {
+            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+            outputPositionsReadOnly = false;
+        }
+
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         for (int i = 0; i < outputPositionCount; i++) {
@@ -389,6 +427,14 @@ public class ByteSelectiveStreamReader
         }
 
         outputPositionCount = positionCount;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .addValue(streamDescriptor)
+                .toString();
     }
 
     @Override

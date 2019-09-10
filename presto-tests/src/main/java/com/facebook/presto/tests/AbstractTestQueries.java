@@ -16,8 +16,8 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
@@ -643,6 +643,14 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (SELECT custkey FROM orders ORDER BY orderkey LIMIT 1) CROSS JOIN (VALUES (10, 1), (20, 2), (30, 3))");
 
         assertQuery("SELECT * FROM orders, UNNEST(ARRAY[1])", "SELECT orders.*, 1 FROM orders");
+        assertQuery("SELECT a FROM (" +
+                        "    SELECT l.arr AS arr FROM (" +
+                        "        SELECT orderkey, ARRAY[1,2,3] AS arr FROM orders ORDER BY orderkey LIMIT 1) l" +
+                        "    FULL OUTER JOIN (" +
+                        "        SELECT orderkey, ARRAY[1,2,3] AS arr FROM orders ORDER BY orderkey LIMIT 1) o" +
+                        "    ON l.orderkey = o.orderkey) " +
+                        "CROSS JOIN UNNEST(arr) AS t (a)",
+                "SELECT * FROM (VALUES (1), (2), (3))");
 
         assertQueryFails(
                 "SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN UNNEST(x) ON true",

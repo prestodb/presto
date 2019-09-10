@@ -25,6 +25,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
@@ -330,8 +331,8 @@ public class PushAggregationThroughOuterJoin
                     aggregation.getOrderBy().map(orderBy -> inlineOrderByVariables(sourcesVariableMapping, orderBy)),
                     aggregation.isDistinct(),
                     aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getName(), x.getType())));
-            String functionName = functionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
-            VariableReferenceExpression overNull = variableAllocator.newVariable(functionName, aggregationVariable.getType());
+            FullyQualifiedName functionName = functionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
+            VariableReferenceExpression overNull = variableAllocator.newVariable(functionName.getSuffix(), aggregationVariable.getType());
             aggregationsOverNullBuilder.put(overNull, overNullAggregation);
             aggregationsVariableMappingBuilder.put(aggregationVariable, overNull);
         }

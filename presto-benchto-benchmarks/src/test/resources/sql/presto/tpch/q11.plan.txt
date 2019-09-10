@@ -4,7 +4,7 @@ remote exchange (GATHER, SINGLE, [])
             cross join:
                 final aggregation over (partkey)
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["partkey"])
+                        remote exchange (REPARTITION, HASH, [partkey])
                             partial aggregation over (partkey)
                                 join (INNER, REPLICATED):
                                     scan partsupp

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Subfield;
@@ -25,10 +26,15 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
+import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveTableLayoutHandle
@@ -36,13 +42,18 @@ public final class HiveTableLayoutHandle
 {
     private final SchemaTableName schemaTableName;
     private final List<ColumnHandle> partitionColumns;
-    private final List<HivePartition> partitions;
     private final TupleDomain<Subfield> domainPredicate;
     private final RowExpression remainingPredicate;
     private final Map<String, HiveColumnHandle> predicateColumns;
     private final TupleDomain<ColumnHandle> partitionColumnPredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
+
+    // coordinator-only properties
+    @Nullable
+    private final List<HivePartition> partitions;
+
+    private final String layoutString;
 
     @JsonCreator
     public HiveTableLayoutHandle(
@@ -64,6 +75,12 @@ public final class HiveTableLayoutHandle
         this.partitions = null;
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
+
+        // on a worker
+        layoutString = toStringHelper(schemaTableName.toString())
+                .omitNullValues()
+                .add("buckets", bucketHandle.map(HiveBucketHandle::getReadBucketCount).orElse(null))
+                .toString();
     }
 
     public HiveTableLayoutHandle(
@@ -75,7 +92,9 @@ public final class HiveTableLayoutHandle
             Map<String, HiveColumnHandle> predicateColumns,
             TupleDomain<ColumnHandle> partitionColumnPredicate,
             Optional<HiveBucketHandle> bucketHandle,
-            Optional<HiveBucketFilter> bucketFilter)
+            Optional<HiveBucketFilter> bucketFilter,
+            ConnectorSession session,
+            Function<RowExpression, String> rowExpressionFormatter)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
@@ -86,6 +105,17 @@ public final class HiveTableLayoutHandle
         this.partitionColumnPredicate = requireNonNull(partitionColumnPredicate, "partitionColumnPredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
+
+        // on coordinator
+        requireNonNull(session, "session is null");
+        requireNonNull(rowExpressionFormatter, "rowExpressionFormatter is null");
+
+        layoutString = toStringHelper(schemaTableName.toString())
+                .omitNullValues()
+                .add("buckets", bucketHandle.map(HiveBucketHandle::getReadBucketCount).orElse(null))
+                .add("filter", TRUE_CONSTANT.equals(remainingPredicate) ? null : rowExpressionFormatter.apply(remainingPredicate))
+                .add("domains", domainPredicate.isAll() ? null : domainPredicate.toString(session))
+                .toString();
     }
 
     @JsonProperty
@@ -150,11 +180,6 @@ public final class HiveTableLayoutHandle
     @Override
     public String toString()
     {
-        StringBuilder result = new StringBuilder();
-        result.append(schemaTableName.toString());
-        if (bucketHandle.isPresent()) {
-            result.append(" bucket=").append(bucketHandle.get().getReadBucketCount());
-        }
-        return result.toString();
+        return layoutString;
     }
 }

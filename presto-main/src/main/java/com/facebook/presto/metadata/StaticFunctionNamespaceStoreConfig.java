@@ -13,9 +13,26 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.function.FunctionHandle;
+import io.airlift.configuration.Config;
 
-public interface FunctionHandleResolver
+import javax.validation.constraints.NotNull;
+
+import java.io.File;
+
+public class StaticFunctionNamespaceStoreConfig
 {
-    Class<? extends FunctionHandle> getFunctionHandleClass();
+    private File functionNamespaceConfigurationDir = new File("etc/function-namespace/");
+
+    @NotNull
+    public File getFunctionNamespaceConfigurationDir()
+    {
+        return functionNamespaceConfigurationDir;
+    }
+
+    @Config("function-namespace.config-dir")
+    public StaticFunctionNamespaceStoreConfig setFunctionNamespaceConfigurationDir(File dir)
+    {
+        this.functionNamespaceConfigurationDir = dir;
+        return this;
+    }
 }

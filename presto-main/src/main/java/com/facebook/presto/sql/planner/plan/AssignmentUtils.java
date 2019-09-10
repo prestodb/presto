@@ -28,6 +28,7 @@ import java.util.stream.Collector;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonMap;
 
@@ -65,11 +66,20 @@ public class AssignmentUtils
         return builder.build();
     }
 
+    public static Assignments identityAssignments(VariableReferenceExpression... variables)
+    {
+        return identityAssignments(asList(variables));
+    }
+
     public static boolean isIdentity(Assignments assignments, VariableReferenceExpression output)
     {
         //TODO this will be checking against VariableExpression once getOutput returns VariableReferenceExpression
-        Expression expression = castToExpression(assignments.get(output));
-        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
+        RowExpression value = assignments.get(output);
+        if (isExpression(value)) {
+            Expression expression = castToExpression(value);
+            return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
+        }
+        return value instanceof VariableReferenceExpression && ((VariableReferenceExpression) value).getName().equals(output.getName());
     }
 
     @Deprecated

@@ -101,13 +101,13 @@ public class ParquetPageSource
             typesBuilder.add(type);
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
-            if (getParquetType(column, fileSchema, useParquetColumnNames) == null) {
-                constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_VECTOR_LENGTH);
-                fieldsBuilder.add(Optional.empty());
-            }
-            else {
+            if (getParquetType(type, fileSchema, useParquetColumnNames, column.getName(), column.getHiveColumnIndex(), column.getHiveType()).isPresent()) {
                 String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
                 fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
+            }
+            else {
+                constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_VECTOR_LENGTH);
+                fieldsBuilder.add(Optional.empty());
             }
         }
         types = typesBuilder.build();

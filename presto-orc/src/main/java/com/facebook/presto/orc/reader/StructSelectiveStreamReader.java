@@ -1,0 +1,608 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.orc.reader;
+
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.TupleDomainFilter;
+import com.facebook.presto.orc.metadata.ColumnEncoding;
+import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.InputStreamSource;
+import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockLease;
+import com.facebook.presto.spi.block.ClosingBlockLease;
+import com.facebook.presto.spi.block.RowBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import org.joda.time.DateTimeZone;
+import org.openjdk.jol.info.ClassLayout;
+
+import javax.annotation.Nullable;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+
+import static com.facebook.presto.array.Arrays.ensureCapacity;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static java.util.Objects.requireNonNull;
+
+public class StructSelectiveStreamReader
+        implements SelectiveStreamReader
+{
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructSelectiveStreamReader.class).instanceSize();
+
+    private final StreamDescriptor streamDescriptor;
+    private final boolean nullsAllowed;
+    private final boolean nonNullsAllowed;
+    private final boolean outputRequired;
+    @Nullable
+    private final Type outputType;
+
+    private final Map<String, SelectiveStreamReader> nestedReaders;
+
+    private final LocalMemoryContext systemMemoryContext;
+
+    private int readOffset;
+    private int nestedReadOffset;
+
+    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    @Nullable
+    private BooleanInputStream presentStream;
+
+    private boolean rowGroupOpen;
+    private boolean[] nulls;
+    private int[] outputPositions;
+    private int outputPositionCount;
+    private boolean outputPositionsReadOnly;
+    private boolean allNulls;
+    private int[] nestedPositions;
+    private int[] nestedOutputPositions;
+    private int nestedOutputPositionCount;
+
+    private boolean valuesInUse;
+
+    public StructSelectiveStreamReader(
+            StreamDescriptor streamDescriptor,
+            Map<Subfield, TupleDomainFilter> filters,
+            List<Subfield> requiredSubfields,
+            Optional<Type> outputType,
+            DateTimeZone hiveStorageTimeZone,
+            AggregatedMemoryContext systemMemoryContext)
+    {
+        checkArgument(filters.keySet().stream().map(Subfield::getPath).allMatch(List::isEmpty), "filters on nested columns are not supported yet");
+
+        this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null").newLocalMemoryContext(StructSelectiveStreamReader.class.getSimpleName());
+        this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
+        this.outputType = outputType.orElse(null);
+
+        TupleDomainFilter filter = getTopLevelFilter(filters).orElse(null);
+        this.nullsAllowed = filter == null || filter.testNull();
+        this.nonNullsAllowed = filter == null || filter.testNonNull();
+
+        Optional<List<Type>> nestedTypes = outputType.map(type -> type.getTypeParameters());
+        List<StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams();
+
+        Optional<Map<String, List<Subfield>>> requiredFields = getRequiredFields(requiredSubfields);
+
+        // TODO streamDescriptor may be missing some fields (due to schema evolution, e.g. add field?)
+        // TODO fields in streamDescriptor may be out of order (due to schema evolution, e.g. remove field?)
+
+        ImmutableMap.Builder<String, SelectiveStreamReader> nestedReaders = ImmutableMap.builder();
+        for (int i = 0; i < nestedStreams.size(); i++) {
+            StreamDescriptor nestedStream = nestedStreams.get(i);
+            String fieldName = nestedStream.getFieldName().toLowerCase(Locale.ENGLISH);
+            Optional<Type> fieldOutputType = nestedTypes.isPresent() ? Optional.of(nestedTypes.get().get(i)) : Optional.empty();
+            boolean requiredField = requiredFields.map(names -> names.containsKey(fieldName)).orElse(true);
+
+            if (requiredField) {
+                List<Subfield> nestedRequiredSubfields = requiredFields.map(names -> names.get(fieldName)).orElse(ImmutableList.of());
+                SelectiveStreamReader nestedReader = SelectiveStreamReaders.createStreamReader(
+                        nestedStream,
+                        ImmutableMap.of(),
+                        fieldOutputType,
+                        nestedRequiredSubfields,
+                        hiveStorageTimeZone,
+                        systemMemoryContext.newAggregatedMemoryContext());
+                nestedReaders.put(fieldName, nestedReader);
+            }
+            else {
+                nestedReaders.put(fieldName, new PruningStreamReader(nestedStream, fieldOutputType));
+            }
+        }
+        this.nestedReaders = nestedReaders.build();
+    }
+
+    @Override
+    public int read(int offset, int[] positions, int positionCount)
+            throws IOException
+    {
+        checkArgument(positionCount > 0, "positionCount must be greater than zero");
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
+        if (!rowGroupOpen) {
+            openRowGroup();
+        }
+
+        allNulls = false;
+
+        if (!nullsAllowed || !nonNullsAllowed) {
+            outputPositions = ensureCapacity(outputPositions, positionCount);
+        }
+        else {
+            outputPositions = positions;
+            outputPositionsReadOnly = true;
+        }
+
+        systemMemoryContext.setBytes(getRetainedSizeInBytes());
+
+        if (presentStream == null) {
+            // no nulls
+            if (nonNullsAllowed) {
+                readNestedStreams(offset, positions, positionCount);
+                readOffset = offset + positions[positionCount - 1];
+                outputPositions = positions;
+                outputPositionCount = positionCount;
+                outputPositionsReadOnly = true;
+            }
+            else {
+                outputPositionCount = 0;
+            }
+        }
+        else {
+            // some or all nulls
+            if (readOffset < offset) {
+                nestedReadOffset += presentStream.countBitsSet(offset - readOffset);
+            }
+
+            nulls = ensureCapacity(nulls, positionCount);
+            nestedPositions = ensureCapacity(nestedPositions, positionCount);
+            outputPositionCount = 0;
+
+            int streamPosition = 0;
+            int nestedPositionCount = 0;
+            int nullCount = 0;
+
+            for (int i = 0; i < positionCount; i++) {
+                int position = positions[i];
+                if (position > streamPosition) {
+                    int nonNullCount = presentStream.countBitsSet(position - streamPosition);
+                    nullCount += position - streamPosition - nonNullCount;
+                    streamPosition = position;
+                }
+
+                streamPosition++;
+
+                if (presentStream.nextBit()) {
+                    // not null
+                    if (nonNullsAllowed) {
+                        nulls[outputPositionCount] = false;
+                        if (!nullsAllowed) {
+                            outputPositions[outputPositionCount] = position;
+                        }
+                        outputPositionCount++;
+                        nestedPositions[nestedPositionCount++] = position - nullCount;
+                    }
+                }
+                else {
+                    // null
+                    if (nullsAllowed) {
+                        nulls[outputPositionCount] = true;
+                        if (!nonNullsAllowed) {
+                            outputPositions[outputPositionCount] = position;
+                        }
+                        outputPositionCount++;
+                    }
+                    nullCount++;
+                }
+            }
+
+            if (nestedPositionCount > 0) {
+                readNestedStreams(nestedReadOffset, nestedPositions, nestedPositionCount);
+            }
+            else {
+                allNulls = true;
+            }
+
+            readOffset = offset + streamPosition;
+            nestedReadOffset += streamPosition - nullCount;
+        }
+
+        return outputPositionCount;
+    }
+
+    private void readNestedStreams(int offset, int[] positions, int positionCount)
+            throws IOException
+    {
+        for (SelectiveStreamReader reader : nestedReaders.values()) {
+            reader.read(offset, positions, positionCount);
+        }
+
+        nestedOutputPositions = ensureCapacity(nestedOutputPositions, positionCount);
+        System.arraycopy(positions, 0, nestedOutputPositions, 0, positionCount);
+        nestedOutputPositionCount = positionCount;
+    }
+
+    private void openRowGroup()
+            throws IOException
+    {
+        presentStream = presentStreamSource.openStream();
+
+        rowGroupOpen = true;
+    }
+
+    @Override
+    public int[] getReadPositions()
+    {
+        return outputPositions;
+    }
+
+    @Override
+    public Block getBlock(int[] positions, int positionCount)
+    {
+        checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
+        checkState(outputRequired, "This stream reader doesn't produce output");
+        checkState(positionCount <= outputPositionCount, "Not enough values");
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
+        if (allNulls) {
+            return createNullBlock(outputType, positionCount);
+        }
+
+        boolean includeNulls = nullsAllowed && presentStream != null;
+        if (outputPositionCount == positionCount) {
+            Block block = RowBlock.fromFieldBlocks(positionCount, Optional.ofNullable(includeNulls ? nulls : null), getFieldBlocks());
+            nulls = null;
+            return block;
+        }
+
+        boolean[] nullsCopy = null;
+        if (includeNulls) {
+            nullsCopy = new boolean[positionCount];
+        }
+
+        int positionIndex = 0;
+        int nextPosition = positions[positionIndex];
+        int nestedIndex = 0;
+        nestedOutputPositionCount = 0;
+
+        for (int i = 0; i < outputPositionCount; i++) {
+            if (outputPositions[i] < nextPosition) {
+                if (!includeNulls || !nulls[i]) {
+                    nestedIndex++;
+                }
+                continue;
+            }
+
+            assert outputPositions[i] == nextPosition;
+
+            if (!includeNulls || !nulls[i]) {
+                nestedOutputPositions[nestedOutputPositionCount++] = nestedOutputPositions[nestedIndex];
+                nestedIndex++;
+            }
+            if (nullsCopy != null) {
+                nullsCopy[positionIndex] = this.nulls[i];
+            }
+
+            positionIndex++;
+            if (positionIndex >= positionCount) {
+                break;
+            }
+
+            nextPosition = positions[positionIndex];
+        }
+
+        if (nestedOutputPositionCount == 0) {
+            return createNullBlock(outputType, positionCount);
+        }
+
+        return RowBlock.fromFieldBlocks(positionCount, Optional.ofNullable(includeNulls ? nullsCopy : null), getFieldBlocks());
+    }
+
+    private Block[] getFieldBlocks()
+    {
+        Block[] blocks = new Block[nestedReaders.size()];
+        int i = 0;
+        for (SelectiveStreamReader reader : nestedReaders.values()) {
+            blocks[i++] = reader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
+        }
+        return blocks;
+    }
+
+    private static RunLengthEncodedBlock createNullBlock(Type type, int positionCount)
+    {
+        return new RunLengthEncodedBlock(type.createBlockBuilder(null, 1).appendNull().build(), positionCount);
+    }
+
+    @Override
+    public BlockLease getBlockView(int[] positions, int positionCount)
+    {
+        checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
+        checkState(outputRequired, "This stream reader doesn't produce output");
+        checkState(positionCount <= outputPositionCount, "Not enough values");
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
+        if (allNulls) {
+            return newLease(createNullBlock(outputType, positionCount));
+        }
+
+        boolean includeNulls = nullsAllowed && presentStream != null;
+        if (positionCount != outputPositionCount) {
+            compactValues(positions, positionCount, includeNulls);
+
+            if (nestedOutputPositionCount == 0) {
+                allNulls = true;
+                return newLease(createNullBlock(outputType, positionCount));
+            }
+        }
+
+        BlockLease[] fieldBlockLeases = new BlockLease[nestedReaders.size()];
+        Block[] fieldBlocks = new Block[nestedReaders.size()];
+        int i = 0;
+        for (SelectiveStreamReader reader : nestedReaders.values()) {
+            fieldBlockLeases[i] = reader.getBlockView(nestedOutputPositions, nestedOutputPositionCount);
+            fieldBlocks[i] = fieldBlockLeases[i].get();
+            i++;
+        }
+
+        return newLease(RowBlock.fromFieldBlocks(positionCount, Optional.ofNullable(includeNulls ? nulls : null), fieldBlocks), fieldBlockLeases);
+    }
+
+    private void compactValues(int[] positions, int positionCount, boolean compactNulls)
+    {
+        if (outputPositionsReadOnly) {
+            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+            outputPositionsReadOnly = false;
+        }
+
+        int positionIndex = 0;
+        int nextPosition = positions[positionIndex];
+        int nestedIndex = 0;
+        nestedOutputPositionCount = 0;
+        for (int i = 0; i < outputPositionCount; i++) {
+            if (outputPositions[i] < nextPosition) {
+                if (!compactNulls || !nulls[i]) {
+                    nestedIndex++;
+                }
+                continue;
+            }
+
+            assert outputPositions[i] == nextPosition;
+
+            if (!compactNulls || !nulls[i]) {
+                nestedOutputPositions[nestedOutputPositionCount++] = nestedOutputPositions[nestedIndex];
+                nestedIndex++;
+            }
+            if (compactNulls) {
+                nulls[positionIndex] = nulls[i];
+            }
+            outputPositions[positionIndex] = nextPosition;
+
+            positionIndex++;
+            if (positionIndex >= positionCount) {
+                break;
+            }
+            nextPosition = positions[positionIndex];
+        }
+
+        outputPositionCount = positionCount;
+    }
+
+    private BlockLease newLease(Block block, BlockLease...fieldBlockLeases)
+    {
+        valuesInUse = true;
+        return ClosingBlockLease.newLease(block, () -> {
+            for (BlockLease lease : fieldBlockLeases) {
+                lease.close();
+            }
+            valuesInUse = false;
+        });
+    }
+
+    @Override
+    public void throwAnyError(int[] positions, int positionCount)
+    {
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .addValue(streamDescriptor)
+                .toString();
+    }
+
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+    }
+
+    @Override
+    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+            throws IOException
+    {
+        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+
+        readOffset = 0;
+        nestedReadOffset = 0;
+
+        presentStream = null;
+
+        rowGroupOpen = false;
+
+        for (SelectiveStreamReader reader : nestedReaders.values()) {
+            reader.startStripe(dictionaryStreamSources, encoding);
+        }
+    }
+
+    @Override
+    public void startRowGroup(InputStreamSources dataStreamSources)
+            throws IOException
+    {
+        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
+
+        readOffset = 0;
+        nestedReadOffset = 0;
+
+        presentStream = null;
+
+        rowGroupOpen = false;
+
+        for (SelectiveStreamReader reader : nestedReaders.values()) {
+            reader.startRowGroup(dataStreamSources);
+        }
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(outputPositions) + sizeOf(nestedPositions) + sizeOf(nestedOutputPositions) + sizeOf(nulls) +
+                nestedReaders.values().stream()
+                        .mapToLong(SelectiveStreamReader::getRetainedSizeInBytes)
+                        .sum();
+    }
+
+    private static Optional<TupleDomainFilter> getTopLevelFilter(Map<Subfield, TupleDomainFilter> filters)
+    {
+        Map<Subfield, TupleDomainFilter> topLevelFilters = Maps.filterEntries(filters, entry -> entry.getKey().getPath().isEmpty());
+        if (topLevelFilters.isEmpty()) {
+            return Optional.empty();
+        }
+
+        checkArgument(topLevelFilters.size() == 1, "ROW column may have at most one top-level range filter");
+        TupleDomainFilter filter = Iterables.getOnlyElement(topLevelFilters.values());
+        checkArgument(filter == IS_NULL || filter == IS_NOT_NULL, "Top-level range filter on ROW column must be IS NULL or IS NOT NULL");
+        return Optional.of(filter);
+    }
+
+    private static Optional<Map<String, List<Subfield>>> getRequiredFields(List<Subfield> requiredSubfields)
+    {
+        if (requiredSubfields.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Map<String, List<Subfield>> fields = new HashMap<>();
+        for (Subfield subfield : requiredSubfields) {
+            List<Subfield.PathElement> path = subfield.getPath();
+            String name = ((Subfield.NestedField) path.get(0)).getName();
+            fields.computeIfAbsent(name, k -> new ArrayList<>());
+            if (path.size() > 1) {
+                fields.get(name).add(new Subfield("c", path.subList(1, path.size())));
+            }
+        }
+
+        return Optional.of(ImmutableMap.copyOf(fields));
+    }
+
+    private static final class PruningStreamReader
+            implements SelectiveStreamReader
+    {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(PruningStreamReader.class).instanceSize();
+
+        private final StreamDescriptor streamDescriptor;
+        @Nullable
+        private final Type outputType;
+        private int[] outputPositions;
+        private int outputPositionCount;
+
+        private PruningStreamReader(StreamDescriptor streamDescriptor, Optional<Type> outputType)
+        {
+            this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
+            this.outputType = requireNonNull(outputType, "outputType is null").orElse(null);
+        }
+
+        @Override
+        public int read(int offset, int[] positions, int positionCount)
+        {
+            outputPositions = positions;
+            outputPositionCount = positionCount;
+            return outputPositionCount;
+        }
+
+        @Override
+        public int[] getReadPositions()
+        {
+            return outputPositions;
+        }
+
+        @Override
+        public Block getBlock(int[] positions, int positionCount)
+        {
+            checkState(outputType != null, "This stream reader doesn't produce output");
+            return createNullBlock(outputType, positionCount);
+        }
+
+        @Override
+        public BlockLease getBlockView(int[] positions, int positionCount)
+        {
+            checkState(outputType != null, "This stream reader doesn't produce output");
+            return ClosingBlockLease.newLease(createNullBlock(outputType, positionCount));
+        }
+
+        @Override
+        public void throwAnyError(int[] positions, int positionCount)
+        {
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .addValue(streamDescriptor)
+                    .toString();
+        }
+
+        @Override
+        public void close()
+        {
+        }
+
+        @Override
+        public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+        {
+        }
+
+        @Override
+        public void startRowGroup(InputStreamSources dataStreamSources)
+        {
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(outputPositions);
+        }
+    }
+}

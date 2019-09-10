@@ -30,12 +30,13 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -74,6 +75,7 @@ public class BooleanSelectiveStreamReader
     @Nullable
     private int[] outputPositions;
     private int outputPositionCount;
+    private boolean outputPositionsReadOnly;
     private boolean allNulls;
     private boolean valuesInUse;
 
@@ -150,6 +152,7 @@ public class BooleanSelectiveStreamReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkArgument(positionCount > 0, "positionCount must be greater than zero");
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (!rowGroupOpen) {
@@ -167,6 +170,7 @@ public class BooleanSelectiveStreamReader
         }
         else {
             outputPositions = positions;
+            outputPositionsReadOnly = true;
         }
 
         // account memory used by values, nulls and outputPositions
@@ -254,16 +258,20 @@ public class BooleanSelectiveStreamReader
                 if (filter.testNull()) {
                     outputPositionCount++;
                 }
+                else {
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+                    i += filter.getSucceedingPositionsToFail();
+                }
             }
         }
         else if (nullsAllowed) {
             outputPositionCount = positionCount;
-            allNulls = true;
         }
         else {
             outputPositionCount = 0;
         }
 
+        allNulls = true;
         return positions[positionCount - 1] + 1;
     }
 
@@ -408,6 +416,11 @@ public class BooleanSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
+        if (outputPositionsReadOnly) {
+            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+            outputPositionsReadOnly = false;
+        }
+
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         for (int i = 0; i < outputPositionCount; i++) {

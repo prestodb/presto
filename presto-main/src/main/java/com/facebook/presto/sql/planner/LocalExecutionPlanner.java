@@ -72,6 +72,7 @@ import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggreg
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TableFinishOperator.LifespanCommitter;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
+import com.facebook.presto.operator.TableWriterMergeOperator.TableWriterMergeOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskOutputOperator.TaskOutputFactory;
@@ -121,6 +122,7 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -168,6 +170,7 @@ import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -202,7 +205,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -218,6 +220,7 @@ import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMin
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isConcurrentWritesToPartitionedTableEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
@@ -227,13 +230,13 @@ import static com.facebook.presto.operator.PipelineExecutionStrategy.GROUPED_EXE
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
 import static com.facebook.presto.operator.TableFinishOperator.TableFinisher;
-import static com.facebook.presto.operator.TableWriterOperator.CONTEXT_CHANNEL;
-import static com.facebook.presto.operator.TableWriterOperator.FRAGMENT_CHANNEL;
-import static com.facebook.presto.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
-import static com.facebook.presto.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static com.facebook.presto.operator.TableWriterOperator.TableWriterOperatorFactory;
-import static com.facebook.presto.operator.UnnestOperator.UnnestOperatorFactory;
+import static com.facebook.presto.operator.TableWriterUtils.CONTEXT_CHANNEL;
+import static com.facebook.presto.operator.TableWriterUtils.FRAGMENT_CHANNEL;
+import static com.facebook.presto.operator.TableWriterUtils.ROW_COUNT_CHANNEL;
+import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
+import static com.facebook.presto.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.relation.RowExpressionNodeInliner.replaceExpression;
@@ -247,6 +250,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BRO
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
@@ -272,6 +276,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
 
@@ -282,6 +287,7 @@ public class LocalExecutionPlanner
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
     private final PageSourceProvider pageSourceProvider;
     private final IndexManager indexManager;
+    private final PartitioningProviderManager partitioningProviderManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
     private final ExpressionCompiler expressionCompiler;
@@ -309,6 +315,7 @@ public class LocalExecutionPlanner
             Optional<ExplainAnalyzeContext> explainAnalyzeContext,
             PageSourceProvider pageSourceProvider,
             IndexManager indexManager,
+            PartitioningProviderManager partitioningProviderManager,
             NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
             ExpressionCompiler expressionCompiler,
@@ -329,6 +336,7 @@ public class LocalExecutionPlanner
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
+        this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -390,29 +398,27 @@ public class LocalExecutionPlanner
             partitionChannelTypes = ImmutableList.of(BIGINT);
         }
         else {
+            checkArgument(
+                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(argument -> argument instanceof ConstantExpression || argument instanceof VariableReferenceExpression),
+                    format("Expect all partitioning arguments to be either ConstantExpression or VariableReferenceExpression, but get %s", partitioningScheme.getPartitioning().getArguments()));
             partitionChannels = partitioningScheme.getPartitioning().getArguments().stream()
                     .map(argument -> {
-                        if (argument.isConstant()) {
+                        if (argument instanceof ConstantExpression) {
                             return -1;
                         }
-                        return outputLayout.indexOf(argument.getVariableReference());
+                        return outputLayout.indexOf((VariableReferenceExpression) argument);
                     })
                     .collect(toImmutableList());
             partitionConstants = partitioningScheme.getPartitioning().getArguments().stream()
                     .map(argument -> {
-                        if (argument.isConstant()) {
-                            return Optional.of(argument.getConstant());
+                        if (argument instanceof ConstantExpression) {
+                            return Optional.of((ConstantExpression) argument);
                         }
                         return Optional.<ConstantExpression>empty();
                     })
                     .collect(toImmutableList());
             partitionChannelTypes = partitioningScheme.getPartitioning().getArguments().stream()
-                    .map(argument -> {
-                        if (argument.isConstant()) {
-                            return argument.getConstant().getType();
-                        }
-                        return argument.getVariableReference().getType();
-                    })
+                    .map(RowExpression::getType)
                     .collect(toImmutableList());
         }
 
@@ -1685,37 +1691,38 @@ public class LocalExecutionPlanner
 
         private SpatialPredicate spatialTest(CallExpression functionCall, boolean probeFirst, Optional<OperatorType> comparisonOperator)
         {
-            String functionName = metadata.getFunctionManager().getFunctionMetadata(functionCall.getFunctionHandle()).getName();
-            switch (functionName.toLowerCase(Locale.ENGLISH)) {
-                case ST_CONTAINS:
-                    if (probeFirst) {
-                        return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
-                    }
-                    else {
-                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
-                    }
-                case ST_WITHIN:
-                    if (probeFirst) {
-                        return (buildGeometry, probeGeometry, radius) -> probeGeometry.within(buildGeometry);
-                    }
-                    else {
-                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
-                    }
-                case ST_INTERSECTS:
-                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
-                case ST_DISTANCE:
-                    if (comparisonOperator.get() == OperatorType.LESS_THAN) {
-                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
-                    }
-                    else if (comparisonOperator.get() == OperatorType.LESS_THAN_OR_EQUAL) {
-                        return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
-                    }
-                    else {
-                        throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator.get());
-                    }
-                default:
-                    throw new UnsupportedOperationException("Unsupported spatial function: " + functionName);
+            FullyQualifiedName functionName = metadata.getFunctionManager().getFunctionMetadata(functionCall.getFunctionHandle()).getName();
+            if (functionName.equals(ST_CONTAINS)) {
+                if (probeFirst) {
+                    return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
+                }
+                else {
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
+                }
             }
+            if (functionName.equals(ST_WITHIN)) {
+                if (probeFirst) {
+                    return (buildGeometry, probeGeometry, radius) -> probeGeometry.within(buildGeometry);
+                }
+                else {
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
+                }
+            }
+            if (functionName.equals(ST_INTERSECTS)) {
+                return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
+            }
+            if (functionName.equals(ST_DISTANCE)) {
+                if (comparisonOperator.get() == OperatorType.LESS_THAN) {
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
+                }
+                else if (comparisonOperator.get() == OperatorType.LESS_THAN_OR_EQUAL) {
+                    return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
+                }
+                else {
+                    throw new UnsupportedOperationException("Unsupported comparison operator: " + comparisonOperator.get());
+                }
+            }
+            throw new UnsupportedOperationException("Unsupported spatial function: " + functionName);
         }
 
         private Set<SymbolReference> getSymbolReferences(Collection<VariableReferenceExpression> variables)
@@ -2137,7 +2144,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            if (node.getPartitioningScheme().isPresent()) {
+            if (node.getPartitioningScheme().isPresent() && !isConcurrentWritesToPartitionedTableEnabled(session)) {
                 context.setDriverInstanceCount(1);
             }
             else {
@@ -2224,6 +2231,61 @@ public class LocalExecutionPlanner
                     node.isRowCountEnabled(),
                     descriptor);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+        }
+
+        @Override
+        public PhysicalOperation visitTableWriteMerge(TableWriterMergeNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMapping = ImmutableMap.builder();
+            outputMapping.put(node.getRowCountVariable(), ROW_COUNT_CHANNEL);
+            outputMapping.put(node.getFragmentVariable(), FRAGMENT_CHANNEL);
+            outputMapping.put(node.getTableCommitContextVariable(), CONTEXT_CHANNEL);
+
+            OperatorFactory statisticsAggregation = node.getStatisticsAggregation().map(aggregation -> {
+                List<VariableReferenceExpression> groupingVariables = aggregation.getGroupingVariables();
+                if (groupingVariables.isEmpty()) {
+                    return createAggregationOperatorFactory(
+                            node.getId(),
+                            aggregation.getAggregations(),
+                            INTERMEDIATE,
+                            STATS_START_CHANNEL,
+                            outputMapping,
+                            source,
+                            context,
+                            true);
+                }
+                return createHashAggregationOperatorFactory(
+                        node.getId(),
+                        aggregation.getAggregations(),
+                        ImmutableSet.of(),
+                        groupingVariables,
+                        INTERMEDIATE,
+                        Optional.empty(),
+                        Optional.empty(),
+                        source,
+                        false,
+                        false,
+                        false,
+                        new DataSize(0, BYTE),
+                        context,
+                        STATS_START_CHANNEL,
+                        outputMapping,
+                        200,
+                        Optional.empty(),
+                        true);
+            }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
+
+            OperatorFactory operatorFactory = new TableWriterMergeOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    statisticsAggregation,
+                    tableCommitContextCodec,
+                    session,
+                    getVariableTypes(node.getOutputVariables()));
+
+            return new PhysicalOperation(operatorFactory, outputMapping.build(), context, source);
         }
 
         @Override
@@ -2363,6 +2425,8 @@ public class LocalExecutionPlanner
             int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             LocalExchangeFactory exchangeFactory = new LocalExchangeFactory(
+                    partitioningProviderManager,
+                    session,
                     node.getPartitioningScheme().getPartitioning().getHandle(),
                     operatorsCount,
                     types,
@@ -2416,7 +2480,10 @@ public class LocalExecutionPlanner
 
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
             List<Integer> channels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                    .map(argument -> node.getOutputVariables().indexOf(argument.getVariableReference()))
+                    .map(argument -> {
+                        checkArgument(argument instanceof VariableReferenceExpression, format("Expect VariableReferenceExpression but get %s", argument));
+                        return node.getOutputVariables().indexOf(argument);
+                    })
                     .collect(toImmutableList());
             Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
                     .map(variable -> node.getOutputVariables().indexOf(variable));
@@ -2436,6 +2503,8 @@ public class LocalExecutionPlanner
             }
 
             LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                    partitioningProviderManager,
+                    session,
                     node.getPartitioningScheme().getPartitioning().getHandle(),
                     driverInstanceCount,
                     types,

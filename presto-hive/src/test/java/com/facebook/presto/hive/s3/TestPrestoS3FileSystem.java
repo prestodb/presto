@@ -27,7 +27,10 @@ import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem.UnrecoverableS3OperationException;
 import com.google.common.base.VerifyException;
 import org.apache.hadoop.conf.Configuration;
@@ -41,12 +44,14 @@ import org.testng.annotations.Test;
 
 import javax.crypto.spec.SecretKeySpec;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.hive.s3.PrestoS3FileSystem.S3_DIRECTORY_OBJECT_CONTENT_TYPE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
@@ -623,6 +628,37 @@ public class TestPrestoS3FileSystem
 
             FileStatus fileStatus = fs.getFileStatus(new Path("s3n://test-bucket/empty-dir/"));
             assertTrue(fileStatus.isDirectory());
+        }
+    }
+
+    @Test
+    public void testPrestoS3InputStreamEOS() throws Exception
+    {
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            AtomicInteger readableBytes = new AtomicInteger(1);
+            MockAmazonS3 s3 = new MockAmazonS3()
+            {
+                @Override
+                public S3Object getObject(GetObjectRequest req)
+                {
+                    return new S3Object()
+                    {
+                        @Override
+                        public S3ObjectInputStream getObjectContent()
+                        {
+                            return new S3ObjectInputStream(new ByteArrayInputStream(new byte[readableBytes.get()]), null);
+                        }
+                    };
+                }
+            };
+            fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
+            fs.setS3Client(s3);
+
+            try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
+                assertEquals(inputStream.read(0, new byte[2], 0, 2), 1);
+                readableBytes.set(0);
+                assertEquals(inputStream.read(0, new byte[1], 0, 1), -1);
+            }
         }
     }
 }

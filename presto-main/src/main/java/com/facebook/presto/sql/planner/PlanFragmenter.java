@@ -46,7 +46,6 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -63,6 +62,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
@@ -86,10 +86,12 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isConcurrentWritesToPartitionedTableEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
@@ -110,6 +112,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STR
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -575,15 +578,15 @@ public class PlanFragmenter
         {
             ImmutableList.Builder<VariableReferenceExpression> variables = ImmutableList.builder();
             ImmutableMap.Builder<VariableReferenceExpression, RowExpression> constants = ImmutableMap.builder();
-            for (ArgumentBinding argumentBinding : partitioning.getArguments()) {
+            for (RowExpression argument : partitioning.getArguments()) {
+                checkArgument(argument instanceof ConstantExpression || argument instanceof VariableReferenceExpression, format("Expect argument to be ConstantExpression or VariableReferenceExpression, get %s (%s)", argument.getClass(), argument));
                 VariableReferenceExpression variable;
-                if (argumentBinding.isConstant()) {
-                    ConstantExpression constant = argumentBinding.getConstant();
-                    variable = variableAllocator.newVariable("constant_partition", constant.getType());
-                    constants.put(variable, constant);
+                if (argument instanceof ConstantExpression) {
+                    variable = variableAllocator.newVariable("constant_partition", argument.getType());
+                    constants.put(variable, argument);
                 }
                 else {
-                    variable = argumentBinding.getVariableReference();
+                    variable = (VariableReferenceExpression) argument;
                 }
                 variables.add(variable);
             }
@@ -699,6 +702,63 @@ public class PlanFragmenter
             SchemaTableName temporaryTableName = metadata.getTableMetadata(session, tableHandle).getTable();
             InsertHandle insertHandle = new InsertHandle(insertTableHandle, new SchemaTableName(temporaryTableName.getSchemaName(), temporaryTableName.getTableName()));
 
+            PartitioningScheme partitioningScheme = new PartitioningScheme(
+                    Partitioning.create(partitioningHandle, partitioningVariables),
+                    outputs,
+                    Optional.empty(),
+                    false,
+                    Optional.empty());
+
+            ExchangeNode writerRemoteSource = new ExchangeNode(
+                    idAllocator.getNextId(),
+                    REPARTITION,
+                    REMOTE_STREAMING,
+                    partitioningScheme,
+                    sources,
+                    inputs,
+                    Optional.empty());
+
+            ExchangeNode writerSource;
+            if (getTaskWriterCount(session) == 1 || !isConcurrentWritesToPartitionedTableEnabled(session)) {
+                writerSource = gatheringExchange(
+                        idAllocator.getNextId(),
+                        LOCAL,
+                        writerRemoteSource);
+            }
+            else {
+                writerSource = partitionedExchange(
+                        idAllocator.getNextId(),
+                        LOCAL,
+                        writerRemoteSource,
+                        partitioningScheme);
+            }
+
+            TableWriterNode tableWriter = new TableWriterNode(
+                    idAllocator.getNextId(),
+                    writerSource,
+                    insertHandle,
+                    variableAllocator.newVariable("partialrows", BIGINT),
+                    variableAllocator.newVariable("partialfragments", VARBINARY),
+                    variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
+                    outputs,
+                    outputColumnNames,
+                    Optional.of(partitioningScheme),
+                    Optional.empty());
+
+            PlanNode tableWriterMerge = tableWriter;
+            if (isTableWriterMergeOperatorEnabled(session)) {
+                tableWriterMerge = new TableWriterMergeNode(
+                        idAllocator.getNextId(),
+                        gatheringExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                tableWriter),
+                        variableAllocator.newVariable("intermediaterows", BIGINT),
+                        variableAllocator.newVariable("intermediatefragments", VARBINARY),
+                        variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
+                        Optional.empty());
+            }
+
             return new TableFinishNode(
                     idAllocator.getNextId(),
                     gatheringExchange(
@@ -707,38 +767,7 @@ public class PlanFragmenter
                             gatheringExchange(
                                     idAllocator.getNextId(),
                                     REMOTE_STREAMING,
-                                    new TableWriterNode(
-                                            idAllocator.getNextId(),
-                                            gatheringExchange(
-                                                    idAllocator.getNextId(),
-                                                    LOCAL,
-                                                    new ExchangeNode(
-                                                            idAllocator.getNextId(),
-                                                            REPARTITION,
-                                                            REMOTE_STREAMING,
-                                                            new PartitioningScheme(
-                                                                    Partitioning.create(partitioningHandle, partitioningVariables),
-                                                                    outputs,
-                                                                    Optional.empty(),
-                                                                    false,
-                                                                    Optional.empty()),
-                                                            sources,
-                                                            inputs,
-                                                            Optional.empty())),
-                                            insertHandle,
-                                            variableAllocator.newVariable("partialrows", BIGINT),
-                                            variableAllocator.newVariable("fragment", VARBINARY),
-                                            variableAllocator.newVariable("tablecommitcontext", VARBINARY),
-                                            outputs,
-                                            outputColumnNames,
-                                            Optional.of(new PartitioningScheme(
-                                                    Partitioning.create(partitioningHandle, partitioningVariables),
-                                                    outputs,
-                                                    Optional.empty(),
-                                                    false,
-                                                    Optional.empty())),
-                                            Optional.empty(),
-                                            Optional.empty()))),
+                                    tableWriterMerge)),
                     insertHandle,
                     variableAllocator.newVariable("rows", BIGINT),
                     Optional.empty(),
@@ -1033,8 +1062,7 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitTableWriter(TableWriterNode node, Void context)
         {
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
-            // TODO (#13098): Remove partitioning and task writer count check after we have TableWriterMergeOperator
-            boolean recoveryEligible = properties.isRecoveryEligible() && (node.getPartitioningScheme().isPresent() || getTaskWriterCount(session) == 1);
+            boolean recoveryEligible = properties.isRecoveryEligible();
             if (node.getTarget() instanceof CreateHandle) {
                 recoveryEligible &= metadata.getConnectorCapabilities(session, ((CreateHandle) node.getTarget()).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
             }
@@ -1060,13 +1088,16 @@ public class PlanFragmenter
                 return GroupedExecutionProperties.notCapable();
             }
             List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
-            boolean recoveryEligible = metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE);
-            boolean useful = isGroupedExecutionForEligibleTableScansEnabled(session);
             if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
-                return new GroupedExecutionProperties(false, useful, ImmutableList.of(), 1, recoveryEligible);
+                return GroupedExecutionProperties.notCapable();
             }
             else {
-                return new GroupedExecutionProperties(true, useful, ImmutableList.of(node.getId()), partitionHandles.size(), recoveryEligible);
+                return new GroupedExecutionProperties(
+                        true,
+                        isGroupedExecutionForEligibleTableScansEnabled(session),
+                        ImmutableList.of(node.getId()),
+                        partitionHandles.size(),
+                        metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE));
             }
         }
 

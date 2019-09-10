@@ -50,7 +50,7 @@ public interface HierarchicalFilter
 
     static HierarchicalFilter createHierarchicalFilter(StreamDescriptor streamDescriptor, Map<Subfield, TupleDomainFilter> subfieldFilters, int level, HierarchicalFilter parent)
     {
-        switch (streamDescriptor.getStreamType()) {
+        switch (streamDescriptor.getOrcTypeKind()) {
             case LIST:
                 return new ListFilter(streamDescriptor, subfieldFilters, level, parent);
             case MAP:

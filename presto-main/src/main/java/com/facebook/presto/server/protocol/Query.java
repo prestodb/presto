@@ -579,9 +579,9 @@ class Query
                 .scheme(scheme)
                 .replacePath("/v1/statement")
                 .path(queryId.toString())
-                .path(slug)
                 .path(String.valueOf(resultId.incrementAndGet()))
                 .replaceQuery("")
+                .queryParam("slug", slug)
                 .build();
     }
 

@@ -39,9 +39,10 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
-import static com.facebook.presto.operator.TableWriterOperator.CONTEXT_CHANNEL;
-import static com.facebook.presto.operator.TableWriterOperator.FRAGMENT_CHANNEL;
-import static com.facebook.presto.operator.TableWriterOperator.ROW_COUNT_CHANNEL;
+import static com.facebook.presto.operator.TableWriterUtils.FRAGMENT_CHANNEL;
+import static com.facebook.presto.operator.TableWriterUtils.ROW_COUNT_CHANNEL;
+import static com.facebook.presto.operator.TableWriterUtils.extractStatisticsRows;
+import static com.facebook.presto.operator.TableWriterUtils.getTableCommitContext;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -202,86 +203,13 @@ public class TableFinishOperator
         requireNonNull(page, "page is null");
         checkState(state == State.RUNNING, "Operator is %s", state);
 
-        TableCommitContext tableCommitContext = getTableCommitContext(page);
+        TableCommitContext tableCommitContext = getTableCommitContext(page, tableCommitContextCodec);
         lifespanAndStageStateTracker.update(page, tableCommitContext);
         lifespanAndStageStateTracker.getStatisticsPagesToProcess(page, tableCommitContext).forEach(statisticsPage -> {
             OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
             statisticsAggregationOperator.addInput(statisticsPage);
             timer.end(statisticsTiming);
         });
-    }
-
-    private TableCommitContext getTableCommitContext(Page page)
-    {
-        checkState(page.getPositionCount() > 0, "TableFinishOperator receives empty page");
-        Block operatorExecutionContextBlock = page.getBlock(CONTEXT_CHANNEL);
-        return tableCommitContextCodec.fromJson(operatorExecutionContextBlock.getSlice(0, 0, operatorExecutionContextBlock.getSliceLength(0)).getBytes());
-    }
-
-    private static Optional<Page> extractStatisticsRows(Page page)
-    {
-        int statisticsPositionCount = 0;
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            if (isStatisticsPosition(page, position)) {
-                statisticsPositionCount++;
-            }
-        }
-
-        if (statisticsPositionCount == 0) {
-            return Optional.empty();
-        }
-
-        if (statisticsPositionCount == page.getPositionCount()) {
-            return Optional.of(page);
-        }
-
-        int selectedPositionsIndex = 0;
-        int[] selectedPositions = new int[statisticsPositionCount];
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            if (isStatisticsPosition(page, position)) {
-                selectedPositions[selectedPositionsIndex] = position;
-                selectedPositionsIndex++;
-            }
-        }
-
-        Block[] blocks = new Block[page.getChannelCount()];
-        for (int channel = 0; channel < page.getChannelCount(); channel++) {
-            blocks[channel] = page.getBlock(channel).getPositions(selectedPositions, 0, statisticsPositionCount);
-        }
-        return Optional.of(new Page(statisticsPositionCount, blocks));
-    }
-
-    /**
-     * Both the statistics and the row_count + fragments are transferred over the same communication
-     * link between the TableWriterOperator and the TableFinishOperator. Thus the multiplexing is needed.
-     * <p>
-     * The transferred page layout looks like:
-     * <p>
-     * [[row_count_channel], [fragment_channel], [statistic_channel_1] ... [statistic_channel_N]]
-     * <p>
-     * [row_count_channel] - contains number of rows processed by a TableWriterOperator instance
-     * [fragment_channel] - contains arbitrary binary data provided by the ConnectorPageSink#finish for
-     * the further post processing on the coordinator
-     * <p>
-     * [statistic_channel_1] ... [statistic_channel_N] - contain pre-aggregated statistics computed by the
-     * statistics aggregation operator within the
-     * TableWriterOperator
-     * <p>
-     * Since the final aggregation operator in the TableFinishOperator doesn't know what to do with the
-     * first two channels, those must be pruned. For the convenience we never set both, the
-     * [row_count_channel] + [fragment_channel] and the [statistic_channel_1] ... [statistic_channel_N].
-     * <p>
-     * If this is a row that holds statistics - the [row_count_channel] + [fragment_channel] will be NULL.
-     * <p>
-     * It this is a row that holds the row count or the fragment - all the statistics channels will be set
-     * to NULL.
-     * <p>
-     * Since neither [row_count_channel] or [fragment_channel] cannot hold the NULL value naturally, by
-     * checking isNull on these two channels we can determine if this is a row that contains statistics.
-     */
-    private static boolean isStatisticsPosition(Page page, int position)
-    {
-        return page.getBlock(ROW_COUNT_CHANNEL).isNull(position) && page.getBlock(FRAGMENT_CHANNEL).isNull(position);
     }
 
     @Override

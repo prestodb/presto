@@ -232,7 +232,7 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(
-                        new InlineProjections(),
+                        new InlineProjections(metadata.getFunctionManager()),
                         new RemoveRedundantIdentityProjections()));
 
         IterativeOptimizer projectionPushDown = new IterativeOptimizer(
@@ -300,7 +300,7 @@ public class PlanOptimizers
                                         new RewriteSpatialPartitioningAggregation(metadata)))
                                 .build()),
                 simplifyOptimizer,
-                new UnaliasSymbolReferences(),
+                new UnaliasSymbolReferences(metadata.getFunctionManager()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -347,7 +347,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new InlineProjections(),
+                                new InlineProjections(metadata.getFunctionManager()),
                                 new RemoveRedundantIdentityProjections(),
                                 new TransformCorrelatedSingleRowSubqueryToProject())),
                 new CheckSubqueryNodesAreRewritten(),
@@ -368,7 +368,7 @@ public class PlanOptimizers
                 inlineProjections,
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
-                new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
+                new UnaliasSymbolReferences(metadata.getFunctionManager()), // Run again because predicate pushdown and projection pushdown might add more projections
                 new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
                 new IterativeOptimizer(
@@ -441,7 +441,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
                         .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager, sqlParser).rules())
-                        .add(new InlineProjections())
+                        .add(new InlineProjections(metadata.getFunctionManager()))
                         .build()));
 
         if (!forceSingleNode) {
@@ -475,23 +475,6 @@ public class PlanOptimizers
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
-        builder.add(projectionPushDown);
-        builder.add(inlineProjections);
-        builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
-        builder.add(new PruneUnreferencedOutputs());
-
-        builder.add(new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                ImmutableSet.<Rule<?>>builder()
-                        .add(new RemoveRedundantIdentityProjections())
-                        .add(new PushRemoteExchangeThroughAssignUniqueId())
-                        .add(new InlineProjections())
-                        .build()));
-
-        // Optimizers above this don't understand local exchanges, so be careful moving this.
-        builder.add(new AddLocalExchanges(metadata, sqlParser));
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -501,6 +484,23 @@ public class PlanOptimizers
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
+
+        builder.add(projectionPushDown);
+        builder.add(inlineProjections);
+        builder.add(new UnaliasSymbolReferences(metadata.getFunctionManager())); // Run unalias after merging projections to simplify projections more efficiently
+        builder.add(new PruneUnreferencedOutputs());
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .add(new RemoveRedundantIdentityProjections())
+                        .add(new PushRemoteExchangeThroughAssignUniqueId())
+                        .add(new InlineProjections(metadata.getFunctionManager()))
+                        .build()));
+
+        // Optimizers above this don't understand local exchanges, so be careful moving this.
+        builder.add(new AddLocalExchanges(metadata, sqlParser));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers

@@ -17,13 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -65,7 +65,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -90,7 +89,7 @@ public class HashGenerationOptimizer
         implements PlanOptimizer
 {
     public static final long INITIAL_HASH_VALUE = 0;
-    private static final String HASH_CODE = mangleOperatorName("HASH_CODE");
+    private static final String HASH_CODE = OperatorType.HASH_CODE.getFunctionName().getSuffix();
 
     private final FunctionManager functionManager;
 
@@ -490,11 +489,11 @@ public class HashGenerationOptimizer
             Optional<HashComputation> partitionVariables = Optional.empty();
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION) &&
-                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
+                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(VariableReferenceExpression.class::isInstance)) {
                 // add precomputed hash for exchange
                 partitionVariables = computeHash(
                         partitioningScheme.getPartitioning().getArguments().stream()
-                                .map(ArgumentBinding::getVariableReference)
+                                .map(VariableReferenceExpression.class::cast)
                                 .collect(toImmutableList()),
                         functionManager);
                 preference = preference.withHashComputation(partitionVariables);

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.api.Experimental;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 
 /**
  * FunctionHandle is a unique handle to identify the function implementation from namespaces.
@@ -23,5 +23,5 @@ import com.facebook.presto.spi.api.Experimental;
 @Experimental
 public interface FunctionHandle
 {
-    CatalogSchemaName getCatalogSchemaName();
+    FullyQualifiedName.Prefix getFunctionNamespace();
 }

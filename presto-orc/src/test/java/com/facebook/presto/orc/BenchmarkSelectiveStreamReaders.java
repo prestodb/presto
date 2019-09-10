@@ -15,6 +15,8 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
+import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
@@ -63,7 +65,9 @@ import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -160,7 +164,7 @@ public class BenchmarkSelectiveStreamReaders
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+            OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
             return orcReader.createSelectiveRecordReader(
                     ImmutableMap.of(0, type),
@@ -187,12 +191,17 @@ public class BenchmarkSelectiveStreamReaders
         @SuppressWarnings("unused")
         @Param({
                 "boolean",
+
                 "integer",
                 "bigint",
                 "smallint",
                 "tinyint",
+
                 "date",
-                "timestamp"
+                "timestamp",
+
+                "real",
+                "double"
         })
         private String typeSignature;
 
@@ -217,12 +226,17 @@ public class BenchmarkSelectiveStreamReaders
         @SuppressWarnings("unused")
         @Param({
                 "boolean",
+
                 "integer",
                 "bigint",
                 "smallint",
                 "tinyint",
+
                 "date",
-                "timestamp"
+                "timestamp",
+
+                "real",
+                "double"
         })
         private String typeSignature;
 
@@ -254,6 +268,14 @@ public class BenchmarkSelectiveStreamReaders
 
             if (type == TINYINT || type == BIGINT || type == INTEGER || type == SMALLINT || type == DATE || type == TIMESTAMP) {
                 return Optional.of(BigintRange.of(0, Long.MAX_VALUE, true));
+            }
+
+            if (type == REAL) {
+                return Optional.of(FloatRange.of(0, true, true, Integer.MAX_VALUE, true, true, true));
+            }
+
+            if (type == DOUBLE) {
+                return Optional.of(DoubleRange.of(.5, false, false, 2, false, false, false));
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + type);
@@ -296,6 +318,14 @@ public class BenchmarkSelectiveStreamReaders
 
             if (getType() == TIMESTAMP) {
                 return new SqlTimestamp(random.nextLong(), TimeZoneKey.UTC_KEY);
+            }
+
+            if (getType() == REAL) {
+                return random.nextFloat();
+            }
+
+            if (getType() == DOUBLE) {
+                return random.nextDouble();
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + getType());

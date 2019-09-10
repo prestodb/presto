@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -35,11 +36,12 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
-import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST_NAME;
+import static com.facebook.presto.metadata.CastType.TRY_CAST;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
@@ -92,7 +94,7 @@ public class ExpressionOptimizer
         {
             FunctionHandle functionHandle = call.getFunctionHandle();
             FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(functionHandle);
-            if (functionMetadata.getName().equals(TRY_CAST_NAME)) {
+            if (functionMetadata.getName().equals(TRY_CAST.getCastName())) {
                 List<RowExpression> arguments = call.getArguments().stream()
                         .map(argument -> argument.accept(this, null))
                         .collect(toImmutableList());
@@ -223,7 +225,7 @@ public class ExpressionOptimizer
             if (call.getArguments().get(0) instanceof CallExpression) {
                 // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
                 CallExpression innerCall = (CallExpression) call.getArguments().get(0);
-                if (functionManager.getFunctionMetadata(innerCall.getFunctionHandle()).getName().equals("json_parse")) {
+                if (functionManager.getFunctionMetadata(innerCall.getFunctionHandle()).getName().equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "json_parse"))) {
                     checkArgument(innerCall.getType().equals(JSON));
                     checkArgument(innerCall.getArguments().size() == 1);
                     TypeSignature returnType = functionManager.getFunctionMetadata(call.getFunctionHandle()).getReturnType();

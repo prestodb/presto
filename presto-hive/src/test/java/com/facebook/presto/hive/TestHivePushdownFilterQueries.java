@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,16 +38,29 @@ public class TestHivePushdownFilterQueries
     private static final Pattern ARRAY_SUBSCRIPT_PATTERN = Pattern.compile("([a-z_+]+)((\\[[0-9]+\\])+)");
 
     private static final String WITH_LINEITEM_EX = "WITH lineitem_ex AS (\n" +
-            "SELECT linenumber, orderkey, partkey, suppkey, \n" +
+            "SELECT linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, \n" +
             "   CASE WHEN linenumber % 5 = 0 THEN null ELSE shipmode = 'AIR' END AS ship_by_air, \n" +
             "   CASE WHEN linenumber % 7 = 0 THEN null ELSE returnflag = 'R' END AS is_returned, \n" +
             "   CASE WHEN linenumber % 4 = 0 THEN null ELSE CAST(day(shipdate) AS TINYINT) END AS ship_day, " +
             "   CASE WHEN linenumber % 6 = 0 THEN null ELSE CAST(month(shipdate) AS TINYINT) END AS ship_month, " +
             "   CASE WHEN linenumber % 3 = 0 THEN null ELSE CAST(shipdate AS TIMESTAMP) END AS ship_timestamp, \n" +
             "   CASE WHEN orderkey % 3 = 0 THEN null ELSE CAST(commitdate AS TIMESTAMP) END AS commit_timestamp, \n" +
+            "   CASE WHEN orderkey % 5 = 0 THEN null ELSE CAST(discount AS REAL) END AS discount_real, \n" +
+            "   CASE WHEN orderkey % 43  = 0 THEN null ELSE discount END as discount, \n" +
+            "   CASE WHEN orderkey % 7 = 0 THEN null ELSE CAST(tax AS REAL) END AS tax_real, \n" +
+            "   CASE WHEN linenumber % 2 = 0 THEN null ELSE (CAST(day(shipdate) AS TINYINT) , CAST(month(shipdate) AS TINYINT)) END AS ship_day_month, " +
             "   CASE WHEN orderkey % 11 = 0 THEN null ELSE (orderkey, partkey, suppkey) END AS keys, \n" +
+            "   CASE WHEN orderkey % 41 = 0 THEN null ELSE (extendedprice, discount, tax) END AS doubles, \n" +
             "   CASE WHEN orderkey % 13 = 0 THEN null ELSE ((orderkey, partkey), (suppkey,), CASE WHEN orderkey % 17 = 0 THEN null ELSE (orderkey, partkey) END) END AS nested_keys, \n" +
-            "   CASE WHEN orderkey % 17 = 0 THEN null ELSE (shipmode = 'AIR', returnflag = 'R') END as flags\n" +
+            "   CASE WHEN orderkey % 17 = 0 THEN null ELSE (shipmode = 'AIR', returnflag = 'R') END as flags, \n" +
+            "   CASE WHEN orderkey % 19 = 0 THEN null ELSE (CAST(discount AS REAL), CAST(tax AS REAL)) END as reals, \n" +
+            "   CASE WHEN orderkey % 23 = 0 THEN null ELSE (orderkey, linenumber, (CAST(day(shipdate) as TINYINT), CAST(month(shipdate) AS TINYINT), CAST(year(shipdate) AS INTEGER))) END AS info, \n" +
+            "   CASE WHEN orderkey % 31 = 0 THEN null ELSE (" +
+            "       (CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT), CAST(year(shipdate) AS INTEGER)), " +
+            "       (CAST(day(commitdate) AS TINYINT), CAST(month(commitdate) AS TINYINT), CAST(year(commitdate) AS INTEGER)), " +
+            "       (CAST(day(receiptdate) AS TINYINT), CAST(month(receiptdate) AS TINYINT), CAST(year(receiptdate) AS INTEGER))) END AS dates, \n" +
+            "   CASE WHEN orderkey % 37 = 0 THEN null ELSE (CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)) END AS timestamps \n" +
+
             "FROM lineitem)\n";
 
     protected TestHivePushdownFilterQueries()
@@ -58,25 +72,36 @@ public class TestHivePushdownFilterQueries
             throws Exception
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables(),
-                ImmutableMap.of(),
+                ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true"),
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, keys, nested_keys, flags) AS " +
-                        "SELECT linenumber, orderkey, partkey, suppkey, " +
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, discount, tax_real, ship_day_month, keys, doubles, nested_keys, flags, reals, info, dates, timestamps) AS " +
+                        "SELECT linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, " +
                         "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
                         "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
                         "   IF (linenumber % 4 = 0, null, CAST(day(shipdate) AS TINYINT)) AS ship_day, " +
                         "   IF (linenumber % 6 = 0, null, CAST(month(shipdate) AS TINYINT)) AS ship_month, " +
                         "   IF (linenumber % 3 = 0, null, CAST(shipdate AS TIMESTAMP)) AS ship_timestamp, " +
                         "   IF (orderkey % 3 = 0, null, CAST(commitdate AS TIMESTAMP)) AS commit_timestamp, " +
-                        "   IF (orderkey % 11 = 0, null, ARRAY[orderkey, partkey, suppkey]), " +
-                        "   IF (orderkey % 13 = 0, null, ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], IF (orderkey % 17 = 0, null, ARRAY[orderkey, partkey])]), " +
-                        "   IF (orderkey % 17 = 0, null, ARRAY[shipmode = 'AIR', returnflag = 'R']) " +
+                        "   IF (orderkey % 5 = 0, null, CAST(discount AS REAL)) AS discount_real, " +
+                        "   IF (orderkey % 43 = 0, null, discount) AS discount, " +
+                        "   IF (orderkey % 7 = 0, null, CAST(tax AS REAL)) AS tax_real, " +
+                        "   IF (linenumber % 2 = 0, null, ARRAY[CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT)]) AS ship_day_month, " +
+                        "   IF (orderkey % 11 = 0, null, ARRAY[orderkey, partkey, suppkey]) AS keys, " +
+                        "   IF (orderkey % 41 = 0, null, ARRAY[extendedprice, discount, tax]) AS doubles, " +
+                        "   IF (orderkey % 13 = 0, null, ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], IF (orderkey % 17 = 0, null, ARRAY[orderkey, partkey])]) AS nested_keys, " +
+                        "   IF (orderkey % 17 = 0, null, ARRAY[shipmode = 'AIR', returnflag = 'R']) AS flags, " +
+                        "   IF (orderkey % 19 = 0, null, ARRAY[CAST(discount AS REAL), CAST(tax AS REAL)]), " +
+                        "   IF (orderkey % 23 = 0, null, CAST(ROW(orderkey, linenumber, ROW(day(shipdate), month(shipdate), year(shipdate))) AS ROW(orderkey BIGINT, linenumber INTEGER, shipdate ROW(ship_day TINYINT, ship_month TINYINT, ship_year INTEGER)))), " +
+                        "   IF (orderkey % 31 = 0, NULL, ARRAY[" +
+                        "       CAST(ROW(day(shipdate), month(shipdate), year(shipdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
+                        "       CAST(ROW(day(commitdate), month(commitdate), year(commitdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
+                        "       CAST(ROW(day(receiptdate), month(receiptdate), year(receiptdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER))]), " +
+                        "   IF (orderkey % 37 = 0, NULL, ARRAY[CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)]) AS timestamps " +
                         "FROM lineitem");
-
         return queryRunner;
     }
 
@@ -128,6 +153,8 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT COUNT(*) FROM lineitem_ex WHERE ship_day is not null AND ship_month = 1");
 
         assertQueryUsingH2Cte("SELECT ship_day, ship_month FROM lineitem_ex WHERE ship_day > 15 AND ship_month < 5 AND (ship_day + ship_month) < 20");
+
+        assertQueryUsingH2Cte("SELECT count(*) FROM lineitem_ex WHERE ship_day_month[2] = 12");
     }
 
     @Test
@@ -168,6 +195,101 @@ public class TestHivePushdownFilterQueries
         assertQueryReturnsEmptyResult("SELECT commit_timestamp, ship_timestamp FROM lineitem_ex WHERE year(ship_timestamp) - year(commit_timestamp) > 1");
 
         assertQueryUsingH2Cte("SELECT commit_timestamp, ship_timestamp, orderkey FROM lineitem_ex WHERE year(commit_timestamp) > 1993 and year(ship_timestamp) > 1993 and year(ship_timestamp) - year(commit_timestamp) = 1");
+
+        assertQueryUsingH2Cte("SELECT count(*) from lineitem_ex where timestamps[1] > TIMESTAMP '1993-08-08 01:00:00'");
+
+        assertQueryUsingH2Cte("SELECT count(*) from lineitem_ex where year(timestamps[1]) != year(timestamps[2])");
+    }
+
+    @Test
+    public void testDouble()
+    {
+        assertQuery("SELECT quantity, extendedprice, discount, tax FROM lineitem");
+
+        assertQueryUsingH2Cte("SELECT count(discount) FROM lineitem_ex");
+
+        assertFilterProject("discount IS NULL", "count(*)");
+
+        assertFilterProject("discount IS NOT NULL", "sum(quantity), sum(discount)");
+
+        assertFilterProject("is_returned = true", "quantity, extendedprice, discount");
+
+        assertFilterProject("quantity = 4", "orderkey, tax");
+
+        assertFilterProject("quantity = 4 AND discount = 0", "extendedprice, discount");
+
+        assertFilterProject("quantity = 4 AND discount = 0 AND tax = .05", "orderkey");
+
+        assertFilterProject("(discount + tax) < (quantity / 10)", "tax");
+
+        assertFilterProject("doubles[1] > 0.01", "count(*)");
+
+        // Compact values
+        assertFilterProject("discount + tax  > .05 AND discount > .01 AND tax > .01", "tax");
+
+        // SucceedingPositionsToFail > 0 in readWithFilter
+        assertFilterProject("is_returned AND doubles[2] = .01 AND doubles[1] + discount > 0.10", "count(*)");
+    }
+
+    @Test
+    public void testFloats()
+    {
+        assertQueryUsingH2Cte("SELECT discount_real, tax_real FROM lineitem_ex");
+
+        assertFilterProject("tax_real IS NOT NULL", "count(*)");
+
+        assertFilterProject("tax_real IS NULL", "count(*)");
+
+        assertFilterProject("tax_real > 0.1", "count(*)");
+
+        assertFilterProject("tax_real < 0.03", "discount_real, tax_real");
+
+        assertFilterProject("tax_real < 0.05  AND discount_real > 0.05", "discount_real");
+
+        assertFilterProject("tax_real = discount_real", "discount_real");
+
+        assertFilterProject("discount_real > 0.01 AND tax_real > 0.01 AND (discount_real + tax_real) < 0.08", "discount_real");
+
+        assertFilterProject("reals[1] > 0.01", "count(*)");
+    }
+
+    @Test
+    public void testMaps()
+    {
+        getQueryRunner().execute("CREATE TABLE test_maps AS " +
+                "SELECT orderkey, " +
+                "   linenumber, " +
+                "   IF (keys IS NULL, null, MAP(ARRAY[1, 2, 3], keys)) AS map_keys, " +
+                "   IF (flags IS NULL, null, MAP(ARRAY[1, 2], flags)) AS map_flags " +
+                "FROM lineitem_ex");
+
+        Function<String, String> rewriter = query -> query.replaceAll("map_keys", "keys")
+                .replaceAll("map_flags", "flags")
+                .replaceAll("test_maps", "lineitem_ex")
+                .replaceAll("cardinality", "array_length");
+        try {
+            assertQueryUsingH2Cte("SELECT map_keys[1] FROM test_maps WHERE linenumber < 3", rewriter);
+
+            assertQueryUsingH2Cte("SELECT cardinality(map_keys) FROM test_maps", rewriter);
+            assertQueryUsingH2Cte("SELECT cardinality(map_keys) FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
+
+            assertQueryUsingH2Cte("SELECT map_keys[1] FROM test_maps", rewriter);
+            assertQueryUsingH2Cte("SELECT map_keys[2] FROM test_maps", rewriter);
+            assertQueryUsingH2Cte("SELECT map_keys[1], map_keys[3] FROM test_maps", rewriter);
+
+            assertQueryUsingH2Cte("SELECT map_keys[1] FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
+
+            assertQueryUsingH2Cte("SELECT map_keys[2] FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
+            assertQueryUsingH2Cte("SELECT map_keys[1], map_keys[3] FROM test_maps WHERE map_keys[1] % 2 = 0", rewriter);
+
+            assertQueryUsingH2Cte("SELECT map_keys[1], map_flags[2] FROM test_maps WHERE map_keys IS NOT NULL AND map_flags IS NOT NULL AND map_keys[1] % 2 = 0", rewriter);
+
+            assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[1] % 2 = 0", "Key not present in map: 5");
+            assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[4] % 2 = 0", "Key not present in map: 4");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_maps");
+        }
     }
 
     @Test
@@ -228,6 +350,37 @@ public class TestHivePushdownFilterQueries
         assertFilterProjectFails("nested_keys[5][1] > 0", "orderkey", "Array subscript out of bounds");
         assertFilterProjectFails("nested_keys[1][5] > 0", "orderkey", "Array subscript out of bounds");
         assertFilterProjectFails("nested_keys[2][5] > 0", "orderkey", "Array subscript out of bounds");
+    }
+
+    @Test
+    public void testStructs()
+    {
+        assertQueryUsingH2Cte("SELECT orderkey, info, dates FROM lineitem_ex");
+
+        Function<String, String> rewriter = query -> query.replaceAll("info.orderkey", "info[1]")
+                .replaceAll("info.linenumber", "info[2]")
+                .replaceAll("info.shipdate.ship_year", "info[3][3]")
+                .replaceAll("info.shipdate", "info[3]")
+                .replaceAll("dates\\[1\\].day", "dates[1][1]");
+
+        assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey, info.linenumber FROM lineitem_ex", rewriter);
+
+        assertQueryUsingH2Cte("SELECT info.linenumber, info.shipdate.ship_year FROM lineitem_ex WHERE orderkey < 1000", rewriter);
+
+        assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE info IS NULL", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE info IS NOT NULL", rewriter);
+
+        assertQueryUsingH2Cte("SELECT info, dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey, dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+        assertQueryUsingH2Cte("SELECT info.linenumber, dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+
+        assertQueryUsingH2Cte("SELECT dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE info IS NOT NULL", rewriter);
+
+        assertQueryUsingH2Cte("SELECT info.orderkey, info.shipdate FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
+
+        assertQueryUsingH2Cte("SELECT dates FROM lineitem_ex WHERE dates[1].day % 2 = 0", rewriter);
     }
 
     private void assertFilterProject(String filter, String projections)
@@ -334,7 +487,12 @@ public class TestHivePushdownFilterQueries
 
     private void assertQueryUsingH2Cte(String query)
     {
-        assertQuery(query, WITH_LINEITEM_EX + toH2(query));
+        assertQueryUsingH2Cte(query, Function.identity());
+    }
+
+    private void assertQueryUsingH2Cte(String query, Function<String, String> rewriter)
+    {
+        assertQuery(query, WITH_LINEITEM_EX + toH2(rewriter.apply(query)));
     }
 
     private static String toH2(String query)

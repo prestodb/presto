@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -23,14 +23,13 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class StaticFunctionHandle
+public class BuiltInFunctionHandle
         implements FunctionHandle
 {
-    private static final CatalogSchemaName STATIC_FUNCTION_NAMESPACE_CATALOG_SCHEMA_NAME = new CatalogSchemaName("static", "system");
     private final Signature signature;
 
     @JsonCreator
-    public StaticFunctionHandle(@JsonProperty("signature") Signature signature)
+    public BuiltInFunctionHandle(@JsonProperty("signature") Signature signature)
     {
         this.signature = requireNonNull(signature, "signature is null");
         checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
@@ -43,6 +42,12 @@ public class StaticFunctionHandle
     }
 
     @Override
+    public FullyQualifiedName.Prefix getFunctionNamespace()
+    {
+        return signature.getName().getPrefix();
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -51,14 +56,8 @@ public class StaticFunctionHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        StaticFunctionHandle that = (StaticFunctionHandle) o;
+        BuiltInFunctionHandle that = (BuiltInFunctionHandle) o;
         return Objects.equals(signature, that.signature);
-    }
-
-    @Override
-    public CatalogSchemaName getCatalogSchemaName()
-    {
-        return STATIC_FUNCTION_NAMESPACE_CATALOG_SCHEMA_NAME;
     }
 
     @Override

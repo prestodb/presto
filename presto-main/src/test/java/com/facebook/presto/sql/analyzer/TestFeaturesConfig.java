@@ -117,7 +117,10 @@ public class TestFeaturesConfig
                 .setJsonSerdeCodeGenerationEnabled(false)
                 .setPushLimitThroughOuterJoin(true)
                 .setMaxConcurrentMaterializations(3)
-                .setPushdownSubfieldsEnabled(false));
+                .setPushdownSubfieldsEnabled(false)
+                .setTableWriterMergeOperatorEnabled(true)
+                .setConcurrentWritesToPartitionedTableEnabled(true)
+                .setOptimizeFullOuterJoinWithCoalesce(true));
     }
 
     @Test
@@ -194,6 +197,9 @@ public class TestFeaturesConfig
                 .put("optimizer.push-limit-through-outer-join", "false")
                 .put("max-concurrent-materializations", "5")
                 .put("experimental.pushdown-subfields-enabled", "true")
+                .put("experimental.table-writer-merge-operator-enabled", "false")
+                .put("experimental.concurrent-writes-to-partitioned-table-enabled", "false")
+                .put("optimizer.optimize-full-outer-join-with-coalesce", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -266,7 +272,10 @@ public class TestFeaturesConfig
                 .setJsonSerdeCodeGenerationEnabled(true)
                 .setPushLimitThroughOuterJoin(false)
                 .setMaxConcurrentMaterializations(5)
-                .setPushdownSubfieldsEnabled(true);
+                .setPushdownSubfieldsEnabled(true)
+                .setTableWriterMergeOperatorEnabled(false)
+                .setConcurrentWritesToPartitionedTableEnabled(false)
+                .setOptimizeFullOuterJoinWithCoalesce(false);
         assertFullMapping(properties, expected);
     }
 

@@ -2,7 +2,7 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         final aggregation over (name)
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, ["name"])
+                remote exchange (REPARTITION, HASH, [name])
                     partial aggregation over (name)
                         single aggregation over (commitdate, exists, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique)
                             join (LEFT, PARTITIONED):
@@ -10,26 +10,26 @@ local exchange (GATHER, SINGLE, [])
                                     local exchange (GATHER, SINGLE, [])
                                         partial aggregation over (commitdate, name, name_7, nationkey, orderkey, orderstatus, receiptdate, suppkey, unique_189)
                                             join (LEFT, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                                remote exchange (REPARTITION, HASH, [orderkey])
                                                     join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, ["nationkey"])
+                                                        remote exchange (REPARTITION, HASH, [nationkey])
                                                             join (INNER, PARTITIONED):
-                                                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                                                remote exchange (REPARTITION, HASH, [orderkey])
                                                                     join (INNER, PARTITIONED):
-                                                                        remote exchange (REPARTITION, HASH, ["suppkey"])
+                                                                        remote exchange (REPARTITION, HASH, [suppkey])
                                                                             scan supplier
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPARTITION, HASH, ["suppkey_0"])
+                                                                            remote exchange (REPARTITION, HASH, [suppkey_0])
                                                                                 scan lineitem
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPARTITION, HASH, ["orderkey_3"])
+                                                                    remote exchange (REPARTITION, HASH, [orderkey_3])
                                                                         scan orders
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["nationkey_6"])
+                                                            remote exchange (REPARTITION, HASH, [nationkey_6])
                                                                 scan nation
                                                 local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["orderkey_10"])
+                                                    remote exchange (REPARTITION, HASH, [orderkey_10])
                                                         scan lineitem
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["orderkey_92"])
+                                    remote exchange (REPARTITION, HASH, [orderkey_92])
                                         scan lineitem

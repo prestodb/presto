@@ -18,13 +18,16 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -91,7 +94,7 @@ public abstract class SqlAggregationFunction
         requireNonNull(argumentTypes, "argumentTypes is null");
         checkArgument(kind == AGGREGATE, "kind must be an aggregate");
         return new Signature(
-                name,
+                FullyQualifiedName.of(DEFAULT_NAMESPACE, name),
                 kind,
                 ImmutableList.copyOf(typeVariableConstraints),
                 ImmutableList.copyOf(longVariableConstraints),

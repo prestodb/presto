@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -45,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -135,9 +135,9 @@ public class ExpressionEquivalence
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
 
-            String callName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
+            FullyQualifiedName callName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
 
-            if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
+            if (callName.equals(EQUAL.getFunctionName()) || callName.equals(NOT_EQUAL.getFunctionName()) || callName.equals(IS_DISTINCT_FROM.getFunctionName())) {
                 // sort arguments
                 return new CallExpression(
                         call.getDisplayName(),
@@ -146,11 +146,11 @@ public class ExpressionEquivalence
                         ROW_EXPRESSION_ORDERING.sortedCopy(call.getArguments()));
             }
 
-            if (callName.equals(mangleOperatorName(GREATER_THAN)) || callName.equals(mangleOperatorName(GREATER_THAN_OR_EQUAL))) {
+            if (callName.equals(GREATER_THAN.getFunctionName()) || callName.equals(GREATER_THAN_OR_EQUAL.getFunctionName())) {
                 // convert greater than to less than
 
                 FunctionHandle functionHandle = functionManager.resolveOperator(
-                        callName.equals(mangleOperatorName(GREATER_THAN)) ? LESS_THAN : LESS_THAN_OR_EQUAL,
+                        callName.equals(GREATER_THAN.getFunctionName()) ? LESS_THAN : LESS_THAN_OR_EQUAL,
                         swapPair(fromTypes(call.getArguments().stream().map(RowExpression::getType).collect(toImmutableList()))));
                 return new CallExpression(
                         call.getDisplayName(),

@@ -30,6 +30,7 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
@@ -53,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -64,7 +66,10 @@ import static java.util.stream.Collectors.toList;
 public class MetadataQueryOptimizer
         implements PlanOptimizer
 {
-    private static final Set<String> ALLOWED_FUNCTIONS = ImmutableSet.of("max", "min", "approx_distinct");
+    private static final Set<FullyQualifiedName> ALLOWED_FUNCTIONS = ImmutableSet.of(
+            FullyQualifiedName.of(DEFAULT_NAMESPACE, "max"),
+            FullyQualifiedName.of(DEFAULT_NAMESPACE, "min"),
+            FullyQualifiedName.of(DEFAULT_NAMESPACE, "approx_distinct"));
 
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
@@ -107,7 +112,7 @@ public class MetadataQueryOptimizer
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
-                String functionName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
+                FullyQualifiedName functionName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
                 if (!ALLOWED_FUNCTIONS.contains(functionName) && !aggregation.isDistinct()) {
                     return context.defaultRewrite(node);
                 }

@@ -444,32 +444,27 @@ public class LogicalPlanner
 
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap);
 
-            StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(variableAllocator, metadata.getFunctionManager());
-
-            // partial aggregation is run within the TableWriteOperator to calculate the statistics for
-            // the data consumed by the TableWriteOperator
-            // final aggregation is run within the TableFinishOperator to summarize collected statistics
-            // by the partial aggregation from all of the writer nodes
-            StatisticAggregations partialAggregation = aggregations.getPartialAggregation();
-
-            PlanNode writerNode = new TableWriterNode(
-                    idAllocator.getNextId(),
-                    source,
-                    target,
-                    variableAllocator.newVariable("partialrows", BIGINT),
-                    variableAllocator.newVariable("fragment", VARBINARY),
-                    variableAllocator.newVariable("tablecommitcontext", VARBINARY),
-                    plan.getFieldMappings(),
-                    columnNames,
-                    partitioningScheme,
-                    Optional.of(partialAggregation),
-                    Optional.of(result.getDescriptor().map(aggregations.getMappings()::get)));
+            StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionManager());
 
             TableFinishNode commitNode = new TableFinishNode(
                     idAllocator.getNextId(),
-                    writerNode,
+                    new TableWriterNode(
+                            idAllocator.getNextId(),
+                            source,
+                            target,
+                            variableAllocator.newVariable("rows", BIGINT),
+                            variableAllocator.newVariable("fragments", VARBINARY),
+                            variableAllocator.newVariable("commitcontext", VARBINARY),
+                            plan.getFieldMappings(),
+                            columnNames,
+                            partitioningScheme,
+                            // partial aggregation is run within the TableWriteOperator to calculate the statistics for
+                            // the data consumed by the TableWriteOperator
+                            Optional.of(aggregations.getPartialAggregation())),
                     target,
                     variableAllocator.newVariable("rows", BIGINT),
+                    // final aggregation is run within the TableFinishOperator to summarize collected statistics
+                    // by the partial aggregation from all of the writer nodes
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
@@ -482,13 +477,12 @@ public class LogicalPlanner
                         idAllocator.getNextId(),
                         source,
                         target,
-                        variableAllocator.newVariable("partialrows", BIGINT),
-                        variableAllocator.newVariable("fragment", VARBINARY),
-                        variableAllocator.newVariable("tablecommitcontext", VARBINARY),
+                        variableAllocator.newVariable("rows", BIGINT),
+                        variableAllocator.newVariable("fragments", VARBINARY),
+                        variableAllocator.newVariable("commitcontext", VARBINARY),
                         plan.getFieldMappings(),
                         columnNames,
                         partitioningScheme,
-                        Optional.empty(),
                         Optional.empty()),
                 target,
                 variableAllocator.newVariable("rows", BIGINT),

@@ -141,7 +141,7 @@ public abstract class AbstractMinMaxAggregationFunction
 
         Type intermediateType = stateSerializer.getSerializedType();
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+                generateAggregationName(getSignature().getNameSuffix(), type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createParameterMetadata(type),
                 inputFunction,
                 combineFunction,
@@ -153,7 +153,7 @@ public abstract class AbstractMinMaxAggregationFunction
                 type);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(getSignature().getName(), inputTypes, ImmutableList.of(intermediateType), type, true, false, factory);
+        return new InternalAggregationFunction(getSignature().getNameSuffix(), inputTypes, ImmutableList.of(intermediateType), type, true, false, factory);
     }
 
     private static List<ParameterMetadata> createParameterMetadata(Type type)

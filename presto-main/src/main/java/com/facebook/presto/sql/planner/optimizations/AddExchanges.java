@@ -720,7 +720,7 @@ public class AddExchanges
             PlanWithProperties right;
 
             if (left.getProperties().isNodePartitionedOn(leftVariables) && !left.getProperties().isSingleNode()) {
-                Partitioning rightPartitioning = left.getProperties().translate(createTranslator(leftToRight)).getNodePartitioning().get();
+                Partitioning rightPartitioning = left.getProperties().translateVariable(createTranslator(leftToRight)).getNodePartitioning().get();
                 right = node.getRight().accept(this, PreferredProperties.partitioned(rightPartitioning));
                 if (!right.getProperties().isCompatibleTablePartitioningWith(left.getProperties(), rightToLeft::get, metadata, session) &&
                         // TODO: Deprecate compatible table partitioning
@@ -739,7 +739,7 @@ public class AddExchanges
                 right = node.getRight().accept(this, PreferredProperties.partitioned(ImmutableSet.copyOf(rightVariables)));
 
                 if (right.getProperties().isNodePartitionedOn(rightVariables) && !right.getProperties().isSingleNode()) {
-                    Partitioning leftPartitioning = right.getProperties().translate(createTranslator(rightToLeft)).getNodePartitioning().get();
+                    Partitioning leftPartitioning = right.getProperties().translateVariable(createTranslator(rightToLeft)).getNodePartitioning().get();
                     left = withDerivedProperties(
                             partitionedExchange(
                                     idAllocator.getNextId(),
@@ -774,7 +774,7 @@ public class AddExchanges
 
             // if colocated joins are disabled, force redistribute when using a custom partitioning
             if (!isColocatedJoinEnabled(session) && hasMultipleTableScans(left.getNode(), right.getNode())) {
-                Partitioning rightPartitioning = left.getProperties().translate(createTranslator(leftToRight)).getNodePartitioning().get();
+                Partitioning rightPartitioning = left.getProperties().translateVariable(createTranslator(leftToRight)).getNodePartitioning().get();
                 right = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
@@ -885,7 +885,7 @@ public class AddExchanges
                 source = node.getSource().accept(this, PreferredProperties.partitioned(ImmutableSet.copyOf(sourceVariables)));
 
                 if (source.getProperties().isNodePartitionedOn(sourceVariables) && !source.getProperties().isSingleNode()) {
-                    Partitioning filteringPartitioning = source.getProperties().translate(createTranslator(sourceToFiltering)).getNodePartitioning().get();
+                    Partitioning filteringPartitioning = source.getProperties().translateVariable(createTranslator(sourceToFiltering)).getNodePartitioning().get();
                     filteringSource = node.getFilteringSource().accept(this, PreferredProperties.partitionedWithNullsAndAnyReplicated(filteringPartitioning));
                     // TODO: Deprecate compatible table partitioning
                     if (!source.getProperties().withReplicatedNulls(true).isCompatibleTablePartitioningWith(filteringSource.getProperties(), sourceToFiltering::get, metadata, session) &&
@@ -905,7 +905,7 @@ public class AddExchanges
                     filteringSource = node.getFilteringSource().accept(this, PreferredProperties.partitionedWithNullsAndAnyReplicated(ImmutableSet.copyOf(filteringSourceVariables)));
 
                     if (filteringSource.getProperties().isNodePartitionedOn(filteringSourceVariables, true) && !filteringSource.getProperties().isSingleNode()) {
-                        Partitioning sourcePartitioning = filteringSource.getProperties().translate(createTranslator(filteringToSource)).getNodePartitioning().get();
+                        Partitioning sourcePartitioning = filteringSource.getProperties().translateVariable(createTranslator(filteringToSource)).getNodePartitioning().get();
                         source = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), new PartitioningScheme(sourcePartitioning, source.getNode().getOutputVariables())),
                                 source.getProperties());
@@ -931,7 +931,7 @@ public class AddExchanges
 
                 // if colocated joins are disabled, force redistribute when using a custom partitioning
                 if (!isColocatedJoinEnabled(session) && hasMultipleTableScans(source.getNode(), filteringSource.getNode())) {
-                    Partitioning filteringPartitioning = source.getProperties().translate(createTranslator(sourceToFiltering)).getNodePartitioning().get();
+                    Partitioning filteringPartitioning = source.getProperties().translateVariable(createTranslator(sourceToFiltering)).getNodePartitioning().get();
                     filteringSource = withDerivedProperties(
                             partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, filteringSource.getNode(), new PartitioningScheme(
                                     filteringPartitioning,
@@ -1055,7 +1055,7 @@ public class AddExchanges
             // Try planning the children to see if any of them naturally produce a partitioning (for now, just select the first)
             boolean nullsAndAnyReplicated = parentPreference.isNullsAndAnyReplicated();
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                PreferredProperties.PartitioningProperties childPartitioning = parentPreference.translate(outputToInputTranslator(node, sourceIndex, types)).get();
+                PreferredProperties.PartitioningProperties childPartitioning = parentPreference.translateVariable(outputToInputTranslator(node, sourceIndex, types)).get();
                 PreferredProperties childPreferred = PreferredProperties.builder()
                         .global(PreferredProperties.Global.distributed(childPartitioning.withNullsAndAnyReplicated(nullsAndAnyReplicated)))
                         .build();
@@ -1067,7 +1067,7 @@ public class AddExchanges
                     Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> childToParent = createTranslator(createMapping(
                             node.sourceOutputLayout(sourceIndex),
                             node.getOutputVariables()));
-                    return child.getProperties().translate(childToParent).getNodePartitioning().get();
+                    return child.getProperties().translateVariable(childToParent).getNodePartitioning().get();
                 }
             }
 
@@ -1090,7 +1090,7 @@ public class AddExchanges
                 ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputToSourcesMapping = ImmutableListMultimap.builder();
 
                 for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                    Partitioning childPartitioning = desiredParentPartitioning.translate(createDirectTranslator(createMapping(
+                    Partitioning childPartitioning = desiredParentPartitioning.translateVariable(createDirectTranslator(createMapping(
                             node.getOutputVariables(),
                             node.sourceOutputLayout(sourceIndex))));
 

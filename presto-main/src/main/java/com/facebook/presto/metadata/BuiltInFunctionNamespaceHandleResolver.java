@@ -14,19 +14,14 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.spi.function.FunctionHandleResolver;
 
-import java.util.List;
-
-public interface FunctionNamespace
+public class BuiltInFunctionNamespaceHandleResolver
+        implements FunctionHandleResolver
 {
-    void addFunctions(List<? extends SqlFunction> functions);
-
-    List<SqlFunction> listFunctions();
-
-    FunctionHandle resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
-
-    FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
+    @Override
+    public Class<? extends FunctionHandle> getFunctionHandleClass()
+    {
+        return BuiltInFunctionHandle.class;
+    }
 }

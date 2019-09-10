@@ -85,6 +85,7 @@ public class SliceDictionaryColumnWriter
     private final DictionaryBuilder dictionary = new DictionaryBuilder(10000);
 
     private final List<DictionaryRowGroup> rowGroups = new ArrayList<>();
+    private long columnStatisticsRetainedSizeInBytes;
 
     private IntBigArray values;
     private int rowGroupValueCount;
@@ -320,7 +321,9 @@ public class SliceDictionaryColumnWriter
         }
 
         ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
-        rowGroups.add(new DictionaryRowGroup(values, rowGroupValueCount, statistics));
+        DictionaryRowGroup rowGroup = new DictionaryRowGroup(values, rowGroupValueCount, statistics);
+        rowGroups.add(rowGroup);
+        columnStatisticsRetainedSizeInBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes();
         rowGroupValueCount = 0;
         statisticsBuilder = newStringStatisticsBuilder();
         values = new IntBigArray();
@@ -523,19 +526,15 @@ public class SliceDictionaryColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        long retainedBytes = INSTANCE_SIZE +
+        return INSTANCE_SIZE +
                 values.sizeOf() +
                 dataStream.getRetainedBytes() +
                 presentStream.getRetainedBytes() +
                 dictionaryDataStream.getRetainedBytes() +
                 dictionaryLengthStream.getRetainedBytes() +
                 dictionary.getRetainedSizeInBytes() +
-                (directColumnWriter == null ? 0 : directColumnWriter.getRetainedBytes());
-
-        for (DictionaryRowGroup rowGroup : rowGroups) {
-            retainedBytes += rowGroup.getColumnStatistics().getRetainedSizeInBytes();
-        }
-        return retainedBytes;
+                (directColumnWriter == null ? 0 : directColumnWriter.getRetainedBytes()) +
+                columnStatisticsRetainedSizeInBytes;
     }
 
     @Override
@@ -548,6 +547,7 @@ public class SliceDictionaryColumnWriter
         dictionaryDataStream.reset();
         dictionaryLengthStream.reset();
         rowGroups.clear();
+        columnStatisticsRetainedSizeInBytes = 0;
         rowGroupValueCount = 0;
         statisticsBuilder = newStringStatisticsBuilder();
         columnEncoding = null;

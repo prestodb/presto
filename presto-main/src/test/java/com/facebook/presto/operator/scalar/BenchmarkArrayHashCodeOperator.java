@@ -61,7 +61,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static com.facebook.presto.operator.scalar.CombineHashFunction.getHash;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
@@ -105,7 +104,7 @@ public class BenchmarkArrayHashCodeOperator
     public static class BenchmarkData
     {
         @Param({"$operator$hash_code", "old_hash", "another_hash"})
-        private String name = mangleOperatorName(HASH_CODE);
+        private String name = HASH_CODE.getFunctionName().getSuffix();
 
         @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";

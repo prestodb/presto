@@ -95,7 +95,7 @@ public class MapFlatBatchStreamReader
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
-        this.keyOrcType = streamDescriptor.getNestedStreams().get(0).getStreamType();
+        this.keyOrcType = streamDescriptor.getNestedStreams().get(0).getOrcTypeKind();
         this.baseValueStreamDescriptor = streamDescriptor.getNestedStreams().get(1);
     }
 
@@ -200,10 +200,12 @@ public class MapFlatBatchStreamReader
             mapOffsets[mapIndex + 1] = mapOffsets[mapIndex] + mapLength;
         }
 
+        Block block = mapType.createBlockFromKeyValue(nextBatchSize, Optional.ofNullable(nullVector), mapOffsets, new DictionaryBlock(keyBlockTemplate, keyIds), valueBlockBuilder);
+
         readOffset = 0;
         nextBatchSize = 0;
 
-        return mapType.createBlockFromKeyValue(Optional.ofNullable(nullVector), mapOffsets, new DictionaryBlock(keyBlockTemplate, keyIds), valueBlockBuilder);
+        return block;
     }
 
     private void openRowGroup()
@@ -267,7 +269,7 @@ public class MapFlatBatchStreamReader
                 streamDescriptor.getStreamName(),
                 streamDescriptor.getStreamId(),
                 streamDescriptor.getFieldName(),
-                streamDescriptor.getStreamType(),
+                streamDescriptor.getOrcType(),
                 streamDescriptor.getOrcDataSource(),
                 streamDescriptors,
                 sequence);

@@ -119,11 +119,13 @@ public class TestColumnarMap
 
         Block keysBlock = columnarMap.getKeysBlock();
         Block valuesBlock = columnarMap.getValuesBlock();
-        int keysPosition = 0;
-        int valuesPosition = 0;
+        int elementsPosition = 0;
+
         for (int position = 0; position < expectedValues.length; position++) {
             Slice[][] expectedMap = expectedValues[position];
             assertEquals(columnarMap.isNull(position), expectedMap == null);
+            assertEquals(columnarMap.getOffset(position), elementsPosition);
+
             if (expectedMap == null) {
                 assertEquals(columnarMap.getEntryCount(position), 0);
                 continue;
@@ -134,12 +136,12 @@ public class TestColumnarMap
                 Slice[] expectedEntry = expectedMap[i];
 
                 Slice expectedKey = expectedEntry[0];
-                assertBlockPosition(keysBlock, keysPosition, expectedKey);
-                keysPosition++;
+                assertBlockPosition(keysBlock, elementsPosition, expectedKey);
 
                 Slice expectedValue = expectedEntry[1];
-                assertBlockPosition(valuesBlock, valuesPosition, expectedValue);
-                valuesPosition++;
+                assertBlockPosition(valuesBlock, elementsPosition, expectedValue);
+
+                elementsPosition++;
             }
         }
     }

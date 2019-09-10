@@ -83,7 +83,6 @@ import static com.facebook.presto.sql.planner.LiteralEncoder.toRowExpression;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.changed;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.notChanged;
 import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
@@ -207,10 +206,9 @@ public class RowExpressionInterpreter
             }
 
             FunctionHandle functionHandle = node.getFunctionHandle();
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(node.getFunctionHandle());
 
             // Special casing for large constant array construction
-            if (functionMetadata.getName().toUpperCase().equals(ARRAY_CONSTRUCTOR)) {
+            if (resolution.isArrayConstructor(functionHandle)) {
                 SpecialCallResult result = tryHandleArrayConstructor(node, argumentValues);
                 if (result.isChanged()) {
                     return result.getValue();
@@ -233,6 +231,7 @@ public class RowExpressionInterpreter
                 }
             }
 
+            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(functionHandle);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
                 if (value == null && !functionMetadata.isCalledOnNullInput()) {
@@ -241,7 +240,7 @@ public class RowExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || functionMetadata.getName().equals("fail"))) {
+            if (optimize && (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || resolution.isFailFunction(functionHandle))) {
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, argumentTypes));
             }
             return functionInvoker.invoke(functionHandle, session, argumentValues);
@@ -679,7 +678,7 @@ public class RowExpressionInterpreter
 
         private SpecialCallResult tryHandleArrayConstructor(CallExpression callExpression, List<Object> argumentValues)
         {
-            checkArgument(metadata.getFunctionManager().getFunctionMetadata(callExpression.getFunctionHandle()).getName().toUpperCase().equals(ARRAY_CONSTRUCTOR));
+            checkArgument(resolution.isArrayConstructor(callExpression.getFunctionHandle()));
             boolean allConstants = true;
             for (Object values : argumentValues) {
                 if (values instanceof RowExpression) {

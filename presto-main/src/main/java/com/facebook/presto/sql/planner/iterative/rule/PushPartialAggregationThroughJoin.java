@@ -192,6 +192,6 @@ public class PushPartialAggregationThroughJoin
                 child.getLeftHashVariable(),
                 child.getRightHashVariable(),
                 child.getDistributionType());
-        return restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.getOutputVariables())).orElse(joinNode);
+        return restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.getOutputVariables()), false).orElse(joinNode);
     }
 }

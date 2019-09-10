@@ -52,7 +52,7 @@ public abstract class AbstractWindowFunctionSupplier
         checkArgument(argumentChannels.size() == signature.getArgumentTypes().size(),
                 "Expected %s arguments for function %s, but got %s",
                 signature.getArgumentTypes().size(),
-                signature.getName(),
+                signature.getNameSuffix(),
                 argumentChannels.size());
 
         return newWindowFunction(argumentChannels);

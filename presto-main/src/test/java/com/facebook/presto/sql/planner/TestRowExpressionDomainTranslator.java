@@ -1217,7 +1217,7 @@ public class TestRowExpressionDomainTranslator
     private RowExpression cast(RowExpression expression, Type toType)
     {
         FunctionHandle cast = metadata.getFunctionManager().lookupCast(CastType.CAST, expression.getType().getTypeSignature(), toType.getTypeSignature());
-        return call(CastType.CAST.getCastName(), cast, toType, expression);
+        return call(CastType.CAST.name(), cast, toType, expression);
     }
 
     private RowExpression not(RowExpression expression)

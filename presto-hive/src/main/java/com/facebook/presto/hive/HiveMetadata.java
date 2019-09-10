@@ -151,6 +151,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableSt
 import static com.facebook.presto.hive.HiveSessionProperties.getVirtualBucketCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
+import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
@@ -174,6 +175,7 @@ import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.HiveUtil.assignFieldNamesForAnonymousRowColumns;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
@@ -334,7 +336,10 @@ public class HiveMetadata
             throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, format("Unexpected table %s present in Hive metastore", tableName));
         }
 
-        verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
+        if (!isOfflineDataDebugModeEnabled(session)) {
+            verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
+        }
+
         return new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
     }
 
@@ -419,7 +424,7 @@ public class HiveMetadata
                 Predicate<Map<ColumnHandle, NullableValue>> targetPredicate = convertToPredicate(targetTupleDomain);
                 Constraint<ColumnHandle> targetConstraint = new Constraint<>(targetTupleDomain, targetPredicate);
                 Iterable<List<Object>> records = () ->
-                        stream(partitionManager.getPartitionsIterator(metastore, sourceTableHandle, targetConstraint))
+                        stream(partitionManager.getPartitionsIterator(metastore, sourceTableHandle, targetConstraint, session))
                                 .map(hivePartition ->
                                         IntStream.range(0, partitionColumns.size())
                                                 .mapToObj(fieldIdToColumnHandle::get)
@@ -749,7 +754,12 @@ public class HiveMetadata
             return new HiveBucketProperty(partitioning.getPartitionColumns(), partitioningHandle.getBucketCount(), ImmutableList.of());
         });
 
-        List<HiveColumnHandle> columnHandles = getColumnHandles(columns, ImmutableSet.of(), typeTranslator);
+        List<HiveColumnHandle> columnHandles = getColumnHandles(
+                // Hive doesn't support anonymous rows
+                // Since this method doesn't create a real table, it is fine to assign dummy field names to the anonymous rows
+                assignFieldNamesForAnonymousRowColumns(columns, typeManager),
+                ImmutableSet.of(),
+                typeTranslator);
         storageFormat.validateColumns(columnHandles);
 
         Table table = Table.builder()
@@ -1757,7 +1767,9 @@ public class HiveMetadata
                                 predicateColumns,
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hivePartitionResult.getBucketHandle(),
-                                hivePartitionResult.getBucketFilter())),
+                                hivePartitionResult.getBucketFilter(),
+                                session,
+                                rowExpression -> rowExpressionService.formatRowExpression(session, rowExpression))),
                 TRUE_CONSTANT);
     }
 
@@ -1814,7 +1826,9 @@ public class HiveMetadata
                                 predicateColumns,
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hiveBucketHandle,
-                                hivePartitionResult.getBucketFilter())),
+                                hivePartitionResult.getBucketFilter(),
+                                session,
+                                rowExpression -> rowExpressionService.formatRowExpression(session, rowExpression))),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
@@ -1986,7 +2000,9 @@ public class HiveMetadata
                 hiveLayoutHandle.getPredicateColumns(),
                 hiveLayoutHandle.getPartitionColumnPredicate(),
                 Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
-                hiveLayoutHandle.getBucketFilter());
+                hiveLayoutHandle.getBucketFilter(),
+                session,
+                rowExpression -> rowExpressionService.formatRowExpression(session, rowExpression));
     }
 
     @Override

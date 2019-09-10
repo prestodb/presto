@@ -33,9 +33,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.block.ClosingBlockLease.newLease;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -88,6 +88,8 @@ public class LongDirectSelectiveStreamReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkArgument(positionCount > 0, "positionCount must be greater than zero");
+
         if (!rowGroupOpen) {
             openRowGroup();
         }
@@ -101,6 +103,7 @@ public class LongDirectSelectiveStreamReader
         }
         else {
             outputPositions = positions;
+            outputPositionsReadOnly = true;
         }
 
         // account memory used by values, nulls and outputPositions
@@ -186,16 +189,20 @@ public class LongDirectSelectiveStreamReader
                 if (filter.testNull()) {
                     outputPositionCount++;
                 }
+                else {
+                    outputPositionCount -= filter.getPrecedingPositionsToFail();
+                    i += filter.getSucceedingPositionsToFail();
+                }
             }
         }
         else if (nullsAllowed) {
             outputPositionCount = positionCount;
-            allNulls = true;
         }
         else {
             outputPositionCount = 0;
         }
 
+        allNulls = true;
         return positions[positionCount - 1] + 1;
     }
 

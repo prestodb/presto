@@ -15,17 +15,32 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.relation.Predicate;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
+import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 
 public class FilterFunction
 {
+    private static final byte FILTER_NOT_EVALUATED = 0;
+    private static final byte FILTER_PASSED = 1;
+    private static final byte FILTER_FAILED = 2;
+
     private final ConnectorSession session;
     private final Predicate predicate;
     private final boolean deterministic;
     private final int[] inputChannels;
+
+    // If the function has a single argument and this is a DictionaryBlock, we can cache results. The cache is valid as long
+    // as the dictionary inside the block is physically the same.
+    private byte[] dictionaryResults;
+    private Block previousDictionary;
+    private Page dictionaryPage;
 
     public FilterFunction(ConnectorSession session, boolean deterministic, Predicate predicate)
     {
@@ -53,6 +68,10 @@ public class FilterFunction
         checkArgument(positionCount <= positions.length);
         checkArgument(positionCount <= errors.length);
 
+        if (deterministic && inputChannels.length == 1 && page.getBlock(0) instanceof DictionaryBlock) {
+            return filterWithDictionary(page, positions, positionCount, errors);
+        }
+
         int outputCount = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
@@ -70,6 +89,56 @@ public class FilterFunction
             }
         }
 
+        return outputCount;
+    }
+
+    private int filterWithDictionary(Page page, int[] positions, int positionCount, RuntimeException[] errors)
+    {
+        int outputCount = 0;
+        DictionaryBlock block = (DictionaryBlock) page.getBlock(0);
+        Block dictionary = block.getDictionary();
+        if (dictionary != previousDictionary) {
+            previousDictionary = dictionary;
+            int numEntries = dictionary.getPositionCount();
+            dictionaryPage = new Page(numEntries, dictionary);
+            dictionaryResults = ensureCapacity(dictionaryResults, numEntries);
+            fill(dictionaryResults, 0, numEntries, FILTER_NOT_EVALUATED);
+        }
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+            int dictionaryPosition = block.getId(position);
+            byte result = dictionaryResults[dictionaryPosition];
+            switch (result) {
+                case FILTER_FAILED:
+                    continue;
+                case FILTER_PASSED:
+                    positions[outputCount] = position;
+                    errors[outputCount] = errors[i];
+                    outputCount++;
+                    continue;
+                case FILTER_NOT_EVALUATED:
+                    try {
+                        if (predicate.evaluate(session, dictionaryPage, dictionaryPosition)) {
+                            positions[outputCount] = position;
+                            errors[outputCount] = errors[i];
+                            outputCount++;
+                            dictionaryResults[dictionaryPosition] = FILTER_PASSED;
+                        }
+                        else {
+                            dictionaryResults[dictionaryPosition] = FILTER_FAILED;
+                        }
+                    }
+                    catch (RuntimeException e) {
+                        // We do not record errors in the dictionary results.
+                        positions[outputCount] = position;
+                        errors[outputCount] = e;    // keep last error
+                        outputCount++;
+                    }
+                    break;
+                default:
+                    verify(false, "Unexpected filter result: " + result);
+            }
+        }
         return outputCount;
     }
 

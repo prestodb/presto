@@ -58,7 +58,7 @@ final class OrcTestingUtil
     public static OrcBatchRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
@@ -77,7 +77,7 @@ final class OrcTestingUtil
     public static OrcBatchRecordReader createReaderNoRows(OrcDataSource dataSource)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
         assertEquals(orcReader.getColumnNames().size(), 0);
 

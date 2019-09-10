@@ -26,7 +26,7 @@ public final class BatchStreamReaders
             StreamDescriptor streamDescriptor,
             DateTimeZone hiveStorageTimeZone)
     {
-        switch (streamDescriptor.getStreamType()) {
+        switch (streamDescriptor.getOrcTypeKind()) {
             case BOOLEAN:
                 return new BooleanBatchStreamReader(streamDescriptor);
             case BYTE:
@@ -57,7 +57,7 @@ public final class BatchStreamReaders
                 return new DecimalBatchStreamReader(streamDescriptor);
             case UNION:
             default:
-                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
+                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getOrcTypeKind());
         }
     }
 }

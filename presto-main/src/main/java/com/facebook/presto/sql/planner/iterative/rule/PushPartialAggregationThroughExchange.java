@@ -24,7 +24,6 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
@@ -118,8 +117,8 @@ public class PushPartialAggregationThroughExchange
                     .getPartitioning()
                     .getArguments()
                     .stream()
-                    .filter(Partitioning.ArgumentBinding::isVariable)
-                    .map(Partitioning.ArgumentBinding::getVariableReference)
+                    .filter(VariableReferenceExpression.class::isInstance)
+                    .map(VariableReferenceExpression.class::cast)
                     .collect(Collectors.toList());
 
             if (!aggregationNode.getGroupingKeys().containsAll(partitioningColumns)) {
@@ -201,7 +200,7 @@ public class PushPartialAggregationThroughExchange
         Map<VariableReferenceExpression, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
         for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
-            String functionName = functionManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName();
+            String functionName = functionManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName().getSuffix();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
             VariableReferenceExpression intermediateVariable = context.getVariableAllocator().newVariable(functionName, function.getIntermediateType());

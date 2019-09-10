@@ -29,6 +29,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -72,7 +73,7 @@ public abstract class AbstractGreatestLeast
 
     private final OperatorType operatorType;
 
-    protected AbstractGreatestLeast(String name, OperatorType operatorType)
+    protected AbstractGreatestLeast(FullyQualifiedName name, OperatorType operatorType)
     {
         super(new Signature(
                 name,
@@ -111,7 +112,7 @@ public abstract class AbstractGreatestLeast
                 .collect(toImmutableList());
 
         Class<?> clazz = generate(javaTypes, type, compareMethod);
-        MethodHandle methodHandle = methodHandle(clazz, getSignature().getName(), javaTypes.toArray(new Class<?>[javaTypes.size()]));
+        MethodHandle methodHandle = methodHandle(clazz, getSignature().getNameSuffix(), javaTypes.toArray(new Class<?>[javaTypes.size()]));
 
         return new ScalarFunctionImplementation(
                 false,
@@ -129,14 +130,14 @@ public abstract class AbstractGreatestLeast
 
     private Class<?> generate(List<Class<?>> javaTypes, Type type, MethodHandle compareMethod)
     {
-        checkCondition(javaTypes.size() <= 127, NOT_SUPPORTED, "Too many arguments for function call %s()", getSignature().getName());
+        checkCondition(javaTypes.size() <= 127, NOT_SUPPORTED, "Too many arguments for function call %s()", getSignature().getNameSuffix());
         String javaTypeName = javaTypes.stream()
                 .map(Class::getSimpleName)
                 .collect(joining());
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(javaTypeName + "$" + getSignature().getName()),
+                makeClassName(javaTypeName + "$" + getSignature().getNameSuffix()),
                 type(Object.class));
 
         definition.declareDefaultConstructor(a(PRIVATE));
@@ -147,7 +148,7 @@ public abstract class AbstractGreatestLeast
 
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
-                getSignature().getName(),
+                getSignature().getNameSuffix(),
                 type(javaTypes.get(0)),
                 parameters);
 
@@ -159,7 +160,7 @@ public abstract class AbstractGreatestLeast
         if (type.getTypeSignature().getBase().equals(StandardTypes.DOUBLE)) {
             for (Parameter parameter : parameters) {
                 body.append(parameter);
-                body.append(invoke(binder.bind(CHECK_NOT_NAN.bindTo(getSignature().getName())), "checkNotNaN"));
+                body.append(invoke(binder.bind(CHECK_NOT_NAN.bindTo(getSignature().getNameSuffix())), "checkNotNaN"));
             }
         }
 

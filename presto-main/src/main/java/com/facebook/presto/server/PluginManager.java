@@ -25,6 +25,7 @@ import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
+import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
@@ -208,6 +209,11 @@ public class PluginManager
         for (Class<?> functionClass : plugin.getFunctions()) {
             log.info("Registering functions from %s", functionClass.getName());
             metadata.addFunctions(extractFunctions(functionClass));
+        }
+
+        for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
+            log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
+            metadata.getFunctionManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {

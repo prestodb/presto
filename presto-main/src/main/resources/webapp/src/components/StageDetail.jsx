@@ -19,10 +19,10 @@ import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 
 import {
-    getChildren,
     formatCount,
     formatDataSize,
     formatDuration,
+    getChildren,
     getFirstParameter,
     getTaskNumber,
     initializeGraph,

@@ -16,46 +16,63 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
+import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.orc.OrcTester.arrayType;
+import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.OrcTester.quickSelectiveOrcTester;
+import static com.facebook.presto.orc.OrcTester.rowType;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
-import static com.google.common.collect.Lists.reverse;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestSelectiveOrcReader
 {
@@ -71,21 +88,20 @@ public class TestSelectiveOrcReader
     public void testBooleanSequence()
             throws Exception
     {
-        List<Map<Integer, TupleDomainFilter>> filters = ImmutableList.of(
-                ImmutableMap.of(0, BooleanValue.of(true, false)),
-                ImmutableMap.of(0, TupleDomainFilter.IS_NULL));
-        tester.testRoundTrip(BOOLEAN, newArrayList(limit(cycle(ImmutableList.of(true, false, false)), 30_000)), filters);
+        tester.testRoundTrip(
+                BOOLEAN,
+                newArrayList(limit(cycle(ImmutableList.of(true, false, false)), 30_000)),
+                BooleanValue.of(true, false), TupleDomainFilter.IS_NULL);
 
-        filters = ImmutableList.of(
-                ImmutableMap.of(0, BooleanValue.of(true, false)),
-                ImmutableMap.of(0, TupleDomainFilter.IS_NULL),
-                ImmutableMap.of(1, BooleanValue.of(true, false)),
-                ImmutableMap.of(0, BooleanValue.of(false, false), 1, BooleanValue.of(true, false)));
         tester.testRoundTripTypes(ImmutableList.of(BOOLEAN, BOOLEAN),
                 ImmutableList.of(
                         newArrayList(limit(cycle(ImmutableList.of(true, false, false)), 30_000)),
                         newArrayList(limit(cycle(ImmutableList.of(true, true, false)), 30_000))),
-                filters);
+                toSubfieldFilters(
+                        ImmutableMap.of(0, BooleanValue.of(true, false)),
+                        ImmutableMap.of(0, TupleDomainFilter.IS_NULL),
+                        ImmutableMap.of(1, BooleanValue.of(true, false)),
+                        ImmutableMap.of(0, BooleanValue.of(false, false), 1, BooleanValue.of(true, false))));
     }
 
     @Test
@@ -97,21 +113,18 @@ public class TestSelectiveOrcReader
                 .map(Integer::byteValue)
                 .collect(toList());
 
-        tester.testRoundTrip(TINYINT, byteValues,
-                ImmutableList.of(
-                        ImmutableMap.of(0, BigintValues.of(new long[] {1, 17}, false)),
-                        ImmutableMap.of(0, IS_NULL)));
+        tester.testRoundTrip(TINYINT, byteValues, BigintValues.of(new long[] {1, 17}, false), IS_NULL);
 
-        List<Map<Integer, TupleDomainFilter>> filters = ImmutableList.of(
+        List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters = toSubfieldFilters(
                 ImmutableMap.of(0, BigintRange.of(1, 17, false)),
                 ImmutableMap.of(0, IS_NULL),
                 ImmutableMap.of(1, IS_NULL),
                 ImmutableMap.of(
                         0,
-                        BigintRange.of(11, 15, false),
+                        BigintRange.of(7, 17, false),
                         1,
-                        BigintRange.of(11, Long.MAX_VALUE, false)));
-        tester.testRoundTripTypes(ImmutableList.of(TINYINT, TINYINT), ImmutableList.of(byteValues, reverse(byteValues)), filters);
+                        BigintRange.of(12, 14, false)));
+        tester.testRoundTripTypes(ImmutableList.of(TINYINT, TINYINT), ImmutableList.of(byteValues, byteValues), filters);
     }
 
     @Test
@@ -125,7 +138,7 @@ public class TestSelectiveOrcReader
         tester.testRoundTrip(
                 TINYINT,
                 newArrayList(limit(repeatEach(4, cycle(byteValues)), 30_000)),
-                ImmutableList.of(ImmutableMap.of(0, BigintRange.of(1, 14, true))));
+                BigintRange.of(1, 14, true));
     }
 
     @Test
@@ -143,7 +156,42 @@ public class TestSelectiveOrcReader
         tester.testRoundTrip(
                 TINYINT,
                 byteValues,
-                ImmutableList.of(ImmutableMap.of(0, BigintRange.of(4, 14, true))));
+                BigintRange.of(4, 14, true));
+    }
+
+    @Test
+    public void testDoubleSequence()
+            throws Exception
+    {
+        tester.testRoundTrip(DOUBLE, doubleSequence(0, 0.1, 30_000), DoubleRange.of(0, false, false, 1_000, false, false, false), IS_NULL, IS_NOT_NULL);
+        tester.testRoundTripTypes(
+                ImmutableList.of(DOUBLE, DOUBLE),
+                ImmutableList.of(
+                        doubleSequence(0, 0.1, 10_000),
+                        doubleSequence(0, 0.1, 10_000)),
+                toSubfieldFilters(
+                        ImmutableMap.of(
+                                0, DoubleRange.of(1.0, false, true, 7.0, false, true, true),
+                                1, DoubleRange.of(3.0, false, true, 9.0, false, true, false))));
+    }
+
+    @Test
+    public void testDoubleNaNInfinity()
+            throws Exception
+    {
+        List<Map<Subfield, TupleDomainFilter>> filters = toSubfieldFilters(
+                DoubleRange.of(0, false, false, 1_000, false, false, false),
+                IS_NULL,
+                IS_NOT_NULL);
+
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(1000.0, -1.0, Double.POSITIVE_INFINITY), filters);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(-1000.0, Double.NEGATIVE_INFINITY, 1.0), filters);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(0.0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), filters);
+
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, 1.0), filters);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, -1.0, Double.POSITIVE_INFINITY), filters);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, 1.0), filters);
+        tester.testRoundTrip(DOUBLE, ImmutableList.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY), filters);
     }
 
     @Test
@@ -208,6 +256,264 @@ public class TestSelectiveOrcReader
         testRoundTripNumeric(concat(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123)), BigintRange.of(123, 123, true));
     }
 
+    @Test
+    public void testFloats()
+            throws Exception
+    {
+        List<Map<Subfield, TupleDomainFilter>> filters = toSubfieldFilters(
+                FloatRange.of(0.0f, false, true, 100.0f, false, true, true),
+                FloatRange.of(-100.0f, false, true, 0.0f, false, true, false),
+                IS_NULL);
+
+        tester.testRoundTrip(REAL, ImmutableList.copyOf(repeatEach(10, ImmutableList.of(-100.0f, 0.0f, 100.0f))), filters);
+        tester.testRoundTrip(REAL, ImmutableList.copyOf(repeatEach(10, ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY))));
+
+        List<Float> floatValues = ImmutableList.of(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f);
+        tester.testRoundTripTypes(
+                ImmutableList.of(REAL, REAL),
+                ImmutableList.of(
+                        ImmutableList.copyOf(limit(repeatEach(4, cycle(floatValues)), 100)),
+                        ImmutableList.copyOf(limit(repeatEach(4, cycle(floatValues)), 100))),
+                toSubfieldFilters(
+                        ImmutableMap.of(
+                                0, FloatRange.of(1.0f, false, true, 7.0f, false, true, true),
+                                1, FloatRange.of(3.0f, false, true, 9.0f, false, true, false)),
+                        ImmutableMap.of(
+                                1, FloatRange.of(1.0f, false, true, 7.0f, false, true, true))));
+    }
+
+    @Test
+    public void testArrays()
+            throws Exception
+    {
+        Random random = new Random(0);
+
+        // non-null arrays of varying sizes; some arrays may be empty
+        tester.testRoundTrip(arrayType(INTEGER),
+                IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList()),
+                IS_NULL, IS_NOT_NULL);
+
+        BigintRange negative = BigintRange.of(Integer.MIN_VALUE, 0, false);
+        BigintRange nonNegative = BigintRange.of(0, Integer.MAX_VALUE, false);
+
+        // non-empty non-null arrays of varying sizes
+        tester.testRoundTrip(arrayType(INTEGER),
+                IntStream.range(0, 30_000).map(i -> 5 + random.nextInt(5)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList()),
+                ImmutableList.of(
+                        toSubfieldFilter(IS_NULL),
+                        toSubfieldFilter(IS_NOT_NULL),
+                        // c[1] >= 0
+                        toSubfieldFilter("c[1]", nonNegative),
+                        // c[2] >= 0 AND c[4] >= 0
+                        ImmutableMap.of(
+                                new Subfield("c[2]"), nonNegative,
+                                new Subfield("c[4]"), nonNegative)));
+
+        // non-null arrays of varying sizes; some arrays may be empty
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(INTEGER)),
+                ImmutableList.of(
+                        makeArray(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList())),
+                toSubfieldFilters(
+                        ImmutableMap.of(0, nonNegative),
+                        ImmutableMap.of(
+                                0, nonNegative,
+                                1, IS_NULL),
+                        ImmutableMap.of(
+                                0, nonNegative,
+                                1, IS_NOT_NULL)));
+
+        // non-empty non-null arrays of varying sizes
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(INTEGER)),
+                ImmutableList.of(
+                        makeArray(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> 5 + random.nextInt(5)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList())),
+                ImmutableList.of(
+                        // c[1] >= 0
+                        ImmutableMap.of(
+                                0, toSubfieldFilter(nonNegative),
+                                1, toSubfieldFilter("c[1]", nonNegative)),
+                        // c[3] >= 0
+                        ImmutableMap.of(
+                                0, toSubfieldFilter(nonNegative),
+                                1, toSubfieldFilter("c[3]", nonNegative)),
+                        // c[2] >= 0 AND c[4] <= 0
+                        ImmutableMap.of(
+                                0, toSubfieldFilter(nonNegative),
+                                1, ImmutableMap.of(
+                                        new Subfield("c[2]"), nonNegative,
+                                        new Subfield("c[4]"), negative))));
+
+        // nested arrays
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(arrayType(INTEGER))),
+                ImmutableList.of(
+                        makeArray(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> IntStream.range(0, size).map(i -> random.nextInt(5)).mapToObj(nestedSize -> makeArray(nestedSize, random)).collect(toImmutableList())).collect(toImmutableList())),
+                toSubfieldFilters(
+                        ImmutableMap.of(0, nonNegative),
+                        ImmutableMap.of(1, IS_NULL),
+                        ImmutableMap.of(1, IS_NOT_NULL),
+                        ImmutableMap.of(
+                                0, nonNegative,
+                                1, IS_NULL)));
+
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(arrayType(INTEGER))),
+                ImmutableList.of(
+                        makeArray(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> 3 + random.nextInt(10)).mapToObj(size -> IntStream.range(0, size).map(i -> 3 + random.nextInt(5)).mapToObj(nestedSize -> makeArray(nestedSize, random)).collect(toImmutableList())).collect(toImmutableList())),
+                ImmutableList.of(
+                        // c[1] IS NULL
+                        ImmutableMap.of(1, ImmutableMap.of(new Subfield("c[1]"), IS_NULL)),
+                        // c[2] IS NOT NULL AND c[2][3] >= 0
+                        ImmutableMap.of(1, ImmutableMap.of(
+                                new Subfield("c[2]"), IS_NOT_NULL,
+                                new Subfield("c[2][3]"), nonNegative)),
+                        ImmutableMap.of(
+                                0, toSubfieldFilter(nonNegative),
+                                1, ImmutableMap.of(new Subfield("c[1]"), IS_NULL))));
+    }
+
+    @Test
+    public void testArrayIndexOutOfBounds()
+            throws Exception
+    {
+        Random random = new Random(0);
+
+        // non-null arrays of varying sizes
+        try {
+            tester.testRoundTrip(arrayType(INTEGER),
+                    IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList()),
+                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2]"), IS_NULL)));
+            fail("Expected 'Array subscript out of bounds' exception");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
+        }
+
+        // non-null nested arrays of varying sizes
+        try {
+            tester.testRoundTrip(arrayType(arrayType(INTEGER)),
+                    IntStream.range(0, 30_000).mapToObj(i -> ImmutableList.of(makeArray(random.nextInt(5), random), makeArray(random.nextInt(5), random))).collect(toImmutableList()),
+                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)));
+            fail("Expected 'Array subscript out of bounds' exception");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
+        }
+
+        // empty arrays
+        try {
+            tester.testRoundTrip(arrayType(INTEGER),
+                    nCopies(30_000, ImmutableList.of()),
+                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2]"), IS_NULL)));
+            fail("Expected 'Array subscript out of bounds' exception");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
+        }
+
+        // empty nested arrays
+        try {
+            tester.testRoundTrip(arrayType(arrayType(INTEGER)),
+                    nCopies(30_000, ImmutableList.of()),
+                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)));
+            fail("Expected 'Array subscript out of bounds' exception");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
+        }
+    }
+
+    @Test
+    public void testArraysOfNulls()
+            throws Exception
+    {
+        for (Type type : ImmutableList.of(BOOLEAN, BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL, TIMESTAMP, arrayType(INTEGER))) {
+            tester.testRoundTrip(arrayType(type),
+                    nCopies(30_000, nCopies(5, null)),
+                    ImmutableList.of(
+                            ImmutableMap.of(new Subfield("c[2]"), IS_NULL),
+                            ImmutableMap.of(new Subfield("c[2]"), IS_NOT_NULL)));
+        }
+    }
+
+    @Test
+    public void testStructs()
+            throws Exception
+    {
+        Random random = new Random(0);
+
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, rowType(INTEGER, BOOLEAN)),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).boxed().map(i -> random.nextInt()).collect(toImmutableList()),
+                        IntStream.range(0, 30_000).boxed().map(i -> ImmutableList.of(random.nextInt(), random.nextBoolean())).collect(toImmutableList())),
+                toSubfieldFilters(
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
+                        ImmutableMap.of(1, IS_NULL),
+                        ImmutableMap.of(1, IS_NOT_NULL)));
+
+        tester.testRoundTripTypes(ImmutableList.of(rowType(INTEGER, BOOLEAN), INTEGER),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).boxed().map(i -> i % 7 == 0 ? null : ImmutableList.of(random.nextInt(), random.nextBoolean())).collect(toList()),
+                        IntStream.range(0, 30_000).boxed().map(i -> i % 11 == 0 ? null : random.nextInt()).collect(toList())),
+                toSubfieldFilters(
+                        ImmutableMap.of(0, IS_NOT_NULL, 1, IS_NULL)));
+    }
+
+    @Test
+    public void testMaps()
+            throws Exception
+    {
+        Random random = new Random(0);
+
+        // map column with no nulls
+        tester.testRoundTripTypes(
+                ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
+                        IntStream.range(0, 30_000).boxed().map(i -> createMap(i)).collect(toImmutableList())),
+                toSubfieldFilters(
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
+                        ImmutableMap.of(1, IS_NOT_NULL),
+                        ImmutableMap.of(1, IS_NULL)));
+
+        // map column with nulls
+        tester.testRoundTripTypes(
+                ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
+                        IntStream.range(0, 30_000).boxed().map(i -> i % 5 == 0 ? null : createMap(i)).collect(toList())),
+                toSubfieldFilters(
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
+                        ImmutableMap.of(1, IS_NOT_NULL),
+                        ImmutableMap.of(1, IS_NULL),
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false), 1, IS_NULL),
+                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false), 1, IS_NOT_NULL)));
+
+        // map column with filter, followed by another column with filter
+        tester.testRoundTripTypes(
+                ImmutableList.of(mapType(INTEGER, INTEGER), INTEGER),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).boxed().map(i -> i % 5 == 0 ? null : createMap(i)).collect(toList()),
+                        IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList())),
+                toSubfieldFilters(
+                        ImmutableMap.of(0, IS_NULL, 1, BigintRange.of(0, Integer.MAX_VALUE, false)),
+                        ImmutableMap.of(0, IS_NOT_NULL, 1, BigintRange.of(0, Integer.MAX_VALUE, false))));
+
+        // empty maps
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),
+                ImmutableList.of(
+                        IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
+                        Collections.nCopies(30_000, ImmutableMap.of())),
+                ImmutableList.of());
+    }
+
+    private static Map<Integer, Integer> createMap(int seed)
+    {
+        int mapSize = Math.abs(seed) % 7 + 1;
+        return IntStream.range(0, mapSize).boxed().collect(toImmutableMap(Function.identity(), i -> i + seed));
+    }
+
     private void testRoundTripNumeric(Iterable<? extends Number> values, TupleDomainFilter filter)
             throws Exception
     {
@@ -232,15 +538,15 @@ public class TestSelectiveOrcReader
                 .map(timestamp -> sqlTimestampOf(timestamp, SESSION))
                 .collect(toList());
 
-        tester.testRoundTrip(BIGINT, longValues, ImmutableList.of(ImmutableMap.of(0, filter)));
+        tester.testRoundTrip(BIGINT, longValues, toSubfieldFilters(filter));
 
-        tester.testRoundTrip(INTEGER, intValues, ImmutableList.of(ImmutableMap.of(0, filter)));
+        tester.testRoundTrip(INTEGER, intValues, toSubfieldFilters(filter));
 
-        tester.testRoundTrip(SMALLINT, shortValues, ImmutableList.of(ImmutableMap.of(0, filter)));
+        tester.testRoundTrip(SMALLINT, shortValues, toSubfieldFilters(filter));
 
-        tester.testRoundTrip(DATE, dateValues, ImmutableList.of(ImmutableMap.of(0, filter)));
+        tester.testRoundTrip(DATE, dateValues, toSubfieldFilters(filter));
 
-        tester.testRoundTrip(TIMESTAMP, timestamps, ImmutableList.of(ImmutableMap.of(0, filter)));
+        tester.testRoundTrip(TIMESTAMP, timestamps, toSubfieldFilters(filter));
 
         List<Integer> reversedIntValues = new ArrayList<>(intValues);
         Collections.reverse(reversedIntValues);
@@ -258,7 +564,7 @@ public class TestSelectiveOrcReader
                         shortValues,
                         reversedDateValues,
                         reversedTimestampValues),
-                ImmutableList.of(
+                toSubfieldFilters(
                         ImmutableMap.of(0, filter),
                         ImmutableMap.of(1, filter),
                         ImmutableMap.of(0, filter, 1, filter),
@@ -321,5 +627,40 @@ public class TestSelectiveOrcReader
                 return value;
             }
         };
+    }
+
+    private static List<Double> doubleSequence(double start, double step, int items)
+    {
+        return IntStream.range(0, items)
+                .mapToDouble(i -> start + i * step)
+                .boxed()
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    private static Map<Subfield, TupleDomainFilter> toSubfieldFilter(String subfield, TupleDomainFilter filter)
+    {
+        return ImmutableMap.of(new Subfield(subfield), filter);
+    }
+
+    private static Map<Subfield, TupleDomainFilter> toSubfieldFilter(TupleDomainFilter filter)
+    {
+        return ImmutableMap.of(new Subfield("c"), filter);
+    }
+
+    private static List<Map<Subfield, TupleDomainFilter>> toSubfieldFilters(TupleDomainFilter... filters)
+    {
+        return Arrays.stream(filters).map(TestSelectiveOrcReader::toSubfieldFilter).collect(toImmutableList());
+    }
+
+    private static List<Map<Integer, Map<Subfield, TupleDomainFilter>>> toSubfieldFilters(Map<Integer, TupleDomainFilter>... filters)
+    {
+        return Arrays.stream(filters)
+                .map(columnFilters -> Maps.transformValues(columnFilters, TestSelectiveOrcReader::toSubfieldFilter))
+                .collect(toImmutableList());
+    }
+
+    private static List<Integer> makeArray(int size, Random random)
+    {
+        return IntStream.range(0, size).map(i -> random.nextInt()).boxed().collect(toImmutableList());
     }
 }

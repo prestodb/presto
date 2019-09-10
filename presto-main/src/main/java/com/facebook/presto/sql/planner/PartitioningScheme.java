@@ -121,7 +121,7 @@ public class PartitioningScheme
 
         checkArgument(newOutputLayout.size() == outputLayout.size());
 
-        Partitioning newPartitioning = partitioning.translate(variable -> newOutputLayout.get(outputLayout.indexOf(variable)));
+        Partitioning newPartitioning = partitioning.translateVariable(variable -> newOutputLayout.get(outputLayout.indexOf(variable)));
 
         Optional<VariableReferenceExpression> newHashSymbol = hashColumn
                 .map(outputLayout::indexOf)

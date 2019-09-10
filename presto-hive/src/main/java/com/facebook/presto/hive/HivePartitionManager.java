@@ -63,8 +63,10 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxBucketsForGroupedExecution;
+import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreTableBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
@@ -120,13 +122,13 @@ public class HivePartitionManager
         this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
-    public Iterable<HivePartition> getPartitionsIterator(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public Iterable<HivePartition> getPartitionsIterator(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, ConnectorSession session)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary();
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
-        Table table = getTable(metastore, tableName);
+        Table table = getTable(metastore, tableName, isOfflineDataDebugModeEnabled(session));
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
 
@@ -148,18 +150,20 @@ public class HivePartitionManager
         TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary();
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
-        Table table = getTable(metastore, tableName);
+        Table table = getTable(metastore, tableName, isOfflineDataDebugModeEnabled(session));
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
 
-        List<HivePartition> partitions = getPartitionsAsList(getPartitionsIterator(metastore, tableHandle, constraint).iterator());
+        List<HivePartition> partitions = getPartitionsAsList(getPartitionsIterator(metastore, tableHandle, constraint, session).iterator());
 
         // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
         boolean shouldIgnoreTableBucketing = !table.getTableType().equals(TEMPORARY_TABLE) && shouldIgnoreTableBucketing(session);
         Optional<HiveBucketHandle> hiveBucketHandle = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketHandle(table);
         Optional<HiveBucketFilter> bucketFilter = shouldIgnoreTableBucketing ? Optional.empty() : getHiveBucketFilter(table, effectivePredicate);
 
-        if (hiveBucketHandle.isPresent() && hiveBucketHandle.get().getReadBucketCount() * partitions.size() > getMaxBucketsForGroupedExecution(session)) {
+        if (!queryUsesHiveBucketColumn(effectivePredicate)
+                && hiveBucketHandle.isPresent()
+                && queryAccessesTooManyBuckets(hiveBucketHandle.get(), bucketFilter, partitions, session)) {
             hiveBucketHandle = Optional.empty();
             bucketFilter = Optional.empty();
         }
@@ -187,6 +191,21 @@ public class HivePartitionManager
         return new HivePartitionResult(partitionColumns, partitions, compactEffectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
     }
 
+    private boolean queryUsesHiveBucketColumn(TupleDomain<ColumnHandle> effectivePredicate)
+    {
+        if (!effectivePredicate.getDomains().isPresent()) {
+            return false;
+        }
+        return effectivePredicate.getDomains().get().keySet().stream().anyMatch(key -> ((HiveColumnHandle) key).getName().equals(BUCKET_COLUMN_NAME));
+    }
+
+    private boolean queryAccessesTooManyBuckets(HiveBucketHandle handle, Optional<HiveBucketFilter> filter, List<HivePartition> partitions, ConnectorSession session)
+    {
+        int bucketsPerPartition = filter.map(hiveBucketFilter -> hiveBucketFilter.getBucketsToKeep().size())
+                .orElseGet(handle::getReadBucketCount);
+        return bucketsPerPartition * partitions.size() > getMaxBucketsForGroupedExecution(session);
+    }
+
     private List<HivePartition> getPartitionsAsList(Iterator<HivePartition> partitionsIterator)
     {
         ImmutableList.Builder<HivePartition> partitionList = ImmutableList.builder();
@@ -210,7 +229,7 @@ public class HivePartitionManager
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
 
-        Table table = getTable(metastore, tableName);
+        Table table = getTable(metastore, tableName, isOfflineDataDebugModeEnabled(session));
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
         List<Type> partitionColumnTypes = partitionColumns.stream()
@@ -252,14 +271,18 @@ public class HivePartitionManager
         return Optional.of(partition);
     }
 
-    private Table getTable(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName)
+    private Table getTable(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName, boolean offlineDataDebugModeEnabled)
     {
         Optional<Table> target = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
         if (!target.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
         Table table = target.get();
-        verifyOnline(tableName, Optional.empty(), getProtectMode(table), table.getParameters());
+
+        if (!offlineDataDebugModeEnabled) {
+            verifyOnline(tableName, Optional.empty(), getProtectMode(table), table.getParameters());
+        }
+
         return table;
     }
 

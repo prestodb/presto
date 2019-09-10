@@ -29,6 +29,7 @@ import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockLease;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -38,15 +39,16 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.reader.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createNestedStreamReader;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -71,7 +73,7 @@ public class ListSelectiveStreamReader
     private final boolean nonNullsAllowed;
     private final boolean outputRequired;
     @Nullable
-    private final Type outputType;
+    private final ArrayType outputType;
     // elementStreamReader is null if output is not required and filter is a simple IS [NOT] NULL
     @Nullable
     private final SelectiveStreamReader elementStreamReader;
@@ -94,6 +96,7 @@ public class ListSelectiveStreamReader
     @Nullable
     private int[] outputPositions;
     private int outputPositionCount;
+    private boolean outputPositionsReadOnly;
     private boolean[] indexOutOfBounds;
     private boolean allNulls;
 
@@ -120,7 +123,7 @@ public class ListSelectiveStreamReader
         requireNonNull(subfields, "subfields is null");
         requireNonNull(systemMemoryContext, "systemMemoryContext is null");
 
-        checkArgument(subfields.isEmpty(), "Subfield pruning is not supported yet");
+        // TODO Implement subfield pruning
 
         if (listFilter != null) {
             checkArgument(subfieldLevel > 0, "SubfieldFilter is not expected at the top level");
@@ -129,7 +132,7 @@ public class ListSelectiveStreamReader
 
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
-        this.outputType = outputType.orElse(null);
+        this.outputType = (ArrayType) outputType.orElse(null);
         this.level = subfieldLevel;
 
         if (listFilter != null) {
@@ -189,6 +192,7 @@ public class ListSelectiveStreamReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkArgument(positionCount > 0 || listFilter != null, "positionCount must be greater than zero");
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (!rowGroupOpen) {
@@ -210,6 +214,7 @@ public class ListSelectiveStreamReader
         }
         else {
             outputPositions = positions;
+            outputPositionsReadOnly = true;
         }
 
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
@@ -266,17 +271,25 @@ public class ListSelectiveStreamReader
                     if (nullsFilter.testNull()) {
                         outputPositionCount++;
                     }
+                    else {
+                        outputPositionCount -= nullsFilter.getPrecedingPositionsToFail();
+                        i += nullsFilter.getSucceedingPositionsToFail();
+                    }
                 }
             }
             else {
                 outputPositionCount = positionCount;
-                allNulls = true;
             }
         }
         else {
             outputPositionCount = 0;
         }
 
+        if (listFilter != null) {
+            listFilter.populateElementFilters(0, null, null, 0);
+        }
+
+        allNulls = true;
         return positions[positionCount - 1] + 1;
     }
 
@@ -369,7 +382,10 @@ public class ListSelectiveStreamReader
             listFilter.populateElementFilters(outputPositionCount, nulls, elementLengths, elementPositionCount);
         }
 
-        if (elementStreamReader != null) {
+        if (elementStreamReader != null && elementPositionCount > 0) {
+            elementStreamReader.read(elementReadOffset, elementPositions, elementPositionCount);
+        }
+        else if (listFilter != null && listFilter.getChild() != null) {
             elementStreamReader.read(elementReadOffset, elementPositions, elementPositionCount);
         }
         elementReadOffset += elementPositionCount + skippedElements;
@@ -469,11 +485,15 @@ public class ListSelectiveStreamReader
         boolean mayHaveNulls = nullsAllowed && presentStream != null;
 
         if (positionCount == outputPositionCount) {
+            Block elementBlock;
             if (elementOutputPositionCount == 0) {
-                return new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), outputPositionCount);
+                elementBlock = outputType.getElementType().createBlockBuilder(null, 0).build();
+            }
+            else {
+                elementBlock = elementStreamReader.getBlock(elementOutputPositions, elementOutputPositionCount);
             }
 
-            Block block = ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(mayHaveNulls ? nulls : null), offsets, elementStreamReader.getBlock(elementOutputPositions, elementOutputPositionCount));
+            Block block = ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(mayHaveNulls ? nulls : null), offsets, elementBlock);
             nulls = null;
             offsets = null;
             return block;
@@ -536,12 +556,15 @@ public class ListSelectiveStreamReader
             compactValues(positions, positionCount, includeNulls);
         }
 
+        BlockLease elementBlockLease;
         if (elementOutputPositionCount == 0) {
-            return newLease(new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount));
+            elementBlockLease = newLease(outputType.getElementType().createBlockBuilder(null, 0).build());
+        }
+        else {
+            elementBlockLease = elementStreamReader.getBlockView(elementOutputPositions, elementOutputPositionCount);
         }
 
         valuesInUse = true;
-        BlockLease elementBlockLease = elementStreamReader.getBlockView(elementOutputPositions, elementOutputPositionCount);
         Block block = ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), offsets, elementBlockLease.get());
         return newLease(block, () -> closeBlockLease(elementBlockLease));
     }
@@ -583,6 +606,11 @@ public class ListSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
+        if (outputPositionsReadOnly) {
+            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+            outputPositionsReadOnly = false;
+        }
+
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         int skippedElements = 0;

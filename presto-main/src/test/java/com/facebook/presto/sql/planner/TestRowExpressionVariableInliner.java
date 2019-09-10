@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +27,17 @@ import static org.testng.Assert.assertEquals;
 
 public class TestRowExpressionVariableInliner
 {
-    private static final FunctionHandle TEST_FUNCTION = () -> null;
+    private static class TestFunctionHandle
+            implements FunctionHandle
+    {
+        @Override
+        public FullyQualifiedName.Prefix getFunctionNamespace()
+        {
+            return FullyQualifiedName.of("a.b.c").getPrefix();
+        }
+    }
+
+    private static final FunctionHandle TEST_FUNCTION = new TestFunctionHandle();
 
     @Test
     public void testInlineVariable()

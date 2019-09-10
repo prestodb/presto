@@ -123,6 +123,7 @@ public class FeaturesConfig
     private boolean preferPartialAggregation = true;
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
+    private boolean optimizeFullOuterJoinWithCoalesce = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -135,6 +136,9 @@ public class FeaturesConfig
     private int maxConcurrentMaterializations = 3;
 
     private boolean pushdownSubfieldsEnabled;
+
+    private boolean tableWriterMergeOperatorEnabled = true;
+    private boolean concurrentWritesToPartitionedTableEnabled = true;
 
     public enum JoinReorderingStrategy
     {
@@ -1043,5 +1047,41 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldsEnabled()
     {
         return pushdownSubfieldsEnabled;
+    }
+
+    public boolean isTableWriterMergeOperatorEnabled()
+    {
+        return tableWriterMergeOperatorEnabled;
+    }
+
+    @Config("experimental.table-writer-merge-operator-enabled")
+    public FeaturesConfig setTableWriterMergeOperatorEnabled(boolean tableWriterMergeOperatorEnabled)
+    {
+        this.tableWriterMergeOperatorEnabled = tableWriterMergeOperatorEnabled;
+        return this;
+    }
+
+    public boolean isConcurrentWritesToPartitionedTableEnabled()
+    {
+        return concurrentWritesToPartitionedTableEnabled;
+    }
+
+    @Config("experimental.concurrent-writes-to-partitioned-table-enabled")
+    public FeaturesConfig setConcurrentWritesToPartitionedTableEnabled(boolean concurrentWritesToPartitionedTableEnabled)
+    {
+        this.concurrentWritesToPartitionedTableEnabled = concurrentWritesToPartitionedTableEnabled;
+        return this;
+    }
+
+    @Config("optimizer.optimize-full-outer-join-with-coalesce")
+    public FeaturesConfig setOptimizeFullOuterJoinWithCoalesce(boolean optimizeFullOuterJoinWithCoalesce)
+    {
+        this.optimizeFullOuterJoinWithCoalesce = optimizeFullOuterJoinWithCoalesce;
+        return this;
+    }
+
+    public Boolean isOptimizeFullOuterJoinWithCoalesce()
+    {
+        return this.optimizeFullOuterJoinWithCoalesce;
     }
 }

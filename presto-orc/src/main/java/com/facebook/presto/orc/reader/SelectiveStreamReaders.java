@@ -43,7 +43,7 @@ public final class SelectiveStreamReaders
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryContext)
     {
-        OrcTypeKind type = streamDescriptor.getStreamType();
+        OrcTypeKind type = streamDescriptor.getOrcTypeKind();
         switch (type) {
             case BOOLEAN: {
                 checkArgument(requiredSubfields.isEmpty(), "Boolean stream reader doesn't support subfields");
@@ -60,13 +60,18 @@ public final class SelectiveStreamReaders
                 checkArgument(requiredSubfields.isEmpty(), "Primitive type stream reader doesn't support subfields");
                 return new LongSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext);
             }
-            case FLOAT:
+            case FLOAT: {
+                checkArgument(requiredSubfields.isEmpty(), "Float type stream reader doesn't support subfields");
+                return new FloatSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+            }
             case DOUBLE:
+                checkArgument(requiredSubfields.isEmpty(), "Double stream reader doesn't support subfields");
+                return new DoubleSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
             case BINARY:
             case STRING:
             case VARCHAR:
             case CHAR:
-                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
+                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getOrcTypeKind());
             case TIMESTAMP: {
                 checkArgument(requiredSubfields.isEmpty(), "Timestamp stream reader doesn't support subfields");
                 return new TimestampSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), hiveStorageTimeZone, outputType.isPresent(), systemMemoryContext.newLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
@@ -74,7 +79,9 @@ public final class SelectiveStreamReaders
             case LIST:
                 return new ListSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, null, 0, outputType, hiveStorageTimeZone, systemMemoryContext);
             case STRUCT:
+                return new StructSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext);
             case MAP:
+                return new MapSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext);
             case DECIMAL:
             case UNION:
             default:
@@ -100,7 +107,7 @@ public final class SelectiveStreamReaders
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryContext)
     {
-        switch (streamDescriptor.getStreamType()) {
+        switch (streamDescriptor.getOrcTypeKind()) {
             case BOOLEAN:
             case BYTE:
             case SHORT:
@@ -131,10 +138,11 @@ public final class SelectiveStreamReaders
                 Optional<ListFilter> childFilter = parentFilter.map(HierarchicalFilter::getChild).map(ListFilter.class::cast);
                 return new ListSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), ImmutableList.of(), childFilter.orElse(null), level, outputType, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
             case STRUCT:
+                return new StructSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), ImmutableList.of(), outputType, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
             case MAP:
             case UNION:
             default:
-                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
+                throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getOrcTypeKind());
         }
     }
 }

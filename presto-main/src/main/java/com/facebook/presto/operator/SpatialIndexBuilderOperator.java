@@ -230,7 +230,8 @@ public class SpatialIndexBuilderOperator
         }
 
         finishing = true;
-        PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels, partitions);
+        localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+        PagesSpatialIndexSupplier spatialIndex = index.createPagesSpatialIndex(operatorContext.getSession(), indexChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, outputChannels, partitions, localUserMemoryContext);
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes() + spatialIndex.getEstimatedSize().toBytes());
         indexNotNeeded = pagesSpatialIndexFactory.lendPagesSpatialIndex(spatialIndex);
     }

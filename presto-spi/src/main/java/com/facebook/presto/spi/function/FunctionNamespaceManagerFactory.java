@@ -11,16 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.function.FunctionHandle;
+import java.util.Map;
 
-public class StaticFunctionNamespaceHandleResolver
-        implements FunctionHandleResolver
+public interface FunctionNamespaceManagerFactory
 {
-    @Override
-    public Class<? extends FunctionHandle> getFunctionHandleClass()
-    {
-        return StaticFunctionHandle.class;
-    }
+    String getName();
+
+    FunctionHandleResolver getHandleResolver();
+
+    FunctionNamespaceManager create(Map<String, String> config);
 }

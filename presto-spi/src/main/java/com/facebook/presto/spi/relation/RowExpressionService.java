@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.spi.ConnectorSession;
+
 /**
  * A set of services/utilities that are helpful for connectors to operate on row expressions
  */
@@ -25,4 +27,9 @@ public interface RowExpressionService
     PredicateCompiler getPredicateCompiler();
 
     DeterminismEvaluator getDeterminismEvaluator();
+
+    /**
+     * @return user-friendly representation of the expression similar to original SQL
+     */
+    String formatRowExpression(ConnectorSession session, RowExpression expression);
 }

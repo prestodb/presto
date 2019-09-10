@@ -11,20 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.spi.function;
 
-public class StaticFunctionNamespaceFactory
-        implements FunctionNamespaceFactory
+public interface FunctionHandleResolver
 {
-    @Override
-    public String getName()
-    {
-        return "$static";
-    }
-
-    @Override
-    public FunctionHandleResolver getHandleResolver()
-    {
-        return new StaticFunctionNamespaceHandleResolver();
-    }
+    Class<? extends FunctionHandle> getFunctionHandleClass();
 }

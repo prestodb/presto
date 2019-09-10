@@ -67,6 +67,7 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -90,6 +91,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isOptimizeFullOuterJoinWithCoalesce;
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValuesToConstantExpressions;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
@@ -99,6 +101,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.ARBITRARY
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorSingleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOnCoalesce;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.streamPartitionedOn;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -181,7 +184,7 @@ public class PropertyDerivations
         public ActualProperties visitOutput(OutputNode node, List<ActualProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties)
-                    .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputVariables(), column));
+                    .translateVariable(column -> PropertyDerivations.filterIfMissing(node.getOutputVariables(), column));
         }
 
         @Override
@@ -291,7 +294,7 @@ public class PropertyDerivations
                 inputToOutputMappings.putIfAbsent(argument, argument);
             }
 
-            return Iterables.getOnlyElement(inputProperties).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
+            return Iterables.getOnlyElement(inputProperties).translateVariable(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
         }
 
         @Override
@@ -299,7 +302,7 @@ public class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            ActualProperties translated = properties.translate(variable -> node.getGroupingKeys().contains(variable) ? Optional.of(variable) : Optional.empty());
+            ActualProperties translated = properties.translateVariable(variable -> node.getGroupingKeys().contains(variable) ? Optional.of(variable) : Optional.empty());
 
             return ActualProperties.builderFrom(translated)
                     .local(LocalProperties.grouped(node.getGroupingKeys()))
@@ -392,7 +395,7 @@ public class PropertyDerivations
         public ActualProperties visitDelete(DeleteNode node, List<ActualProperties> inputProperties)
         {
             // drop all symbols in property because delete doesn't pass on any of the columns
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
+            return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
         }
 
         @Override
@@ -406,8 +409,8 @@ public class PropertyDerivations
 
             switch (node.getType()) {
                 case INNER:
-                    probeProperties = probeProperties.translate(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column));
-                    buildProperties = buildProperties.translate(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column));
+                    probeProperties = probeProperties.translateVariable(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column));
+                    buildProperties = buildProperties.translateVariable(column -> filterOrRewrite(outputVariableReferences, node.getCriteria(), column));
 
                     Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
                     constants.putAll(probeProperties.getConstants());
@@ -428,21 +431,31 @@ public class PropertyDerivations
                             .unordered(unordered)
                             .build();
                 case LEFT:
-                    return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(outputVariableReferences, column)))
+                    return ActualProperties.builderFrom(probeProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
                             .unordered(unordered)
                             .build();
                 case RIGHT:
-                    buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputVariables(), column));
+                    buildProperties = buildProperties.translateVariable(column -> filterIfMissing(node.getOutputVariables(), column));
 
-                    return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(outputVariableReferences, column)))
+                    return ActualProperties.builderFrom(buildProperties.translateVariable(column -> filterIfMissing(outputVariableReferences, column)))
                             .local(ImmutableList.of())
                             .unordered(true)
                             .build();
                 case FULL:
-                    // We can't say anything about the partitioning scheme because any partition of
-                    // a hash-partitioned join can produce nulls in case of a lack of matches
+                    if (probeProperties.isSingleNode()) {
+                        return ActualProperties.builder()
+                                .global(singleStreamPartition())
+                                .build();
+                    }
+
+                    if (isOptimizeFullOuterJoinWithCoalesce(session) && probeProperties.getNodePartitioning().isPresent() && buildProperties.getNodePartitioning().isPresent()) {
+                        return ActualProperties.builder()
+                                .global(partitionedOnCoalesce(probeProperties.getNodePartitioning().get(), buildProperties.getNodePartitioning().get()))
+                                .build();
+                    }
+
                     return ActualProperties.builder()
-                            .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                            .global(arbitraryPartition())
                             .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
@@ -464,8 +477,8 @@ public class PropertyDerivations
 
             switch (node.getType()) {
                 case INNER:
-                    probeProperties = probeProperties.translate(column -> filterIfMissing(outputs, column));
-                    buildProperties = buildProperties.translate(column -> filterIfMissing(outputs, column));
+                    probeProperties = probeProperties.translateVariable(column -> filterIfMissing(outputs, column));
+                    buildProperties = buildProperties.translateVariable(column -> filterIfMissing(outputs, column));
 
                     Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
                     constants.putAll(probeProperties.getConstants());
@@ -475,7 +488,7 @@ public class PropertyDerivations
                             .constants(constants)
                             .build();
                 case LEFT:
-                    return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(outputs, column)))
+                    return ActualProperties.builderFrom(probeProperties.translateVariable(column -> filterIfMissing(outputs, column)))
                             .build();
                 default:
                     throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
@@ -527,7 +540,7 @@ public class PropertyDerivations
                     inputToOutput.put(inputVariables.get(i), node.getOutputVariables().get(i));
                 }
 
-                ActualProperties translated = inputProperties.get(sourceIndex).translate(variable -> Optional.ofNullable(inputToOutput.get(variable)));
+                ActualProperties translated = inputProperties.get(sourceIndex).translateVariable(variable -> Optional.ofNullable(inputToOutput.get(variable)));
 
                 entries = (entries == null) ? translated.getConstants().entrySet() : Sets.intersection(entries, translated.getConstants().entrySet());
             }
@@ -621,9 +634,7 @@ public class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments().getMap(), types);
-
-            ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)));
+            ActualProperties translatedProperties = properties.translateRowExpression(node.getAssignments().getMap(), types);
 
             // Extract additional constants
             Map<VariableReferenceExpression, ConstantExpression> constants = new HashMap<>();
@@ -690,6 +701,12 @@ public class PropertyDerivations
         }
 
         @Override
+        public ActualProperties visitTableWriteMerge(TableWriterMergeNode node, List<ActualProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties);
+        }
+
+        @Override
         public ActualProperties visitSample(SampleNode node, List<ActualProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties);
@@ -700,7 +717,7 @@ public class PropertyDerivations
         {
             Set<VariableReferenceExpression> passThroughInputs = ImmutableSet.copyOf(node.getReplicateVariables());
 
-            return Iterables.getOnlyElement(inputProperties).translate(column -> {
+            return Iterables.getOnlyElement(inputProperties).translateVariable(column -> {
                 if (passThroughInputs.contains(column)) {
                     return Optional.of(column);
                 }
@@ -791,25 +808,6 @@ public class PropertyDerivations
             }
 
             return Optional.of(ImmutableList.copyOf(builder.build()));
-        }
-
-        private static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Map<VariableReferenceExpression, RowExpression> assignments, TypeProvider types)
-        {
-            Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutput = new HashMap<>();
-            for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
-                RowExpression expression = assignment.getValue();
-                if (isExpression(expression)) {
-                    if (castToExpression(expression) instanceof SymbolReference) {
-                        inputToOutput.put(toVariableReference(castToExpression(expression), types), assignment.getKey());
-                    }
-                }
-                else {
-                    if (expression instanceof VariableReferenceExpression) {
-                        inputToOutput.put((VariableReferenceExpression) expression, assignment.getKey());
-                    }
-                }
-            }
-            return inputToOutput;
         }
     }
 
