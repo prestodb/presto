@@ -360,12 +360,7 @@ public class PlanOptimizers
                                 new RemoveRedundantIdentityProjections(),
                                 new TransformCorrelatedSingleRowSubqueryToProject())),
                 new CheckSubqueryNodesAreRewritten(),
-                predicatePushDown,
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        new PickTableLayout(metadata, sqlParser).rules()));
+                predicatePushDown);
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -376,7 +371,11 @@ public class PlanOptimizers
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
 
-        builder.add(
+        builder.add(new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        new PickTableLayout(metadata).rules()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         ruleStats,
@@ -426,7 +425,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new PickTableLayout(metadata, sqlParser).rules()),
+                        new PickTableLayout(metadata).rules()),
                 projectionPushDown,
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(

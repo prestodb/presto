@@ -19,7 +19,6 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -54,7 +53,7 @@ public class TestPickTableLayout
     @BeforeClass
     public void setUpBeforeClass()
     {
-        pickTableLayout = new PickTableLayout(tester().getMetadata(), new SqlParser());
+        pickTableLayout = new PickTableLayout(tester().getMetadata());
 
         connectorId = tester().getCurrentConnectorId();
 
