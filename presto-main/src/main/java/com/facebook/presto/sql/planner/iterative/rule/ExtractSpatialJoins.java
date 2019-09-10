@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.geospatial.KdbTree;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.matching.Capture;
@@ -31,9 +30,13 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionNodeInliner;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
@@ -52,21 +55,15 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.StandardExpressions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -86,24 +83,23 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAsSymbolReference;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.StandardExpressions.getLeft;
+import static com.facebook.presto.sql.relational.StandardExpressions.getRight;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -217,18 +213,18 @@ public class ExtractSpatialJoins
         public Result apply(FilterNode node, Captures captures, Context context)
         {
             JoinNode joinNode = captures.get(JOIN);
-            Expression filter = OriginalExpressionUtils.castToExpression(node.getPredicate());
-            List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
-            for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
+            RowExpression filter = node.getPredicate();
+            List<CallExpression> spatialFunctions = extractSupportedSpatialFunctions(filter, metadata.getFunctionManager());
+            for (CallExpression spatialFunction : spatialFunctions) {
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
                     return result;
                 }
             }
 
-            List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
-            for (ComparisonExpression spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputVariables(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
+            List<CallExpression> spatialComparisons = extractSupportedSpatialComparisons(filter, metadata.getFunctionManager());
+            for (CallExpression spatialComparison : spatialComparisons) {
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputVariables(), spatialComparison, metadata, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -272,18 +268,18 @@ public class ExtractSpatialJoins
         @Override
         public Result apply(JoinNode joinNode, Captures captures, Context context)
         {
-            Expression filter = OriginalExpressionUtils.castToExpression(joinNode.getFilter().get());
-            List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
-            for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
+            RowExpression filter = joinNode.getFilter().get();
+            List<CallExpression> spatialFunctions = extractSupportedSpatialFunctions(filter, metadata.getFunctionManager());
+            for (CallExpression spatialFunction : spatialFunctions) {
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
                     return result;
                 }
             }
 
-            List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
-            for (ComparisonExpression spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
+            List<CallExpression> spatialComparisons = extractSupportedSpatialComparisons(filter, metadata.getFunctionManager());
+            for (CallExpression spatialComparison : spatialComparisons) {
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialComparison, metadata, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -293,34 +289,59 @@ public class ExtractSpatialJoins
         }
     }
 
+    private static OperatorType flip(OperatorType operatorType)
+    {
+        switch (operatorType) {
+            case EQUAL:
+                return OperatorType.EQUAL;
+            case NOT_EQUAL:
+                return OperatorType.NOT_EQUAL;
+            case LESS_THAN:
+                return OperatorType.GREATER_THAN;
+            case LESS_THAN_OR_EQUAL:
+                return OperatorType.GREATER_THAN_OR_EQUAL;
+            case GREATER_THAN:
+                return OperatorType.LESS_THAN;
+            case GREATER_THAN_OR_EQUAL:
+                return OperatorType.LESS_THAN_OR_EQUAL;
+            case IS_DISTINCT_FROM:
+                return OperatorType.IS_DISTINCT_FROM;
+            default:
+                throw new IllegalArgumentException("Unsupported comparison: " + operatorType);
+        }
+    }
+
     private static Result tryCreateSpatialJoin(
             Context context,
             JoinNode joinNode,
-            Expression filter,
+            RowExpression filter,
             PlanNodeId nodeId,
             List<VariableReferenceExpression> outputVariables,
-            ComparisonExpression spatialComparison,
+            CallExpression spatialComparison,
             Metadata metadata,
             SplitManager splitManager,
-            PageSourceManager pageSourceManager,
-            SqlParser sqlParser)
+            PageSourceManager pageSourceManager)
     {
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
 
         List<VariableReferenceExpression> leftVariables = leftNode.getOutputVariables();
         List<VariableReferenceExpression> rightVariables = rightNode.getOutputVariables();
+        FunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionManager());
+        StandardExpressions standardExpressions = new StandardExpressions(metadata.getFunctionManager());
 
-        Expression radius;
+        RowExpression radius;
         Optional<VariableReferenceExpression> newRadiusVariable;
-        ComparisonExpression newComparison;
-        if (spatialComparison.getOperator() == LESS_THAN || spatialComparison.getOperator() == LESS_THAN_OR_EQUAL) {
+        RowExpression newComparison;
+        Optional<OperatorType> spatialComparisonType = functionResolution.getOperator(spatialComparison.getFunctionHandle());
+        if (spatialComparisonType.isPresent() && (spatialComparisonType.get() == OperatorType.LESS_THAN || spatialComparisonType.get() == OperatorType.LESS_THAN_OR_EQUAL)) {
             // ST_Distance(a, b) <= r
-            radius = spatialComparison.getRight();
-            Set<VariableReferenceExpression> radiusVariables = VariablesExtractor.extractUnique(radius, context.getVariableAllocator().getTypes());
+            radius = getRight(spatialComparison);
+            Set<VariableReferenceExpression> radiusVariables = VariablesExtractor.extractUnique(radius);
             if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
-                newRadiusVariable = newRadiusVariable(context, radius);
-                newComparison = new ComparisonExpression(spatialComparison.getOperator(), spatialComparison.getLeft(), toExpression(newRadiusVariable, radius));
+                checkArgument(DOUBLE.equals(radius.getType()), "radius must be double type");
+                newRadiusVariable = newVariableIfNecessary(context, radius);
+                newComparison = standardExpressions.compare(spatialComparisonType.get(), getLeft(spatialComparison), toRowExpression(newRadiusVariable, radius));
             }
             else {
                 return Result.empty();
@@ -328,18 +349,19 @@ public class ExtractSpatialJoins
         }
         else {
             // r >= ST_Distance(a, b)
-            radius = spatialComparison.getLeft();
-            Set<VariableReferenceExpression> radiusVariables = VariablesExtractor.extractUnique(radius, context.getVariableAllocator().getTypes());
+            radius = getLeft(spatialComparison);
+            Set<VariableReferenceExpression> radiusVariables = VariablesExtractor.extractUnique(radius);
             if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
-                newRadiusVariable = newRadiusVariable(context, radius);
-                newComparison = new ComparisonExpression(spatialComparison.getOperator().flip(), spatialComparison.getRight(), toExpression(newRadiusVariable, radius));
+                checkArgument(DOUBLE.equals(radius.getType()), "radius must be double type");
+                newRadiusVariable = newVariableIfNecessary(context, radius);
+                newComparison = standardExpressions.compare(flip(spatialComparisonType.get()), getRight(spatialComparison), toRowExpression(newRadiusVariable, radius));
             }
             else {
                 return Result.empty();
             }
         }
 
-        Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialComparison, newComparison));
+        RowExpression newFilter = RowExpressionNodeInliner.replaceExpression(filter, ImmutableMap.of(spatialComparison, newComparison));
         PlanNode newRightNode = newRadiusVariable.map(variable -> addProjection(context, rightNode, variable, radius)).orElse(rightNode);
 
         JoinNode newJoinNode = new JoinNode(
@@ -349,52 +371,54 @@ public class ExtractSpatialJoins
                 newRightNode,
                 joinNode.getCriteria(),
                 joinNode.getOutputVariables(),
-                Optional.of(castToRowExpression(newFilter)),
+                Optional.of(newFilter),
                 joinNode.getLeftHashVariable(),
                 joinNode.getRightHashVariable(),
                 joinNode.getDistributionType());
 
-        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputVariables, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata, splitManager, pageSourceManager, sqlParser);
+        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputVariables, (CallExpression) getLeft(newComparison), Optional.of(getRight(newComparison)), metadata, splitManager, pageSourceManager);
     }
 
     private static Result tryCreateSpatialJoin(
             Context context,
             JoinNode joinNode,
-            Expression filter,
+            RowExpression filter,
             PlanNodeId nodeId,
             List<VariableReferenceExpression> outputVariables,
-            FunctionCall spatialFunction,
-            Optional<Expression> radius,
+            CallExpression spatialFunction,
+            Optional<RowExpression> radius,
             Metadata metadata,
             SplitManager splitManager,
-            PageSourceManager pageSourceManager,
-            SqlParser sqlParser)
+            PageSourceManager pageSourceManager)
     {
         // TODO Add support for distributed left spatial joins
         Optional<String> spatialPartitioningTableName = joinNode.getType() == INNER ? getSpatialPartitioningTableName(context.getSession()) : Optional.empty();
         Optional<KdbTree> kdbTree = spatialPartitioningTableName.map(tableName -> loadKdbTree(tableName, context.getSession(), metadata, splitManager, pageSourceManager));
 
-        List<Expression> arguments = spatialFunction.getArguments();
+        List<RowExpression> arguments = spatialFunction.getArguments();
         verify(arguments.size() == 2);
 
-        Expression firstArgument = arguments.get(0);
-        Expression secondArgument = arguments.get(1);
+        RowExpression firstArgument = arguments.get(0);
+        RowExpression secondArgument = arguments.get(1);
 
         Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
-        if (getExpressionType(firstArgument, context, metadata, sqlParser).equals(sphericalGeographyType)
-                || getExpressionType(secondArgument, context, metadata, sqlParser).equals(sphericalGeographyType)) {
+        if (firstArgument.getType().equals(sphericalGeographyType)
+                || secondArgument.getType().equals(sphericalGeographyType)) {
             return Result.empty();
         }
 
-        Set<VariableReferenceExpression> firstVariables = VariablesExtractor.extractUnique(firstArgument, context.getVariableAllocator().getTypes());
-        Set<VariableReferenceExpression> secondVariables = VariablesExtractor.extractUnique(secondArgument, context.getVariableAllocator().getTypes());
+        Set<VariableReferenceExpression> firstVariables = VariablesExtractor.extractUnique(firstArgument);
+        Set<VariableReferenceExpression> secondVariables = VariablesExtractor.extractUnique(secondArgument);
 
         if (firstVariables.isEmpty() || secondVariables.isEmpty()) {
             return Result.empty();
         }
 
-        Optional<VariableReferenceExpression> newFirstVariable = newGeometryVariable(context, firstArgument, metadata);
-        Optional<VariableReferenceExpression> newSecondVariable = newGeometryVariable(context, secondArgument, metadata);
+        Type geometricType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
+        checkArgument(firstArgument.getType().equals(geometricType), "firstArgument must be a Geometry type");
+        checkArgument(secondArgument.getType().equals(geometricType), "firstArgument must be a Geometry type");
+        Optional<VariableReferenceExpression> newFirstVariable = newVariableIfNecessary(context, firstArgument);
+        Optional<VariableReferenceExpression> newSecondVariable = newVariableIfNecessary(context, secondArgument);
 
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -416,8 +440,8 @@ public class ExtractSpatialJoins
             return Result.empty();
         }
 
-        Expression newFirstArgument = toExpression(newFirstVariable, firstArgument);
-        Expression newSecondArgument = toExpression(newSecondVariable, secondArgument);
+        RowExpression newFirstArgument = toRowExpression(newFirstVariable, firstArgument);
+        RowExpression newSecondArgument = toRowExpression(newSecondVariable, secondArgument);
 
         Optional<VariableReferenceExpression> leftPartitionVariable = Optional.empty();
         Optional<VariableReferenceExpression> rightPartitionVariable = Optional.empty();
@@ -426,17 +450,17 @@ public class ExtractSpatialJoins
             rightPartitionVariable = Optional.of(context.getVariableAllocator().newVariable("pid", INTEGER));
 
             if (alignment > 0) {
-                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newSecondArgument, radius);
+                newLeftNode = addPartitioningNodes(context, metadata, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, metadata, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newSecondArgument, radius);
             }
             else {
-                newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newSecondArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newFirstArgument, radius);
+                newLeftNode = addPartitioningNodes(context, metadata, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newSecondArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, metadata, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newFirstArgument, radius);
             }
         }
 
-        Expression newSpatialFunction = new FunctionCall(spatialFunction.getName(), ImmutableList.of(newFirstArgument, newSecondArgument));
-        Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
+        RowExpression newSpatialFunction = call(spatialFunction.getDisplayName(), spatialFunction.getFunctionHandle(), spatialFunction.getType(), ImmutableList.of(newFirstArgument, newSecondArgument));
+        RowExpression newFilter = RowExpressionNodeInliner.replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
 
         return Result.ofPlanNode(new SpatialJoinNode(
                 nodeId,
@@ -444,18 +468,10 @@ public class ExtractSpatialJoins
                 newLeftNode,
                 newRightNode,
                 outputVariables,
-                castToRowExpression(newFilter),
+                newFilter,
                 leftPartitionVariable,
                 rightPartitionVariable,
                 kdbTree.map(KdbTreeUtils::toJson)));
-    }
-
-    private static Type getExpressionType(Expression expression, Context context, Metadata metadata, SqlParser sqlParser)
-    {
-        Type type = getExpressionTypes(context.getSession(), metadata, sqlParser, context.getVariableAllocator().getTypes(), expression, emptyList(), WarningCollector.NOOP)
-                .get(NodeRef.of(expression));
-        verify(type != null);
-        return type;
     }
 
     private static KdbTree loadKdbTree(String tableName, Session session, Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
@@ -561,55 +577,53 @@ public class ExtractSpatialJoins
         return 0;
     }
 
-    private static Expression toExpression(Optional<VariableReferenceExpression> optionalVariable, Expression defaultExpression)
+    private static RowExpression toRowExpression(Optional<VariableReferenceExpression> optionalVariable, RowExpression defaultExpression)
     {
-        return optionalVariable.map(variable -> (Expression) new SymbolReference(variable.getName())).orElse(defaultExpression);
+        return optionalVariable.map(RowExpression.class::cast).orElse(defaultExpression);
     }
 
-    private static Optional<VariableReferenceExpression> newGeometryVariable(Context context, Expression expression, Metadata metadata)
+    private static Optional<VariableReferenceExpression> newVariableIfNecessary(Context context, RowExpression expression)
     {
-        if (expression instanceof SymbolReference) {
+        if (expression instanceof VariableReferenceExpression) {
             return Optional.empty();
         }
-
-        return Optional.of(context.getVariableAllocator().newVariable(expression, metadata.getType(GEOMETRY_TYPE_SIGNATURE)));
+        return Optional.of(context.getVariableAllocator().newVariable(expression));
     }
 
-    private static Optional<VariableReferenceExpression> newRadiusVariable(Context context, Expression expression)
-    {
-        if (expression instanceof SymbolReference) {
-            return Optional.empty();
-        }
-
-        return Optional.of(context.getVariableAllocator().newVariable(expression, DOUBLE));
-    }
-
-    private static PlanNode addProjection(Context context, PlanNode node, VariableReferenceExpression variable, Expression expression)
+    private static PlanNode addProjection(Context context, PlanNode node, VariableReferenceExpression variable, RowExpression expression)
     {
         Assignments.Builder projections = Assignments.builder();
         for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
             projections.put(identityAsSymbolReference(outputVariable));
         }
 
-        projections.put(variable, castToRowExpression(expression));
+        projections.put(variable, expression);
         return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
     }
 
-    private static PlanNode addPartitioningNodes(Context context, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, Expression geometry, Optional<Expression> radius)
+    private static PlanNode addPartitioningNodes(
+            Context context,
+            Metadata metadata,
+            PlanNode node,
+            VariableReferenceExpression partitionVariable,
+            KdbTree kdbTree,
+            RowExpression geometry,
+            Optional<RowExpression> radius)
     {
         Assignments.Builder projections = Assignments.builder();
         for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
             projections.put(identityAsSymbolReference(outputVariable));
         }
+        StandardExpressions standardExpressions = new StandardExpressions(metadata.getFunctionManager());
 
-        ImmutableList.Builder<Expression> partitioningArguments = ImmutableList.<Expression>builder()
-                .add(new Cast(new StringLiteral(KdbTreeUtils.toJson(kdbTree)), KDB_TREE_TYPENAME))
+        ImmutableList.Builder<RowExpression> partitioningArguments = ImmutableList.<RowExpression>builder()
+                .add(standardExpressions.cast(constant(Slices.utf8Slice(KdbTreeUtils.toJson(kdbTree)), VARCHAR), metadata.getType(TypeSignature.parseTypeSignature(KDB_TREE_TYPENAME))))
                 .add(geometry);
         radius.map(partitioningArguments::add);
 
-        FunctionCall partitioningFunction = new FunctionCall(QualifiedName.of("spatial_partitions"), partitioningArguments.build());
-        VariableReferenceExpression partitionsVariable = context.getVariableAllocator().newVariable(partitioningFunction, new ArrayType(INTEGER));
-        projections.put(partitionsVariable, castToRowExpression(partitioningFunction));
+        CallExpression partitioningFunction = call(metadata.getFunctionManager(), "spatial_partitions", new ArrayType(INTEGER), partitioningArguments.build());
+        VariableReferenceExpression partitionsVariable = context.getVariableAllocator().newVariable(partitioningFunction);
+        projections.put(partitionsVariable, partitioningFunction);
 
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),

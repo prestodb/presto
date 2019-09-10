@@ -15,7 +15,6 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.google.common.collect.ImmutableMap;
@@ -44,7 +43,7 @@ public class TestExtractSpatialInnerJoin
         // scalar expression
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), b)"),
+                        p.filter(p.rowExpression("ST_Contains(ST_GeometryFromText('POLYGON ...'), b)"),
                                 p.join(INNER,
                                         p.values(),
                                         p.values(p.variable("b")))))
@@ -53,7 +52,7 @@ public class TestExtractSpatialInnerJoin
         // OR operand
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), point) OR name_1 != name_2"),
+                        p.filter(p.rowExpression("ST_Contains(ST_GeometryFromText(wkt), point) OR name_1 != name_2"),
                                 p.join(INNER,
                                         p.values(p.variable("wkt", VARCHAR), p.variable("name_1")),
                                         p.values(p.variable("point", GEOMETRY), p.variable("name_2")))))
@@ -62,7 +61,7 @@ public class TestExtractSpatialInnerJoin
         // NOT operator
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("NOT ST_Contains(ST_GeometryFromText(wkt), point)"),
+                        p.filter(p.rowExpression("NOT ST_Contains(ST_GeometryFromText(wkt), point)"),
                                 p.join(INNER,
                                         p.values(p.variable("wkt", VARCHAR), p.variable("name_1")),
                                         p.values(p.variable("point", GEOMETRY), p.variable("name_2")))))
@@ -71,7 +70,7 @@ public class TestExtractSpatialInnerJoin
         // ST_Distance(...) > r
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Distance(a, b) > 5"),
+                        p.filter(p.rowExpression("ST_Distance(a, b) > 5"),
                                 p.join(INNER,
                                         p.values(p.variable("a", GEOMETRY)),
                                         p.values(p.variable("b", GEOMETRY)))))
@@ -80,7 +79,7 @@ public class TestExtractSpatialInnerJoin
         // SphericalGeography operand
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Distance(a, b) < 5"),
+                        p.filter(p.rowExpression("ST_Distance(a, b) < 5"),
                                 p.join(INNER,
                                         p.values(p.variable("a", SPHERICAL_GEOGRAPHY)),
                                         p.values(p.variable("b", SPHERICAL_GEOGRAPHY)))))
@@ -88,7 +87,7 @@ public class TestExtractSpatialInnerJoin
 
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(polygon, point)"),
+                        p.filter(p.rowExpression("ST_Contains(polygon, point)"),
                                 p.join(INNER,
                                         p.values(p.variable("polygon", SPHERICAL_GEOGRAPHY)),
                                         p.values(p.variable("point", SPHERICAL_GEOGRAPHY)))))
@@ -97,7 +96,7 @@ public class TestExtractSpatialInnerJoin
         // to_spherical_geography() operand
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Distance(to_spherical_geography(ST_GeometryFromText(wkt)), point) < 5"),
+                        p.filter(p.rowExpression("ST_Distance(to_spherical_geography(ST_GeometryFromText(wkt)), point) < 5"),
                                 p.join(INNER,
                                         p.values(p.variable("wkt", VARCHAR)),
                                         p.values(p.variable("point", SPHERICAL_GEOGRAPHY)))))
@@ -105,7 +104,7 @@ public class TestExtractSpatialInnerJoin
 
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(to_spherical_geography(ST_GeometryFromText(wkt)), point)"),
+                        p.filter(p.rowExpression("ST_Contains(to_spherical_geography(ST_GeometryFromText(wkt)), point)"),
                                 p.join(INNER,
                                         p.values(p.variable("wkt", VARCHAR)),
                                         p.values(p.variable("point", SPHERICAL_GEOGRAPHY)))))
@@ -185,7 +184,7 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
+                        p.filter(p.rowExpression(filter),
                                 p.join(INNER,
                                         p.values(p.variable("a", GEOMETRY), p.variable("name_a")),
                                         p.values(p.variable("b", GEOMETRY), p.variable("name_b"), p.variable("r")))))
@@ -199,7 +198,7 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
+                        p.filter(p.rowExpression(filter),
                                 p.join(INNER,
                                         p.values(p.variable("a", GEOMETRY), p.variable("name_a")),
                                         p.values(p.variable("b", GEOMETRY), p.variable("name_b"), p.variable("r")))))
@@ -214,7 +213,7 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
+                        p.filter(p.rowExpression(filter),
                                 p.join(INNER,
                                         p.values(p.variable("lat_a"), p.variable("lng_a"), p.variable("name_a")),
                                         p.values(p.variable("lat_b"), p.variable("lng_b"), p.variable("name_b")))))
@@ -230,7 +229,7 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression(filter),
+                        p.filter(p.rowExpression(filter),
                                 p.join(INNER,
                                         p.values(p.variable("lat_a"), p.variable("lng_a"), p.variable("name_a")),
                                         p.values(p.variable("lat_b"), p.variable("lng_b"), p.variable("name_b")))))
@@ -249,7 +248,7 @@ public class TestExtractSpatialInnerJoin
         // symbols
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(a, b)"),
+                        p.filter(p.rowExpression("ST_Contains(a, b)"),
                                 p.join(INNER,
                                         p.values(p.variable("a")),
                                         p.values(p.variable("b")))))
@@ -261,7 +260,7 @@ public class TestExtractSpatialInnerJoin
         // AND
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("name_1 != name_2 AND ST_Contains(a, b)"),
+                        p.filter(p.rowExpression("name_1 != name_2 AND ST_Contains(a, b)"),
                                 p.join(INNER,
                                         p.values(p.variable("a"), p.variable("name_1")),
                                         p.values(p.variable("b"), p.variable("name_2")))))
@@ -273,7 +272,7 @@ public class TestExtractSpatialInnerJoin
         // AND
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(a1, b1) AND ST_Contains(a2, b2)"),
+                        p.filter(p.rowExpression("ST_Contains(a1, b1) AND ST_Contains(a2, b2)"),
                                 p.join(INNER,
                                         p.values(p.variable("a1"), p.variable("a2")),
                                         p.values(p.variable("b1"), p.variable("b2")))))
@@ -288,7 +287,7 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), point)"),
+                        p.filter(p.rowExpression("ST_Contains(ST_GeometryFromText(wkt), point)"),
                                 p.join(INNER,
                                         p.values(p.variable("wkt", VARCHAR)),
                                         p.values(p.variable("point", GEOMETRY)))))
@@ -299,7 +298,7 @@ public class TestExtractSpatialInnerJoin
 
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(0, 0))"),
+                        p.filter(p.rowExpression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(0, 0))"),
                                 p.join(INNER,
                                         p.values(p.variable("wkt", VARCHAR)),
                                         p.values())))
@@ -311,7 +310,7 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(polygon, ST_Point(lng, lat))"),
+                        p.filter(p.rowExpression("ST_Contains(polygon, ST_Point(lng, lat))"),
                                 p.join(INNER,
                                         p.values(p.variable("polygon", GEOMETRY)),
                                         p.values(p.variable("lat"), p.variable("lng")))))
@@ -322,7 +321,7 @@ public class TestExtractSpatialInnerJoin
 
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText('POLYGON ...'), ST_Point(lng, lat))"),
+                        p.filter(p.rowExpression("ST_Contains(ST_GeometryFromText('POLYGON ...'), ST_Point(lng, lat))"),
                                 p.join(INNER,
                                         p.values(),
                                         p.values(p.variable("lat"), p.variable("lng")))))
@@ -334,7 +333,7 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
+                        p.filter(p.rowExpression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
                                 p.join(INNER,
                                         p.values(p.variable("wkt", VARCHAR)),
                                         p.values(p.variable("lat"), p.variable("lng")))))
@@ -349,7 +348,7 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
+                        p.filter(p.rowExpression("ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
                                 p.join(INNER,
                                         p.values(p.variable("lat"), p.variable("lng")),
                                         p.values(p.variable("wkt", VARCHAR)))))
@@ -364,7 +363,7 @@ public class TestExtractSpatialInnerJoin
     {
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("name_1 != name_2 AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
+                        p.filter(p.rowExpression("name_1 != name_2 AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))"),
                                 p.join(INNER,
                                         p.values(p.variable("wkt", VARCHAR), p.variable("name_1")),
                                         p.values(p.variable("lat"), p.variable("lng"), p.variable("name_2")))))
@@ -376,7 +375,7 @@ public class TestExtractSpatialInnerJoin
         // Multiple spatial functions - only the first one is being processed
         assertRuleApplication()
                 .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(ST_GeometryFromText(wkt1), geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)"),
+                        p.filter(p.rowExpression("ST_Contains(ST_GeometryFromText(wkt1), geometry1) AND ST_Contains(ST_GeometryFromText(wkt2), geometry2)"),
                                 p.join(INNER,
                                         p.values(p.variable("wkt1", VARCHAR), p.variable("wkt2", VARCHAR)),
                                         p.values(p.variable("geometry1"), p.variable("geometry2")))))
