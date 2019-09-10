@@ -83,6 +83,7 @@ import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -161,17 +162,22 @@ public class PickTableLayout
         public Result apply(FilterNode filterNode, Captures captures, Context context)
         {
             TableScanNode tableScan = captures.get(TABLE_SCAN);
-
-            PlanNode rewritten = pushPredicateIntoTableScan(
-                    tableScan,
-                    castToExpression(filterNode.getPredicate()),
-                    false,
-                    context.getSession(),
-                    context.getVariableAllocator().getTypes(),
-                    context.getIdAllocator(),
-                    metadata,
-                    parser,
-                    domainTranslator);
+            PlanNode rewritten;
+            if (isExpression(filterNode.getPredicate())) {
+                rewritten = pushPredicateIntoTableScan(
+                        tableScan,
+                        castToExpression(filterNode.getPredicate()),
+                        false,
+                        context.getSession(),
+                        context.getVariableAllocator().getTypes(),
+                        context.getIdAllocator(),
+                        metadata,
+                        parser,
+                        domainTranslator);
+            }
+            else {
+                rewritten = pushPredicateIntoTableScan(tableScan, filterNode.getPredicate(), false, context.getSession(), context.getIdAllocator(), metadata);
+            }
 
             if (arePlansSame(filterNode, tableScan, rewritten)) {
                 return Result.empty();
@@ -276,7 +282,7 @@ public class PickTableLayout
         }
     }
 
-    public static PlanNode pushPredicateIntoTableScan(
+    private static PlanNode pushPredicateIntoTableScan(
             TableScanNode node,
             Expression predicate,
             boolean pruneWithPredicateExpression,

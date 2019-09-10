@@ -410,8 +410,17 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new EliminateCrossJoins())), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                 predicatePushDown,
-                simplifyOptimizer, // Should be always run after PredicatePushDown
-                new IterativeOptimizer(
+                simplifyOptimizer); // Should be always run after PredicatePushDown
+        // TODO: move this before optimization if possible!!
+        // Replace all expressions with row expressions
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                new TranslateExpressions(metadata, sqlParser).rules()));
+        // After this point, all planNodes should not contain OriginalExpression
+
+        builder.add(new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -424,14 +433,6 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new PushdownSubfields(metadata));
-        // TODO: move this before optimization if possible!!
-        // Replace all expressions with row expressions
-        builder.add(new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                new TranslateExpressions(metadata, sqlParser).rules()));
-        // After this point, all planNodes should not contain OriginalExpression
 
         // Because ReorderJoins runs only once,
         // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
