@@ -29,17 +29,12 @@ import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.CoalesceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -51,16 +46,15 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationThroughJoin;
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.ExpressionVariableInliner.inlineVariables;
-import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
+import static com.facebook.presto.sql.planner.RowExpressionVariableInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.Expressions.constantNull;
+import static com.facebook.presto.sql.relational.StandardExpressions.coalesce;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -270,13 +264,10 @@ public class PushAggregationThroughOuterJoin
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         for (VariableReferenceExpression variable : outerJoin.getOutputVariables()) {
             if (aggregationNode.getAggregations().keySet().contains(variable)) {
-                assignmentsBuilder.put(variable, castToRowExpression(
-                        new CoalesceExpression(
-                                new SymbolReference(variable.getName()),
-                                new SymbolReference(sourceAggregationToOverNullMapping.get(variable).getName()))));
+                assignmentsBuilder.put(variable, coalesce(variable, sourceAggregationToOverNullMapping.get(variable)));
             }
             else {
-                assignmentsBuilder.put(variable, castToRowExpression(new SymbolReference(variable.getName())));
+                assignmentsBuilder.put(variable, variable);
             }
         }
         return Optional.of(new ProjectNode(idAllocator.getNextId(), crossJoin, assignmentsBuilder.build()));
@@ -287,23 +278,22 @@ public class PushAggregationThroughOuterJoin
         // Create a values node that consists of a single row of nulls.
         // Map the output symbols from the referenceAggregation's source
         // to symbol references for the new values node.
-        NullLiteral nullLiteral = new NullLiteral();
-        TypeProvider types = variableAllocator.getTypes();
         ImmutableList.Builder<VariableReferenceExpression> nullVariables = ImmutableList.builder();
         ImmutableList.Builder<RowExpression> nullLiterals = ImmutableList.builder();
-        ImmutableMap.Builder<VariableReferenceExpression, SymbolReference> sourcesVariableMappingBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> sourcesVariableMappingBuilder = ImmutableMap.builder();
         for (VariableReferenceExpression sourceVariable : referenceAggregation.getSource().getOutputVariables()) {
-            nullLiterals.add(castToRowExpression(nullLiteral));
-            VariableReferenceExpression nullVariable = variableAllocator.newVariable(nullLiteral, sourceVariable.getType());
+            RowExpression nullLiteral = constantNull(sourceVariable.getType());
+            nullLiterals.add(nullLiteral);
+            VariableReferenceExpression nullVariable = variableAllocator.newVariable(nullLiteral);
             nullVariables.add(nullVariable);
             // TODO The type should be from sourceVariable.getType
-            sourcesVariableMappingBuilder.put(sourceVariable, new SymbolReference(nullVariable.getName()));
+            sourcesVariableMappingBuilder.put(sourceVariable, nullVariable);
         }
         ValuesNode nullRow = new ValuesNode(
                 idAllocator.getNextId(),
                 nullVariables.build(),
                 ImmutableList.of(nullLiterals.build()));
-        Map<VariableReferenceExpression, SymbolReference> sourcesVariableMapping = sourcesVariableMappingBuilder.build();
+        Map<VariableReferenceExpression, VariableReferenceExpression> sourcesVariableMapping = sourcesVariableMappingBuilder.build();
 
         // For each aggregation function in the reference node, create a corresponding aggregation function
         // that points to the nullRow. Map the symbols from the aggregations in referenceAggregation to the
@@ -314,7 +304,7 @@ public class PushAggregationThroughOuterJoin
             VariableReferenceExpression aggregationVariable = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
 
-            if (!isUsingVariables(aggregation, sourcesVariableMapping.keySet(), types)) {
+            if (!isUsingVariables(aggregation, sourcesVariableMapping.keySet())) {
                 return Optional.empty();
             }
 
@@ -325,9 +315,9 @@ public class PushAggregationThroughOuterJoin
                             aggregation.getCall().getType(),
                             aggregation.getArguments()
                                     .stream()
-                                    .map(argument -> castToRowExpression(inlineVariables(sourcesVariableMapping, castToExpression(argument), types)))
+                                    .map(argument -> inlineVariables(sourcesVariableMapping, argument))
                                     .collect(toImmutableList())),
-                    aggregation.getFilter().map(filter -> castToRowExpression(inlineVariables(sourcesVariableMapping, castToExpression(filter), types))),
+                    aggregation.getFilter().map(filter -> inlineVariables(sourcesVariableMapping, filter)),
                     aggregation.getOrderBy().map(orderBy -> inlineOrderByVariables(sourcesVariableMapping, orderBy)),
                     aggregation.isDistinct(),
                     aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getName(), x.getType())));
@@ -352,13 +342,13 @@ public class PushAggregationThroughOuterJoin
         return Optional.of(new MappedAggregationInfo(aggregationOverNullRow, aggregationsSymbolMapping));
     }
 
-    private static OrderingScheme inlineOrderByVariables(Map<VariableReferenceExpression, SymbolReference> variableMapping, OrderingScheme orderingScheme)
+    private static OrderingScheme inlineOrderByVariables(Map<VariableReferenceExpression, VariableReferenceExpression> variableMapping, OrderingScheme orderingScheme)
     {
         // This is a logic expanded from ExpressionTreeRewriter::rewriteSortItems
         ImmutableList.Builder<VariableReferenceExpression> orderBy = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, SortOrder> ordering = new ImmutableMap.Builder<>();
         for (VariableReferenceExpression variable : orderingScheme.getOrderByVariables()) {
-            VariableReferenceExpression translated = new VariableReferenceExpression(variableMapping.get(variable).getName(), variable.getType());
+            VariableReferenceExpression translated = variableMapping.get(variable);
             orderBy.add(translated);
             ordering.put(translated, orderingScheme.getOrdering(variable));
         }
@@ -367,13 +357,12 @@ public class PushAggregationThroughOuterJoin
         return new OrderingScheme(orderBy.build().stream().map(variable -> new Ordering(variable, orderingMap.get(variable))).collect(toImmutableList()));
     }
 
-    private static boolean isUsingVariables(AggregationNode.Aggregation aggregation, Set<VariableReferenceExpression> sourceVariables, TypeProvider types)
+    private static boolean isUsingVariables(AggregationNode.Aggregation aggregation, Set<VariableReferenceExpression> sourceVariables)
     {
         Set<VariableReferenceExpression> inputVariables = new HashSet<>();
         for (RowExpression argument : aggregation.getArguments()) {
-            Expression expression = castToExpression(argument);
-            if (expression instanceof SymbolReference) {
-                inputVariables.add(toVariableReference(expression, types));
+            if (argument instanceof VariableReferenceExpression) {
+                inputVariables.add((VariableReferenceExpression) argument);
             }
         }
         return sourceVariables.stream()
