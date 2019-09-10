@@ -121,6 +121,11 @@ public final class RowExpressionDomainTranslator
                 .collect(collectingAndThen(toImmutableList(), logicalRowExpressions::combineConjuncts));
     }
 
+    public ExtractionResult<VariableReferenceExpression> fromPredicate(ConnectorSession session, RowExpression predicate)
+    {
+        return fromPredicate(session, predicate, BASIC_COLUMN_EXTRACTOR);
+    }
+
     @Override
     public <T> ExtractionResult<T> fromPredicate(ConnectorSession session, RowExpression predicate, ColumnExtractor<T> columnExtractor)
     {
