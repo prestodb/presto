@@ -894,10 +894,12 @@ public class ExpressionInterpreter
             }
             FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(session, node.getName(), fromTypes(argumentTypes));
             FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(functionHandle);
-            for (int i = 0; i < argumentValues.size(); i++) {
-                Object value = argumentValues.get(i);
-                if (value == null && !functionMetadata.isCalledOnNullInput()) {
-                    return null;
+            if (!functionMetadata.isCalledOnNullInput()) {
+                for (int i = 0; i < argumentValues.size(); i++) {
+                    Object value = argumentValues.get(i);
+                    if (value == null) {
+                        return null;
+                    }
                 }
             }
 
