@@ -48,6 +48,7 @@ public class QueryStatistics
     private final boolean complete;
 
     private final List<ResourceDistribution> cpuTimeDistribution;
+    private final List<ResourceDistribution> peakMemoryDistribution;
 
     private final List<String> operatorSummaries;
 
@@ -73,6 +74,7 @@ public class QueryStatistics
             int completedSplits,
             boolean complete,
             List<ResourceDistribution> cpuTimeDistribution,
+            List<ResourceDistribution> peakMemoryDistribution,
             List<String> operatorSummaries)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
@@ -96,6 +98,7 @@ public class QueryStatistics
         this.completedSplits = completedSplits;
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
+        this.peakMemoryDistribution = requireNonNull(peakMemoryDistribution, "peakMemoryDistribution is null");
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
     }
 
@@ -202,6 +205,11 @@ public class QueryStatistics
     public List<ResourceDistribution> getCpuTimeDistribution()
     {
         return cpuTimeDistribution;
+    }
+
+    public List<ResourceDistribution> getPeakMemoryDistribution()
+    {
+        return peakMemoryDistribution;
     }
 
     public List<String> getOperatorSummaries()
