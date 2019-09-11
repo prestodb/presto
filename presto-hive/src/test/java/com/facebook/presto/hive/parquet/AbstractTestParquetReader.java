@@ -1611,6 +1611,47 @@ public abstract class AbstractTestParquetReader
         return insertNullEvery(ThreadLocalRandom.current().nextInt(2, 5), createTestArrays(values));
     }
 
+    private <T> List<List<T>> createFixedTestArrays(Iterable<T> values)
+    {
+        List<List<T>> arrays = new ArrayList<>();
+        Iterator<T> valuesIter = values.iterator();
+        List<T> array = new ArrayList<>();
+        int count = 1;
+        while (valuesIter.hasNext()) {
+            if (count % 10 == 0) {
+                arrays.add(array);
+                array = new ArrayList<>();
+            }
+            if (count % 20 == 0) {
+                arrays.add(Collections.emptyList());
+            }
+            array.add(valuesIter.next());
+            ++count;
+        }
+        return arrays;
+    }
+
+    private <K, V> Iterable<Map<K, V>> createFixedTestMaps(Iterable<K> keys, Iterable<V> values)
+    {
+        List<Map<K, V>> maps = new ArrayList<>();
+        Iterator<K> keysIterator = keys.iterator();
+        Iterator<V> valuesIterator = values.iterator();
+        Map<K, V> map = new HashMap<>();
+        int count = 1;
+        while (keysIterator.hasNext() && valuesIterator.hasNext()) {
+            if (count % 5 == 0) {
+                maps.add(map);
+                map = new HashMap<>();
+            }
+            if (count % 10 == 0) {
+                maps.add(Collections.emptyMap());
+            }
+            map.put(keysIterator.next(), valuesIterator.next());
+            ++count;
+        }
+        return maps;
+    }
+
     private <K, V> Iterable<Map<K, V>> createTestMaps(Iterable<K> keys, Iterable<V> values)
     {
         List<Map<K, V>> maps = new ArrayList<>();
