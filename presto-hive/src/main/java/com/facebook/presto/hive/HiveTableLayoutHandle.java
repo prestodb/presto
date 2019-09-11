@@ -53,6 +53,10 @@ public final class HiveTableLayoutHandle
     @Nullable
     private final List<HivePartition> partitions;
 
+    // Keep this for use in connectors which wrap Hive connectors. This is needed for making altered copies of HiveTableLayoutHandle.
+    @Nullable
+    private Function<RowExpression, String> rowExpressionFormatter;
+
     private final String layoutString;
 
     @JsonCreator
@@ -108,7 +112,7 @@ public final class HiveTableLayoutHandle
 
         // on coordinator
         requireNonNull(session, "session is null");
-        requireNonNull(rowExpressionFormatter, "rowExpressionFormatter is null");
+        this.rowExpressionFormatter = requireNonNull(rowExpressionFormatter, "rowExpressionFormatter is null");
 
         layoutString = toStringHelper(schemaTableName.toString())
                 .omitNullValues()
@@ -175,6 +179,11 @@ public final class HiveTableLayoutHandle
     public Optional<HiveBucketFilter> getBucketFilter()
     {
         return bucketFilter;
+    }
+
+    public Function<RowExpression, String> getRowExpressionFormatter()
+    {
+        return rowExpressionFormatter;
     }
 
     @Override
