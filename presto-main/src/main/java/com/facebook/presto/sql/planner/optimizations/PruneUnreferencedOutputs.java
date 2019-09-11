@@ -659,7 +659,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
-            return new SortNode(node.getId(), source, node.getOrderingScheme());
+            return new SortNode(node.getId(), source, node.getOrderingScheme(), node.isPartial());
         }
 
         @Override

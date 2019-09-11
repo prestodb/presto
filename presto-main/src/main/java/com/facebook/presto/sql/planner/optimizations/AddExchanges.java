@@ -490,7 +490,8 @@ public class AddExchanges
                                 new SortNode(
                                         idAllocator.getNextId(),
                                         source,
-                                        node.getOrderingScheme()),
+                                        node.getOrderingScheme(),
+                                        true),
                                 node.getOrderingScheme()),
                         child.getProperties());
             }

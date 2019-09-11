@@ -908,7 +908,7 @@ class QueryPlanner
             planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderingScheme, TopNNode.Step.SINGLE);
         }
         else {
-            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme);
+            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
         }
 
         return subPlan.withNewRoot(planNode);
