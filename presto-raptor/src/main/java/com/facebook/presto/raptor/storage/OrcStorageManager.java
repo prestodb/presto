@@ -33,7 +33,6 @@ import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ColumnStats;
-import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage;
@@ -55,8 +54,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FileSystem;
@@ -70,7 +67,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,7 +82,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.facebook.airlift.concurrent.MoreFutures.allAsList;
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -122,8 +117,6 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
@@ -140,7 +133,6 @@ public class OrcStorageManager
     public static final DateTimeZone DEFAULT_STORAGE_TIMEZONE = UTC;
     // TODO: do not limit the max size of blocks to read for now; enable the limit when the Hive connector is ready
     public static final DataSize HUGE_MAX_READ_BLOCK_SIZE = new DataSize(1, PETABYTE);
-    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
 
     private static final long MAX_ROWS = 1_000_000_000;
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
@@ -301,7 +293,7 @@ public class OrcStorageManager
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
                 checkState(allColumnTypes.isPresent());
-                shardRewriter = Optional.of(createShardRewriter(fileSystem, transactionId.getAsLong(), bucketNumber, shardUuid, allColumnTypes.get()));
+                shardRewriter = Optional.of(createShardRewriter(fileSystemContext, fileSystem, orcFileTailSource, transactionId.getAsLong(), bucketNumber, shardUuid, deltaShardUuid, tableSupportsDeltaDelete, allColumnTypes.get()));
             }
             Optional<BitSet> rowsDeleted = getRowsFromUuid(fileSystem, deltaShardUuid);
             return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, tableSupportsDeltaDelete, bucketNumber, systemMemoryUsage, rowsDeleted);
@@ -387,17 +379,17 @@ public class OrcStorageManager
         return new OrcStoragePageSink(orcDataEnvironment.getFileSystem(fileSystemContext), transactionId, columnIds, columnTypes, bucketNumber);
     }
 
-    private ShardRewriter createShardRewriter(FileSystem fileSystem, long transactionId, OptionalInt bucketNumber, UUID shardUuid, Map<String, Type> columns)
+    ShardRewriter createShardRewriter(FileSystemContext fileSystemContext, FileSystem fileSystem, OrcFileTailSource orcFileTailSource, long transactionId, OptionalInt bucketNumber, UUID shardUuid, Optional<UUID> deltaShardUuid, boolean tableSupportsDeltaDelete, Map<String, Type> columns)
     {
-        return rowsToDelete -> {
-            if (rowsToDelete.isEmpty()) {
-                return completedFuture(ImmutableList.of());
-            }
-            return supplyAsync(() -> rewriteShard(fileSystem, transactionId, bucketNumber, shardUuid, columns, rowsToDelete), deletionExecutor);
-        };
+        if (tableSupportsDeltaDelete) {
+            return new DeltaShardRewriter(fileSystemContext, fileSystem, orcFileTailSource, transactionId, bucketNumber, shardUuid, deltaShardUuid, this, deletionExecutor, defaultReaderAttributes);
+        }
+        else {
+            return new InplaceShardRewriter(fileSystem, transactionId, bucketNumber, shardUuid, columns, deletionExecutor, nodeId, this, storageService, shardRecorder, backupManager);
+        }
     }
 
-    private void writeShard(UUID shardUuid)
+    void writeShard(UUID shardUuid)
     {
         if (backupStore.isPresent() && !backupStore.get().shardExists(shardUuid)) {
             throw new PrestoException(RAPTOR_ERROR, "Backup does not exist after write");
@@ -447,7 +439,7 @@ public class OrcStorageManager
         }
     }
 
-    private ShardInfo createShardInfo(FileSystem fileSystem, UUID shardUuid, OptionalInt bucketNumber, Path file, Set<String> nodes, long rowCount, long uncompressedSize)
+    ShardInfo createShardInfo(FileSystem fileSystem, UUID shardUuid, OptionalInt bucketNumber, Path file, Set<String> nodes, long rowCount, long uncompressedSize)
     {
         try {
             return new ShardInfo(shardUuid, bucketNumber, nodes, computeShardStats(fileSystem, file), rowCount, fileSystem.getFileStatus(file).getLen(), uncompressedSize, xxhash64(fileSystem, file));
@@ -478,47 +470,7 @@ public class OrcStorageManager
         }
     }
 
-    @VisibleForTesting
-    Collection<Slice> rewriteShard(FileSystem fileSystem, long transactionId, OptionalInt bucketNumber, UUID shardUuid, Map<String, Type> columns, BitSet rowsToDelete)
-    {
-        if (rowsToDelete.isEmpty()) {
-            return ImmutableList.of();
-        }
-
-        UUID newShardUuid = UUID.randomUUID();
-        Path input = storageService.getStorageFile(shardUuid);
-        Path output = storageService.getStagingFile(newShardUuid);
-
-        OrcFileInfo info = rewriteFile(fileSystem, columns, input, output, rowsToDelete);
-        long rowCount = info.getRowCount();
-
-        if (rowCount == 0) {
-            return shardDelta(shardUuid, Optional.empty());
-        }
-
-        shardRecorder.recordCreatedShard(transactionId, newShardUuid);
-
-        // submit for backup and wait until it finishes
-        getFutureValue(backupManager.submit(newShardUuid, output));
-
-        Set<String> nodes = ImmutableSet.of(nodeId);
-        long uncompressedSize = info.getUncompressedSize();
-
-        ShardInfo shard = createShardInfo(fileSystem, newShardUuid, bucketNumber, output, nodes, rowCount, uncompressedSize);
-
-        writeShard(newShardUuid);
-
-        return shardDelta(shardUuid, Optional.of(shard));
-    }
-
-    private static Collection<Slice> shardDelta(UUID oldShardUuid, Optional<ShardInfo> shardInfo)
-    {
-        List<ShardInfo> newShards = shardInfo.map(ImmutableList::of).orElse(ImmutableList.of());
-        ShardDelta delta = new ShardDelta(ImmutableList.of(oldShardUuid), newShards);
-        return ImmutableList.of(Slices.wrappedBuffer(SHARD_DELTA_CODEC.toJsonBytes(delta)));
-    }
-
-    private OrcFileInfo rewriteFile(FileSystem fileSystem, Map<String, Type> columns, Path input, Path output, BitSet rowsToDelete)
+    OrcFileInfo rewriteFile(FileSystem fileSystem, Map<String, Type> columns, Path input, Path output, BitSet rowsToDelete)
     {
         try {
             return fileRewriter.rewrite(fileSystem, columns, input, output, rowsToDelete);
