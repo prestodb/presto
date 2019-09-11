@@ -68,6 +68,7 @@ public class TaskManagerConfig
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
 
     private int writerCount = 1;
+    private Integer partitionedWriterCount;
     private int taskConcurrency = 16;
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
@@ -394,6 +395,21 @@ public class TaskManagerConfig
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
+        return this;
+    }
+
+    @Min(1)
+    @PowerOfTwo
+    public Integer getPartitionedWriterCount()
+    {
+        return partitionedWriterCount;
+    }
+
+    @Config("task.partitioned-writer-count")
+    @ConfigDescription("Number of writers per task for partitioned writes. If not set, the number set by task.writer-count will be used")
+    public TaskManagerConfig setPartitionedWriterCount(Integer partitionedWriterCount)
+    {
+        this.partitionedWriterCount = partitionedWriterCount;
         return this;
     }
 

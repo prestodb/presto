@@ -65,8 +65,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
+import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
-import static com.facebook.presto.SystemSessionProperties.isConcurrentWritesToPartitionedTableEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
@@ -484,8 +484,11 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode originalTableWriterNode, StreamPreferredProperties parentPreferences)
         {
-            if (getTaskWriterCount(session) == 1
-                    || (originalTableWriterNode.getPartitioningScheme().isPresent() && !isConcurrentWritesToPartitionedTableEnabled(session))) {
+            if (originalTableWriterNode.getPartitioningScheme().isPresent() && getTaskPartitionedWriterCount(session) == 1) {
+                return planAndEnforceChildren(originalTableWriterNode, singleStream(), defaultParallelism(session));
+            }
+
+            if (!originalTableWriterNode.getPartitioningScheme().isPresent() && getTaskWriterCount(session) == 1) {
                 return planAndEnforceChildren(originalTableWriterNode, singleStream(), defaultParallelism(session));
             }
 

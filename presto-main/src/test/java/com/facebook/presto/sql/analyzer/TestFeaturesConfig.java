@@ -119,7 +119,6 @@ public class TestFeaturesConfig
                 .setMaxConcurrentMaterializations(3)
                 .setPushdownSubfieldsEnabled(false)
                 .setTableWriterMergeOperatorEnabled(true)
-                .setConcurrentWritesToPartitionedTableEnabled(true)
                 .setOptimizeFullOuterJoinWithCoalesce(true));
     }
 
@@ -198,7 +197,6 @@ public class TestFeaturesConfig
                 .put("max-concurrent-materializations", "5")
                 .put("experimental.pushdown-subfields-enabled", "true")
                 .put("experimental.table-writer-merge-operator-enabled", "false")
-                .put("experimental.concurrent-writes-to-partitioned-table-enabled", "false")
                 .put("optimizer.optimize-full-outer-join-with-coalesce", "false")
                 .build();
 
@@ -274,7 +272,6 @@ public class TestFeaturesConfig
                 .setMaxConcurrentMaterializations(5)
                 .setPushdownSubfieldsEnabled(true)
                 .setTableWriterMergeOperatorEnabled(false)
-                .setConcurrentWritesToPartitionedTableEnabled(false)
                 .setOptimizeFullOuterJoinWithCoalesce(false);
         assertFullMapping(properties, expected);
     }

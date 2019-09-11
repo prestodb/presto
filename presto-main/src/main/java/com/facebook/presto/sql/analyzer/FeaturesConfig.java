@@ -138,7 +138,6 @@ public class FeaturesConfig
     private boolean pushdownSubfieldsEnabled;
 
     private boolean tableWriterMergeOperatorEnabled = true;
-    private boolean concurrentWritesToPartitionedTableEnabled = true;
 
     public enum JoinReorderingStrategy
     {
@@ -1058,18 +1057,6 @@ public class FeaturesConfig
     public FeaturesConfig setTableWriterMergeOperatorEnabled(boolean tableWriterMergeOperatorEnabled)
     {
         this.tableWriterMergeOperatorEnabled = tableWriterMergeOperatorEnabled;
-        return this;
-    }
-
-    public boolean isConcurrentWritesToPartitionedTableEnabled()
-    {
-        return concurrentWritesToPartitionedTableEnabled;
-    }
-
-    @Config("experimental.concurrent-writes-to-partitioned-table-enabled")
-    public FeaturesConfig setConcurrentWritesToPartitionedTableEnabled(boolean concurrentWritesToPartitionedTableEnabled)
-    {
-        this.concurrentWritesToPartitionedTableEnabled = concurrentWritesToPartitionedTableEnabled;
         return this;
     }
 

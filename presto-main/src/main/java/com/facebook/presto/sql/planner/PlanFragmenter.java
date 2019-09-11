@@ -85,8 +85,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
-import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
-import static com.facebook.presto.SystemSessionProperties.isConcurrentWritesToPartitionedTableEnabled;
+import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
@@ -719,7 +718,7 @@ public class PlanFragmenter
                     Optional.empty());
 
             ExchangeNode writerSource;
-            if (getTaskWriterCount(session) == 1 || !isConcurrentWritesToPartitionedTableEnabled(session)) {
+            if (getTaskPartitionedWriterCount(session) == 1) {
                 writerSource = gatheringExchange(
                         idAllocator.getNextId(),
                         LOCAL,

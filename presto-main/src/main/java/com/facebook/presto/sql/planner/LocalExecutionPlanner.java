@@ -219,8 +219,8 @@ import static com.facebook.presto.SystemSessionProperties.getAggregationOperator
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
+import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
-import static com.facebook.presto.SystemSessionProperties.isConcurrentWritesToPartitionedTableEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
@@ -2148,8 +2148,8 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            if (node.getPartitioningScheme().isPresent() && !isConcurrentWritesToPartitionedTableEnabled(session)) {
-                context.setDriverInstanceCount(1);
+            if (node.getPartitioningScheme().isPresent()) {
+                context.setDriverInstanceCount(getTaskPartitionedWriterCount(session));
             }
             else {
                 context.setDriverInstanceCount(getTaskWriterCount(session));
