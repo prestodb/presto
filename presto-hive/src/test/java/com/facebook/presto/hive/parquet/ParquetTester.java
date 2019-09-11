@@ -82,6 +82,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
+import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveUtil.isArrayType;
 import static com.facebook.presto.hive.HiveUtil.isMapType;
@@ -204,13 +205,27 @@ public class ParquetTester
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, String columnName, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
-        testRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, singletonList(columnName), singletonList(type), parquetSchema, false);
+        testRoundTrip(
+                singletonList(objectInspector),
+                new Iterable<?>[] {writeValues},
+                new Iterable<?>[] {readValues},
+                singletonList(columnName),
+                singletonList(type),
+                parquetSchema,
+                false);
     }
 
     public void testSingleLevelArrayRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, String columnName, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
-        testRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, singletonList(columnName), singletonList(type), parquetSchema, true);
+        testRoundTrip(
+                singletonList(objectInspector),
+                new Iterable<?>[] {writeValues},
+                new Iterable<?>[] {readValues},
+                singletonList(columnName),
+                singletonList(type),
+                parquetSchema,
+                true);
     }
 
     public void testRoundTrip(List<ObjectInspector> objectInspectors, Iterable<?>[] writeValues, Iterable<?>[] readValues, List<String> columnNames, List<Type> columnTypes, Optional<MessageType> parquetSchema, boolean singleLevelArray)
@@ -223,8 +238,14 @@ public class ParquetTester
         assertRoundTrip(objectInspectors, transformToNulls(writeValues), transformToNulls(readValues), columnNames, columnTypes, parquetSchema, singleLevelArray);
     }
 
-    private void testRoundTripType(List<ObjectInspector> objectInspectors, Iterable<?>[] writeValues, Iterable<?>[] readValues,
-            List<String> columnNames, List<Type> columnTypes, Optional<MessageType> parquetSchema, boolean singleLevelArray)
+    private void testRoundTripType(
+            List<ObjectInspector> objectInspectors,
+            Iterable<?>[] writeValues,
+            Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            Optional<MessageType> parquetSchema,
+            boolean singleLevelArray)
             throws Exception
     {
         // forward order
@@ -240,7 +261,8 @@ public class ParquetTester
         assertRoundTrip(objectInspectors, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), columnNames, columnTypes, parquetSchema, singleLevelArray);
     }
 
-    void assertRoundTrip(List<ObjectInspector> objectInspectors,
+    void assertRoundTrip(
+            List<ObjectInspector> objectInspectors,
             Iterable<?>[] writeValues,
             Iterable<?>[] readValues,
             List<String> columnNames,
@@ -251,7 +273,8 @@ public class ParquetTester
         assertRoundTrip(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, false);
     }
 
-    void assertRoundTrip(List<ObjectInspector> objectInspectors,
+    void assertRoundTrip(
+            List<ObjectInspector> objectInspectors,
             Iterable<?>[] writeValues,
             Iterable<?>[] readValues,
             List<String> columnNames,
@@ -288,7 +311,67 @@ public class ParquetTester
             }
         }
     }
+    void testMaxReadBytes(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, DataSize maxReadBlockSize)
+            throws Exception
+    {
+        assertMaxReadBytes(
+                singletonList(objectInspector),
+                new Iterable<?>[] {writeValues},
+                new Iterable<?>[] {readValues},
+                TEST_COLUMN,
+                singletonList(type),
+                Optional.empty(),
+                maxReadBlockSize);
+    }
+    void assertMaxReadBytes(
+            List<ObjectInspector> objectInspectors,
+            Iterable<?>[] writeValues,
+            Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            Optional<MessageType> parquetSchema,
+            DataSize maxReadBlockSize)
+            throws Exception
+    {
+        WriterVersion version = PARQUET_1_0;
+        CompressionCodecName compressionCodecName = UNCOMPRESSED;
+        HiveClientConfig config = new HiveClientConfig()
+                .setHiveStorageFormat(HiveStorageFormat.PARQUET)
+                .setUseParquetColumnNames(false)
+                .setParquetMaxReadBlockSize(maxReadBlockSize);
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
+        try (TempFile tempFile = new TempFile("test", "parquet")) {
+            JobConf jobConf = new JobConf();
+            jobConf.setEnum(COMPRESSION, compressionCodecName);
+            jobConf.setBoolean(ENABLE_DICTIONARY, true);
+            jobConf.setEnum(WRITER_VERSION, version);
+            writeParquetColumn(
+                    jobConf,
+                    tempFile.getFile(),
+                    compressionCodecName,
+                    createTableProperties(columnNames, objectInspectors),
+                    getStandardStructObjectInspector(columnNames, objectInspectors),
+                    getIterators(writeValues),
+                    parquetSchema,
+                    false);
+
+            Iterator<?>[] expectedValues = getIterators(readValues);
+            try (ConnectorPageSource pageSource = getFileFormat().createFileFormatReader(
+                    session,
+                    HDFS_ENVIRONMENT,
+                    tempFile.getFile(),
+                    columnNames,
+                    columnTypes)) {
+                assertPageSource(
+                        columnTypes,
+                        expectedValues,
+                        pageSource,
+                        Optional.of(getParquetMaxReadBlockSize(session).toBytes()));
+                assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
+            }
+        }
+    }
     private static void assertFileContents(
             ConnectorSession session,
             File dataFile,
@@ -314,6 +397,11 @@ public class ParquetTester
     }
 
     private static void assertPageSource(List<Type> types, Iterator<?>[] valuesByField, ConnectorPageSource pageSource)
+    {
+        assertPageSource(types, valuesByField, pageSource, Optional.empty());
+    }
+
+    private static void assertPageSource(List<Type> types, Iterator<?>[] valuesByField, ConnectorPageSource pageSource, Optional<Long> maxReadBlockSize)
     {
         Page page;
         while ((page = pageSource.getNextPage()) != null) {
@@ -420,7 +508,8 @@ public class ParquetTester
         return OPTIMIZED ? FileFormat.PRESTO_PARQUET : FileFormat.HIVE_PARQUET;
     }
 
-    private static DataSize writeParquetColumn(JobConf jobConf,
+    private static DataSize writeParquetColumn(
+            JobConf jobConf,
             File outputFile,
             CompressionCodecName compressionCodecName,
             Properties tableProperties,
