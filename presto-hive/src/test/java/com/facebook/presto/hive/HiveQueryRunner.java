@@ -97,6 +97,7 @@ public final class HiveQueryRunner
 
         Map<String, String> systemProperties = ImmutableMap.<String, String>builder()
                 .put("task.writer-count", "2")
+                .put("task.partitioned-writer-count", "4")
                 .putAll(extraProperties)
                 .build();
 
