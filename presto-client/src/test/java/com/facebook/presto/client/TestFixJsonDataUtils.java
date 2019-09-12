@@ -53,6 +53,7 @@ public class TestFixJsonDataUtils
         assertQueryResult("map(bigint,bigint)", ImmutableMap.of(1, 3, 2, 4), ImmutableMap.of(1L, 3L, 2L, 4L));
         assertQueryResult("json", "{\"json\": {\"a\": 1}}", "{\"json\": {\"a\": 1}}");
         assertQueryResult("ipaddress", "1.2.3.4", "1.2.3.4");
+        assertQueryResult("ipprefix", "1.2.3.4/32", "1.2.3.4/32");
         assertQueryResult("Geometry", "POINT (1.2 3.4)", "POINT (1.2 3.4)");
         assertQueryResult("map(BingTile,bigint)", ImmutableMap.of("BingTile{x=1, y=2, zoom_level=10}", 1), ImmutableMap.of("BingTile{x=1, y=2, zoom_level=10}", 1L));
     }

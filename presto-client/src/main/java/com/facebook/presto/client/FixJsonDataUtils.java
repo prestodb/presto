@@ -40,6 +40,7 @@ import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static com.facebook.presto.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static com.facebook.presto.spi.type.StandardTypes.IPADDRESS;
+import static com.facebook.presto.spi.type.StandardTypes.IPPREFIX;
 import static com.facebook.presto.spi.type.StandardTypes.JSON;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.REAL;
@@ -169,6 +170,7 @@ final class FixJsonDataUtils
             case INTERVAL_YEAR_TO_MONTH:
             case INTERVAL_DAY_TO_SECOND:
             case IPADDRESS:
+            case IPPREFIX:
             case DECIMAL:
             case CHAR:
             case GEOMETRY:
