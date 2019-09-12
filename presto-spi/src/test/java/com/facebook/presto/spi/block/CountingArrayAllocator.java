@@ -17,7 +17,7 @@ package com.facebook.presto.spi.block;
  * Test class which always allocates a new array but keeps track of the number
  * of borrowed arrays.
  */
-class CountingArrayAllocator
+public class CountingArrayAllocator
         implements ArrayAllocator
 {
     private int borrowedArrays;
