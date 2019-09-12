@@ -291,6 +291,7 @@ import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static com.facebook.presto.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
+import static com.facebook.presto.spi.function.FunctionImplementationType.BUILTIN;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
@@ -744,6 +745,7 @@ public class BuiltInFunctionNamespaceManager
                     signature.getArgumentTypes(),
                     signature.getReturnType(),
                     signature.getKind(),
+                    BUILTIN,
                     function.isDeterministic(),
                     function.isCalledOnNullInput());
         }
@@ -753,6 +755,7 @@ public class BuiltInFunctionNamespaceManager
                     signature.getArgumentTypes(),
                     signature.getReturnType(),
                     signature.getKind(),
+                    BUILTIN,
                     function.isDeterministic(),
                     function.isCalledOnNullInput());
         }

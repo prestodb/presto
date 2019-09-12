@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.spi.function.FunctionImplementationType.BUILTIN;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
@@ -79,6 +80,7 @@ class TranslatorAnnotationParser
                     argumentsBuilder.build(),
                     metadata.getReturnType(),
                     metadata.getFunctionKind(),
+                    metadata.getImplementationType(),
                     metadata.isDeterministic(),
                     metadata.isCalledOnNullInput());
         }
@@ -87,6 +89,7 @@ class TranslatorAnnotationParser
                 argumentsBuilder.build(),
                 metadata.getReturnType(),
                 metadata.getFunctionKind(),
+                metadata.getImplementationType(),
                 metadata.isDeterministic(),
                 metadata.isCalledOnNullInput());
     }
@@ -155,9 +158,9 @@ class TranslatorAnnotationParser
         }
 
         if (header.getOperatorType().isPresent()) {
-            return new FunctionMetadata(header.getOperatorType().get(), argumentTypes.build(), returnType, SCALAR, header.isDeterministic(), header.isCalledOnNullInput());
+            return new FunctionMetadata(header.getOperatorType().get(), argumentTypes.build(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
         }
-        return new FunctionMetadata(header.getName(), argumentTypes.build(), returnType, SCALAR, header.isDeterministic(), header.isCalledOnNullInput());
+        return new FunctionMetadata(header.getName(), argumentTypes.build(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
     }
 
     @SafeVarargs
