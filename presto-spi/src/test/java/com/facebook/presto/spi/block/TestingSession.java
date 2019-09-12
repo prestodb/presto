@@ -15,6 +15,7 @@ package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 
@@ -81,6 +82,12 @@ public final class TestingSession
         public boolean isLegacyTimestamp()
         {
             return true;
+        }
+
+        @Override
+        public SqlFunctionProperties getSqlFunctionProperties()
+        {
+            return SqlFunctionProperties.builder().setTimeZoneKey(UTC_KEY).build();
         }
 
         @Override
