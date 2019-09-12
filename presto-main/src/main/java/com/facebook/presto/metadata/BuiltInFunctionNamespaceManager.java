@@ -101,6 +101,7 @@ import com.facebook.presto.operator.scalar.EmptyMapConstructor;
 import com.facebook.presto.operator.scalar.FailureFunction;
 import com.facebook.presto.operator.scalar.HmacFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
+import com.facebook.presto.operator.scalar.IpPrefixFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpCasts;
 import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpReplaceLambdaFunction;
@@ -177,6 +178,7 @@ import com.facebook.presto.type.IntegerOperators;
 import com.facebook.presto.type.IntervalDayTimeOperators;
 import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.IpAddressOperators;
+import com.facebook.presto.type.IpPrefixOperators;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.QuantileDigestOperators;
 import com.facebook.presto.type.RealOperators;
@@ -527,6 +529,9 @@ public class BuiltInFunctionNamespaceManager
                 .scalars(QuantileDigestOperators.class)
                 .scalars(IpAddressOperators.class)
                 .scalar(IpAddressOperators.IpAddressDistinctFromOperator.class)
+                .scalars(IpPrefixFunctions.class)
+                .scalars(IpPrefixOperators.class)
+                .scalar(IpPrefixOperators.IpPrefixDistinctFromOperator.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalars(HmacFunctions.class)
