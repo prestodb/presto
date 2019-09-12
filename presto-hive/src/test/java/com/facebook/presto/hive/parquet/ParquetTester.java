@@ -335,10 +335,14 @@ public class ParquetTester
     {
         WriterVersion version = PARQUET_1_0;
         CompressionCodecName compressionCodecName = UNCOMPRESSED;
+<<<<<<< HEAD
         HiveClientConfig config = new HiveClientConfig()
                 .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                 .setUseParquetColumnNames(false)
                 .setParquetMaxReadBlockSize(maxReadBlockSize);
+=======
+        HiveClientConfig config = new HiveClientConfig().setHiveStorageFormat(HiveStorageFormat.PARQUET).setUseParquetColumnNames(false).setParquetMaxReadBlockSize(maxReadBlockSize);
+>>>>>>> 14c94b8b6557b09a59d5c42f89c32c851b948a61
         ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
         try (TempFile tempFile = new TempFile("test", "parquet")) {

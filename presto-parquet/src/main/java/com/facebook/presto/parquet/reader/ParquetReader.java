@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import io.airlift.units.DataSize;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.parquet.Field;
