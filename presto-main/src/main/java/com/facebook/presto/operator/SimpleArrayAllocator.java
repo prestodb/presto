@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
  * constant time access to the appropriately sized array.
  */
 @NotThreadSafe
-class SimpleArrayAllocator
+public class SimpleArrayAllocator
         implements ArrayAllocator
 {
     private static final int DEFAULT_MAX_OUTSTANDING = 1000;
