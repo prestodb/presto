@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.repartition.PartitionedOutputInfo;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;

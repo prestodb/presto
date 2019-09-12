@@ -20,6 +20,7 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.PartitionedOutputBuffer;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
+import com.facebook.presto.operator.repartition.PartitionedOutputOperator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
