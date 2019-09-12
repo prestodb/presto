@@ -84,7 +84,8 @@ public class ParquetReader
 
     private AggregatedMemoryContext currentRowGroupMemoryContext;
 
-    public ParquetReader(MessageColumnIO messageColumnIO,
+    public ParquetReader(MessageColumnIO
+            messageColumnIO,
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
             AggregatedMemoryContext systemMemoryContext,

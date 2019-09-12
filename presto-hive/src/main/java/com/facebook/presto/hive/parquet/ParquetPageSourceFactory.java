@@ -192,6 +192,7 @@ public class ParquetPageSourceFactory
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),
+                    dataSource,
                     systemMemoryContext,
                     maxReadBlockSize);
 
