@@ -32,9 +32,9 @@ import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
-import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -61,6 +61,7 @@ import static com.facebook.presto.spi.function.OperatorType.MODULUS;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
+import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static com.facebook.presto.util.MoreMath.max;
 import static com.facebook.presto.util.MoreMath.min;
 import static com.google.common.base.Preconditions.checkState;
@@ -109,10 +110,6 @@ public class ScalarStatsCalculator
         @Override
         public VariableStatsEstimate visitCall(CallExpression call, Void context)
         {
-            if (resolution.isCastFunction(call.getFunctionHandle())) {
-                return computeCastStatistics(call, context);
-            }
-
             if (resolution.isNegateFunction(call.getFunctionHandle())) {
                 return computeNegationStatistics(call, context);
             }
@@ -122,22 +119,21 @@ public class ScalarStatsCalculator
                 return computeArithmeticBinaryStatistics(call, context);
             }
 
-            Object value = new RowExpressionInterpreter(call, metadata, session.toConnectorSession(), OPTIMIZED).optimize();
+            RowExpression value = new RowExpressionOptimizer(metadata).optimize(call, OPTIMIZED, session.toConnectorSession());
 
-            if (value == null) {
+            if (isNull(value)) {
                 return nullStatsEstimate();
             }
 
-            if (value instanceof RowExpression) {
-                // value is not a constant
-                return VariableStatsEstimate.unknown();
+            if (value instanceof ConstantExpression) {
+                return value.accept(this, context);
             }
 
-            // value is a constant
-            return VariableStatsEstimate.builder()
-                    .setNullsFraction(0)
-                    .setDistinctValuesCount(1)
-                    .build();
+            // value is not a constant but we can still propagate estimation through cast
+            if (resolution.isCastFunction(call.getFunctionHandle())) {
+                return computeCastStatistics(call, context);
+            }
+            return VariableStatsEstimate.unknown();
         }
 
         @Override
