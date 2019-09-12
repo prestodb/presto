@@ -383,7 +383,7 @@ public final class SqlToRowExpressionTranslator
                     .map(TypeSignatureProvider::new)
                     .collect(toImmutableList());
 
-            return call(node.getName().toString(), functionManager.resolveFunction(session, node.getName(), argumentTypes), getType(node), arguments);
+            return call(node.getName().toString(), functionManager.resolveFunction(session.getTransactionId(), node.getName(), argumentTypes), getType(node), arguments);
         }
 
         @Override

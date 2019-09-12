@@ -892,7 +892,7 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(session, node.getName(), fromTypes(argumentTypes));
+            FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(session.getTransactionId(), node.getName(), fromTypes(argumentTypes));
             FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(functionHandle);
             if (!functionMetadata.isCalledOnNullInput()) {
                 for (int i = 0; i < argumentValues.size(); i++) {

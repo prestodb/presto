@@ -109,7 +109,7 @@ public class TestFunctionManager
 
         TypeRegistry typeManager = new TypeRegistry();
         FunctionManager functionManager = createFunctionManager(typeManager);
-        BuiltInFunctionHandle functionHandle = (BuiltInFunctionHandle) functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(signature.getName().getParts()), fromTypeSignatures(signature.getArgumentTypes()));
+        BuiltInFunctionHandle functionHandle = (BuiltInFunctionHandle) functionManager.resolveFunction(TEST_SESSION.getTransactionId(), QualifiedName.of(signature.getName().getParts()), fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(functionManager.getFunctionMetadata(functionHandle).getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
@@ -400,7 +400,7 @@ public class TestFunctionManager
             FeaturesConfig featuresConfig = new FeaturesConfig();
             FunctionManager functionManager = new FunctionManager(typeRegistry, blockEncoding, featuresConfig);
             functionManager.registerBuiltInFunctions(createFunctionsFromSignatures());
-            return functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("presto", "default", TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
+            return functionManager.resolveFunction(TEST_SESSION.getTransactionId(), QualifiedName.of("presto", "default", TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
         }
 
         private List<BuiltInFunction> createFunctionsFromSignatures()

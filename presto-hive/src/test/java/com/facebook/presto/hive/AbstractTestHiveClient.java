@@ -79,6 +79,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
@@ -947,6 +948,12 @@ public abstract class AbstractTestHiveClient
             public boolean isLegacyTimestamp()
             {
                 return session.isLegacyTimestamp();
+            }
+
+            @Override
+            public SqlFunctionProperties getSqlFunctionProperties()
+            {
+                return session.getSqlFunctionProperties();
             }
 
             @Override

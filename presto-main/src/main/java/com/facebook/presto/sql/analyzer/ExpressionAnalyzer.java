@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
@@ -27,6 +26,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalParseResult;
 import com.facebook.presto.spi.type.Decimals;
@@ -96,6 +96,7 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -114,7 +115,6 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -175,7 +175,6 @@ public class ExpressionAnalyzer
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final TypeProvider symbolTypes;
     private final boolean isDescribe;
-    private final boolean legacyRowFieldOrdinalAccess;
 
     private final Map<NodeRef<FunctionCall>, FunctionHandle> resolvedFunctions = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> scalarSubqueries = new LinkedHashSet<>();
@@ -191,15 +190,17 @@ public class ExpressionAnalyzer
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
     private final Multimap<QualifiedObjectName, String> tableColumnReferences = HashMultimap.create();
 
-    private final Session session;
+    private final Optional<TransactionId> transactionId;
+    private final SqlFunctionProperties sqlFunctionProperties;
     private final List<Expression> parameters;
     private final WarningCollector warningCollector;
 
-    public ExpressionAnalyzer(
+    private ExpressionAnalyzer(
             FunctionManager functionManager,
             TypeManager typeManager,
             Function<Node, StatementAnalyzer> statementAnalyzerFactory,
-            Session session,
+            Optional<TransactionId> transactionId,
+            SqlFunctionProperties sqlFunctionProperties,
             TypeProvider symbolTypes,
             List<Expression> parameters,
             WarningCollector warningCollector,
@@ -208,11 +209,11 @@ public class ExpressionAnalyzer
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
-        this.session = requireNonNull(session, "session is null");
+        this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
         this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
-        this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
@@ -453,7 +454,7 @@ public class ExpressionAnalyzer
                 }
             }
 
-            if (legacyRowFieldOrdinalAccess && rowFieldType == null) {
+            if (sqlFunctionProperties.isLegacyRowFieldOrdinalAccessEnabled() && rowFieldType == null) {
                 OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, rowType.getFields());
                 if (rowIndex.isPresent()) {
                     rowFieldType = rowType.getFields().get(rowIndex.getAsInt()).getType();
@@ -784,8 +785,8 @@ public class ExpressionAnalyzer
         protected Type visitTimestampLiteral(TimestampLiteral node, StackableAstVisitorContext<Context> context)
         {
             try {
-                if (SystemSessionProperties.isLegacyTimestamp(session)) {
-                    parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                if (sqlFunctionProperties.isLegacyTimestamp()) {
+                    parseTimestampLiteral(sqlFunctionProperties.getTimeZoneKey(), node.getValue());
                 }
                 else {
                     parseTimestampLiteral(node.getValue());
@@ -879,7 +880,8 @@ public class ExpressionAnalyzer
                                         functionManager,
                                         typeManager,
                                         statementAnalyzerFactory,
-                                        session,
+                                        transactionId,
+                                        sqlFunctionProperties,
                                         symbolTypes,
                                         parameters,
                                         warningCollector,
@@ -902,7 +904,7 @@ public class ExpressionAnalyzer
             }
 
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
-            FunctionHandle function = resolveFunction(session, node, argumentTypes, functionManager);
+            FunctionHandle function = resolveFunction(transactionId, node, argumentTypes, functionManager);
             FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(function);
 
             if (node.getOrderBy().isPresent()) {
@@ -1449,10 +1451,10 @@ public class ExpressionAnalyzer
         }
     }
 
-    public static FunctionHandle resolveFunction(Session session, FunctionCall node, List<TypeSignatureProvider> argumentTypes, FunctionManager functionManager)
+    public static FunctionHandle resolveFunction(Optional<TransactionId> transactionId, FunctionCall node, List<TypeSignatureProvider> argumentTypes, FunctionManager functionManager)
     {
         try {
-            return functionManager.resolveFunction(session, node.getName(), argumentTypes);
+            return functionManager.resolveFunction(transactionId, node.getName(), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1585,7 +1587,8 @@ public class ExpressionAnalyzer
                 metadata.getFunctionManager(),
                 metadata.getTypeManager(),
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
-                session,
+                session.getTransactionId(),
+                session.getSqlFunctionProperties(),
                 types,
                 analysis.getParameters(),
                 warningCollector,
@@ -1655,7 +1658,8 @@ public class ExpressionAnalyzer
                 node -> {
                     throw statementAnalyzerRejection.apply(node);
                 },
-                session,
+                session.getTransactionId(),
+                session.getSqlFunctionProperties(),
                 symbolTypes,
                 parameters,
                 warningCollector,

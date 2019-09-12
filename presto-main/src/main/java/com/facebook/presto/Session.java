@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
@@ -43,6 +44,9 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
+import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
+import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -407,6 +411,16 @@ public final class Session
     public ConnectorSession toConnectorSession()
     {
         return new FullConnectorSession(this, identity.toConnectorIdentity());
+    }
+
+    public SqlFunctionProperties getSqlFunctionProperties()
+    {
+        return SqlFunctionProperties.builder()
+                .setTimeZoneKey(timeZoneKey)
+                .setLegacyRowFieldOrdinalAccessEnabled(isLegacyRowFieldOrdinalAccessEnabled(this))
+                .setLegacyTimestamp(isLegacyTimestamp(this))
+                .setParseDecimalLiteralAsDouble(isParseDecimalLiteralsAsDouble(this))
+                .build();
     }
 
     public ConnectorSession toConnectorSession(ConnectorId connectorId)

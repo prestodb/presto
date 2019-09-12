@@ -36,6 +36,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -169,12 +170,7 @@ public class FunctionManager
      *
      * @throws PrestoException if there are no matches or multiple matches
      */
-    public FunctionHandle resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
-    {
-        return resolveFunction(Optional.of(session), name, parameterTypes);
-    }
-
-    private FunctionHandle resolveFunction(Optional<Session> session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public FunctionHandle resolveFunction(Optional<TransactionId> transactionId, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         FullyQualifiedName functionName;
         if (!name.getPrefix().isPresent()) {
@@ -189,8 +185,8 @@ public class FunctionManager
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Cannot find function namespace for function %s", name));
         }
 
-        Optional<FunctionNamespaceTransactionHandle> transactionHandle = session.flatMap(Session::getTransactionId)
-                .map(transactionId -> transactionManager.getFunctionNamespaceTransaction(transactionId, functionNamespaceManager.get().getName()));
+        Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
+                .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionNamespaceManager.get().getName()));
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getFunctions(transactionHandle, functionName);
 
         try {
