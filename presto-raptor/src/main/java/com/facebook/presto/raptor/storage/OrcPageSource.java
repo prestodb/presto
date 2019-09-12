@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
+import static com.facebook.presto.raptor.storage.OrcFileRewriter.maskedPage;
 import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -61,6 +62,7 @@ public class OrcPageSource
     private final OrcBatchRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
+    private final Optional<BitSet> rowsDeleted;
     private final BitSet rowsToDelete;
     private final boolean tableSupportsDeltaDelete;
 
@@ -86,7 +88,8 @@ public class OrcPageSource
             UUID shardUuid,
             boolean tableSupportsDeltaDelete,
             OptionalInt bucketNumber,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext systemMemoryContext,
+            Optional<BitSet> rowsDeleted)
     {
         this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
@@ -94,6 +97,7 @@ public class OrcPageSource
 
         this.tableSupportsDeltaDelete = tableSupportsDeltaDelete;
         this.rowsToDelete = new BitSet(toIntExact(recordReader.getFileRowCount()));
+        this.rowsDeleted = requireNonNull(rowsDeleted, "rowsDeleted is null");
 
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
         checkArgument(columnIds.size() == columnIndexes.size(), "ids and indexes mismatch");
@@ -179,6 +183,10 @@ public class OrcPageSource
                 else {
                     blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(columnIndexes[fieldId], type));
                 }
+            }
+            if (tableSupportsDeltaDelete && rowsDeleted.isPresent()) {
+                int row = toIntExact(filePosition);
+                return maskedPage(blocks, rowsDeleted.get(), row, batchSize);
             }
 
             return new Page(batchSize, blocks);
