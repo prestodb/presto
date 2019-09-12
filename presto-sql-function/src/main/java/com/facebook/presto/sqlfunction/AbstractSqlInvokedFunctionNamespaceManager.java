@@ -125,8 +125,10 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         return new FunctionMetadata(
                 function.getSignature().getName(),
                 function.getSignature().getArgumentTypes(),
+                function.getParameterNames(),
                 function.getSignature().getReturnType(),
                 SCALAR,
+                function.getFunctionImplementationType(),
                 function.isDeterministic(),
                 function.isCalledOnNullInput());
     }

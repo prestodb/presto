@@ -13,18 +13,22 @@
  */
 package com.facebook.presto.sqlfunction;
 
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
@@ -34,6 +38,8 @@ import static java.util.stream.Collectors.toList;
 public class SqlInvokedRegularFunction
         implements SqlFunction
 {
+    private static final Map<RoutineCharacteristics.Language, FunctionImplementationType> LANGUAGE_TO_IMPLEMENTATION_MAP = ImmutableMap.of(RoutineCharacteristics.Language.SQL, FunctionImplementationType.SQL);
+
     private final List<SqlParameter> parameters;
     private final Optional<String> comment;
     private final RoutineCharacteristics routineCharacteristics;
@@ -115,6 +121,11 @@ public class SqlInvokedRegularFunction
         return parameters;
     }
 
+    public List<String> getParameterNames()
+    {
+        return parameters.stream().map(SqlParameter::getName).collect(toImmutableList());
+    }
+
     public Optional<String> getComment()
     {
         return comment;
@@ -123,6 +134,12 @@ public class SqlInvokedRegularFunction
     public RoutineCharacteristics getRoutineCharacteristics()
     {
         return routineCharacteristics;
+    }
+
+    public FunctionImplementationType getFunctionImplementationType()
+    {
+        checkState(LANGUAGE_TO_IMPLEMENTATION_MAP.containsKey(routineCharacteristics.getLanguage()), "Language is not supported: %s", routineCharacteristics.getLanguage());
+        return LANGUAGE_TO_IMPLEMENTATION_MAP.get(routineCharacteristics.getLanguage());
     }
 
     public String getBody()
