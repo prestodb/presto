@@ -506,7 +506,7 @@ public class OrcSelectivePageSourceFactory
 
         List<RowExpression> conjuncts = extractConjuncts(filter);
         if (conjuncts.size() == 1) {
-            return ImmutableList.of(new FilterFunction(session, determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(filter).get()));
+            return ImmutableList.of(new FilterFunction(session, determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
         }
 
         // Use LinkedHashMap to preserve user-specified order of conjuncts. This will be the initial order in which filters are applied.
@@ -517,7 +517,7 @@ public class OrcSelectivePageSourceFactory
 
         return inputsToConjuncts.values().stream()
                 .map(expressions -> binaryExpression(AND, expressions))
-                .map(predicate -> new FilterFunction(session, determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(predicate).get()))
+                .map(predicate -> new FilterFunction(session, determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), predicate).get()))
                 .collect(toImmutableList());
     }
 

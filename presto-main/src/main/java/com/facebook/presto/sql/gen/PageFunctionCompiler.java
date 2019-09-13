@@ -39,6 +39,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -61,6 +62,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
 import java.util.function.Consumer;
@@ -97,8 +99,8 @@ public class PageFunctionCompiler
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
-    private final LoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
-    private final LoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
+    private final LoadingCache<CacheKey, Supplier<PageProjection>> projectionCache;
+    private final LoadingCache<CacheKey, Supplier<PageFilter>> filterCache;
 
     private final CacheStatsMBean projectionCacheStats;
     private final CacheStatsMBean filterCacheStats;
@@ -118,7 +120,7 @@ public class PageFunctionCompiler
             projectionCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
+                    .build(CacheLoader.from(cacheKey -> compileProjectionInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
         else {
@@ -130,7 +132,7 @@ public class PageFunctionCompiler
             filterCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
+                    .build(CacheLoader.from(cacheKey -> compileFilterInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression, Optional.empty())));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
         else {
@@ -155,15 +157,15 @@ public class PageFunctionCompiler
         return filterCacheStats;
     }
 
-    public Supplier<PageProjection> compileProjection(RowExpression projection, Optional<String> classNameSuffix)
+    public Supplier<PageProjection> compileProjection(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
     {
         if (projectionCache == null) {
-            return compileProjectionInternal(projection, classNameSuffix);
+            return compileProjectionInternal(sqlFunctionProperties, projection, classNameSuffix);
         }
-        return projectionCache.getUnchecked(projection);
+        return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, projection));
     }
 
-    private Supplier<PageProjection> compileProjectionInternal(RowExpression projection, Optional<String> classNameSuffix)
+    private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
     {
         requireNonNull(projection, "projection is null");
 
@@ -354,15 +356,15 @@ public class PageFunctionCompiler
         return method;
     }
 
-    public Supplier<PageFilter> compileFilter(RowExpression filter, Optional<String> classNameSuffix)
+    public Supplier<PageFilter> compileFilter(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, Optional<String> classNameSuffix)
     {
         if (filterCache == null) {
-            return compileFilterInternal(filter, classNameSuffix);
+            return compileFilterInternal(sqlFunctionProperties, filter, classNameSuffix);
         }
-        return filterCache.getUnchecked(filter);
+        return filterCache.getUnchecked(new CacheKey(sqlFunctionProperties, filter));
     }
 
-    private Supplier<PageFilter> compileFilterInternal(RowExpression filter, Optional<String> classNameSuffix)
+    private Supplier<PageFilter> compileFilterInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, Optional<String> classNameSuffix)
     {
         requireNonNull(filter, "filter is null");
 
@@ -588,5 +590,37 @@ public class PageFunctionCompiler
                 (scope, field) -> scope.getVariable("block_" + field),
                 (scope, field) -> scope.getVariable("position"),
                 callSiteBinder);
+    }
+
+    private static final class CacheKey
+    {
+        private final SqlFunctionProperties sqlFunctionProperties;
+        private final RowExpression rowExpression;
+
+        private CacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression rowExpression)
+        {
+            this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
+            this.rowExpression = requireNonNull(rowExpression, "rowExpression is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof CacheKey)) {
+                return false;
+            }
+            CacheKey that = (CacheKey) o;
+            return Objects.equals(sqlFunctionProperties, that.sqlFunctionProperties) &&
+                    Objects.equals(rowExpression, that.rowExpression);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(sqlFunctionProperties, rowExpression);
+        }
     }
 }

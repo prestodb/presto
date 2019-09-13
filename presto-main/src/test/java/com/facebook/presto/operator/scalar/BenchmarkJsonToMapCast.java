@@ -120,7 +120,7 @@ public class BenchmarkJsonToMapCast
                     new CallExpression(CAST.name(), functionHandle, mapType(VARCHAR, valueType), ImmutableList.of(field(0, JSON))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
-                    .compilePageProcessor(Optional.empty(), projections)
+                    .compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections)
                     .get();
 
             page = new Page(createChannel(POSITION_COUNT, MAP_SIZE, valueType));

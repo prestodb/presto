@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.spi.api.Experimental;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 import java.util.function.Supplier;
 
@@ -27,5 +28,5 @@ public interface PredicateCompiler
     /**
      * Predicate expression may not contain any variable references, only input references.
      */
-    Supplier<Predicate> compilePredicate(RowExpression predicate);
+    Supplier<Predicate> compilePredicate(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate);
 }

@@ -154,7 +154,7 @@ public class BenchmarkTransformValue
             Block block = createChannel(POSITIONS, mapType, elementType);
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+            pageProcessor = compiler.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections).get();
             page = new Page(block);
         }
 

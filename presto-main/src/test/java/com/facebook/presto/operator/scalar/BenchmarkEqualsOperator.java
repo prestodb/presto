@@ -89,7 +89,7 @@ public class BenchmarkEqualsOperator
                 metadata,
                 new PageFunctionCompiler(metadata, 0));
         RowExpression projection = generateComplexComparisonProjection(functionManager, FIELDS_COUNT, COMPARISONS_COUNT);
-        compiledProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projection)).get();
+        compiledProcessor = expressionCompiler.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(projection)).get();
     }
 
     private static RowExpression generateComplexComparisonProjection(FunctionManager functionManager, int fieldsCount, int comparisonsCount)
