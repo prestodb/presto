@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.Predicate;
@@ -43,6 +44,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
 import java.util.function.Supplier;
@@ -69,7 +71,7 @@ public class RowExpressionPredicateCompiler
 {
     private final FunctionManager functionManager;
 
-    private final LoadingCache<RowExpression, Supplier<Predicate>> predicateCache;
+    private final LoadingCache<CacheKey, Supplier<Predicate>> predicateCache;
 
     @Inject
     public RowExpressionPredicateCompiler(Metadata metadata)
@@ -85,7 +87,7 @@ public class RowExpressionPredicateCompiler
             predicateCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(predicateCacheSize)
-                    .build(CacheLoader.from(this::compilePredicateInternal));
+                    .build(CacheLoader.from(cacheKey -> compilePredicateInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression)));
         }
         else {
             predicateCache = null;
@@ -93,15 +95,15 @@ public class RowExpressionPredicateCompiler
     }
 
     @Override
-    public Supplier<Predicate> compilePredicate(RowExpression predicate)
+    public Supplier<Predicate> compilePredicate(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate)
     {
         if (predicateCache == null) {
-            return compilePredicateInternal(predicate);
+            return compilePredicateInternal(sqlFunctionProperties, predicate);
         }
-        return predicateCache.getUnchecked(predicate);
+        return predicateCache.getUnchecked(new CacheKey(sqlFunctionProperties, predicate));
     }
 
-    private Supplier<Predicate> compilePredicateInternal(RowExpression predicate)
+    private Supplier<Predicate> compilePredicateInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate)
     {
         requireNonNull(predicate, "predicate is null");
 
@@ -246,5 +248,37 @@ public class RowExpressionPredicateCompiler
 
         cachedInstanceBinder.generateInitializations(thisVariable, body);
         body.ret();
+    }
+
+    private static final class CacheKey
+    {
+        private final SqlFunctionProperties sqlFunctionProperties;
+        private final RowExpression rowExpression;
+
+        private CacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression rowExpression)
+        {
+            this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
+            this.rowExpression = requireNonNull(rowExpression, "rowExpression is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof CacheKey)) {
+                return false;
+            }
+            CacheKey that = (CacheKey) o;
+            return Objects.equals(sqlFunctionProperties, that.sqlFunctionProperties) &&
+                    Objects.equals(rowExpression, that.rowExpression);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(sqlFunctionProperties, rowExpression);
+        }
     }
 }

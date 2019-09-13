@@ -224,7 +224,7 @@ public abstract class AbstractOperatorBenchmark
         RowExpression translatedHashExpression = translate(hashExpression.get(), variableToInputMapping.build());
 
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
-        projections.add(functionCompiler.compileProjection(translatedHashExpression, Optional.empty()).get());
+        projections.add(functionCompiler.compileProjection(session.getSqlFunctionProperties(), translatedHashExpression, Optional.empty()).get());
 
         return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 operatorId,

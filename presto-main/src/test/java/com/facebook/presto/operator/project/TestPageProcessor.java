@@ -394,7 +394,7 @@ public class TestPageProcessor
 
         TestingTicker testingTicker = new TestingTicker();
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(metadata, 0);
-        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(add10Expression, Optional.empty());
+        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(SESSION.getSqlFunctionProperties(), add10Expression, Optional.empty());
         PageProjection projection = projectionSupplier.get();
         Page page = new Page(createLongSequenceBlock(1, 11));
         ExpressionProfiler profiler = new ExpressionProfiler(testingTicker, SPLIT_RUN_QUANTA);

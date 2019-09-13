@@ -66,7 +66,7 @@ public class TestRowExpressionPredicateCompiler
                 constant(0L, BIGINT));
 
         PredicateCompiler compiler = new RowExpressionPredicateCompiler(functionManager, 10_000);
-        Predicate compiledSum = compiler.compilePredicate(sum).get();
+        Predicate compiledSum = compiler.compilePredicate(SESSION.getSqlFunctionProperties(), sum).get();
 
         assertEquals(Arrays.asList(1, 0), Ints.asList(compiledSum.getInputChannels()));
 
@@ -84,7 +84,7 @@ public class TestRowExpressionPredicateCompiler
                 BOOLEAN,
                 call("b * 2", functionResolution.arithmeticFunction(MULTIPLY, BIGINT, BIGINT), BIGINT, b, constant(2L, BIGINT)),
                 constant(10L, BIGINT));
-        Predicate compiledTimesTwo = compiler.compilePredicate(timesTwo).get();
+        Predicate compiledTimesTwo = compiler.compilePredicate(SESSION.getSqlFunctionProperties(), timesTwo).get();
 
         assertEquals(Arrays.asList(1), Ints.asList(compiledTimesTwo.getInputChannels()));
 
@@ -108,10 +108,10 @@ public class TestRowExpressionPredicateCompiler
                 constant(10L, BIGINT));
 
         PredicateCompiler compiler = new RowExpressionPredicateCompiler(functionManager, 10_000);
-        assertSame(compiler.compilePredicate(predicate), compiler.compilePredicate(predicate));
+        assertSame(compiler.compilePredicate(SESSION.getSqlFunctionProperties(), predicate), compiler.compilePredicate(SESSION.getSqlFunctionProperties(), predicate));
 
         PredicateCompiler noCacheCompiler = new RowExpressionPredicateCompiler(functionManager, 0);
-        assertNotSame(noCacheCompiler.compilePredicate(predicate), noCacheCompiler.compilePredicate(predicate));
+        assertNotSame(noCacheCompiler.compilePredicate(SESSION.getSqlFunctionProperties(), predicate), noCacheCompiler.compilePredicate(SESSION.getSqlFunctionProperties(), predicate));
     }
 
     private static Block createLongBlock(long... values)

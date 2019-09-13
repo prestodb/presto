@@ -15,6 +15,8 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.type.TimeZoneKey;
 
+import java.util.Objects;
+
 import static java.util.Objects.requireNonNull;
 
 public class SqlFunctionProperties
@@ -55,6 +57,28 @@ public class SqlFunctionProperties
     public boolean isLegacyTimestamp()
     {
         return legacyTimestamp;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof SqlFunctionProperties)) {
+            return false;
+        }
+        SqlFunctionProperties that = (SqlFunctionProperties) o;
+        return Objects.equals(parseDecimalLiteralAsDouble, that.parseDecimalLiteralAsDouble) &&
+                Objects.equals(legacyRowFieldOrdinalAccessEnabled, that.legacyRowFieldOrdinalAccessEnabled) &&
+                Objects.equals(timeZoneKey, that.timeZoneKey) &&
+                Objects.equals(legacyTimestamp, that.legacyTimestamp);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp);
     }
 
     public static Builder builder()

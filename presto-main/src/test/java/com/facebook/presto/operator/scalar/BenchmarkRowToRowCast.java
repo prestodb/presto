@@ -99,7 +99,7 @@ public class BenchmarkRowToRowCast
                     new CallExpression(CAST.name(), functionHandle, RowType.anonymous(fromFieldTypes), ImmutableList.of(field(0, RowType.anonymous(toFieldTypes)))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
-                    .compilePageProcessor(Optional.empty(), projections)
+                    .compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections)
                     .get();
 
             Block[] fieldBlocks = fromFieldTypes.stream()

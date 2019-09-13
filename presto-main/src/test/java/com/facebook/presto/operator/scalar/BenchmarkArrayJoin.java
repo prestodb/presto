@@ -100,7 +100,7 @@ public class BenchmarkArrayJoin
                             constant(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
-                    .compilePageProcessor(Optional.empty(), projections)
+                    .compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections)
                     .get();
 
             page = new Page(createChannel(POSITIONS, ARRAY_SIZE));

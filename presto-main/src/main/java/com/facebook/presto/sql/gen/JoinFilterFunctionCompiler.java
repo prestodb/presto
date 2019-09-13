@@ -30,6 +30,7 @@ import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
@@ -87,9 +88,9 @@ public class JoinFilterFunctionCompiler
         return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
-    public JoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize)
+    public JoinFilterFunctionFactory compileJoinFilterFunction(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, int leftBlocksSize)
     {
-        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize));
+        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(sqlFunctionProperties, filter, leftBlocksSize));
     }
 
     private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(RowExpression filterExpression, int leftBlocksSize)
@@ -242,13 +243,20 @@ public class JoinFilterFunctionCompiler
 
     private static final class JoinFilterCacheKey
     {
+        private final SqlFunctionProperties sqlFunctionProperties;
         private final RowExpression filter;
         private final int leftBlocksSize;
 
-        public JoinFilterCacheKey(RowExpression filter, int leftBlocksSize)
+        public JoinFilterCacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, int leftBlocksSize)
         {
+            this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
             this.filter = requireNonNull(filter, "filter can not be null");
             this.leftBlocksSize = leftBlocksSize;
+        }
+
+        public SqlFunctionProperties getSqlFunctionProperties()
+        {
+            return sqlFunctionProperties;
         }
 
         public RowExpression getFilter()
