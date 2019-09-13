@@ -225,10 +225,12 @@ Network Address
 ``IPADDRESS``
 ^^^^^^^^^^^^^
 
-    An IP address that can represent either an IPv4 or IPv6 address. Internally,
-    the type is a pure IPv6 address. Support for IPv4 is handled using the
-    *IPv4-mapped IPv6 address* range (:rfc:`4291#section-2.5.5.2`).
+    An IP address that can represent either an IPv4 or IPv6 address.
+
+    Internally, the type is a pure IPv6 address. Support for IPv4 is handled
+    using the *IPv4-mapped IPv6 address* range (:rfc:`4291#section-2.5.5.2`).
     When creating an ``IPADDRESS``, IPv4 addresses will be mapped into that range.
+
     When formatting an ``IPADDRESS``, any address within the mapped range will
     be formatted as an IPv4 address. Other addresses will be formatted as IPv6
     using the canonical format defined in :rfc:`5952`.
