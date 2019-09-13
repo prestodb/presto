@@ -61,6 +61,15 @@
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>6.2.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
+        <dep.httpcore.version>4.4.6</dep.httpcore.version>
+        <dep.httpclient.version>4.5.3</dep.httpclient.version>
+        <dep.yammer.version>2.2.0</dep.yammer.version>
+        <dep.fastjson.version>1.1.24</dep.fastjson.version>
+        <dep.netty.version>3.10.6.Final</dep.netty.version>
+        <dep.netty-all.version>4.1.28.Final</dep.netty-all.version>
+        <dep.validation-api.version>2.0.1.Final</dep.validation-api.version>
+        <dep.jersey-core.version>2.28</dep.jersey-core.version>
+        <dep.pinot.version>0.1.0</dep.pinot.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -138,6 +147,7 @@
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
+        <module>presto-pinot</module>
     </modules>
 
     <dependencyManagement>
