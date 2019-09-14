@@ -32,7 +32,7 @@ public class TestSqlInvokedFunctionNamespaceManagerConfig
     {
         assertRecordedDefaults(recordDefaults(SqlInvokedFunctionNamespaceManagerConfig.class)
                 .setFunctionCacheExpiration(new Duration(5, MINUTES))
-                .setMetadataCacheExpiration(new Duration(8, HOURS)));
+                .setFunctionInstanceCacheExpiration(new Duration(8, HOURS)));
     }
 
     @Test
@@ -40,11 +40,11 @@ public class TestSqlInvokedFunctionNamespaceManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("function-cache-expiration", "10m")
-                .put("metadata-cache-expiration", "4h")
+                .put("function-instance-cache-expiration", "4h")
                 .build();
         SqlInvokedFunctionNamespaceManagerConfig expected = new SqlInvokedFunctionNamespaceManagerConfig()
                 .setFunctionCacheExpiration(new Duration(10, MINUTES))
-                .setMetadataCacheExpiration(new Duration(4, HOURS));
+                .setFunctionInstanceCacheExpiration(new Duration(4, HOURS));
 
         assertFullMapping(properties, expected);
     }

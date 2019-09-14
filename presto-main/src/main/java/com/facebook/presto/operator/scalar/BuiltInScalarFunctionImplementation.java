@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -29,6 +30,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class BuiltInScalarFunctionImplementation
+        implements ScalarFunctionImplementation
 {
     private final List<ScalarImplementationChoice> choices;
 

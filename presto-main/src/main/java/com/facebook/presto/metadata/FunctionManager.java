@@ -27,6 +27,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
@@ -225,6 +226,11 @@ public class FunctionManager
         return functionNamespaces.get(functionHandle.getFunctionNamespace()).getFunctionMetadata(functionHandle);
     }
 
+    public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
+    {
+        return functionNamespaces.get(functionHandle.getFunctionNamespace()).getScalarFunctionImplementation(functionHandle);
+    }
+
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
     {
         return builtInFunctionNamespaceManager.getWindowFunctionImplementation(functionHandle);
@@ -237,7 +243,7 @@ public class FunctionManager
 
     public BuiltInScalarFunctionImplementation getBuiltInScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        return builtInFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
+        return (BuiltInScalarFunctionImplementation) builtInFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
     }
 
     @VisibleForTesting

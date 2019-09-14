@@ -17,6 +17,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.google.common.cache.CacheBuilder;
@@ -31,6 +32,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -43,6 +45,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
 
     private final LoadingCache<FullyQualifiedName, Collection<SqlInvokedRegularFunction>> functions;
     private final LoadingCache<SqlInvokedRegularFunctionHandle, FunctionMetadata> metadataByHandle;
+    private final LoadingCache<SqlInvokedRegularFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
 
     public AbstractSqlInvokedFunctionNamespaceManager(SqlInvokedFunctionNamespaceManagerConfig config)
     {
@@ -61,7 +64,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                     }
                 });
         this.metadataByHandle = CacheBuilder.newBuilder()
-                .expireAfterWrite(config.getMetadataCacheExpiration().toMillis(), MILLISECONDS)
+                .expireAfterWrite(config.getFunctionInstanceCacheExpiration().toMillis(), MILLISECONDS)
                 .build(new CacheLoader<SqlInvokedRegularFunctionHandle, FunctionMetadata>()
                 {
                     @Override
@@ -70,11 +73,22 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                         return fetchFunctionMetadataDirect(functionHandle);
                     }
                 });
+        this.implementationByHandle = CacheBuilder.newBuilder()
+                .expireAfterWrite(config.getFunctionInstanceCacheExpiration().toMillis(), MILLISECONDS)
+                .build(new CacheLoader<SqlInvokedRegularFunctionHandle, ScalarFunctionImplementation>() {
+                    @Override
+                    public ScalarFunctionImplementation load(SqlInvokedRegularFunctionHandle functionHandle)
+                    {
+                        return fetchFunctionImplementationDirect(functionHandle);
+                    }
+                });
     }
 
     protected abstract Collection<SqlInvokedRegularFunction> fetchFunctionsDirect(FullyQualifiedName functionName);
 
     protected abstract FunctionMetadata fetchFunctionMetadataDirect(SqlInvokedRegularFunctionHandle functionHandle);
+
+    protected abstract ScalarFunctionImplementation fetchFunctionImplementationDirect(SqlInvokedRegularFunctionHandle functionHandle);
 
     @Override
     public final FunctionNamespaceTransactionHandle beginTransaction()
@@ -120,6 +134,13 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         return metadataByHandle.getUnchecked((SqlInvokedRegularFunctionHandle) functionHandle);
     }
 
+    @Override
+    public final ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
+    {
+        checkArgument(functionHandle instanceof SqlInvokedRegularFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
+        return implementationByHandle.getUnchecked((SqlInvokedRegularFunctionHandle) functionHandle);
+    }
+
     protected static FunctionMetadata sqlInvokedFunctionToMetadata(SqlInvokedRegularFunction function)
     {
         return new FunctionMetadata(
@@ -131,6 +152,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 function.getFunctionImplementationType(),
                 function.isDeterministic(),
                 function.isCalledOnNullInput());
+    }
+
+    protected static ScalarFunctionImplementation sqlInvokedFunctionToImplementation(SqlInvokedRegularFunction function)
+    {
+        checkArgument(function.getFunctionImplementationType().equals(SQL));
+        return new SqlInvokedRegularSqlFunctionImplementation(function.getBody());
     }
 
     private Collection<SqlInvokedRegularFunction> fetchFunctions(FullyQualifiedName functionName)
