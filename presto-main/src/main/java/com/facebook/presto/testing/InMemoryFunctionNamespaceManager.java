@@ -15,6 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.sqlfunction.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.sqlfunction.SqlFunctionId;
@@ -91,6 +92,15 @@ public class InMemoryFunctionNamespaceManager
         return fetchFunctionsDirect(functionHandle.getName()).stream()
                 .filter(function -> function.getRequiredFunctionHandle().equals(functionHandle))
                 .map(AbstractSqlInvokedFunctionNamespaceManager::sqlInvokedFunctionToMetadata)
+                .collect(onlyElement());
+    }
+
+    @Override
+    protected ScalarFunctionImplementation fetchFunctionImplementationDirect(SqlInvokedRegularFunctionHandle functionHandle)
+    {
+        return fetchFunctionsDirect(functionHandle.getName()).stream()
+                .filter(function -> function.getRequiredFunctionHandle().equals(functionHandle))
+                .map(AbstractSqlInvokedFunctionNamespaceManager::sqlInvokedFunctionToImplementation)
                 .collect(onlyElement());
     }
 

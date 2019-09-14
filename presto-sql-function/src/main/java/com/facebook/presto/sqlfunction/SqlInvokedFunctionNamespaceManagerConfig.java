@@ -23,7 +23,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class SqlInvokedFunctionNamespaceManagerConfig
 {
     private Duration functionCacheExpiration = new Duration(5, MINUTES);
-    private Duration metadataCacheExpiration = new Duration(8, HOURS);
+    private Duration functionInstanceCacheExpiration = new Duration(8, HOURS);
 
     @MinDuration("0ns")
     public Duration getFunctionCacheExpiration()
@@ -39,15 +39,15 @@ public class SqlInvokedFunctionNamespaceManagerConfig
     }
 
     @MinDuration("0ns")
-    public Duration getMetadataCacheExpiration()
+    public Duration getFunctionInstanceCacheExpiration()
     {
-        return metadataCacheExpiration;
+        return functionInstanceCacheExpiration;
     }
 
-    @Config("metadata-cache-expiration")
-    public SqlInvokedFunctionNamespaceManagerConfig setMetadataCacheExpiration(Duration metadataCacheExpiration)
+    @Config("function-instance-cache-expiration")
+    public SqlInvokedFunctionNamespaceManagerConfig setFunctionInstanceCacheExpiration(Duration functionInstanceCacheExpiration)
     {
-        this.metadataCacheExpiration = metadataCacheExpiration;
+        this.functionInstanceCacheExpiration = functionInstanceCacheExpiration;
         return this;
     }
 }

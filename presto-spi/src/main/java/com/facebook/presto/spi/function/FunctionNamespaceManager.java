@@ -58,4 +58,6 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
     FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature);
 
     FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
+
+    ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle);
 }

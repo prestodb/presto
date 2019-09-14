@@ -81,7 +81,7 @@ public class TestFunctionNamespaceManager
         InMemoryFunctionNamespaceManager functionNamespaceManager = new InMemoryFunctionNamespaceManager(
                 new SqlInvokedFunctionNamespaceManagerConfig()
                         .setFunctionCacheExpiration(new Duration(0, MILLISECONDS))
-                        .setMetadataCacheExpiration(new Duration(0, MILLISECONDS)));
+                        .setFunctionInstanceCacheExpiration(new Duration(0, MILLISECONDS)));
 
         // begin first transaction
         FunctionNamespaceTransactionHandle transaction1 = functionNamespaceManager.beginTransaction();
