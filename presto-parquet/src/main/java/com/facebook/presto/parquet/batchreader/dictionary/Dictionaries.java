@@ -39,6 +39,7 @@ public class Dictionaries
                 case DOUBLE:
                 case INT96:
                 case BINARY:
+                    return new BinaryBatchDictionary(dictionaryPage);
                 case FIXED_LEN_BYTE_ARRAY:
                 case BOOLEAN:
                 default:
