@@ -26,4 +26,21 @@ public interface ValuesDecoder
         void skip(int length)
                 throws IOException;
     }
+
+    interface BinaryValuesDecoder
+            extends ValuesDecoder
+    {
+        ReadChunk readNext(int length)
+                throws IOException;
+
+        int readIntoBuffer(byte[] byteBuffer, int bufferIdx, int[] offsets, int offsetIdx, ReadChunk readChunk);
+
+        void skip(int length)
+                throws IOException;
+
+        interface ReadChunk
+        {
+            int getBufferSize();
+        }
+    }
 }

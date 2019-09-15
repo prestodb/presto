@@ -18,9 +18,13 @@ import com.facebook.presto.parquet.DataPageV1;
 import com.facebook.presto.parquet.DataPageV2;
 import com.facebook.presto.parquet.ParquetEncoding;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int32DeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.dictionary.IntegerDictionary;
 import com.facebook.presto.spi.PrestoException;
@@ -36,6 +40,8 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 import static com.facebook.presto.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
+import static com.facebook.presto.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
+import static com.facebook.presto.parquet.ParquetEncoding.DELTA_LENGTH_BYTE_ARRAY;
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN;
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static com.facebook.presto.parquet.ParquetEncoding.RLE;
@@ -67,6 +73,7 @@ public class Decoders
                 case DOUBLE:
                 case INT96:
                 case BINARY:
+                    return new BinaryPlainValuesDecoder(buffer, offset, length);
                 case FIXED_LEN_BYTE_ARRAY:
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
@@ -84,7 +91,11 @@ public class Decoders
                 case INT64:
                 case DOUBLE:
                 case INT96:
-                case BINARY:
+                case BINARY: {
+                    InputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+                    int bitWidth = readIntLittleEndianOnOneByte(inputStream);
+                    return new BinaryRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
+                }
                 case FIXED_LEN_BYTE_ARRAY:
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
@@ -101,6 +112,11 @@ public class Decoders
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
             }
+        }
+
+        if ((encoding == DELTA_BYTE_ARRAY || encoding == DELTA_LENGTH_BYTE_ARRAY) && type == PrimitiveTypeName.BINARY) {
+            ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+            return new BinaryDeltaValuesDecoder(encoding, valueCount, bufferInputStream);
         }
 
         throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
