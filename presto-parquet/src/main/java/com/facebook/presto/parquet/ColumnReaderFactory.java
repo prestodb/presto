@@ -15,6 +15,7 @@ package com.facebook.presto.parquet;
 
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.parquet.batchreader.BinaryFlatBatchReader;
 import com.facebook.presto.parquet.batchreader.Int32FlatBatchReader;
 import com.facebook.presto.parquet.reader.AbstractColumnReader;
 import com.facebook.presto.parquet.reader.BinaryColumnReader;
@@ -48,6 +49,10 @@ public class ColumnReaderFactory
                 case FLOAT:
                     if (!isNested) {
                         return new Int32FlatBatchReader(descriptor);
+                    }
+                case BINARY:
+                    if (!isNested) {
+                        return new BinaryFlatBatchReader(descriptor);
                     }
             }
         }

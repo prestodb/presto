@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
+import org.apache.parquet.io.api.Binary;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -85,6 +88,15 @@ public class TestParquetUtils
         PlainValuesWriter writer = new PlainValuesWriter(20, 1024 * 1000, new HeapByteBufferAllocator());
 
         switch (valueSize) {
+            case -1: {
+                for (int i = 0; i < valueCount; i++) {
+                    String valueStr = RandomStringUtils.random(random.nextInt(10), 0, 0, true, true, null, random);
+                    byte[] valueUtf8 = valueStr.getBytes(StandardCharsets.UTF_8);
+                    writer.writeBytes(Binary.fromConstantByteArray(valueUtf8, 0, valueUtf8.length));
+                    addedValues.add(valueStr);
+                }
+                break;
+            }
             case 4: {
                 for (int i = 0; i < valueCount; i++) {
                     int value = random.nextInt();
