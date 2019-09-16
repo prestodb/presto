@@ -22,32 +22,17 @@ import static org.testng.Assert.assertEquals;
 public class TestGeometryUtils
 {
     @Test
-    public void testGetJtsEnvelopeEmpty()
+    public void testGetJtsEnvelope()
     {
         assertJtsEnvelope(
                 "MULTIPOLYGON EMPTY",
                 new Envelope());
-    }
-
-    @Test
-    public void testGetJtsEnvelopePoint()
-    {
         assertJtsEnvelope(
                 "POINT (-23.4 12.2)",
                 new Envelope(-23.4, -23.4, 12.2, 12.2));
-    }
-
-    @Test
-    public void testGetJtsEnvelopeLineString()
-    {
         assertJtsEnvelope(
                 "LINESTRING (-75.9375 23.6359, -75.9375 23.6364)",
                 new Envelope(-75.9375, -75.9375, 23.6359, 23.6364));
-    }
-
-    @Test
-    public void testGetJtsEnvelopeGeometryCollection()
-    {
         assertJtsEnvelope(
                 "GEOMETRYCOLLECTION (" +
                         "  LINESTRING (-75.9375 23.6359, -75.9375 23.6364)," +
