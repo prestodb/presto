@@ -52,4 +52,22 @@ public class Arrays
 
         return buffer;
     }
+
+    public static int[][] ensureCapacity(int[][] buffer, int capacity)
+    {
+        if (buffer == null || buffer.length < capacity) {
+            return new int[capacity][];
+        }
+
+        return buffer;
+    }
+
+    public static boolean[][] ensureCapacity(boolean[][] buffer, int capacity)
+    {
+        if (buffer == null || buffer.length < capacity) {
+            return new boolean[capacity][];
+        }
+
+        return buffer;
+    }
 }
