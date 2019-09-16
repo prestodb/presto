@@ -17,6 +17,7 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import org.locationtech.jts.geom.Envelope;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.geospatial.GeometryUtils.getExtent;
 import static org.testng.Assert.assertEquals;
 
 public class TestGeometryUtils
@@ -45,5 +46,27 @@ public class TestGeometryUtils
     {
         Envelope calculated = GeometryUtils.getJtsEnvelope(OGCGeometry.fromText(wkt));
         assertEquals(calculated, expected);
+    }
+
+    @Test
+    public void testGetExtent()
+    {
+        assertGetExtent(
+                "POINT (-23.4 12.2)",
+                new Rectangle(-23.4, 12.2, -23.4, 12.2));
+        assertGetExtent(
+                "LINESTRING (-75.9375 23.6359, -75.9375 23.6364)",
+                new Rectangle(-75.9375, 23.6359, -75.9375, 23.6364));
+        assertGetExtent(
+                "GEOMETRYCOLLECTION (" +
+                        "  LINESTRING (-75.9375 23.6359, -75.9375 23.6364)," +
+                        "  MULTIPOLYGON (((-75.9375 23.45520, -75.9371 23.4554, -75.9375 23.46023325, -75.9375 23.45520)))" +
+                        ")",
+                new Rectangle(-75.9375, 23.4552, -75.9371, 23.6364));
+    }
+
+    private void assertGetExtent(String wkt, Rectangle expected)
+    {
+        assertEquals(getExtent(OGCGeometry.fromText(wkt)), expected);
     }
 }
