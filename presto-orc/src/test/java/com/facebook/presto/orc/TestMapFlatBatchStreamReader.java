@@ -54,9 +54,9 @@ import java.util.function.Function;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
-import static com.facebook.presto.orc.TestFlatMap.ExpectedValuesBuilder.Frequency.ALL;
-import static com.facebook.presto.orc.TestFlatMap.ExpectedValuesBuilder.Frequency.NONE;
-import static com.facebook.presto.orc.TestFlatMap.ExpectedValuesBuilder.Frequency.SOME;
+import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.ALL;
+import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.NONE;
+import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.SOME;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterators.advance;
@@ -66,7 +66,7 @@ import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-public class TestFlatMap
+public class TestMapFlatBatchStreamReader
 {
     // TODO: Add tests for timestamp as value type
 
@@ -179,7 +179,7 @@ public class TestFlatMap
         runTest("test_flat_map/flat_map_boolean.dwrf",
                 IntegerType.INTEGER,
                 BooleanType.BOOLEAN,
-                ExpectedValuesBuilder.get(Function.identity(), TestFlatMap::intToBoolean));
+                ExpectedValuesBuilder.get(Function.identity(), TestMapFlatBatchStreamReader::intToBoolean));
     }
 
     @Test
@@ -189,7 +189,7 @@ public class TestFlatMap
         runTest("test_flat_map/flat_map_boolean_with_null.dwrf",
                 IntegerType.INTEGER,
                 BooleanType.BOOLEAN,
-                ExpectedValuesBuilder.get(Function.identity(), TestFlatMap::intToBoolean).setNullValuesFrequency(SOME));
+                ExpectedValuesBuilder.get(Function.identity(), TestMapFlatBatchStreamReader::intToBoolean).setNullValuesFrequency(SOME));
     }
 
     @Test
@@ -240,7 +240,7 @@ public class TestFlatMap
                 "test_flat_map/flat_map_list.dwrf",
                 IntegerType.INTEGER,
                 LIST_TYPE,
-                ExpectedValuesBuilder.get(Function.identity(), TestFlatMap::intToList));
+                ExpectedValuesBuilder.get(Function.identity(), TestMapFlatBatchStreamReader::intToList));
     }
 
     @Test
@@ -251,7 +251,7 @@ public class TestFlatMap
                 "test_flat_map/flat_map_list_with_null.dwrf",
                 IntegerType.INTEGER,
                 LIST_TYPE,
-                ExpectedValuesBuilder.get(Function.identity(), TestFlatMap::intToList).setNullValuesFrequency(SOME));
+                ExpectedValuesBuilder.get(Function.identity(), TestMapFlatBatchStreamReader::intToList).setNullValuesFrequency(SOME));
     }
 
     @Test
@@ -262,7 +262,7 @@ public class TestFlatMap
                 "test_flat_map/flat_map_map.dwrf",
                 IntegerType.INTEGER,
                 MAP_TYPE,
-                ExpectedValuesBuilder.get(Function.identity(), TestFlatMap::intToMap));
+                ExpectedValuesBuilder.get(Function.identity(), TestMapFlatBatchStreamReader::intToMap));
     }
 
     @Test
@@ -273,7 +273,7 @@ public class TestFlatMap
                 "test_flat_map/flat_map_map_with_null.dwrf",
                 IntegerType.INTEGER,
                 MAP_TYPE,
-                ExpectedValuesBuilder.get(Function.identity(), TestFlatMap::intToMap).setNullValuesFrequency(SOME));
+                ExpectedValuesBuilder.get(Function.identity(), TestMapFlatBatchStreamReader::intToMap).setNullValuesFrequency(SOME));
     }
 
     @Test
@@ -284,7 +284,7 @@ public class TestFlatMap
                 "test_flat_map/flat_map_struct.dwrf",
                 IntegerType.INTEGER,
                 STRUCT_TYPE,
-                ExpectedValuesBuilder.get(Function.identity(), TestFlatMap::intToList));
+                ExpectedValuesBuilder.get(Function.identity(), TestMapFlatBatchStreamReader::intToList));
     }
 
     @Test
@@ -295,7 +295,7 @@ public class TestFlatMap
                 "test_flat_map/flat_map_struct_with_null.dwrf",
                 IntegerType.INTEGER,
                 STRUCT_TYPE,
-                ExpectedValuesBuilder.get(Function.identity(), TestFlatMap::intToList).setNullValuesFrequency(SOME));
+                ExpectedValuesBuilder.get(Function.identity(), TestMapFlatBatchStreamReader::intToList).setNullValuesFrequency(SOME));
     }
 
     @Test
