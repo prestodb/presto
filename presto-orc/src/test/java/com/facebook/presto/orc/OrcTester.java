@@ -588,16 +588,19 @@ public class OrcTester
         assertEquals(stats.getWriterSizeInBytes(), 0);
     }
 
-    private static void assertFileContentsPresto(
+    public static void assertFileContentsPresto(
             List<Type> types,
-            TempFile tempFile,
+            File file,
             List<List<?>> expectedValues,
             OrcEncoding orcEncoding,
             OrcPredicate orcPredicate,
-            Optional<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
+            Optional<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters,
+            List<FilterFunction> filterFunctions,
+            Map<Integer, Integer> filterFunctionInputMapping,
+            Map<Integer, List<Subfield>> requiredSubfields)
             throws IOException
     {
-        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, filters.orElse(ImmutableMap.of()))) {
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(file, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, filters.orElse(ImmutableMap.of()), filterFunctions, filterFunctionInputMapping, requiredSubfields)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -653,10 +656,10 @@ public class OrcTester
     {
         OrcPredicate orcPredicate = createOrcPredicate(types, expectedValues, format, isHiveWriter);
         if (useSelectiveOrcReader) {
-            assertFileContentsPresto(types, tempFile, expectedValues, orcEncoding, orcPredicate, Optional.empty());
+            assertFileContentsPresto(types, tempFile.getFile(), expectedValues, orcEncoding, orcPredicate, Optional.empty(), ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of());
 
             for (Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters : filters) {
-                assertFileContentsPresto(types, tempFile, filterRows(types, expectedValues, columnFilters), orcEncoding, orcPredicate, Optional.of(columnFilters));
+                assertFileContentsPresto(types, tempFile.getFile(), filterRows(types, expectedValues, columnFilters), orcEncoding, orcPredicate, Optional.of(columnFilters), ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of());
             }
 
             return;
@@ -703,7 +706,7 @@ public class OrcTester
         }
     }
 
-    private static List<List<?>> filterRows(List<Type> types, List<List<?>> values, Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters)
+    public static List<List<?>> filterRows(List<Type> types, List<List<?>> values, Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters)
     {
         List<Integer> passingRows = IntStream.range(0, values.get(0).size())
                 .filter(row -> testRow(types, values, row, columnFilters))
@@ -945,19 +948,22 @@ public class OrcTester
         writer.validate(new FileOrcDataSource(outputFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true));
     }
 
-    static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReader(
-            TempFile tempFile,
+    private static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReader(
+            File file,
             OrcEncoding orcEncoding,
             OrcPredicate predicate,
             List<Type> types,
             int initialBatchSize,
-            Map<Integer, Map<Subfield, TupleDomainFilter>> filters)
+            Map<Integer, Map<Subfield, TupleDomainFilter>> filters,
+            List<FilterFunction> filterFunctions,
+            Map<Integer, Integer> filterFunctionInputMapping,
+            Map<Integer, List<Subfield>> requiredSubfields)
             throws IOException
     {
-        OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+        OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
         OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE);
 
-        assertEquals(orcReader.getColumnNames(), makeColumnNames(types.size()));
+        assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
         Map<Integer, Type> columnTypes = IntStream.range(0, types.size())
@@ -968,9 +974,9 @@ public class OrcTester
                 columnTypes,
                 IntStream.range(0, types.size()).boxed().collect(toList()),
                 filters,
-                ImmutableList.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
+                filterFunctions,
+                filterFunctionInputMapping,
+                requiredSubfields,
                 ImmutableMap.of(),
                 predicate,
                 0,
