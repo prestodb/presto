@@ -96,15 +96,30 @@ public final class GeometryUtils
         }
     }
 
+    /**
+     * Get the bounding box for an OGCGeometry.
+     * <p>
+     * If the geometry is empty, return a Retangle with NaN coordinates.
+     *
+     * @param ogcGeometry
+     * @return Rectangle bounding box
+     */
     public static Rectangle getExtent(OGCGeometry ogcGeometry)
     {
         return getExtent(ogcGeometry, 0.0);
     }
 
+    /**
+     * Get the bounding box for an OGCGeometry, inflated by radius.
+     * <p>
+     * If the geometry is empty, return a Retangle with NaN coordinates.
+     *
+     * @param ogcGeometry
+     * @return Rectangle bounding box
+     */
     public static Rectangle getExtent(OGCGeometry ogcGeometry, double radius)
     {
-        com.esri.core.geometry.Envelope envelope = new com.esri.core.geometry.Envelope();
-        ogcGeometry.getEsriGeometry().queryEnvelope(envelope);
+        com.esri.core.geometry.Envelope envelope = getEnvelope(ogcGeometry);
 
         return new Rectangle(
                 envelope.getXMin() - radius,
