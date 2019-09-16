@@ -45,6 +45,7 @@ public class MapSelectiveStreamReader
 
     private final StreamDescriptor streamDescriptor;
     private final MapDirectSelectiveStreamReader directReader;
+    private final MapFlatSelectiveStreamReader flatReader;
     private SelectiveStreamReader currentReader;
 
     public MapSelectiveStreamReader(
@@ -57,6 +58,7 @@ public class MapSelectiveStreamReader
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         directReader = new MapDirectSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext);
+        flatReader = new MapFlatSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext);
     }
 
     @Override
@@ -70,7 +72,7 @@ public class MapSelectiveStreamReader
             currentReader = directReader;
         }
         else if (kind == DWRF_MAP_FLAT) {
-            throw new IllegalArgumentException("Flat map encoding is not supported yet");
+            currentReader = flatReader;
         }
         else {
             throw new IllegalArgumentException("Unsupported encoding " + kind);
@@ -97,7 +99,7 @@ public class MapSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + directReader.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + directReader.getRetainedSizeInBytes() + flatReader.getRetainedSizeInBytes();
     }
 
     @Override
