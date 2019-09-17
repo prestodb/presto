@@ -119,29 +119,35 @@ public class StructSelectiveStreamReader
         // TODO streamDescriptor may be missing some fields (due to schema evolution, e.g. add field?)
         // TODO fields in streamDescriptor may be out of order (due to schema evolution, e.g. remove field?)
 
-        ImmutableMap.Builder<String, SelectiveStreamReader> nestedReaders = ImmutableMap.builder();
-        for (int i = 0; i < nestedStreams.size(); i++) {
-            StreamDescriptor nestedStream = nestedStreams.get(i);
-            String fieldName = nestedStream.getFieldName().toLowerCase(Locale.ENGLISH);
-            Optional<Type> fieldOutputType = nestedTypes.isPresent() ? Optional.of(nestedTypes.get().get(i)) : Optional.empty();
-            boolean requiredField = requiredFields.map(names -> names.containsKey(fieldName)).orElse(true);
+        if (outputRequired) {
+            ImmutableMap.Builder<String, SelectiveStreamReader> nestedReaders = ImmutableMap.builder();
+            for (int i = 0; i < nestedStreams.size(); i++) {
+                StreamDescriptor nestedStream = nestedStreams.get(i);
+                String fieldName = nestedStream.getFieldName().toLowerCase(Locale.ENGLISH);
+                Optional<Type> fieldOutputType = nestedTypes.isPresent() ? Optional.of(nestedTypes.get().get(i)) : Optional.empty();
+                boolean requiredField = requiredFields.map(names -> names.containsKey(fieldName)).orElse(true);
 
-            if (requiredField) {
-                List<Subfield> nestedRequiredSubfields = requiredFields.map(names -> names.get(fieldName)).orElse(ImmutableList.of());
-                SelectiveStreamReader nestedReader = SelectiveStreamReaders.createStreamReader(
-                        nestedStream,
-                        ImmutableMap.of(),
-                        fieldOutputType,
-                        nestedRequiredSubfields,
-                        hiveStorageTimeZone,
-                        systemMemoryContext.newAggregatedMemoryContext());
-                nestedReaders.put(fieldName, nestedReader);
+                if (requiredField) {
+                    List<Subfield> nestedRequiredSubfields = requiredFields.map(names -> names.get(fieldName)).orElse(ImmutableList.of());
+                    SelectiveStreamReader nestedReader = SelectiveStreamReaders.createStreamReader(
+                            nestedStream,
+                            ImmutableMap.of(),
+                            fieldOutputType,
+                            nestedRequiredSubfields,
+                            hiveStorageTimeZone,
+                            systemMemoryContext.newAggregatedMemoryContext());
+                    nestedReaders.put(fieldName, nestedReader);
+                }
+                else {
+                    nestedReaders.put(fieldName, new PruningStreamReader(nestedStream, fieldOutputType));
+                }
             }
-            else {
-                nestedReaders.put(fieldName, new PruningStreamReader(nestedStream, fieldOutputType));
-            }
+            this.nestedReaders = nestedReaders.build();
         }
-        this.nestedReaders = nestedReaders.build();
+        else {
+            // No need to read the elements when output is not required and the filter is a simple IS [NOT] NULL
+            this.nestedReaders = ImmutableMap.of();
+        }
     }
 
     @Override
@@ -245,6 +251,10 @@ public class StructSelectiveStreamReader
     private void readNestedStreams(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        if (nestedReaders.isEmpty()) {
+            return;
+        }
+
         for (SelectiveStreamReader reader : nestedReaders.values()) {
             reader.read(offset, positions, positionCount);
         }
