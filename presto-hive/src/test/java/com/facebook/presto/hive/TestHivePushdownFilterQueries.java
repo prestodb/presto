@@ -290,6 +290,9 @@ public class TestHivePushdownFilterQueries
 
             assertQueryUsingH2Cte("SELECT map_keys[1], map_flags[2] FROM test_maps WHERE map_keys IS NOT NULL AND map_flags IS NOT NULL AND map_keys[1] % 2 = 0", rewriter);
 
+            // filter-only map
+            assertQueryUsingH2Cte("SELECT linenumber FROM test_maps WHERE map_keys IS NOT NULL", rewriter);
+
             assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[1] % 2 = 0", "Key not present in map: 5");
             assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[4] % 2 = 0", "Key not present in map: 4");
         }
