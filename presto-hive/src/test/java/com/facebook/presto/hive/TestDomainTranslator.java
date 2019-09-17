@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
@@ -56,7 +57,6 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
-import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 
@@ -142,22 +142,6 @@ public class TestDomainTranslator
                 operator(SUBSCRIPT, mapType(mapType.getKeyType(), mapType.getValueType()), mapType.getKeyType()),
                 mapType.getValueType(),
                 ImmutableList.of(mapExpression, keyExpression));
-    }
-
-    private static MapType mapType(Type keyType, Type valueType)
-    {
-        return new MapType(
-                keyType,
-                valueType,
-                methodHandle(TestDomainTranslator.class, "throwUnsupportedOperationException"),
-                methodHandle(TestDomainTranslator.class, "throwUnsupportedOperationException"),
-                methodHandle(TestDomainTranslator.class, "throwUnsupportedOperationException"),
-                methodHandle(TestDomainTranslator.class, "throwUnsupportedOperationException"));
-    }
-
-    public static void throwUnsupportedOperationException()
-    {
-        throw new UnsupportedOperationException();
     }
 
     private FunctionHandle operator(OperatorType operatorType, Type... types)
