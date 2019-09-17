@@ -38,7 +38,7 @@ public class TestHivePushdownFilterQueries
     private static final Pattern ARRAY_SUBSCRIPT_PATTERN = Pattern.compile("([a-z_+]+)((\\[[0-9]+\\])+)");
 
     private static final String WITH_LINEITEM_EX = "WITH lineitem_ex AS (\n" +
-            "SELECT linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, \n" +
+            "SELECT linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, shipinstruct, shipmode, \n" +
             "   CASE WHEN linenumber % 5 = 0 THEN null ELSE shipmode = 'AIR' END AS ship_by_air, \n" +
             "   CASE WHEN linenumber % 7 = 0 THEN null ELSE returnflag = 'R' END AS is_returned, \n" +
             "   CASE WHEN linenumber % 4 = 0 THEN null ELSE CAST(day(shipdate) AS TINYINT) END AS ship_day, " +
@@ -62,7 +62,12 @@ public class TestHivePushdownFilterQueries
             "       (CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT), CAST(year(shipdate) AS INTEGER)), " +
             "       (CAST(day(commitdate) AS TINYINT), CAST(month(commitdate) AS TINYINT), CAST(year(commitdate) AS INTEGER)), " +
             "       (CAST(day(receiptdate) AS TINYINT), CAST(month(receiptdate) AS TINYINT), CAST(year(receiptdate) AS INTEGER))) END AS dates, \n" +
-            "   CASE WHEN orderkey % 37 = 0 THEN null ELSE (CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)) END AS timestamps \n" +
+            "   CASE WHEN orderkey % 37 = 0 THEN null ELSE (CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)) END AS timestamps, \n" +
+            "   CASE WHEN orderkey % 43 = 0 THEN null ELSE comment END AS comment, \n" +
+            "   CASE WHEN orderkey % 43 = 0 THEN null ELSE upper(comment) END AS uppercase_comment, \n" +
+            "   CASE WHEN orderkey % 47 = 0 THEN null ELSE CAST(comment AS CHAR(5)) END AS fixed_comment, \n" +
+            "   CASE WHEN orderkey % 49 = 0 THEN null ELSE (CAST(comment AS CHAR(4)), CAST(comment AS CHAR(3)), CAST(SUBSTR(comment,length(comment) - 4) AS CHAR(4))) END AS char_array, \n" +
+            "   CASE WHEN orderkey % 49 = 0 THEN null ELSE (comment, comment) END AS varchar_array \n" +
 
             "FROM lineitem)\n";
 
@@ -81,8 +86,8 @@ public class TestHivePushdownFilterQueries
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, discount, tax_real, ship_day_month, discount_long_decimal, tax_short_decimal, long_decimals, keys, doubles, nested_keys, flags, reals, info, dates, timestamps) AS " +
-                        "SELECT linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, " +
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, shipinstruct, shipmode, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, discount, tax_real, ship_day_month, discount_long_decimal, tax_short_decimal, long_decimals, keys, doubles, nested_keys, flags, reals, info, dates, timestamps, comment, uppercase_comment, fixed_comment, char_array, varchar_array) AS " +
+                        "SELECT linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, shipinstruct, shipmode, " +
                         "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
                         "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
                         "   IF (linenumber % 4 = 0, null, CAST(day(shipdate) AS TINYINT)) AS ship_day, " +
@@ -106,7 +111,12 @@ public class TestHivePushdownFilterQueries
                         "       CAST(ROW(day(shipdate), month(shipdate), year(shipdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
                         "       CAST(ROW(day(commitdate), month(commitdate), year(commitdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER)), " +
                         "       CAST(ROW(day(receiptdate), month(receiptdate), year(receiptdate)) AS ROW(day TINYINT, month TINYINT, year INTEGER))]), " +
-                        "   IF (orderkey % 37 = 0, NULL, ARRAY[CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)]) AS timestamps " +
+                        "   IF (orderkey % 37 = 0, NULL, ARRAY[CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)]) AS timestamps, " +
+                        "   IF (orderkey % 43 = 0, NULL, comment) AS comment, " +
+                        "   IF (orderkey % 43 = 0, NULL, upper(comment)) AS uppercase_comment, " +
+                        "   IF (orderkey % 47 = 0, NULL, CAST(comment AS CHAR(5))) AS fixed_comment, " +
+                        "   IF (orderkey % 49 = 0, NULL, ARRAY[CAST(comment AS CHAR(4)), CAST(comment AS CHAR(3)), CAST(SUBSTR(comment,length(comment) - 4) AS CHAR(4))]) AS char_array, " +
+                        "   IF (orderkey % 49 = 0, NULL, ARRAY[comment, comment]) AS varchar_array " +
                         "FROM lineitem");
         return queryRunner;
     }
@@ -324,6 +334,36 @@ public class TestHivePushdownFilterQueries
         assertFilterProject("discount_long_decimal > 0.01 AND tax_short_decimal > 0.01 AND (discount_long_decimal + tax_short_decimal) < 0.03", "discount_long_decimal");
 
         assertFilterProject("long_decimals[1] > 0.01", "count(*)");
+    }
+
+    @Test
+    public void testStrings()
+    {
+        assertFilterProject("comment < 'a' OR comment BETWEEN 'c' AND 'd'", "char_array");
+        //char
+        assertFilterProject("orderkey = 8480", "char_array");
+        assertFilterProject("orderkey < 1000", "fixed_comment");
+
+        //varchar/char direct
+        assertFilterProject("comment is not NULL and linenumber=1 and orderkey<10", "comment");
+        assertFilterProject("comment is NULL", "count(*)");
+        assertFilterProject("length(comment) > 14 and orderkey < 150 and linenumber=2", "count(*)");
+        assertFilterProject("comment like '%fluf%'", "comment");
+        assertFilterProject("orderkey = 8480", "comment, fixed_comment");
+
+        //varchar/char dictionary
+        assertFilterProject("orderkey < 5000", "shipinstruct");
+        assertFilterProject("shipinstruct IN ('NONE')", "comment, fixed_comment, char_array");
+        assertFilterProject("trim(char_array[1]) = char_array[2]", "count(*)");
+        assertFilterProject("char_array[1] IN ('along') and shipinstruct IN ('NONE')", "char_array");
+        assertFilterProject("length(varchar_array[1]) > 10", "varchar_array");
+        assertFilterProject("shipmode in ('AIR', 'MAIL', 'RAIL')\n" +
+                "AND shipinstruct in ('TAKE BACK RETURN', 'DELIVER IN PERSON')\n" +
+                "AND substr(shipinstruct, 2, 1) = substr(shipmode, 2, 1)\n" +
+                "AND shipmode = if(linenumber % 2 = 0, 'RAIL', 'MAIL')", "orderkey");
+
+        assertFilterProject("varchar_array[1] BETWEEN 'd' AND 'f'", "orderkey");
+        assertFilterProject("comment between 'd' and 'f' AND uppercase_comment between 'D' and 'E' and length(comment) % 2  = linenumber % 2 and length(uppercase_comment) % 2  = linenumber % 2", "orderkey");
     }
 
     @Test

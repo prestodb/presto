@@ -140,6 +140,7 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
@@ -812,6 +813,17 @@ public class OrcTester
             }
         }
 
+        if (type == VARCHAR) {
+            return filter.testBytes(((String) value).getBytes(), 0, ((String) value).length());
+        }
+        if (type instanceof CharType) {
+            String charString = String.valueOf(value);
+            return filter.testBytes(charString.getBytes(), 0, charString.length());
+        }
+        if (type == VARBINARY) {
+            byte[] binary = ((SqlVarbinary) value).getBytes();
+            return filter.testBytes(binary, 0, binary.length);
+        }
         fail("Unsupported type: " + type);
         return false;
     }
