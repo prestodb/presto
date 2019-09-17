@@ -24,21 +24,7 @@ import java.util.Optional;
 
 public class SqlEnvironmentConfig
 {
-    private Optional<String> path = Optional.empty();
     private Optional<TimeZoneKey> forcedSessionTimeZone = Optional.empty();
-
-    @NotNull
-    public Optional<String> getPath()
-    {
-        return path;
-    }
-
-    @Config("sql.path")
-    public SqlEnvironmentConfig setPath(String path)
-    {
-        this.path = Optional.ofNullable(path);
-        return this;
-    }
 
     @NotNull
     public Optional<TimeZoneKey> getForcedSessionTimeZone()

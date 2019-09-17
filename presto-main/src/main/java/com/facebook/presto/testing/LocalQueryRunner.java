@@ -53,7 +53,6 @@ import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.RollbackTask;
 import com.facebook.presto.execution.ScheduledSplit;
-import com.facebook.presto.execution.SetPathTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -157,7 +156,6 @@ import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Rollback;
-import com.facebook.presto.sql.tree.SetPath;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
@@ -398,7 +396,6 @@ public class LocalQueryRunner
                 defaultSession.getSource(),
                 defaultSession.getCatalog(),
                 defaultSession.getSchema(),
-                defaultSession.getPath(),
                 defaultSession.getTraceToken(),
                 defaultSession.getTimeZoneKey(),
                 defaultSession.getLocale(),
@@ -406,7 +403,6 @@ public class LocalQueryRunner
                 defaultSession.getUserAgent(),
                 defaultSession.getClientInfo(),
                 defaultSession.getClientTags(),
-                defaultSession.getClientCapabilities(),
                 defaultSession.getResourceEstimates(),
                 defaultSession.getStartTime(),
                 defaultSession.getSystemProperties(),
@@ -429,7 +425,6 @@ public class LocalQueryRunner
                 .put(StartTransaction.class, new StartTransactionTask())
                 .put(Commit.class, new CommitTask())
                 .put(Rollback.class, new RollbackTask())
-                .put(SetPath.class, new SetPathTask())
                 .build();
 
         SpillerStats spillerStats = new SpillerStats();

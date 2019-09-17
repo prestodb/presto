@@ -87,8 +87,6 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
-import com.facebook.presto.sql.tree.PathElement;
-import com.facebook.presto.sql.tree.PathSpecification;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.PrincipalSpecification;
 import com.facebook.presto.sql.tree.Property;
@@ -107,7 +105,6 @@ import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
-import com.facebook.presto.sql.tree.SetPath;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -1518,42 +1515,6 @@ public class TestSqlParser
                 new ShowRoleGrants(Optional.empty(), Optional.empty()));
         assertStatement("SHOW ROLE GRANTS FROM catalog",
                 new ShowRoleGrants(Optional.of(new Identifier("catalog"))));
-    }
-
-    @Test
-    public void testSetPath()
-    {
-        assertStatement("SET PATH iLikeToEat.apples, andBananas",
-                new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.of(new Identifier("iLikeToEat")), new Identifier("apples")),
-                        new PathElement(Optional.empty(), new Identifier("andBananas"))))));
-
-        assertStatement("SET PATH \"schemas,with\".\"grammar.in\", \"their!names\"",
-                new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.of(new Identifier("schemas,with")), new Identifier("grammar.in")),
-                        new PathElement(Optional.empty(), new Identifier("their!names"))))));
-
-        assertStatement("SET PATH \"\"",
-                new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.empty(), new Identifier(""))))));
-
-        try {
-            assertStatement("SET PATH one.too.many, qualifiers",
-                    new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                            new PathElement(Optional.empty(), new Identifier("dummyValue"))))));
-            fail();
-        }
-        catch (RuntimeException e) {
-            //expected - schema can only be qualified by catalog
-        }
-
-        try {
-            SQL_PARSER.createStatement("SET PATH ", new ParsingOptions());
-            fail();
-        }
-        catch (RuntimeException e) {
-            //expected - some form of parameter is required
-        }
     }
 
     @Test

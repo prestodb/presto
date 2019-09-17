@@ -4947,7 +4947,6 @@ public abstract class AbstractTestQueries
                 getSession().getSource(),
                 getSession().getCatalog(),
                 getSession().getSchema(),
-                getSession().getPath(),
                 getSession().getTraceToken(),
                 getSession().getTimeZoneKey(),
                 getSession().getLocale(),
@@ -4955,7 +4954,6 @@ public abstract class AbstractTestQueries
                 getSession().getUserAgent(),
                 getSession().getClientInfo(),
                 getSession().getClientTags(),
-                getSession().getClientCapabilities(),
                 getSession().getResourceEstimates(),
                 getSession().getStartTime(),
                 ImmutableMap.<String, String>builder()

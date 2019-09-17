@@ -77,7 +77,6 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
-import com.facebook.presto.sql.tree.SetPath;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -1285,15 +1284,6 @@ public final class SqlFormatter
 
             return null;
         }
-
-        @Override
-        public Void visitSetPath(SetPath node, Integer indent)
-        {
-            builder.append("SET PATH ");
-            builder.append(Joiner.on(", ").join(node.getPathSpecification().getPath()));
-            return null;
-        }
-
         private void processRelation(Relation relation, Integer indent)
         {
             // TODO: handle this properly

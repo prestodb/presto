@@ -75,11 +75,6 @@ public class Query
         return client.getSetSchema();
     }
 
-    public Optional<String> getSetPath()
-    {
-        return client.getSetPath();
-    }
-
     public Map<String, String> getSetSessionProperties()
     {
         return client.getSetSessionProperties();

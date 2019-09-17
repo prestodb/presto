@@ -1925,7 +1925,6 @@ class StatementAnalyzer
                     viewAccessControl = accessControl;
                 }
 
-                // TODO: record path in view definition (?) (check spec) and feed it into the session object we use to evaluate the query defined by the view
                 Session viewSession = Session.builder(metadata.getSessionPropertyManager())
                         .setQueryId(session.getQueryId())
                         .setTransactionId(session.getTransactionId().orElse(null))
@@ -1933,7 +1932,6 @@ class StatementAnalyzer
                         .setSource(session.getSource().orElse(null))
                         .setCatalog(catalog.orElse(null))
                         .setSchema(schema.orElse(null))
-                        .setPath(session.getPath())
                         .setTimeZoneKey(session.getTimeZoneKey())
                         .setLocale(session.getLocale())
                         .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))

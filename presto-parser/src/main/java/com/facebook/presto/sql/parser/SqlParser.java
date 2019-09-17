@@ -15,7 +15,6 @@ package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.PathSpecification;
 import com.facebook.presto.sql.tree.Statement;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
@@ -110,11 +109,6 @@ public class SqlParser
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
     {
         return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
-    }
-
-    public PathSpecification createPathSpecification(String expression)
-    {
-        return (PathSpecification) invokeParser("path specification", expression, SqlBaseParser::standalonePathSpecification, new ParsingOptions());
     }
 
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)

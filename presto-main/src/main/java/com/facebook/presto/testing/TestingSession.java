@@ -28,7 +28,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.sql.SqlPath;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
@@ -66,7 +65,6 @@ public final class TestingSession
                 .setSource("test")
                 .setCatalog("catalog")
                 .setSchema("schema")
-                .setPath(new SqlPath(Optional.of("path")))
                 .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")

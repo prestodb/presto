@@ -50,7 +50,6 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CurrentPath;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
@@ -958,12 +957,6 @@ public class ExpressionAnalyzer
 
         @Override
         protected Type visitCurrentUser(CurrentUser node, StackableAstVisitorContext<Context> context)
-        {
-            return setExpressionType(node, VARCHAR);
-        }
-
-        @Override
-        protected Type visitCurrentPath(CurrentPath node, StackableAstVisitorContext<Context> context)
         {
             return setExpressionType(node, VARCHAR);
         }

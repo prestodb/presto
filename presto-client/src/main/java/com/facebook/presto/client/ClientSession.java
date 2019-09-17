@@ -42,7 +42,6 @@ public class ClientSession
     private final String clientInfo;
     private final String catalog;
     private final String schema;
-    private final String path;
     private final TimeZoneKey timeZone;
     private final Locale locale;
     private final Map<String, String> resourceEstimates;
@@ -74,7 +73,6 @@ public class ClientSession
             String clientInfo,
             String catalog,
             String schema,
-            String path,
             String timeZoneId,
             Locale locale,
             Map<String, String> resourceEstimates,
@@ -93,7 +91,6 @@ public class ClientSession
         this.clientInfo = clientInfo;
         this.catalog = catalog;
         this.schema = schema;
-        this.path = path;
         this.locale = locale;
         this.timeZone = TimeZoneKey.getTimeZoneKey(timeZoneId);
         this.transactionId = transactionId;
@@ -173,11 +170,6 @@ public class ClientSession
         return schema;
     }
 
-    public String getPath()
-    {
-        return path;
-    }
-
     public TimeZoneKey getTimeZone()
     {
         return timeZone;
@@ -241,7 +233,6 @@ public class ClientSession
                 .add("clientInfo", clientInfo)
                 .add("catalog", catalog)
                 .add("schema", schema)
-                .add("path", path)
                 .add("traceToken", traceToken.orElse(null))
                 .add("timeZone", timeZone)
                 .add("locale", locale)
@@ -261,7 +252,6 @@ public class ClientSession
         private String clientInfo;
         private String catalog;
         private String schema;
-        private String path;
         private TimeZoneKey timeZone;
         private Locale locale;
         private Map<String, String> resourceEstimates;
@@ -283,7 +273,6 @@ public class ClientSession
             clientInfo = clientSession.getClientInfo();
             catalog = clientSession.getCatalog();
             schema = clientSession.getSchema();
-            path = clientSession.getPath();
             timeZone = clientSession.getTimeZone();
             locale = clientSession.getLocale();
             resourceEstimates = clientSession.getResourceEstimates();
@@ -304,12 +293,6 @@ public class ClientSession
         public Builder withSchema(String schema)
         {
             this.schema = requireNonNull(schema, "schema is null");
-            return this;
-        }
-
-        public Builder withPath(String path)
-        {
-            this.path = requireNonNull(path, "path is null");
             return this;
         }
 
@@ -360,7 +343,6 @@ public class ClientSession
                     clientInfo,
                     catalog,
                     schema,
-                    path,
                     timeZone.getId(),
                     locale,
                     resourceEstimates,

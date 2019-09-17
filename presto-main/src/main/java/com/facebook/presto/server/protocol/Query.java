@@ -135,9 +135,6 @@ class Query
     private Optional<String> setSchema = Optional.empty();
 
     @GuardedBy("this")
-    private Optional<String> setPath = Optional.empty();
-
-    @GuardedBy("this")
     private Map<String, String> setSessionProperties = ImmutableMap.of();
 
     @GuardedBy("this")
@@ -258,11 +255,6 @@ class Query
     public synchronized Optional<String> getSetSchema()
     {
         return setSchema;
-    }
-
-    public synchronized Optional<String> getSetPath()
-    {
-        return setPath;
     }
 
     public synchronized Map<String, String> getSetSessionProperties()
@@ -482,10 +474,9 @@ class Query
             nextResultsUri = createNextResultsUri(scheme, uriInfo);
         }
 
-        // update catalog, schema, and path
+        // update catalog and schema
         setCatalog = queryInfo.getSetCatalog();
         setSchema = queryInfo.getSetSchema();
-        setPath = queryInfo.getSetPath();
 
         // update setSessionProperties
         setSessionProperties = queryInfo.getSetSessionProperties();

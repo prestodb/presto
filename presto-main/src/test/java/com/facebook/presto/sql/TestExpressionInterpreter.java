@@ -550,13 +550,6 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testCurrentPath()
-            throws Exception
-    {
-        assertOptimizedEquals("current_path", "'" + TEST_SESSION.getPath() + "'");
-    }
-
-    @Test
     public void testCastToString()
     {
         // integer

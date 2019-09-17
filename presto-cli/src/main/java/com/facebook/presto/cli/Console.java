@@ -334,11 +334,6 @@ public class Console
                 builder = builder.withTransactionId(query.getStartedTransactionId());
             }
 
-            // update path if present
-            if (query.getSetPath().isPresent()) {
-                builder = builder.withPath(query.getSetPath().get());
-            }
-
             // update session properties if present
             if (!query.getSetSessionProperties().isEmpty() || !query.getResetSessionProperties().isEmpty()) {
                 Map<String, String> sessionProperties = new HashMap<>(session.getProperties());

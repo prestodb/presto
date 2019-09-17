@@ -71,7 +71,6 @@ public class TestFinalQueryInfo
                     null,
                     null,
                     null,
-                    null,
                     "America/Los_Angeles",
                     Locale.ENGLISH,
                     ImmutableMap.of(),

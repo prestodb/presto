@@ -41,7 +41,6 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.CurrentPath;
 import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -206,12 +205,6 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitCurrentUser(CurrentUser node, Void context)
         {
             return constant(Slices.utf8Slice(session.getUser()), VARCHAR);
-        }
-
-        @Override
-        protected RowExpression visitCurrentPath(CurrentPath node, Void context)
-        {
-            return constant(Slices.utf8Slice(session.getPath().toString()), VARCHAR);
         }
 
         @Override

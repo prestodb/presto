@@ -61,7 +61,6 @@ public class QueryInfo
     private final QueryStats queryStats;
     private final Optional<String> setCatalog;
     private final Optional<String> setSchema;
-    private final Optional<String> setPath;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
     private final Map<String, SelectedRole> setRoles;
@@ -96,7 +95,6 @@ public class QueryInfo
             @JsonProperty("queryStats") QueryStats queryStats,
             @JsonProperty("setCatalog") Optional<String> setCatalog,
             @JsonProperty("setSchema") Optional<String> setSchema,
-            @JsonProperty("setPath") Optional<String> setPath,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
             @JsonProperty("setRoles") Map<String, SelectedRole> setRoles,
@@ -124,7 +122,6 @@ public class QueryInfo
         requireNonNull(queryStats, "queryStats is null");
         requireNonNull(setCatalog, "setCatalog is null");
         requireNonNull(setSchema, "setSchema is null");
-        requireNonNull(setPath, "setPath is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
         requireNonNull(addedPreparedStatements, "addedPreparedStatemetns is null");
@@ -150,7 +147,6 @@ public class QueryInfo
         this.queryStats = queryStats;
         this.setCatalog = setCatalog;
         this.setSchema = setSchema;
-        this.setPath = setPath;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
         this.setRoles = ImmutableMap.copyOf(setRoles);
@@ -191,7 +187,6 @@ public class QueryInfo
                 ImmutableList.of(),
                 query,
                 immediateFailureQueryStats(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -280,12 +275,6 @@ public class QueryInfo
     public Optional<String> getSetSchema()
     {
         return setSchema;
-    }
-
-    @JsonProperty
-    public Optional<String> getSetPath()
-    {
-        return setPath;
     }
 
     @JsonProperty

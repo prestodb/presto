@@ -260,7 +260,6 @@ public class QueryMonitor
                 session.getUserAgent(),
                 session.getClientInfo(),
                 session.getClientTags(),
-                session.getClientCapabilities(),
                 session.getSource(),
                 session.getCatalog(),
                 session.getSchema(),
