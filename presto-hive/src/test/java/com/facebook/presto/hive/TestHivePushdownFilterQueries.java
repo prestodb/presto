@@ -293,6 +293,9 @@ public class TestHivePushdownFilterQueries
             // filter-only map
             assertQueryUsingH2Cte("SELECT linenumber FROM test_maps WHERE map_keys IS NOT NULL", rewriter);
 
+            // equality filter
+            assertQuery("SELECT orderkey FROM test_maps WHERE map_flags = MAP(ARRAY[1, 2], ARRAY[true, true])", "SELECT orderkey FROM lineitem WHERE orderkey % 17 <> 0 AND shipmode = 'AIR' AND returnflag = 'R'");
+
             assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[1] % 2 = 0", "Key not present in map: 5");
             assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[4] % 2 = 0", "Key not present in map: 4");
         }
@@ -376,6 +379,9 @@ public class TestHivePushdownFilterQueries
         assertFilterProject("nested_keys[3] IS NOT NULL AND nested_keys[1][2] > 10", "keys, flags");
         assertFilterProject("nested_keys IS NOT NULL AND nested_keys[3] IS NOT NULL AND nested_keys[1][1] > 0", "keys");
         assertFilterProject("nested_keys IS NOT NULL AND nested_keys[3] IS NULL AND nested_keys[1][1] > 0", "keys");
+
+        // equality filter
+        assertQuery("SELECT orderkey FROM lineitem_ex WHERE keys = ARRAY[1, 22, 48]", "SELECT orderkey FROM lineitem WHERE orderkey = 1 AND partkey = 22 AND suppkey = 48");
 
         assertFilterProjectFails("keys[5] > 0", "orderkey", "Array subscript out of bounds");
         assertFilterProjectFails("nested_keys[5][1] > 0", "orderkey", "Array subscript out of bounds");

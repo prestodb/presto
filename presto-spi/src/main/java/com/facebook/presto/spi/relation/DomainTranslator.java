@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 
 import java.util.Optional;
@@ -24,7 +25,13 @@ public interface DomainTranslator
 {
     interface ColumnExtractor<T>
     {
-        Optional<T> extract(RowExpression expression);
+        /**
+         * Given an expression and values domain, determine whether the expression qualifies as a
+         * "column" and return its desired representation.
+         *
+         * Return Optional.empty() if expression doesn't qualify.
+         */
+        Optional<T> extract(RowExpression expression, Domain domain);
     }
 
     RowExpression toPredicate(TupleDomain<VariableReferenceExpression> tupleDomain);
@@ -59,7 +66,7 @@ public interface DomainTranslator
         }
     }
 
-    ColumnExtractor<VariableReferenceExpression> BASIC_COLUMN_EXTRACTOR = expression -> {
+    ColumnExtractor<VariableReferenceExpression> BASIC_COLUMN_EXTRACTOR = (expression, domain) -> {
         if (expression instanceof VariableReferenceExpression) {
             return Optional.of((VariableReferenceExpression) expression);
         }
