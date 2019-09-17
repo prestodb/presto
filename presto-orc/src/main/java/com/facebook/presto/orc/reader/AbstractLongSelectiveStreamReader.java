@@ -61,8 +61,8 @@ abstract class AbstractLongSelectiveStreamReader
 
     protected AbstractLongSelectiveStreamReader(Optional<Type> outputType)
     {
-        this.outputRequired = outputType.isPresent();
-        this.outputType = requireNonNull(outputType, "outputType is null").orElse(null);
+        this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
+        this.outputType = outputType.orElse(null);
     }
 
     protected void prepareNextRead(int positionCount, boolean withNulls)

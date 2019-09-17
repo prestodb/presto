@@ -83,6 +83,9 @@ public abstract class AbstractDecimalSelectiveStreamReader
             LocalMemoryContext systemMemoryContext,
             int valuesPerPosition)
     {
+        requireNonNull(filter, "filter is null");
+        requireNonNull(outputType, "outputType is null");
+        checkArgument(filter.isPresent() || outputType.isPresent(), "filter must be present if output is not required");
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.filter = filter.orElse(null);
         this.outputRequired = outputType.isPresent();
