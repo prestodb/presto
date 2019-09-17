@@ -23,7 +23,10 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
@@ -37,7 +40,6 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public final class SubfieldExtractor
-        implements DomainTranslator.ColumnExtractor<Subfield>
 {
     private final StandardFunctionResolution functionResolution;
     private final ExpressionOptimizer expressionOptimizer;
@@ -53,7 +55,21 @@ public final class SubfieldExtractor
         this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
     }
 
-    @Override
+    public DomainTranslator.ColumnExtractor toColumnExtractor()
+    {
+        return (expression, domain) -> {
+            // Only allow null checks on complex types
+            Type type = expression.getType();
+            if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
+                if (!domain.isOnlyNull() && !(domain.getValues().isAll() && !domain.isNullAllowed())) {
+                    return Optional.empty();
+                }
+            }
+
+            return extract(expression);
+        };
+    }
+
     public Optional<Subfield> extract(RowExpression expression)
     {
         return toSubfield(expression, functionResolution, expressionOptimizer, connectorSession);
