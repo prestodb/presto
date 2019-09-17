@@ -76,8 +76,10 @@ public class LongDirectSelectiveStreamReader
             LocalMemoryContext systemMemoryContext)
     {
         super(outputType);
+        requireNonNull(filter, "filter is null");
+        checkArgument(filter.isPresent() || outputRequired, "filter must be present if output is not required");
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        this.filter = requireNonNull(filter, "filter is null").orElse(null);
+        this.filter = filter.orElse(null);
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
 
         nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
