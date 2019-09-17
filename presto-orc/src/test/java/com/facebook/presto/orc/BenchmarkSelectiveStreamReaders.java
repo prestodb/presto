@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
+import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.spi.Page;
@@ -28,9 +29,12 @@ import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Longs;
 import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -76,6 +80,7 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -98,6 +103,7 @@ public class BenchmarkSelectiveStreamReaders
     public static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
     private static final DecimalType SHORT_DECIMAL_TYPE = DecimalType.createDecimalType(10, 5);
     private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(30, 10);
+    private static final int MAX_STRING_LENGTH = 10;
 
     @Benchmark
     public Object readAllNull(AllNullBenchmarkData data)
@@ -143,11 +149,18 @@ public class BenchmarkSelectiveStreamReaders
         private Type type;
         private File temporaryDirectory;
         private File orcFile;
+        private String typeSignature;
 
         public void setup(String typeSignature)
                 throws Exception
         {
-            type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
+            if (typeSignature.startsWith("varchar")) {
+                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature("varchar"));
+            }
+            else {
+                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
+            }
+            this.typeSignature = typeSignature;
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
             writeOrcColumnHive(orcFile, ORC_12, NONE, type, createValues());
@@ -163,6 +176,11 @@ public class BenchmarkSelectiveStreamReaders
         public Type getType()
         {
             return type;
+        }
+
+        public String getTypeSignature()
+        {
+            return typeSignature;
         }
 
         protected abstract List<?> createValues();
@@ -210,7 +228,10 @@ public class BenchmarkSelectiveStreamReaders
                 "real",
                 "double",
                 "decimal(10,5)",
-                "decimal(30,10)"
+                "decimal(30,10)",
+
+                "varchar_direct",
+                "varchar_dictionary"
         })
         private String typeSignature;
 
@@ -247,7 +268,10 @@ public class BenchmarkSelectiveStreamReaders
                 "real",
                 "double",
                 "decimal(10,5)",
-                "decimal(30,10)"
+                "decimal(30,10)",
+
+                "varchar_direct",
+                "varchar_dictionary"
         })
         private String typeSignature;
 
@@ -294,6 +318,10 @@ public class BenchmarkSelectiveStreamReaders
                     return Optional.of(BigintRange.of(0, Long.MAX_VALUE, true));
                 }
                 return Optional.of(LongDecimalRange.of(0, 0, false, true, Long.MAX_VALUE, Long.MAX_VALUE, false, true, true));
+            }
+
+            if (type instanceof VarcharType) {
+                return Optional.of(BytesRange.of("0".getBytes(), false, Longs.toByteArray(Long.MAX_VALUE), false, true));
             }
 
             throw new UnsupportedOperationException("Unsupported type: " + type);
@@ -355,8 +383,24 @@ public class BenchmarkSelectiveStreamReaders
                 }
             }
 
+            if (getType() == VARCHAR) {
+                if (typeSignature.equals("varchar_dictionary")) {
+                    return Strings.repeat("0", MAX_STRING_LENGTH);
+                }
+                return randomAsciiString(random, MAX_STRING_LENGTH);
+            }
+
             throw new UnsupportedOperationException("Unsupported type: " + getType());
         }
+    }
+
+    private static String randomAsciiString(Random random, int maxLength)
+    {
+        char[] value = new char[random.nextInt(maxLength)];
+        for (int i = 0; i < value.length; i++) {
+            value[i] = (char) random.nextInt(Byte.MAX_VALUE);
+        }
+        return new String(value);
     }
 
     public static void main(String[] args)

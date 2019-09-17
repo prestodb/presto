@@ -1252,6 +1252,17 @@ public interface TupleDomainFilter
         }
 
         @Override
+        public boolean testLength(int length)
+        {
+            for (TupleDomainFilter filter : filters) {
+                if (filter.testLength(length)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
         public boolean equals(Object o)
         {
             if (this == o) {

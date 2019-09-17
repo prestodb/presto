@@ -404,6 +404,14 @@ public class H2QueryRunner
                     .toArray();
         }
 
+        if (elementType instanceof CharType) {
+            int length = ((CharType) elementType).getLength();
+            return Arrays.stream(values)
+                    .map(String.class::cast)
+                    .map(v -> v == null ? null : padEnd(v, length, ' '))
+                    .toArray();
+        }
+
         if (elementType instanceof TimestampType) {
             return Arrays.stream(values)
                     .map(v -> v == null ? null : ((Timestamp) v).toLocalDateTime())
