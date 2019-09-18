@@ -13,23 +13,27 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.collect.ImmutableCollection;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertTrue;
 
-public class TestAssingments
+public class TestAssignments
 {
     private final Assignments assignments = assignment(new VariableReferenceExpression("test", BIGINT), TRUE_LITERAL);
 
-    @Test
+    @Test(expectedExceptions = {UnsupportedOperationException.class})
     public void testOutputsImmutable()
     {
-        assertTrue(assignments.getOutputs() instanceof ImmutableCollection);
+        List<VariableReferenceExpression> outputs = assignments.getOutputs();
+        // should throw as it is an unmodifiableList
+        outputs.add(new VariableReferenceExpression("test", BIGINT));
     }
 
     @Test
