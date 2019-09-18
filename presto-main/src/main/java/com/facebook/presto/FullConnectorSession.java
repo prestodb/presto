@@ -117,6 +117,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public Optional<String> getClientInfo()
+    {
+        return session.getClientInfo();
+    }
+
+    @Override
     public boolean isLegacyTimestamp()
     {
         return isLegacyTimestamp;

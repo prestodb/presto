@@ -92,6 +92,7 @@ public class HdfsEnvironment
         private final Optional<String> queryId;
         private final Optional<String> schemaName;
         private final Optional<String> tableName;
+        private final Optional<String> clientInfo;
 
         public HdfsContext(ConnectorIdentity identity)
         {
@@ -100,6 +101,7 @@ public class HdfsEnvironment
             this.queryId = Optional.empty();
             this.schemaName = Optional.empty();
             this.tableName = Optional.empty();
+            this.clientInfo = Optional.empty();
         }
 
         public HdfsContext(ConnectorSession session, String schemaName)
@@ -111,6 +113,7 @@ public class HdfsEnvironment
             this.queryId = Optional.of(session.getQueryId());
             this.schemaName = Optional.of(schemaName);
             this.tableName = Optional.empty();
+            this.clientInfo = session.getClientInfo();
         }
 
         public HdfsContext(ConnectorSession session, String schemaName, String tableName)
@@ -123,6 +126,7 @@ public class HdfsEnvironment
             this.queryId = Optional.of(session.getQueryId());
             this.schemaName = Optional.of(schemaName);
             this.tableName = Optional.of(tableName);
+            this.clientInfo = session.getClientInfo();
         }
 
         public ConnectorIdentity getIdentity()
@@ -150,6 +154,11 @@ public class HdfsEnvironment
             return tableName;
         }
 
+        public Optional<String> getClientInfo()
+        {
+            return clientInfo;
+        }
+
         @Override
         public String toString()
         {
@@ -160,6 +169,7 @@ public class HdfsEnvironment
                     .add("queryId", queryId.orElse(null))
                     .add("schemaName", schemaName.orElse(null))
                     .add("tableName", tableName.orElse(null))
+                    .add("clientInfo", clientInfo.orElse(null))
                     .toString();
         }
     }

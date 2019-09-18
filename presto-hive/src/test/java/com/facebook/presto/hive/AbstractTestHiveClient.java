@@ -888,6 +888,12 @@ public abstract class AbstractTestHiveClient
             }
 
             @Override
+            public Optional<String> getClientInfo()
+            {
+                return session.getClientInfo();
+            }
+
+            @Override
             public long getStartTime()
             {
                 return session.getStartTime();
