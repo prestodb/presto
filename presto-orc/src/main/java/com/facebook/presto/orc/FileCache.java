@@ -159,6 +159,22 @@ public class FileCache
         }
     }
 
+    public static void incrementTargetSize(long bytes)
+    {
+        long free = Runtime.getRuntime().freeMemory();
+        long newSize = targetSize + bytes;
+        if (newSize <= 0) {
+            log.warn("Setting FileCache size to 0");
+            targetSize = 0;
+        }
+        else if (bytes > free - (500 * (1014 * 1024))) {
+            log.warn("Attempting to set FileCache size above free memory - 500MB: Increase by " + bytes + " while " + free + "available");
+        }
+        else {
+            targetSize += bytes;
+        }
+    }
+
     // Returns a FileToken for path. Each path has exactly one FileToken.
     public static FileToken getFileToken(String path)
     {

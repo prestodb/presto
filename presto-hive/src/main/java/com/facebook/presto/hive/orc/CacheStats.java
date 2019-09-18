@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.orc.FileCache;
 import com.facebook.presto.orc.FileCache.FileCacheStats;
 import org.weakref.jmx.Flatten;
@@ -25,8 +26,9 @@ public class CacheStats
     private static final FileCacheStats stats = new FileCacheStats();
 
     @Inject
-    CacheStats()
+    CacheStats(HiveClientConfig hiveClientConfig)
     {
+        FileCache.incrementTargetSize(hiveClientConfig.getBlockCacheSize().toBytes());
         FileCache.registerStats(stats);
     }
 
