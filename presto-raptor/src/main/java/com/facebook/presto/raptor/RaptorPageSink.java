@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
@@ -41,11 +42,13 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_TOO_MANY_FILES_CREATED;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -67,6 +70,7 @@ public class RaptorPageSink
     private final OptionalInt temporalColumnIndex;
     private final Optional<Type> temporalColumnType;
     private final TemporalFunction temporalFunction;
+    private final int maxAllowedFilesPerWriter;
 
     private final PageWriter pageWriter;
 
@@ -82,7 +86,8 @@ public class RaptorPageSink
             OptionalInt bucketCount,
             List<Long> bucketColumnIds,
             Optional<RaptorColumnHandle> temporalColumnHandle,
-            DataSize maxBufferSize)
+            DataSize maxBufferSize,
+            int maxAllowedFilesPerWriter)
     {
         this.transactionId = transactionId;
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
@@ -91,6 +96,7 @@ public class RaptorPageSink
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
         this.maxBufferBytes = requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes();
+        this.maxAllowedFilesPerWriter = maxAllowedFilesPerWriter;
 
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
@@ -265,6 +271,10 @@ public class RaptorPageSink
             long totalBytes = 0;
             long maxBytes = 0;
             PageBuffer maxBuffer = null;
+
+            if (pageStores.size() > maxAllowedFilesPerWriter) {
+                throw new PrestoException(RAPTOR_TOO_MANY_FILES_CREATED, format("Number of files created: %s , has exceeded the limit of %s files created per worker per query", pageStores.size(), maxAllowedFilesPerWriter));
+            }
 
             for (PageStore store : pageStores.values()) {
                 long bytes = store.getUsedMemoryBytes();

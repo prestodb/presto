@@ -41,6 +41,7 @@ public class RaptorPageSinkProvider
     private final PageSorter pageSorter;
     private final TemporalFunction temporalFunction;
     private final DataSize maxBufferSize;
+    private final int maxAllowedFilesPerWriter;
 
     @Inject
     public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, TemporalFunction temporalFunction, StorageManagerConfig config)
@@ -49,6 +50,7 @@ public class RaptorPageSinkProvider
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
         this.maxBufferSize = config.getMaxBufferSize();
+        this.maxAllowedFilesPerWriter = config.getMaxAllowedFilesPerWriter();
     }
 
     @Override
@@ -69,7 +71,8 @@ public class RaptorPageSinkProvider
                 handle.getBucketCount(),
                 toColumnIds(handle.getBucketColumnHandles()),
                 handle.getTemporalColumnHandle(),
-                maxBufferSize);
+                maxBufferSize,
+                maxAllowedFilesPerWriter);
     }
 
     @Override
@@ -90,7 +93,8 @@ public class RaptorPageSinkProvider
                 handle.getBucketCount(),
                 toColumnIds(handle.getBucketColumnHandles()),
                 handle.getTemporalColumnHandle(),
-                maxBufferSize);
+                maxBufferSize,
+                maxAllowedFilesPerWriter);
     }
 
     private static List<Long> toColumnIds(List<RaptorColumnHandle> columnHandles)
