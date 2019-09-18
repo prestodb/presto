@@ -11,15 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,7 +29,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Collector;
 
-import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class Assignments
@@ -68,16 +69,18 @@ public class Assignments
     }
 
     private final Map<VariableReferenceExpression, RowExpression> assignments;
+    private final List<VariableReferenceExpression> outputs;
 
     @JsonCreator
     public Assignments(@JsonProperty("assignments") Map<VariableReferenceExpression, RowExpression> assignments)
     {
-        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
+        this.assignments = unmodifiableMap(new LinkedHashMap<>(requireNonNull(assignments, "assignments is null")));
+        this.outputs = unmodifiableList(new ArrayList<>(assignments.keySet()));
     }
 
     public List<VariableReferenceExpression> getOutputs()
     {
-        return ImmutableList.copyOf(assignments.keySet());
+        return outputs;
     }
 
     @JsonProperty("assignments")
@@ -187,12 +190,9 @@ public class Assignments
         {
             if (assignments.containsKey(variable)) {
                 RowExpression assignment = assignments.get(variable);
-                checkState(
-                        assignment.equals(expression),
-                        "Variable %s already has assignment %s, while adding %s",
-                        variable,
-                        assignment,
-                        expression);
+                if (!assignment.equals(expression)) {
+                    throw new IllegalStateException(format("Variable %s already has assignment %s, while adding %s", variable, assignment, expression));
+                }
             }
             assignments.put(variable, expression);
             return this;
