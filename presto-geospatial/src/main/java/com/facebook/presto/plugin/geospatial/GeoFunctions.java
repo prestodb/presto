@@ -24,8 +24,12 @@ import com.esri.core.geometry.NonSimpleResult.Reason;
 import com.esri.core.geometry.OperatorSimplifyOGC;
 import com.esri.core.geometry.OperatorUnion;
 import com.esri.core.geometry.Point;
+import com.esri.core.geometry.Point2D;
+import com.esri.core.geometry.Point3D;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.Polyline;
+import com.esri.core.geometry.Segment;
+import com.esri.core.geometry.SegmentIterator;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCGeometryCollection;
@@ -107,6 +111,7 @@ import static java.lang.Math.atan2;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
 import static java.lang.Math.sqrt;
+import static java.lang.Math.toDegrees;
 import static java.lang.Math.toIntExact;
 import static java.lang.Math.toRadians;
 import static java.lang.String.format;
@@ -1370,6 +1375,218 @@ public final class GeoFunctions
         return greatCircleDistance(leftPoint.getY(), leftPoint.getX(), rightPoint.getY(), rightPoint.getX()) * 1000;
     }
 
+    @SqlNullable
+    @Description("Returns the SphericalGeography point value that is the mathematical centroid of a SphericalGeography set of points")
+    @ScalarFunction("ST_Centroid")
+    @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME)
+    public static Slice stSphericalCentroid(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
+    {
+        OGCGeometry geometry = deserialize(input);
+        validateSphericalType("ST_Centroid", geometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING));
+        GeometryType geometryType = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        if (geometryType == GeometryType.POINT) {
+            return input;
+        }
+
+        return serialize(OGCGeometry.createFromEsriGeometry(SphericalCentroidCalculator.centroid(geometry), geometry.getEsriSpatialReference()));
+    }
+
+    public static class SphericalCentroidCalculator
+    {
+        // http://www.jennessent.com/downloads/Graphics_Shapes_Online.pdf
+        // http://www.mygeodesy.id.au/documents/MSIA_Centroid.pdf
+        // https://notionparallax.co.uk/2016/centroid-of-points-on-the-surface-of-a-sphere-redux
+        // http://www.geomidpoint.com/calculation.html
+        public static Point centroid(OGCGeometry geometry)
+        {
+            if (geometry.isEmpty()) {
+                return null;
+            }
+
+            GeometryType geometryType = GeometryType.getForEsriGeometryType(geometry.geometryType());
+            int pointCount = ((MultiVertexGeometry) geometry.getEsriGeometry()).getPointCount();
+            if (pointCount == 0) {
+                return new Point();
+            }
+            switch (geometryType) {
+                case LINE_STRING:
+                case MULTI_LINE_STRING:
+                    return computeLineCentroid((MultiPath) geometry.getEsriGeometry());
+                case MULTI_POINT:
+                    return computePointsCentroid((MultiPoint) geometry.getEsriGeometry());
+//                case POLYGON:
+//                    return computePolygonCentroid((Polygon) geometry.getEsriGeometry());
+                default:
+                    throw new UnsupportedOperationException("Unexpected geometry type: " + geometryType);
+            }
+        }
+
+        private static Point computeLineCentroid(MultiPath lineString)
+        {
+            double[] sum = {0, 0, 0};
+            int points = 0;
+
+            // sum up coordinates of paths on (multi)linestring
+            for (int path = 0; path < lineString.getPathCount(); path++) {
+                if (lineString.getPathSize(path) < 1) {
+                    continue;
+                }
+
+                int pathStart = lineString.getPathStart(path);
+                Point first = lineString.getPoint(pathStart);
+                double[] cartesianCoordinate = toCartesian(first.getY(), first.getX());
+                sum[0] += cartesianCoordinate[0];
+                sum[1] += cartesianCoordinate[1];
+                sum[2] += cartesianCoordinate[2];
+                points++;
+
+                for (int i = pathStart + 1; i < lineString.getPathEnd(path); i++) {
+                    Point point = lineString.getPoint(i);
+                    cartesianCoordinate = toCartesian(point.getY(), point.getX());
+                    sum[0] += cartesianCoordinate[0];
+                    sum[1] += cartesianCoordinate[1];
+                    sum[2] += cartesianCoordinate[2];
+                    points++;
+                }
+            }
+
+            sum[0] *= EARTH_RADIUS_M / points;
+            sum[1] *= EARTH_RADIUS_M / points;
+            sum[2] *= EARTH_RADIUS_M / points;
+            double L = Math.sqrt(Math.pow(sum[0], 2) + Math.pow(sum[1], 2) + Math.pow(sum[2], 2));
+            double[] surfaceCoordinates = {sum[0] / L, sum[1] / L, sum[2] / L};
+            double[] latLon = toLatitudeLongitude(surfaceCoordinates[0], surfaceCoordinates[1], surfaceCoordinates[2]);
+
+            return new Point(latLon[0], latLon[1]);
+        }
+
+        // Points centroid is arithmetic mean of the input points
+        private static Point computePointsCentroid(MultiPoint multiPoint)
+        {
+            double[] sum = {0, 0, 0};
+            int pointCount =multiPoint.getPointCount();
+            Point point = new Point();
+            for (int i = 0; i < pointCount; i++) {
+                multiPoint.getXY(i, point.getXY());
+                double[] cartesianCoordinate = toCartesian(point.getY(), point.getX());
+                sum[0] += cartesianCoordinate[0];
+                sum[1] += cartesianCoordinate[1];
+                sum[2] += cartesianCoordinate[2];
+            }
+            sum[0] *= EARTH_RADIUS_M / pointCount;
+            sum[1] *= EARTH_RADIUS_M / pointCount;
+            sum[2] *= EARTH_RADIUS_M / pointCount;
+            double L = Math.sqrt(Math.pow(sum[0], 2) + Math.pow(sum[1], 2) + Math.pow(sum[2], 2));
+            double[] surfaceCoordinates = {sum[0] / L, sum[1] / L, sum[2] / L};
+            double[] latLon = toLatitudeLongitude(surfaceCoordinates[0], surfaceCoordinates[1], surfaceCoordinates[2]);
+
+            return new Point(latLon[0], latLon[1]);
+        }
+
+        private static double[] toCartesian(double latitude, double longitude)
+        {
+            double phi = toRadians(MAX_LATITUDE - latitude);
+            double theta = toRadians(longitude);
+            double sinPhi = Math.sin(phi);
+            double x = sinPhi * Math.cos(theta);
+            double y = sinPhi * Math.sin(theta);
+            double z = Math.cos(phi);
+            return new double[] {x, y, z};
+        }
+
+        private static double[] toLatitudeLongitude(double x, double y, double z)
+        {
+            double phi = Math.atan2(Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2)), z);
+            double theta = Math.atan2(y, x);
+            return new double[] {90 - toDegrees(phi), toDegrees(theta)};
+        }
+
+//        // Lines centroid is weighted mean of each line segment, weight in terms of line
+//        // length
+//        private static Point computePolylineCentroid(MultiPath polyline) {
+//            if (sphericalLength(polyline) == 0) {
+//                return computeLineCentroid(polyline);
+//            }
+//
+//            double[] sum = {0, 0, 0};
+//            Point point = new Point();
+//            SegmentIterator iter = polyline.querySegmentIterator();
+//            while (iter.nextPath()) {
+//                while (iter.hasNextSegment()) {
+//                    Segment seg = iter.nextSegment();
+//                    seg.getCoord2D(0.5, point);
+//                    double length = seg.calculateLength2D();
+//                    point.scale(length);
+//                    xSum.add(point.x);
+//                    ySum.add(point.y);
+//                }
+//            }
+//
+//            return new Point(xSum.getResult() / totalLength, ySum.getResult() / totalLength);
+//        }
+//
+//        // Polygon centroid: area weighted average of centroids
+//        private static Point computePolygonCentroid(Polygon polygon) {
+//            if (sphericalArea(polygon) == 0)
+//            {
+//                return computeLineCentroid(polygon);
+//            }
+//
+//            double[] sum = {0, 0, 0};
+//            Point2D start, current, next;
+//            Point2D origin = polygon.getXY(0);
+//            Point3D originCartesian = toCartesian3D(origin);
+//            Point3D startCartesian, currentCartesian, nextCartesian;
+//
+//            for (int ipath = 0, npaths = polygon.getPathCount(); ipath < npaths; ipath++) {
+//                int startIndex = polygon.getPathStart(ipath);
+//                int endIndex = polygon.getPathEnd(ipath);
+//                int pointCount = endIndex - startIndex;
+//                if (pointCount < 3) {
+//                    continue;
+//                }
+//                start = polygon.getXY(startIndex);
+//                current = polygon.getXY(startIndex + 1);
+//
+//                startCartesian = toCartesian3D(start);
+//                currentCartesian = toCartesian3D(current);
+//                currentCartesian.sub(startCartesian);
+//                for (int i = startIndex + 2; i < endIndex; i++) {
+//                    nextCartesian = toCartesian3D(polygon.getXY(i));
+//                    nextCartesian.sub(startCartesian);
+//                    Polygon triangle = new Polygon();
+//                    triangle.addPath([], 3, true);
+//
+//                    double currentArea = sphericalArea(triangle);
+//
+//                    double twiceTriangleArea = next.x * current.y - current.x * next.y;
+//                    xSum.add((current.x + next.x) * twiceTriangleArea);
+//                    ySum.add((current.y + next.y) * twiceTriangleArea);
+//                    current.setCoords(next);
+//                }
+//
+//                startCartesian.sub(originCartesian);
+//                startCartesian.scale(6.0 * polygon.calculateRingArea2D(ipath));
+//                //add weighted startPoint
+//                xSum.add(startPoint.x);
+//                ySum.add(startPoint.y);
+//            }
+//
+//            totalArea *= 6.0;
+//            Point2D res = new Point2D(xSum.getResult() / totalArea, ySum.getResult() / totalArea);
+//            res.add(origin);
+//            return res;
+//        }
+
+        private static Point3D toCartesian3D(Point2D point2D)
+        {
+            Point origin = new Point(point2D);
+            double[] cartesianPoint = toCartesian(origin.getY(), origin.getX());
+            return new Point3D(cartesianPoint[0], cartesianPoint[1], cartesianPoint[2]);
+        }
+
+    }
+
     private static void validateSphericalType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
     {
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
@@ -1393,6 +1610,11 @@ public final class GeoFunctions
 
         Polygon polygon = (Polygon) geometry.getEsriGeometry();
 
+        return sphericalArea(polygon);
+    }
+
+    private static Double sphericalArea(Polygon polygon)
+    {
         // See https://www.movable-type.co.uk/scripts/latlong.html
         // and http://osgeo-org.1560.x6.nabble.com/Area-of-a-spherical-polygon-td3841625.html
         // and https://www.element84.com/blog/determining-if-a-spherical-polygon-contains-a-pole
@@ -1425,6 +1647,11 @@ public final class GeoFunctions
         validateSphericalType("ST_Length", geometry, EnumSet.of(LINE_STRING, MULTI_LINE_STRING));
         MultiPath lineString = (MultiPath) geometry.getEsriGeometry();
 
+        return sphericalLength(lineString);
+    }
+
+    private static Double sphericalLength(MultiPath lineString)
+    {
         double sum = 0;
 
         // sum up paths on (multi)linestring

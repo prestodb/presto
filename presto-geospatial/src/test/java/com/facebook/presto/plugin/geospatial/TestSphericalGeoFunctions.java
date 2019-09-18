@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.esri.core.geometry.Point;
+import com.esri.core.geometry.ogc.OGCPoint;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -250,5 +252,46 @@ public class TestSphericalGeoFunctions
         else {
             assertFunction(format("ROUND(ABS((%s / %f) - 1.0) / %f, 0)", function, expectedLength, 1e-4), DOUBLE, 0.0);
         }
+    }
+
+    @Test
+    public void testCentroid()
+    {
+        Point centroid = new Point(0, 0);
+
+        // Empty linestring returns null
+        assertCentroid("LINESTRING EMPTY", null);
+
+        // Linestring with one point has length centroid to same point
+        assertCentroid("LINESTRING (0 0)", centroid);
+
+        // Linestring with only one distinct point centroid to same point
+        assertCentroid("LINESTRING (0 0, 0 0, 0 0)", centroid);
+
+        centroid = new Point(0, 0);
+
+        // ST_Length is equivalent to sums of ST_DISTANCE between points in the LineString
+        assertCentroid("LINESTRING (-71.05 42.36, -87.62 41.87, -122.41 37.77)", centroid);
+
+        // Linestring has same length as its reverse
+        assertCentroid("LINESTRING (-122.41 37.77, -87.62 41.87, -71.05 42.36)", centroid);
+
+        // special case, cannot determine the centroid in perfect equilibrium
+        assertCentroid("LINESTRING (0.0 90.0, 0.0 -90.0, 0.0 90.0)", null);
+
+        // Empty multi-linestring returns null
+        assertCentroid("MULTILINESTRING (EMPTY)", null);
+
+        // Multi-linestring with one path is equivalent to a single linestring
+        assertCentroid("MULTILINESTRING ((-71.05 42.36, -87.62 41.87, -122.41 37.77))", centroid);
+    }
+
+    private void assertCentroid(String lineString, Point expectedCentroid)
+    {
+        assertFunction(
+                format("ST_AsText(ST_Centroid(to_spherical_geography(ST_GeometryFromText('%s'))))", lineString),
+                VARCHAR,
+                expectedCentroid == null ? "POINT EMPTY" : new OGCPoint(expectedCentroid, null).asText()
+        );
     }
 }
