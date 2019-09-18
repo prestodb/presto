@@ -133,6 +133,7 @@ public final class SystemSessionProperties
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
     public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
     public static final String OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE = "optimize_full_outer_join_with_coalesce";
+    public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -648,7 +649,16 @@ public final class SystemSessionProperties
                         OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE,
                         "optimize partition properties for queries using COALESCE + FULL OUTER JOIN",
                         featuresConfig.isOptimizeFullOuterJoinWithCoalesce(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        INDEX_LOADER_TIMEOUT,
+                        "Timeout for loading indexes for index joins",
+                        VARCHAR,
+                        Duration.class,
+                        featuresConfig.getIndexLoaderTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1107,5 +1117,10 @@ public final class SystemSessionProperties
     public static boolean isOptimizeFullOuterJoinWithCoalesce(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE, Boolean.class);
+    }
+
+    public static Duration getIndexLoaderTimeout(Session session)
+    {
+        return session.getSystemProperty(INDEX_LOADER_TIMEOUT, Duration.class);
     }
 }
