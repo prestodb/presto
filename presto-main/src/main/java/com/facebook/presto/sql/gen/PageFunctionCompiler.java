@@ -53,8 +53,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -64,7 +62,6 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -88,7 +85,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
@@ -234,7 +231,7 @@ public class PageFunctionCompiler
         method.getBody().append(method.getThis().getField(resultField)).ret(Object.class);
 
         // evaluate
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projection, metadata.getFunctionManager());
         generateEvaluateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projection, blockBuilderField);
 
         // constructor
@@ -407,7 +404,7 @@ public class PageFunctionCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata.getFunctionManager());
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter);
 
         FieldDefinition selectedPositions = classDefinition.declareField(a(PRIVATE), "selectedPositions", boolean[].class);
@@ -530,32 +527,6 @@ public class PageFunctionCompiler
                 .putVariable(result)
                 .append(and(not(wasNullVariable), result).ret());
         return method;
-    }
-
-    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            RowExpression expression)
-    {
-        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
-        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
-
-        int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
-            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                    lambdaExpression,
-                    "lambda_" + counter,
-                    containerClassDefinition,
-                    compiledLambdaMap.build(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    metadata.getFunctionManager());
-            compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            counter++;
-        }
-
-        return compiledLambdaMap.build();
     }
 
     private static void generateConstructor(

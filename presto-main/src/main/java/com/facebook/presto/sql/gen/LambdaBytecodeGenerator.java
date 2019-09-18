@@ -86,6 +86,17 @@ public class LambdaBytecodeGenerator
             RowExpression expression,
             FunctionManager functionManager)
     {
+        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, expression, functionManager, "");
+    }
+
+    public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
+            ClassDefinition containerClassDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            RowExpression expression,
+            FunctionManager functionManager,
+            String methodNamePrefix)
+    {
         Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
@@ -93,7 +104,7 @@ public class LambdaBytecodeGenerator
         for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
             CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
                     lambdaExpression,
-                    "lambda_" + counter,
+                    methodNamePrefix + "lambda_" + counter,
                     containerClassDefinition,
                     compiledLambdaMap.build(),
                     callSiteBinder,

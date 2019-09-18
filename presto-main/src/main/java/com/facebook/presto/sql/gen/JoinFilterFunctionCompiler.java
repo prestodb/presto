@@ -38,8 +38,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -51,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -62,7 +59,7 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -133,7 +130,7 @@ public class JoinFilterFunctionCompiler
 
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata.getFunctionManager());
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, sessionField);
 
         generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
@@ -208,33 +205,6 @@ public class JoinFilterFunctionCompiler
                         .condition(wasNullVariable)
                         .ifTrue(constantFalse().ret())
                         .ifFalse(result.ret()));
-    }
-
-    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            int leftBlocksSize,
-            RowExpression filter)
-    {
-        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(filter));
-        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
-
-        int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
-            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                    lambdaExpression,
-                    "lambda_" + counter,
-                    containerClassDefinition,
-                    compiledLambdaMap.build(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    metadata.getFunctionManager());
-            compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            counter++;
-        }
-
-        return compiledLambdaMap.build();
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)

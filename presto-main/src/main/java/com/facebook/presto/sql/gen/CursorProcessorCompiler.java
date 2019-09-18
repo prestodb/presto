@@ -40,15 +40,12 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
@@ -58,7 +55,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.or;
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
-import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static java.lang.String.format;
 
 public class CursorProcessorCompiler
@@ -78,12 +75,12 @@ public class CursorProcessorCompiler
 
         generateProcessMethod(classDefinition, projections.size());
 
-        Map<LambdaDefinitionExpression, CompiledLambda> filterCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
+        Map<LambdaDefinitionExpression, CompiledLambda> filterCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata.getFunctionManager(), "filter");
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filterCompiledLambdaMap, filter);
 
         for (int i = 0; i < projections.size(); i++) {
             String methodName = "project_" + i;
-            Map<LambdaDefinitionExpression, CompiledLambda> projectCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projections.get(i), methodName);
+            Map<LambdaDefinitionExpression, CompiledLambda> projectCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projections.get(i), metadata.getFunctionManager(), methodName);
             generateProjectMethod(classDefinition, callSiteBinder, cachedInstanceBinder, projectCompiledLambdaMap, methodName, projections.get(i));
         }
 
@@ -189,35 +186,6 @@ public class CursorProcessorCompiler
                             type(BlockBuilder.class));
         }
         return ifStatement;
-    }
-
-    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            RowExpression projection,
-            String methodPrefix)
-    {
-        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(projection));
-
-        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
-
-        int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
-            String methodName = methodPrefix + "_lambda_" + counter;
-            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                    lambdaExpression,
-                    methodName,
-                    containerClassDefinition,
-                    compiledLambdaMap.build(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    metadata.getFunctionManager());
-            compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            counter++;
-        }
-
-        return compiledLambdaMap.build();
     }
 
     private void generateFilterMethod(

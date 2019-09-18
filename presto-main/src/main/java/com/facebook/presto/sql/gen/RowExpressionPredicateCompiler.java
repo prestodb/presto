@@ -38,15 +38,12 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Supplier;
 
@@ -62,7 +59,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static com.facebook.presto.util.CompilerUtils.defineClass;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
@@ -164,7 +161,7 @@ public class RowExpressionPredicateCompiler
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression predicate)
     {
-        Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, predicate);
+        Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, predicate, functionManager);
 
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
@@ -201,32 +198,6 @@ public class RowExpressionPredicateCompiler
                 .putVariable(result)
                 .append(and(not(wasNullVariable), result).ret());
         return method;
-    }
-
-    private Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> generateMethodsForLambda(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            RowExpression expression)
-    {
-        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
-        ImmutableMap.Builder<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
-
-        int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
-            LambdaBytecodeGenerator.CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                    lambdaExpression,
-                    "lambda_" + counter,
-                    containerClassDefinition,
-                    compiledLambdaMap.build(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    functionManager);
-            compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            counter++;
-        }
-
-        return compiledLambdaMap.build();
     }
 
     private static void declareBlockVariables(RowExpression expression, Parameter page, Scope scope, BytecodeBlock body)
