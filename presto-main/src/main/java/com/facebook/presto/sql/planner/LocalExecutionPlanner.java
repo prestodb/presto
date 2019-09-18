@@ -218,6 +218,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
+import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
@@ -1539,7 +1540,8 @@ public class LocalExecutionPlanner
                     indexJoinLookupStats,
                     SystemSessionProperties.isShareIndexLoading(session),
                     pagesIndexFactory,
-                    joinCompiler);
+                    joinCompiler,
+                    getIndexLoaderTimeout(session));
 
             verify(probeSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION);
             verify(indexSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION);

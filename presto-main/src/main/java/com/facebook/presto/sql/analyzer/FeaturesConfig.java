@@ -43,6 +43,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "resource-group-manager",
@@ -138,6 +139,8 @@ public class FeaturesConfig
     private boolean pushdownSubfieldsEnabled;
 
     private boolean tableWriterMergeOperatorEnabled = true;
+
+    private Duration indexLoaderTimeout = new Duration(20, SECONDS);
 
     public enum JoinReorderingStrategy
     {
@@ -1070,5 +1073,18 @@ public class FeaturesConfig
     public Boolean isOptimizeFullOuterJoinWithCoalesce()
     {
         return this.optimizeFullOuterJoinWithCoalesce;
+    }
+
+    @Config("index-loader-timeout")
+    @ConfigDescription("Time limit for loading indexes for index joins")
+    public FeaturesConfig setIndexLoaderTimeout(Duration indexLoaderTimeout)
+    {
+        this.indexLoaderTimeout = indexLoaderTimeout;
+        return this;
+    }
+
+    public Duration getIndexLoaderTimeout()
+    {
+        return this.indexLoaderTimeout;
     }
 }
