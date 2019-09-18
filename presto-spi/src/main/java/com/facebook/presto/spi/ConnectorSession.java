@@ -38,6 +38,8 @@ public interface ConnectorSession
 
     Optional<String> getTraceToken();
 
+    Optional<String> getClientInfo();
+
     long getStartTime();
 
     @Deprecated

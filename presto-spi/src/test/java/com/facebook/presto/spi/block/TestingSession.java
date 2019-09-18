@@ -54,6 +54,12 @@ public final class TestingSession
         }
 
         @Override
+        public Optional<String> getClientInfo()
+        {
+            return Optional.of("TestClientInfo");
+        }
+
+        @Override
         public Locale getLocale()
         {
             return ENGLISH;

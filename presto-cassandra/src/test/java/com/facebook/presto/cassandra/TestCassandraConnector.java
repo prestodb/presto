@@ -85,7 +85,8 @@ public class TestCassandraConnector
             System.currentTimeMillis(),
             new CassandraSessionProperties(new CassandraClientConfig()).getSessionProperties(),
             ImmutableMap.of(),
-            true);
+            true,
+            Optional.empty());
     protected String database;
     protected SchemaTableName table;
     protected SchemaTableName tableUnpartitioned;
