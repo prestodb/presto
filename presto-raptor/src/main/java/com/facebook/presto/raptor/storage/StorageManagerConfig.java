@@ -70,6 +70,7 @@ public class StorageManagerConfig
     private DataSize maxBufferSize = new DataSize(256, MEGABYTE);
     private int oneSplitPerBucketThreshold;
     private String shardDayBoundaryTimeZone = TimeZoneKey.UTC_KEY.getId();
+    private int maxAllowedFilesPerWriter = Integer.MAX_VALUE;
 
     @NotNull
     public File getDataDirectory()
@@ -365,6 +366,20 @@ public class StorageManagerConfig
     public StorageManagerConfig setMaxBufferSize(DataSize maxBufferSize)
     {
         this.maxBufferSize = maxBufferSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxAllowedFilesPerWriter()
+    {
+        return maxAllowedFilesPerWriter;
+    }
+
+    @Config("storage.max-allowed-files-per-writer")
+    @ConfigDescription("Maximum number of files that can be created per writer for a query. Default value is Integer.MAX_VALUE")
+    public StorageManagerConfig setMaxAllowedFilesPerWriter(int maxAllowedFilesPerWriter)
+    {
+        this.maxAllowedFilesPerWriter = maxAllowedFilesPerWriter;
         return this;
     }
 

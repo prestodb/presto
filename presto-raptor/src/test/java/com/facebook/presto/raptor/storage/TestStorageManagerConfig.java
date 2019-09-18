@@ -73,7 +73,8 @@ public class TestStorageManagerConfig
                 .setMaxShardSize(new DataSize(256, MEGABYTE))
                 .setMaxBufferSize(new DataSize(256, MEGABYTE))
                 .setOneSplitPerBucketThreshold(0)
-                .setShardDayBoundaryTimeZone(TimeZoneKey.UTC_KEY.getId()));
+                .setShardDayBoundaryTimeZone(TimeZoneKey.UTC_KEY.getId())
+                .setMaxAllowedFilesPerWriter(Integer.MAX_VALUE));
     }
 
     @Test
@@ -105,6 +106,7 @@ public class TestStorageManagerConfig
                 .put("storage.max-buffer-size", "512MB")
                 .put("storage.one-split-per-bucket-threshold", "4")
                 .put("storage.shard-day-boundary-time-zone", "PST")
+                .put("storage.max-allowed-files-per-writer", "50")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
@@ -132,7 +134,8 @@ public class TestStorageManagerConfig
                 .setMaxShardSize(new DataSize(10, MEGABYTE))
                 .setMaxBufferSize(new DataSize(512, MEGABYTE))
                 .setOneSplitPerBucketThreshold(4)
-                .setShardDayBoundaryTimeZone("PST");
+                .setShardDayBoundaryTimeZone("PST")
+                .setMaxAllowedFilesPerWriter(50);
 
         assertFullMapping(properties, expected);
     }
