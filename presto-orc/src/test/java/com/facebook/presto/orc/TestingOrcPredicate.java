@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.OrcTester.Format;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
@@ -33,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
@@ -84,7 +86,7 @@ public final class TestingOrcPredicate
             return new BooleanOrcPredicate(columnIndex, expectedValues, format == DWRF);
         }
         if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
-            return new LongOrcPredicate(
+            return new LongOrcPredicate(true,
                     columnIndex,
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((Number) value).longValue())
@@ -92,7 +94,7 @@ public final class TestingOrcPredicate
                     format == DWRF);
         }
         if (TIMESTAMP.equals(type)) {
-            return new LongOrcPredicate(
+            return new LongOrcPredicate(false,
                     columnIndex,
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
@@ -292,6 +294,14 @@ public final class TestingOrcPredicate
                 return false;
             }
 
+            HiveBloomFilter bloomFilter = columnStatistics.getBloomFilter();
+            if (bloomFilter != null) {
+                for (Double value : chunk) {
+                    if (value != null && !bloomFilter.testDouble(value)) {
+                        return false;
+                    }
+                }
+            }
             // statistics can be missing for any reason
             if (columnStatistics.getDoubleStatistics() != null) {
                 if (chunk.stream().allMatch(Objects::isNull)) {
@@ -327,9 +337,12 @@ public final class TestingOrcPredicate
     public static class LongOrcPredicate
             extends BasicOrcPredicate<Long>
     {
-        public LongOrcPredicate(int columnIndex, Iterable<?> expectedValues, boolean noFileStats)
+        private final boolean testBloomFilter;
+
+        public LongOrcPredicate(boolean testBloomFilter, int columnIndex, Iterable<?> expectedValues, boolean noFileStats)
         {
             super(columnIndex, expectedValues, Long.class, noFileStats);
+            this.testBloomFilter = testBloomFilter;
         }
 
         @Override
@@ -370,6 +383,14 @@ public final class TestingOrcPredicate
                 if (columnStatistics.getIntegerStatistics().getSum() != sum) {
                     return false;
                 }
+                HiveBloomFilter bloomFilter = columnStatistics.getBloomFilter();
+                if (testBloomFilter && bloomFilter != null) {
+                    for (Long value : chunk) {
+                        if (value != null && !bloomFilter.testLong(value)) {
+                            return false;
+                        }
+                    }
+                }
             }
 
             return true;
@@ -407,6 +428,25 @@ public final class TestingOrcPredicate
                     .map(Slices::utf8Slice)
                     .collect(toList());
 
+            HiveBloomFilter bloomFilter = columnStatistics.getBloomFilter();
+            if (bloomFilter != null) {
+                for (Slice slice : slices) {
+                    if (!bloomFilter.test(slice.getBytes())) {
+                        return false;
+                    }
+                }
+                int falsePositive = 0;
+                byte[] testBuffer = new byte[32];
+                for (int i = 0; i < 100_000; i++) {
+                    ThreadLocalRandom.current().nextBytes(testBuffer);
+                    if (bloomFilter.test(testBuffer)) {
+                        falsePositive++;
+                    }
+                }
+                if (falsePositive != 0 && 1.0 * falsePositive / 100_000 > 0.55) {
+                    return false;
+                }
+            }
             // statistics can be missing for any reason
             if (columnStatistics.getStringStatistics() != null) {
                 if (slices.isEmpty()) {

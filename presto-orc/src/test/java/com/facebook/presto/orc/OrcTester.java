@@ -1583,6 +1583,9 @@ public class OrcTester
         Properties orderTableProperties = new Properties();
         orderTableProperties.setProperty("columns", String.join(", ", makeColumnNames(types.size())));
         orderTableProperties.setProperty("columns.types", columnTypes);
+        orderTableProperties.setProperty("orc.bloom.filter.columns", String.join(", ", makeColumnNames(types.size())));
+        orderTableProperties.setProperty("orc.bloom.filter.fpp", "0.50");
+        orderTableProperties.setProperty("orc.bloom.filter.write.version", "original");
         return orderTableProperties;
     }
 
