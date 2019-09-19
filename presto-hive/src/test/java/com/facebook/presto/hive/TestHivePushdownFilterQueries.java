@@ -515,6 +515,34 @@ public class TestHivePushdownFilterQueries
         assertQuerySucceeds(session, "SELECT linenumber, \"$path\" FROM lineitem WHERE length(\"$path\") % 2 = linenumber % 2");
     }
 
+    @Test
+    public void testSchemaEvolution()
+    {
+        assertUpdate("CREATE TABLE test_schema_evolution WITH (partitioned_by = ARRAY['regionkey']) AS SELECT nationkey, regionkey FROM nation", 25);
+        assertUpdate("ALTER TABLE test_schema_evolution ADD COLUMN nation_plus_region BIGINT");
+        assertUpdate("INSERT INTO test_schema_evolution SELECT nationkey, nationkey + regionkey, regionkey FROM nation", 25);
+        assertUpdate("ALTER TABLE test_schema_evolution ADD COLUMN nation_minus_region BIGINT");
+        assertUpdate("INSERT INTO test_schema_evolution SELECT nationkey, nationkey + regionkey, nationkey - regionkey, regionkey FROM nation", 25);
+
+        String cte = "WITH test_schema_evolution AS (" +
+                "SELECT nationkey, null AS nation_plus_region, null AS nation_minus_region, regionkey FROM nation " +
+                "UNION ALL SELECT nationkey, nationkey + regionkey, null, regionkey FROM nation " +
+                "UNION ALL SELECT nationkey, nationkey + regionkey, nationkey - regionkey, regionkey FROM nation)";
+
+        assertQueryUsingH2Cte("SELECT * FROM test_schema_evolution", cte);
+        assertQueryUsingH2Cte("SELECT * FROM test_schema_evolution WHERE nation_plus_region IS NULL", cte);
+        assertQueryUsingH2Cte("SELECT * FROM test_schema_evolution WHERE nation_plus_region > 10", cte);
+        assertQueryUsingH2Cte("SELECT * FROM test_schema_evolution WHERE nation_plus_region + 1 > 10", cte);
+        assertQueryUsingH2Cte("SELECT * FROM test_schema_evolution WHERE nation_plus_region + nation_minus_region > 20", cte);
+        assertQueryUsingH2Cte("select * from test_schema_evolution where nation_plus_region = regionkey", cte);
+        assertUpdate("DROP TABLE test_schema_evolution");
+    }
+
+    private void assertQueryUsingH2Cte(String query, String cte)
+    {
+        assertQuery(query, cte + " " + query);
+    }
+
     private void assertQueryUsingH2Cte(String query)
     {
         assertQueryUsingH2Cte(query, Function.identity());
