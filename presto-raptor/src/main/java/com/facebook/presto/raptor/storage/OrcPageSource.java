@@ -72,6 +72,7 @@ public class OrcPageSource
     private final AggregatedMemoryContext systemMemoryContext;
 
     private int batchId;
+    private long completedPositions;
     private boolean closed;
 
     public OrcPageSource(
@@ -131,6 +132,12 @@ public class OrcPageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return orcDataSource.getReadTimeNanos();
@@ -152,6 +159,9 @@ public class OrcPageSource
                 close();
                 return null;
             }
+
+            completedPositions += batchSize;
+
             long filePosition = recordReader.getFilePosition();
 
             Block[] blocks = new Block[columnIndexes.length];

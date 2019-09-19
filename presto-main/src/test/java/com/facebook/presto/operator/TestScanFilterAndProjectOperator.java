@@ -436,6 +436,12 @@ public class TestScanFilterAndProjectOperator
         }
 
         @Override
+        public long getCompletedPositions()
+        {
+            return 0;
+        }
+
+        @Override
         public long getReadTimeNanos()
         {
             return 0;

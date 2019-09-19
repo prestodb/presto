@@ -135,6 +135,12 @@ public class HivePageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return delegate.getCompletedPositions();
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return delegate.getReadTimeNanos();

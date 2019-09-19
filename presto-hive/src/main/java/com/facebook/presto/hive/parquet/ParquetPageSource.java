@@ -63,6 +63,7 @@ public class ParquetPageSource
     private final int[] hiveColumnIndexes;
 
     private int batchId;
+    private long completedPositions;
     private boolean closed;
     private final boolean useParquetColumnNames;
 
@@ -122,6 +123,12 @@ public class ParquetPageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return parquetReader.getDataSource().getReadTimeNanos();
@@ -150,6 +157,8 @@ public class ParquetPageSource
                 close();
                 return null;
             }
+
+            completedPositions += batchSize;
 
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {

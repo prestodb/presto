@@ -43,6 +43,12 @@ public class MappedPageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return delegate.getCompletedPositions();
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return delegate.getReadTimeNanos();

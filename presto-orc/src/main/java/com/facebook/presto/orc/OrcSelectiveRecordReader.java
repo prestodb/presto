@@ -74,6 +74,8 @@ public class OrcSelectiveRecordReader
     private int[] outputPositions;
     private RuntimeException[] errors;
 
+    private int readPositions;
+
     public OrcSelectiveRecordReader(
             Map<Integer, Type> includedColumns,                 // key: hiveColumnIndex
             List<Integer> outputColumns,                        // elements are hive column indices
@@ -235,6 +237,11 @@ public class OrcSelectiveRecordReader
         return streamReaders;
     }
 
+    public int getReadPositions()
+    {
+        return readPositions;
+    }
+
     public Page getNextPage()
             throws IOException
     {
@@ -242,6 +249,8 @@ public class OrcSelectiveRecordReader
         if (batchSize < 0) {
             return null;
         }
+
+        readPositions += batchSize;
 
         initializePositions(batchSize);
 

@@ -56,6 +56,7 @@ public class OrcBatchPageSource
     private final int[] hiveColumnIndexes;
 
     private int batchId;
+    private long completedPositions;
     private boolean closed;
 
     private final AggregatedMemoryContext systemMemoryContext;
@@ -111,6 +112,12 @@ public class OrcBatchPageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return orcDataSource.getReadTimeNanos();
@@ -132,6 +139,8 @@ public class OrcBatchPageSource
                 close();
                 return null;
             }
+
+            completedPositions += batchSize;
 
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
