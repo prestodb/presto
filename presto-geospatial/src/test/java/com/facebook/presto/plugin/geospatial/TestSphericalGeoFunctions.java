@@ -268,7 +268,7 @@ public class TestSphericalGeoFunctions
         // Linestring with only one distinct point centroid to same point
         assertCentroid("LINESTRING (0 0, 0 0, 0 0)", centroid);
 
-        centroid = new Point(0, 0);
+        centroid = new Point(0, 0); // TODO: fix values here
 
         // ST_Length is equivalent to sums of ST_DISTANCE between points in the LineString
         assertCentroid("LINESTRING (-71.05 42.36, -87.62 41.87, -122.41 37.77)", centroid);
@@ -288,10 +288,6 @@ public class TestSphericalGeoFunctions
 
     private void assertCentroid(String lineString, Point expectedCentroid)
     {
-        assertFunction(
-                format("ST_AsText(ST_Centroid(to_spherical_geography(ST_GeometryFromText('%s'))))", lineString),
-                VARCHAR,
-                expectedCentroid == null ? "POINT EMPTY" : new OGCPoint(expectedCentroid, null).asText()
-        );
+        assertFunction(format("ST_AsText(ST_Centroid(to_spherical_geography(ST_GeometryFromText('%s'))))", lineString), VARCHAR, expectedCentroid == null ? "POINT EMPTY" : new OGCPoint(expectedCentroid, null).asText());
     }
 }
