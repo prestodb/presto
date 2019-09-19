@@ -77,6 +77,7 @@ public class ThriftIndexPageSource
 
     private final AtomicLong readTimeNanos = new AtomicLong(0);
     private long completedBytes;
+    private long completedPositions;
 
     private CompletableFuture<?> statusFuture;
     private ListenableFuture<PrestoThriftSplitBatch> splitFuture;
@@ -144,6 +145,12 @@ public class ThriftIndexPageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return readTimeNanos.get();
@@ -206,6 +213,7 @@ public class ThriftIndexPageSource
         if (page != null) {
             long pageSize = page.getSizeInBytes();
             completedBytes += pageSize;
+            completedPositions += page.getPositionCount();
             stats.addIndexPageSize(pageSize);
         }
         else {

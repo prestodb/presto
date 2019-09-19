@@ -34,6 +34,7 @@ class BlackHolePageSource
     private final ListeningScheduledExecutorService executorService;
     private final long pageProcessingDelayInMillis;
     private long completedBytes;
+    private long completedPositions;
     private final long memoryUsageBytes;
     private boolean closed;
     private CompletableFuture<Page> currentPage;
@@ -63,6 +64,7 @@ class BlackHolePageSource
 
         pagesLeft--;
         completedBytes += page.getSizeInBytes();
+        completedPositions += page.getPositionCount();
 
         if (pageProcessingDelayInMillis == 0) {
             return page;
@@ -98,6 +100,12 @@ class BlackHolePageSource
     public long getCompletedBytes()
     {
         return completedBytes;
+    }
+
+    @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
     }
 
     @Override

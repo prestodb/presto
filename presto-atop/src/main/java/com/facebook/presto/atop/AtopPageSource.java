@@ -84,6 +84,12 @@ public class AtopPageSource
     }
 
     @Override
+    public long getCompletedPositions()
+    {
+        return 0;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return 0;

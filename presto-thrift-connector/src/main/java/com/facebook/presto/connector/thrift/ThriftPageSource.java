@@ -56,6 +56,7 @@ public class ThriftPageSource
     private CompletableFuture<PrestoThriftPageResult> future;
     private final ThriftConnectorStats stats;
     private long completedBytes;
+    private long completedPositions;
 
     public ThriftPageSource(
             DriftClient<PrestoThriftService> client,
@@ -104,6 +105,12 @@ public class ThriftPageSource
     public long getCompletedBytes()
     {
         return completedBytes;
+    }
+
+    @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
     }
 
     @Override
@@ -181,6 +188,7 @@ public class ThriftPageSource
         if (page != null) {
             long pageSize = page.getSizeInBytes();
             completedBytes += pageSize;
+            completedPositions += page.getPositionCount();
             stats.addScanPageSize(pageSize);
         }
         else {
