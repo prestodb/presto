@@ -653,7 +653,8 @@ public class PlanPrinter
             else {
                 nodeOutput = addNode(node, "TableScan", format("[%s]", table));
             }
-            printTableScanInfo(nodeOutput, node);
+            PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
+            printTableScanInfo(nodeOutput, node, nodeStats);
             return null;
         }
 
@@ -756,14 +757,8 @@ public class PlanPrinter
             }
 
             if (scanNode.isPresent()) {
-                printTableScanInfo(nodeOutput, scanNode.get());
                 PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
-                if (nodeStats != null) {
-                    // Add to 'details' rather than 'statistics', since these stats are node-specific
-                    nodeOutput.appendDetails("Input: %s (%s)", formatPositions(nodeStats.getPlanNodeInputPositions()), nodeStats.getPlanNodeInputDataSize().toString());
-                    double filtered = 100.0d * (nodeStats.getPlanNodeInputPositions() - nodeStats.getPlanNodeOutputPositions()) / nodeStats.getPlanNodeInputPositions();
-                    nodeOutput.appendDetailsLine(", Filtered: %s%%", formatDouble(filtered));
-                }
+                printTableScanInfo(nodeOutput, scanNode.get(), nodeStats);
                 return null;
             }
 
@@ -771,7 +766,7 @@ public class PlanPrinter
             return null;
         }
 
-        private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node)
+        private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node, PlanNodeStats nodeStats)
         {
             TableHandle table = node.getTable();
 
@@ -807,6 +802,21 @@ public class PlanPrinter
                                 nodeOutput.appendDetailsLine("%s", column);
                                 printConstraint(nodeOutput, column, predicate);
                             });
+                }
+            }
+
+            if (nodeStats != null) {
+                // Add to 'details' rather than 'statistics', since these stats are node-specific
+                long inputPositions = nodeStats.getPlanNodeInputPositions();
+                nodeOutput.appendDetails("Input: %s (%s)", formatPositions(inputPositions), nodeStats.getPlanNodeInputDataSize().toString());
+                double filtered = 100.0d * (inputPositions - nodeStats.getPlanNodeOutputPositions()) / inputPositions;
+                nodeOutput.appendDetailsLine(", Filtered: %s%%", formatDouble(filtered));
+
+                long rawInputPositions = nodeStats.getPlanNodeRawInputPositions();
+                if (rawInputPositions != inputPositions) {
+                    nodeOutput.appendDetails("Raw input: %s (%s)", formatPositions(rawInputPositions), nodeStats.getPlanNodeRawInputDataSize().toString());
+                    double rawFiltered = 100.0d * (rawInputPositions - inputPositions) / rawInputPositions;
+                    nodeOutput.appendDetailsLine(", Filtered: %s%%", formatDouble(rawFiltered));
                 }
             }
         }
