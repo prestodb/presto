@@ -107,6 +107,7 @@ public class TableScanOperator
     private boolean finished;
 
     private long completedBytes;
+    private long completedPositions;
     private long readTimeNanos;
 
     public TableScanOperator(
@@ -254,10 +255,12 @@ public class TableScanOperator
 
             // update operator stats
             long endCompletedBytes = source.getCompletedBytes();
+            long endCompletedPositions = source.getCompletedPositions();
             long endReadTimeNanos = source.getReadTimeNanos();
-            operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, endReadTimeNanos - readTimeNanos);
+            operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, endCompletedPositions - completedPositions, endReadTimeNanos - readTimeNanos);
             operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
             completedBytes = endCompletedBytes;
+            completedPositions = endCompletedPositions;
             readTimeNanos = endReadTimeNanos;
         }
 

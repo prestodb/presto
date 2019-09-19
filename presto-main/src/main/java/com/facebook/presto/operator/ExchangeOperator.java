@@ -179,7 +179,7 @@ public class ExchangeOperator
             return null;
         }
 
-        operatorContext.recordRawInput(page.getSizeInBytes());
+        operatorContext.recordRawInput(page.getSizeInBytes(), page.getPositionCount());
 
         Page deserializedPage = serde.deserialize(page);
         operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), page.getPositionCount());

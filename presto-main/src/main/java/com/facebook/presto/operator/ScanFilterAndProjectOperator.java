@@ -78,6 +78,7 @@ public class ScanFilterAndProjectOperator
     private boolean finishing;
 
     private long completedBytes;
+    private long completedPositions;
     private long readTimeNanos;
 
     protected ScanFilterAndProjectOperator(
@@ -248,7 +249,7 @@ public class ScanFilterAndProjectOperator
 
             long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
             long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
-            operatorContext.recordRawInputWithTiming(bytesProcessed, elapsedNanos);
+            operatorContext.recordRawInputWithTiming(bytesProcessed, output.getProcessedRows(), elapsedNanos);
             // TODO: derive better values for cursors
             operatorContext.recordProcessedInput(bytesProcessed, output.getProcessedRows());
             completedBytes = cursor.getCompletedBytes();
@@ -283,9 +284,11 @@ public class ScanFilterAndProjectOperator
 
                 // update operator stats
                 long endCompletedBytes = pageSource.getCompletedBytes();
+                long endCompletedPositions = pageSource.getCompletedPositions();
                 long endReadTimeNanos = pageSource.getReadTimeNanos();
-                operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, endReadTimeNanos - readTimeNanos);
+                operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, endCompletedPositions - completedPositions, endReadTimeNanos - readTimeNanos);
                 completedBytes = endCompletedBytes;
+                completedPositions = endCompletedPositions;
                 readTimeNanos = endReadTimeNanos;
 
                 Iterator<Optional<Page>> output = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, pageProcessorMemoryContext, page);
