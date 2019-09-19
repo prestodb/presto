@@ -296,7 +296,7 @@ public class TestSelectiveOrcReader
 
         // non-null arrays of varying sizes; some arrays may be empty
         tester.testRoundTrip(arrayType(INTEGER),
-                IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList()),
+                IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> randomIntegers(size, random)).collect(toImmutableList()),
                 IS_NULL, IS_NOT_NULL);
 
         BigintRange negative = BigintRange.of(Integer.MIN_VALUE, 0, false);
@@ -304,7 +304,7 @@ public class TestSelectiveOrcReader
 
         // non-empty non-null arrays of varying sizes
         tester.testRoundTrip(arrayType(INTEGER),
-                IntStream.range(0, 30_000).map(i -> 5 + random.nextInt(5)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList()),
+                IntStream.range(0, 30_000).map(i -> 5 + random.nextInt(5)).mapToObj(size -> randomIntegers(size, random)).collect(toImmutableList()),
                 ImmutableList.of(
                         toSubfieldFilter(IS_NULL),
                         toSubfieldFilter(IS_NOT_NULL),
@@ -318,8 +318,8 @@ public class TestSelectiveOrcReader
         // non-null arrays of varying sizes; some arrays may be empty
         tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(INTEGER)),
                 ImmutableList.of(
-                        makeArray(30_000, random),
-                        IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList())),
+                        randomIntegers(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> randomIntegers(size, random)).collect(toImmutableList())),
                 toSubfieldFilters(
                         ImmutableMap.of(0, nonNegative),
                         ImmutableMap.of(
@@ -332,8 +332,8 @@ public class TestSelectiveOrcReader
         // non-empty non-null arrays of varying sizes
         tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(INTEGER)),
                 ImmutableList.of(
-                        makeArray(30_000, random),
-                        IntStream.range(0, 30_000).map(i -> 5 + random.nextInt(5)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList())),
+                        randomIntegers(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> 5 + random.nextInt(5)).mapToObj(size -> randomIntegers(size, random)).collect(toImmutableList())),
                 ImmutableList.of(
                         // c[1] >= 0
                         ImmutableMap.of(
@@ -353,8 +353,8 @@ public class TestSelectiveOrcReader
         // nested arrays
         tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(arrayType(INTEGER))),
                 ImmutableList.of(
-                        makeArray(30_000, random),
-                        IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> IntStream.range(0, size).map(i -> random.nextInt(5)).mapToObj(nestedSize -> makeArray(nestedSize, random)).collect(toImmutableList())).collect(toImmutableList())),
+                        randomIntegers(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> IntStream.range(0, size).map(i -> random.nextInt(5)).mapToObj(nestedSize -> randomIntegers(nestedSize, random)).collect(toImmutableList())).collect(toImmutableList())),
                 toSubfieldFilters(
                         ImmutableMap.of(0, nonNegative),
                         ImmutableMap.of(1, IS_NULL),
@@ -365,8 +365,8 @@ public class TestSelectiveOrcReader
 
         tester.testRoundTripTypes(ImmutableList.of(INTEGER, arrayType(arrayType(INTEGER))),
                 ImmutableList.of(
-                        makeArray(30_000, random),
-                        IntStream.range(0, 30_000).map(i -> 3 + random.nextInt(10)).mapToObj(size -> IntStream.range(0, size).map(i -> 3 + random.nextInt(5)).mapToObj(nestedSize -> makeArray(nestedSize, random)).collect(toImmutableList())).collect(toImmutableList())),
+                        randomIntegers(30_000, random),
+                        IntStream.range(0, 30_000).map(i -> 3 + random.nextInt(10)).mapToObj(size -> IntStream.range(0, size).map(i -> 3 + random.nextInt(5)).mapToObj(nestedSize -> randomIntegers(nestedSize, random)).collect(toImmutableList())).collect(toImmutableList())),
                 ImmutableList.of(
                         // c[1] IS NULL
                         ImmutableMap.of(1, ImmutableMap.of(new Subfield("c[1]"), IS_NULL)),
@@ -388,7 +388,7 @@ public class TestSelectiveOrcReader
         // non-null arrays of varying sizes
         try {
             tester.testRoundTrip(arrayType(INTEGER),
-                    IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> makeArray(size, random)).collect(toImmutableList()),
+                    IntStream.range(0, 30_000).map(i -> random.nextInt(10)).mapToObj(size -> randomIntegers(size, random)).collect(toImmutableList()),
                     ImmutableList.of(ImmutableMap.of(new Subfield("c[2]"), IS_NULL)));
             fail("Expected 'Array subscript out of bounds' exception");
         }
@@ -399,7 +399,7 @@ public class TestSelectiveOrcReader
         // non-null nested arrays of varying sizes
         try {
             tester.testRoundTrip(arrayType(arrayType(INTEGER)),
-                    IntStream.range(0, 30_000).mapToObj(i -> ImmutableList.of(makeArray(random.nextInt(5), random), makeArray(random.nextInt(5), random))).collect(toImmutableList()),
+                    IntStream.range(0, 30_000).mapToObj(i -> ImmutableList.of(randomIntegers(random.nextInt(5), random), randomIntegers(random.nextInt(5), random))).collect(toImmutableList()),
                     ImmutableList.of(ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)));
             fail("Expected 'Array subscript out of bounds' exception");
         }
@@ -700,7 +700,7 @@ public class TestSelectiveOrcReader
                 .collect(toImmutableList());
     }
 
-    private static List<Integer> makeArray(int size, Random random)
+    private static List<Integer> randomIntegers(int size, Random random)
     {
         return IntStream.range(0, size).map(i -> random.nextInt()).boxed().collect(toImmutableList());
     }
