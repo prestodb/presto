@@ -474,6 +474,8 @@ public class TestSelectiveOrcReader
     {
         Random random = new Random(0);
 
+        tester.testRoundTrip(mapType(INTEGER, INTEGER), createList(NUM_ROWS, i -> createMap(i)));
+
         // map column with no nulls
         tester.testRoundTripTypes(
                 ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),
