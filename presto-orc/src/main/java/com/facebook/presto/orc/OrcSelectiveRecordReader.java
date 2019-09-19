@@ -54,6 +54,9 @@ import static java.util.Objects.requireNonNull;
 public class OrcSelectiveRecordReader
         extends AbstractOrcRecordReader<SelectiveStreamReader>
 {
+    // Marks a SQL null when occurring in constantValues.
+    private static final byte[] NULL_MARKER = new byte[0];
+
     private final int[] hiveColumnIndices;                            // elements are hive column indices
     private final List<Integer> outputColumns;                        // elements are hive column indices
     private final Map<Integer, Type> columnTypes;                     // key: index into hiveColumnIndices array
@@ -73,6 +76,7 @@ public class OrcSelectiveRecordReader
     // Used in applyFilterFunctions; mutable
     private int[] outputPositions;
     private RuntimeException[] errors;
+    private boolean constantFilterIsFalse;
 
     public OrcSelectiveRecordReader(
             Map<Integer, Type> includedColumns,                 // key: hiveColumnIndex
@@ -160,6 +164,20 @@ public class OrcSelectiveRecordReader
 
         requireNonNull(constantValues, "constantValues is null");
         this.constantValues = new Object[this.hiveColumnIndices.length];
+        for (int columnIndex : includedColumns.keySet()) {
+            if (!isColumnPresent(columnIndex)) {
+                // Any filter not true of null on a missing column
+                // fails the whole split. Filters on prefilled columns
+                // are already evaluated, hence we only check filters
+                // for missing columns here.
+                if (containsNonNullFilter(filters.get(columnIndex))) {
+                    constantFilterIsFalse = true;
+                    // No further initialization needed.
+                    return;
+                }
+                this.constantValues[zeroBasedIndices.get(columnIndex)] = NULL_MARKER;
+            }
+        }
         for (Map.Entry<Integer, Object> entry : constantValues.entrySet()) {
             this.constantValues[zeroBasedIndices.get(entry.getKey())] = entry.getValue();
         }
@@ -169,6 +187,11 @@ public class OrcSelectiveRecordReader
         //  - followed by readers for columns that provide input to filter functions
         //  - followed by readers for columns that doesn't have any filtering
         streamReaderOrder = orderStreamReaders(columnTypes.keySet().stream().filter(index -> this.constantValues[index] == null).collect(toImmutableSet()), columnsWithFilters, filterFunctionInputs);
+    }
+
+    private static boolean containsNonNullFilter(Map<Subfield, TupleDomainFilter> columnFilters)
+    {
+        return columnFilters != null && !columnFilters.values().stream().allMatch(TupleDomainFilter::testNull);
     }
 
     private static int[] orderStreamReaders(Collection<Integer> columnIndices, Set<Integer> columnsWithFilters, Set<Integer> filterFunctionInputs)
@@ -238,6 +261,9 @@ public class OrcSelectiveRecordReader
     public Page getNextPage()
             throws IOException
     {
+        if (constantFilterIsFalse) {
+            return null;
+        }
         int batchSize = prepareNextBatch();
         if (batchSize < 0) {
             return null;
@@ -289,7 +315,7 @@ public class OrcSelectiveRecordReader
         for (int i = 0; i < outputColumns.size(); i++) {
             int columnIndex = outputColumns.get(i);
             if (constantValues[columnIndex] != null) {
-                blocks[i] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex], batchSize);
+                blocks[i] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex] == NULL_MARKER ? null : constantValues[columnIndex], batchSize);
             }
             else {
                 Block block = getStreamReader(columnIndex).getBlock(positionsToRead, positionCount);
@@ -331,7 +357,7 @@ public class OrcSelectiveRecordReader
         Block[] blocks = new Block[hiveColumnIndices.length];
         for (int columnIndex : filterFunctionInputs) {
             if (constantValues[columnIndex] != null) {
-                blocks[columnIndex] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex], positionCount);
+                blocks[columnIndex] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex] == NULL_MARKER ? null : constantValues[columnIndex], positionCount);
             }
             else {
                 blockLeases[columnIndex] = getStreamReader(columnIndex).getBlockView(positions, positionCount);
