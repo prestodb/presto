@@ -451,8 +451,8 @@ public class TestSelectiveOrcReader
 
         tester.testRoundTripTypes(ImmutableList.of(INTEGER, rowType(INTEGER, BOOLEAN)),
                 ImmutableList.of(
-                        IntStream.range(0, 30_000).boxed().map(i -> random.nextInt()).collect(toImmutableList()),
-                        IntStream.range(0, 30_000).boxed().map(i -> ImmutableList.of(random.nextInt(), random.nextBoolean())).collect(toImmutableList())),
+                        IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
+                        IntStream.range(0, 30_000).mapToObj(i -> ImmutableList.of(random.nextInt(), random.nextBoolean())).collect(toImmutableList())),
                 toSubfieldFilters(
                         ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
                         ImmutableMap.of(1, IS_NULL),
@@ -460,8 +460,8 @@ public class TestSelectiveOrcReader
 
         tester.testRoundTripTypes(ImmutableList.of(rowType(INTEGER, BOOLEAN), INTEGER),
                 ImmutableList.of(
-                        IntStream.range(0, 30_000).boxed().map(i -> i % 7 == 0 ? null : ImmutableList.of(random.nextInt(), random.nextBoolean())).collect(toList()),
-                        IntStream.range(0, 30_000).boxed().map(i -> i % 11 == 0 ? null : random.nextInt()).collect(toList())),
+                        IntStream.range(0, 30_000).mapToObj(i -> i % 7 == 0 ? null : ImmutableList.of(random.nextInt(), random.nextBoolean())).collect(toList()),
+                        IntStream.range(0, 30_000).mapToObj(i -> i % 11 == 0 ? null : random.nextInt()).collect(toList())),
                 toSubfieldFilters(
                         ImmutableMap.of(0, IS_NOT_NULL, 1, IS_NULL)));
     }
@@ -477,7 +477,7 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),
                 ImmutableList.of(
                         IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
-                        IntStream.range(0, 30_000).boxed().map(i -> createMap(i)).collect(toImmutableList())),
+                        IntStream.range(0, 30_000).mapToObj(i -> createMap(i)).collect(toImmutableList())),
                 toSubfieldFilters(
                         ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
                         ImmutableMap.of(1, IS_NOT_NULL),
@@ -488,7 +488,7 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),
                 ImmutableList.of(
                         IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList()),
-                        IntStream.range(0, 30_000).boxed().map(i -> i % 5 == 0 ? null : createMap(i)).collect(toList())),
+                        IntStream.range(0, 30_000).mapToObj(i -> i % 5 == 0 ? null : createMap(i)).collect(toList())),
                 toSubfieldFilters(
                         ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
                         ImmutableMap.of(1, IS_NOT_NULL),
@@ -500,7 +500,7 @@ public class TestSelectiveOrcReader
         tester.testRoundTripTypes(
                 ImmutableList.of(mapType(INTEGER, INTEGER), INTEGER),
                 ImmutableList.of(
-                        IntStream.range(0, 30_000).boxed().map(i -> i % 5 == 0 ? null : createMap(i)).collect(toList()),
+                        IntStream.range(0, 30_000).mapToObj(i -> i % 5 == 0 ? null : createMap(i)).collect(toList()),
                         IntStream.range(0, 30_000).mapToObj(i -> random.nextInt()).collect(toImmutableList())),
                 toSubfieldFilters(
                         ImmutableMap.of(0, IS_NULL, 1, BigintRange.of(0, Integer.MAX_VALUE, false)),
