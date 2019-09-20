@@ -20,75 +20,74 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.spi.QueryId.parseDottedId;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
+import static java.util.Objects.requireNonNull;
 
 public class TaskId
 {
+    private final StageId stageId;
+    private final int id;
+
     @JsonCreator
     public static TaskId valueOf(String taskId)
     {
-        return new TaskId(taskId);
+        List<String> parts = parseDottedId(taskId, 3, "taskId");
+        return new TaskId(parts.get(0), parseInt(parts.get(1)), parseInt(parts.get(2)));
     }
-
-    private final String fullId;
 
     public TaskId(String queryId, int stageId, int id)
     {
-        checkArgument(id >= 0, "id is negative");
-        this.fullId = queryId + "." + stageId + "." + id;
+        this(new StageId(new QueryId(queryId), stageId), id);
     }
 
     public TaskId(StageId stageId, int id)
     {
+        this.stageId = requireNonNull(stageId, "stageId");
         checkArgument(id >= 0, "id is negative");
-        this.fullId = stageId.getQueryId().getId() + "." + stageId.getId() + "." + id;
-    }
-
-    public TaskId(String fullId)
-    {
-        this.fullId = fullId;
-    }
-
-    public QueryId getQueryId()
-    {
-        return new QueryId(QueryId.parseDottedId(fullId, 3, "taskId").get(0));
+        this.id = id;
     }
 
     public StageId getStageId()
     {
-        List<String> ids = QueryId.parseDottedId(fullId, 3, "taskId");
-        return StageId.valueOf(ids.subList(0, 2));
+        return stageId;
     }
 
     public int getId()
     {
-        return parseInt(QueryId.parseDottedId(fullId, 3, "taskId").get(2));
+        return id;
+    }
+
+    public QueryId getQueryId()
+    {
+        return stageId.getQueryId();
     }
 
     @Override
     @JsonValue
     public String toString()
     {
-        return fullId;
+        return stageId + "." + id;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TaskId taskId = (TaskId) o;
+        return id == taskId.id &&
+                Objects.equals(stageId, taskId.stageId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(fullId);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        TaskId other = (TaskId) obj;
-        return Objects.equals(this.fullId, other.fullId);
+        return Objects.hash(stageId, id);
     }
 }
