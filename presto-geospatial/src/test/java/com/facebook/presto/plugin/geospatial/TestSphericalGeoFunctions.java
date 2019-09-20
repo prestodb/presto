@@ -259,8 +259,23 @@ public class TestSphericalGeoFunctions
     {
         Point centroid = new Point(0, 0);
 
-        // Empty linestring returns null
+        // Empty linestring returns POINT EMPTY
+        assertCentroid("POINT EMPTY", null);
+
+        // A single point will return itself
+        assertCentroid("POINT (0 0)", centroid);
+
+        // Empty Multipoint returns POINT EMPTY
+        assertCentroid("MULTIPOINT (EMPTY)", null);
+
+        // Empty linestring returns POINT EMPTY
         assertCentroid("LINESTRING EMPTY", null);
+
+        // Empty multi-linestring returns POINT EMPTY
+        assertCentroid("MULTILINESTRING (EMPTY)", null);
+
+        // special case, cannot determine the centroid in perfect equilibrium, POINT EMPTY will be the outcome
+        assertCentroid("LINESTRING (0 0, 180.0 0.0)", null);
 
         // Linestring with one point has length centroid to same point
         assertCentroid("LINESTRING (0 0)", centroid);
@@ -270,25 +285,23 @@ public class TestSphericalGeoFunctions
 
         centroid = new Point(42.71971773363295, -94.14122050592341);
 
-        // ST_Length is equivalent to sums of ST_DISTANCE between points in the LineString
+        // St_Centroid for line string is equivalent to multipoint giving all the segments
         assertCentroid("LINESTRING (-71.05 42.36, -87.62 41.87, -122.41 37.77)", centroid);
 
-        // Linestring has same length as its reverse
+        // Linestring has same centroid as its reverse
         assertCentroid("LINESTRING (-122.41 37.77, -87.62 41.87, -71.05 42.36)", centroid);
-
-        // Empty multi-linestring returns null
-        assertCentroid("MULTILINESTRING (EMPTY)", null);
 
         // Multi-linestring with one path is equivalent to a single linestring
         assertCentroid("MULTILINESTRING ((-71.05 42.36, -87.62 41.87, -122.41 37.77))", centroid);
+
+        // Multipoint calculate the proper centroid similarly to multilines
+        assertCentroid("MULTIPOINT (-71.05 42.36, -87.62 41.87, -122.41 37.77)", centroid);
 
         centroid = new Point(90, 0);
         assertCentroid("LINESTRING (0.0 90.0, 0.0 -90.0, 0.0 90.0)", centroid);
 
         centroid = new Point(45, 0);
         assertCentroid("LINESTRING (0 0, 180.0 90.0)", centroid);
-
-        // special case, cannot determine the centroid in perfect equilibrium
     }
 
     private void assertCentroid(String lineString, Point expectedCentroid)

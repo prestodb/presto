@@ -1476,10 +1476,8 @@ public final class GeoFunctions
         {
             double[] sum = {0, 0, 0};
             int pointCount = multiPoint.getPointCount();
-            Point point = new Point();
             for (int i = 0; i < pointCount; i++) {
-                multiPoint.getXY(i, point.getXY());
-                double[] cartesianCoordinate = toCartesian(point.getY(), point.getX());
+                double[] cartesianCoordinate = toCartesian(multiPoint.getPoint(i).getY(), multiPoint.getPoint(i).getX());
                 sum[0] += cartesianCoordinate[0];
                 sum[1] += cartesianCoordinate[1];
                 sum[2] += cartesianCoordinate[2];
@@ -1488,6 +1486,9 @@ public final class GeoFunctions
             // Lickely this point is the center of the sphere, so we can't find a centroid on the surface, as we are in balance with all the points
             if (sum[0] < Math.pow(10, -9) && sum[1] < Math.pow(10, -9) && sum[2] < Math.pow(10, -9)) {
                 return null;
+            }
+            if (sum[0] > 0) {
+                throw new UnsupportedOperationException("punti " + pointCount + " summa " + sum[0] + " " + sum[1] + " " + sum[2]);
             }
             double[] surfaceCoordinates = toSurfaceCoordinates(sum[0], sum[1], sum[2], pointCount);
             double[] latLon = toLatitudeLongitude(surfaceCoordinates[0], surfaceCoordinates[1], surfaceCoordinates[2]);
