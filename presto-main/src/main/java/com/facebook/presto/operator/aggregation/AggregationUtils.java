@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.state.CentralMomentsState;
 import com.facebook.presto.operator.aggregation.state.CorrelationState;
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
@@ -20,10 +21,12 @@ import com.facebook.presto.operator.aggregation.state.RegressionState;
 import com.facebook.presto.operator.aggregation.state.VarianceState;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.CaseFormat;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -33,6 +36,38 @@ public final class AggregationUtils
 {
     private AggregationUtils()
     {
+    }
+
+    public static boolean isDecomposable(AggregationNode aggregationNode, FunctionManager functionManager)
+    {
+        boolean hasOrderBy = aggregationNode.getAggregations().values().stream()
+                .map(AggregationNode.Aggregation::getOrderBy)
+                .anyMatch(Optional::isPresent);
+
+        boolean hasDistinct = aggregationNode.getAggregations().values().stream()
+                .anyMatch(AggregationNode.Aggregation::isDistinct);
+
+        boolean decomposableFunctions = aggregationNode.getAggregations().values().stream()
+                .map(AggregationNode.Aggregation::getFunctionHandle)
+                .map(functionManager::getAggregateFunctionImplementation)
+                .allMatch(InternalAggregationFunction::isDecomposable);
+
+        return !hasOrderBy && !hasDistinct && decomposableFunctions;
+    }
+
+    public static boolean hasSingleNodeExecutionPreference(AggregationNode aggregationNode, FunctionManager functionManager)
+    {
+        // There are two kinds of aggregations the have single node execution preference:
+        //
+        // 1. aggregations with only empty grouping sets like
+        //
+        // SELECT count(*) FROM lineitem;
+        //
+        // there is no need for distributed aggregation. Single node FINAL aggregation will suffice,
+        // since all input have to be aggregated into one line output.
+        //
+        // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
+        return (aggregationNode.hasEmptyGroupingSet() && !aggregationNode.hasNonEmptyGroupingSet()) || (aggregationNode.hasDefaultOutput() && !isDecomposable(aggregationNode, functionManager));
     }
 
     public static void updateVarianceState(VarianceState state, double value)
