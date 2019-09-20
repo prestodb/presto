@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -82,7 +81,6 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public final class SqlStageExecution
 {
-    private static final Logger log = Logger.get(SqlStageExecution.class);
     private static final Set<ErrorCode> RECOVERABLE_ERROR_CODES = ImmutableSet.of(
             TOO_MANY_REQUESTS_FAILED.toErrorCode(),
             PAGE_TRANSPORT_ERROR.toErrorCode(),
@@ -90,7 +88,10 @@ public final class SqlStageExecution
             REMOTE_TASK_MISMATCH.toErrorCode(),
             REMOTE_TASK_ERROR.toErrorCode());
 
+    private final Session session;
     private final StageExecutionStateMachine stateMachine;
+    private final PlanFragment planFragment;
+    private final URI location;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
@@ -156,7 +157,10 @@ public final class SqlStageExecution
         requireNonNull(schedulerStats, "schedulerStats is null");
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
-                new StageExecutionStateMachine(stageId, location, session, fragment, executor, schedulerStats),
+                session,
+                new StageExecutionStateMachine(stageId, executor, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty()),
+                fragment,
+                location,
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,
@@ -168,7 +172,10 @@ public final class SqlStageExecution
     }
 
     private SqlStageExecution(
+            Session session,
             StageExecutionStateMachine stateMachine,
+            PlanFragment planFragment,
+            URI location,
             RemoteTaskFactory remoteTaskFactory,
             NodeTaskMap nodeTaskMap,
             boolean summarizeTaskInfo,
@@ -176,7 +183,10 @@ public final class SqlStageExecution
             FailureDetector failureDetector,
             double maxFailedTaskPercentage)
     {
+        this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
+        this.planFragment = requireNonNull(planFragment, "planFragment is null");
+        this.location = requireNonNull(location, "location is null");
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
@@ -185,13 +195,13 @@ public final class SqlStageExecution
         this.maxFailedTaskPercentage = maxFailedTaskPercentage;
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
-        for (RemoteSourceNode remoteSourceNode : stateMachine.getFragment().getRemoteSourceNodes()) {
+        for (RemoteSourceNode remoteSourceNode : planFragment.getRemoteSourceNodes()) {
             for (PlanFragmentId planFragmentId : remoteSourceNode.getSourceFragmentIds()) {
                 fragmentToExchangeSource.put(planFragmentId, remoteSourceNode);
             }
         }
         this.exchangeSources = fragmentToExchangeSource.build();
-        this.totalLifespans = stateMachine.getFragment().getStageExecutionDescriptor().getTotalLifespans();
+        this.totalLifespans = planFragment.getStageExecutionDescriptor().getTotalLifespans();
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -244,7 +254,7 @@ public final class SqlStageExecution
 
     public PlanFragment getFragment()
     {
-        return stateMachine.getFragment();
+        return planFragment;
     }
 
     public OutputBuffers getOutputBuffers()
@@ -280,7 +290,7 @@ public final class SqlStageExecution
             stateMachine.transitionToFinished();
         }
 
-        for (PlanNodeId tableScanPlanNodeId : stateMachine.getFragment().getTableScanSchedulingOrder()) {
+        for (PlanNodeId tableScanPlanNodeId : planFragment.getTableScanSchedulingOrder()) {
             schedulingComplete(tableScanPlanNodeId);
         }
     }
@@ -330,7 +340,7 @@ public final class SqlStageExecution
 
     public StageInfo getStageInfo()
     {
-        return stateMachine.getStageInfo(this::getAllTaskInfo, finishedLifespans.size(), totalLifespans);
+        return stateMachine.getStageInfo(this::getAllTaskInfo, finishedLifespans.size(), totalLifespans, location, planFragment);
     }
 
     private Iterable<TaskInfo> getAllTaskInfo()
@@ -442,7 +452,7 @@ public final class SqlStageExecution
         }
         splitsScheduled.set(true);
 
-        checkArgument(stateMachine.getFragment().getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
+        checkArgument(planFragment.getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
 
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
         Collection<RemoteTask> tasks = this.tasks.get(node);
@@ -488,10 +498,10 @@ public final class SqlStageExecution
         checkState(outputBuffers != null, "Initial output buffers must be set before a task can be scheduled");
 
         RemoteTask task = remoteTaskFactory.createRemoteTask(
-                stateMachine.getSession(),
+                session,
                 taskId,
                 node,
-                stateMachine.getFragment(),
+                planFragment,
                 initialSplits.build(),
                 totalPartitions,
                 outputBuffers,
@@ -623,7 +633,7 @@ public final class SqlStageExecution
             List<TaskInfo> finalTaskInfos = getAllTasks().stream()
                     .map(RemoteTask::getTaskInfo)
                     .collect(toImmutableList());
-            stateMachine.setAllTasksFinal(finalTaskInfos, totalLifespans);
+            stateMachine.setAllTasksFinal(finalTaskInfos, totalLifespans, location, planFragment);
         }
     }
 

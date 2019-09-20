@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.operator.BlockedReason;
@@ -74,15 +73,12 @@ public class StageExecutionStateMachine
     private static final Logger log = Logger.get(StageExecutionStateMachine.class);
 
     private final StageId stageId;
-    private final URI location;
-    private final PlanFragment fragment;
-    private final Session session;
     private final SplitSchedulerStats scheduledStats;
+    private final boolean containsTableScans;
 
     private final StateMachine<StageExecutionState> state;
     private final StateMachine<Optional<StageInfo>> finalInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
-    private final AtomicReference<Optional<String>> renderedPlan = new AtomicReference<>(Optional.empty());
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
     private final Distribution getSplitDistribution = new Distribution();
@@ -93,17 +89,13 @@ public class StageExecutionStateMachine
 
     public StageExecutionStateMachine(
             StageId stageId,
-            URI location,
-            Session session,
-            PlanFragment fragment,
             ExecutorService executor,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            boolean containsTableScans)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
-        this.location = requireNonNull(location, "location is null");
-        this.session = requireNonNull(session, "session is null");
-        this.fragment = requireNonNull(fragment, "fragment is null");
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
+        this.containsTableScans = containsTableScans;
 
         state = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
         state.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
@@ -116,24 +108,9 @@ public class StageExecutionStateMachine
         return stageId;
     }
 
-    public URI getLocation()
-    {
-        return location;
-    }
-
-    public Session getSession()
-    {
-        return session;
-    }
-
     public StageExecutionState getState()
     {
         return state.get();
-    }
-
-    public PlanFragment getFragment()
-    {
-        return fragment;
     }
 
     /**
@@ -219,11 +196,11 @@ public class StageExecutionStateMachine
         finalInfo.addStateChangeListener(fireOnceStateChangeListener);
     }
 
-    public void setAllTasksFinal(Iterable<TaskInfo> finalTaskInfos, int totalLifespans)
+    public void setAllTasksFinal(Iterable<TaskInfo> finalTaskInfos, int totalLifespans, URI location, PlanFragment fragment)
     {
         requireNonNull(finalTaskInfos, "finalTaskInfos is null");
         checkState(state.get().isDone());
-        StageInfo stageInfo = getStageInfo(() -> finalTaskInfos, totalLifespans, totalLifespans);
+        StageInfo stageInfo = getStageInfo(() -> finalTaskInfos, totalLifespans, totalLifespans, location, fragment);
         checkArgument(stageInfo.isFinalStageInfo(), "finalTaskInfos are not all done");
         finalInfo.compareAndSet(Optional.empty(), Optional.of(stageInfo));
     }
@@ -304,7 +281,7 @@ public class StageExecutionStateMachine
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
 
-            if (!fragment.getTableScanSchedulingOrder().isEmpty()) {
+            if (containsTableScans) {
                 rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }
@@ -339,7 +316,7 @@ public class StageExecutionStateMachine
                 progressPercentage);
     }
 
-    public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, int finishedLifespans, int totalLifespans)
+    public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, int finishedLifespans, int totalLifespans, URI location, PlanFragment fragment)
     {
         Optional<StageInfo> finalStageInfo = this.finalInfo.get();
         if (finalStageInfo.isPresent()) {

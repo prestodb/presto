@@ -36,7 +36,6 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -291,10 +290,8 @@ public class TestStageExecutionStateMachine
     private static void assertState(StageExecutionStateMachine stateMachine, StageExecutionState expectedState)
     {
         assertEquals(stateMachine.getStageId(), STAGE_ID);
-        assertEquals(stateMachine.getLocation(), LOCATION);
-        assertSame(stateMachine.getSession(), TEST_SESSION);
 
-        StageInfo stageInfo = stateMachine.getStageInfo(ImmutableList::of, 0, 0);
+        StageInfo stageInfo = stateMachine.getStageInfo(ImmutableList::of, 0, 0, LOCATION, PLAN_FRAGMENT);
         assertEquals(stageInfo.getStageId(), STAGE_ID);
         assertEquals(stageInfo.getSelf(), LOCATION);
         assertEquals(stageInfo.getSubStages(), ImmutableList.of());
@@ -317,7 +314,7 @@ public class TestStageExecutionStateMachine
 
     private StageExecutionStateMachine createStageStateMachine()
     {
-        return new StageExecutionStateMachine(STAGE_ID, LOCATION, TEST_SESSION, PLAN_FRAGMENT, executor, new SplitSchedulerStats());
+        return new StageExecutionStateMachine(STAGE_ID, executor, new SplitSchedulerStats(), false);
     }
 
     private static PlanFragment createValuesPlan()
