@@ -371,7 +371,7 @@ public class TestHashJoinOperator
     private void innerJoinWithSpill(boolean probeHashEnabled, List<WhenSpill> whenSpill, SingleStreamSpillerFactory buildSpillerFactory, PartitioningSpillerFactory joinSpillerFactory)
             throws Exception
     {
-        TaskStateMachine taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0), executor);
+        TaskStateMachine taskStateMachine = new TaskStateMachine(new TaskId("query", 0, 0, 0), executor);
         TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, taskStateMachine);
 
         DriverContext joinDriverContext = taskContext.addPipelineContext(2, true, true, false).addDriverContext();

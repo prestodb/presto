@@ -190,8 +190,7 @@ public class DeleteOperator
         Slice tableCommitContext = wrappedBuffer(tableCommitContextCodec.toJsonBytes(
                 new TableCommitContext(
                         operatorContext.getDriverContext().getLifespan(),
-                        taskId.getStageId().getId(),
-                        taskId.getId(),
+                        taskId,
                         false,
                         true)));
 

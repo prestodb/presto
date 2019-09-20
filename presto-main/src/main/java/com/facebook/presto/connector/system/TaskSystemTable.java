@@ -48,6 +48,7 @@ public class TaskSystemTable
             .column("node_id", createUnboundedVarcharType())
 
             .column("task_id", createUnboundedVarcharType())
+            .column("stage_execution_id", createUnboundedVarcharType())
             .column("stage_id", createUnboundedVarcharType())
             .column("query_id", createUnboundedVarcharType())
             .column("state", createUnboundedVarcharType())
@@ -111,7 +112,8 @@ public class TaskSystemTable
                     nodeId,
 
                     taskStatus.getTaskId().toString(),
-                    taskStatus.getTaskId().getStageId().toString(),
+                    taskStatus.getTaskId().getStageExecutionId().toString(),
+                    taskStatus.getTaskId().getStageExecutionId().getStageId().toString(),
                     taskStatus.getTaskId().getQueryId().toString(),
                     taskStatus.getState().toString(),
 

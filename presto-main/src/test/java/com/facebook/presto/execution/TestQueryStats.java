@@ -40,6 +40,7 @@ public class TestQueryStats
     public static final List<OperatorStats> operatorSummaries = ImmutableList.of(
             new OperatorStats(
                     10,
+                    101,
                     11,
                     12,
                     new PlanNodeId("13"),
@@ -74,6 +75,7 @@ public class TestQueryStats
                     null),
             new OperatorStats(
                     20,
+                    201,
                     21,
                     22,
                     new PlanNodeId("23"),
@@ -108,6 +110,7 @@ public class TestQueryStats
                     null),
             new OperatorStats(
                     30,
+                    301,
                     31,
                     32,
                     new PlanNodeId("33"),

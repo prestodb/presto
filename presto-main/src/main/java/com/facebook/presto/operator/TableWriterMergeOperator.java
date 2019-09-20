@@ -222,8 +222,7 @@ public class TableWriterMergeOperator
     private static boolean isSameTaskAndLifespan(TableCommitContext first, TableCommitContext second)
     {
         return first.getLifespan().equals(second.getLifespan()) &&
-                first.getStageId() == second.getStageId() &&
-                first.getTaskId() == second.getTaskId() &&
+                first.getTaskId().equals(second.getTaskId()) &&
                 first.isLifespanCommitRequired() == second.isLifespanCommitRequired();
     }
 
@@ -313,7 +312,6 @@ public class TableWriterMergeOperator
         checkState(tableCommitContextCodec != null, "tableCommitContextCodec is null");
         return wrappedBuffer(tableCommitContextCodec.toJsonBytes(new TableCommitContext(
                 lastTableCommitContext.getLifespan(),
-                lastTableCommitContext.getStageId(),
                 lastTableCommitContext.getTaskId(),
                 lastTableCommitContext.isLifespanCommitRequired(),
                 lastPage)));

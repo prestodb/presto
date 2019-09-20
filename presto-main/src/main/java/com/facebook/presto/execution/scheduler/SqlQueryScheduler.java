@@ -496,7 +496,7 @@ public class SqlQueryScheduler
                 stageSchedulers.put(stageId, stageScheduler);
                 if (plan.getFragment().getStageExecutionDescriptor().isRecoverableGroupedExecution()) {
                     stage.registerStageTaskRecoveryCallback(taskId -> {
-                        checkArgument(taskId.getStageId().equals(stageId), "The task did not execute this stage");
+                        checkArgument(taskId.getStageExecutionId().getStageId().equals(stageId), "The task did not execute this stage");
                         checkArgument(parentStageExecution.isPresent(), "Parent stage execution must exist");
                         checkArgument(parentStageExecution.get().getAllTasks().size() == 1, "Parent stage should only have one task for recoverable grouped execution");
 

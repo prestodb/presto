@@ -117,7 +117,7 @@ public class TestExchangeClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
-        exchangeClient.addLocation(location, TaskId.valueOf("queryid.0.0"));
+        exchangeClient.addLocation(location, TaskId.valueOf("queryid.0.0.0"));
         exchangeClient.noMoreLocations();
 
         assertFalse(exchangeClient.isClosed());
@@ -161,7 +161,7 @@ public class TestExchangeClient
         processor.addPage(location1, createPage(2));
         processor.addPage(location1, createPage(3));
         processor.setComplete(location1);
-        exchangeClient.addLocation(location1, TaskId.valueOf("foo.0.0"));
+        exchangeClient.addLocation(location1, TaskId.valueOf("foo.0.0.0"));
 
         assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
@@ -178,7 +178,7 @@ public class TestExchangeClient
         processor.addPage(location2, createPage(5));
         processor.addPage(location2, createPage(6));
         processor.setComplete(location2);
-        exchangeClient.addLocation(location2, TaskId.valueOf("bar.0.0"));
+        exchangeClient.addLocation(location2, TaskId.valueOf("bar.0.0.0"));
 
         assertFalse(exchangeClient.isClosed());
         assertPageEquals(getNextPage(exchangeClient), createPage(4));
@@ -228,7 +228,7 @@ public class TestExchangeClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
 
-        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0"));
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0"));
         exchangeClient.noMoreLocations();
         assertFalse(exchangeClient.isClosed());
 
@@ -309,7 +309,7 @@ public class TestExchangeClient
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 pageBufferClientCallbackExecutor);
-        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0"));
+        exchangeClient.addLocation(location, TaskId.valueOf("taskid.0.0.0"));
         exchangeClient.noMoreLocations();
 
         // fetch a page
@@ -336,10 +336,10 @@ public class TestExchangeClient
         DataSize maxResponseSize = new DataSize(1, BYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
-        URI location1 = URI.create("http://localhost:8081/foo.0.0");
-        TaskId taskId1 = TaskId.valueOf("foo.0.0");
-        URI location2 = URI.create("http://localhost:8082/bar.0.0");
-        TaskId taskId2 = TaskId.valueOf("bar.0.0");
+        URI location1 = URI.create("http://localhost:8081/foo.0.0.0");
+        TaskId taskId1 = TaskId.valueOf("foo.0.0.0");
+        URI location2 = URI.create("http://localhost:8082/bar.0.0.0");
+        TaskId taskId2 = TaskId.valueOf("bar.0.0.0");
 
         processor.addPage(location1, createPage(1));
         processor.addPage(location1, createPage(2));

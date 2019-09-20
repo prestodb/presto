@@ -88,7 +88,7 @@ public class AssignUniqueIdOperator
         this.rowIdPool = requireNonNull(rowIdPool, "rowIdPool is null");
 
         TaskId fullTaskId = operatorContext.getDriverContext().getTaskId();
-        uniqueValueMask = (((long) fullTaskId.getStageId().getId()) << 54) | (((long) fullTaskId.getId()) << 40);
+        uniqueValueMask = (((long) fullTaskId.getStageExecutionId().getStageId().getId()) << 54) | (((long) fullTaskId.getId()) << 40);
 
         requestValues();
     }

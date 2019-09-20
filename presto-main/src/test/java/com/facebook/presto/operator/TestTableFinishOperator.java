@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.TableFinishOperator.LifespanCommitter;
 import com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
@@ -266,7 +267,7 @@ public class TestTableFinishOperator
 
     private static byte[] getTableCommitContextBytes(Lifespan lifespan, int stageId, int taskId, boolean lifespanCommitRequired, boolean lastPage)
     {
-        return TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(lifespan, stageId, taskId, lifespanCommitRequired, lastPage));
+        return TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(lifespan, new TaskId("query", stageId, 0, taskId), lifespanCommitRequired, lastPage));
     }
 
     private static class TestingTableFinisher

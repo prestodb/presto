@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -302,7 +303,7 @@ public class TableFinishOperator
 
         // For recoverable execution, it is possible to receive pages of the same lifespan-stage from different tasks. We track all of them and commit the one
         // which finishes sending pages first.
-        private final Map<LifespanAndStage, Map<Integer, LifespanAndStageState>> uncommittedRecoverableLifespanAndStageStates = new HashMap<>();
+        private final Map<LifespanAndStage, Map<TaskId, LifespanAndStageState>> uncommittedRecoverableLifespanAndStageStates = new HashMap<>();
         private final Map<LifespanAndStage, LifespanAndStageState> committedRecoverableLifespanAndStages = new HashMap<>();
 
         private final LifespanCommitter lifespanCommitter;
@@ -324,7 +325,7 @@ public class TableFinishOperator
                 return;
             }
 
-            Map<Integer, LifespanAndStageState> lifespanStageStatesPerTask = uncommittedRecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new HashMap<>());
+            Map<TaskId, LifespanAndStageState> lifespanStageStatesPerTask = uncommittedRecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new HashMap<>());
             lifespanStageStatesPerTask.computeIfAbsent(tableCommitContext.getTaskId(), ignored -> new LifespanAndStageState()).update(page);
 
             if (tableCommitContext.isLastPage()) {
@@ -379,7 +380,7 @@ public class TableFinishOperator
 
             public static LifespanAndStage fromTableCommitContext(TableCommitContext operatorExecutionContext)
             {
-                return new LifespanAndStage(operatorExecutionContext.getLifespan(), operatorExecutionContext.getStageId());
+                return new LifespanAndStage(operatorExecutionContext.getLifespan(), operatorExecutionContext.getTaskId().getStageExecutionId().getStageId().getId());
             }
 
             public Lifespan getLifespan()

@@ -429,7 +429,7 @@ public final class SqlStageExecution
             return Optional.empty();
         }
         checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
-        return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageId(), partition), ImmutableMultimap.of(), totalPartitions));
+        return Optional.of(scheduleTask(node, new TaskId(new StageExecutionId(stateMachine.getStageId(), 0), partition), ImmutableMultimap.of(), totalPartitions));
     }
 
     public synchronized Set<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
@@ -450,7 +450,7 @@ public final class SqlStageExecution
         if (tasks == null) {
             // The output buffer depends on the task id starting from 0 and being sequential, since each
             // task is assigned a private buffer based on task id.
-            TaskId taskId = new TaskId(stateMachine.getStageId(), nextTaskId.getAndIncrement());
+            TaskId taskId = new TaskId(new StageExecutionId(stateMachine.getStageId(), 0), nextTaskId.getAndIncrement());
             task = scheduleTask(node, taskId, splits, OptionalInt.empty());
             newTasks.add(task);
         }

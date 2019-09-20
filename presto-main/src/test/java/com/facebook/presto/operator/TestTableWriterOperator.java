@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OutputTableHandle;
@@ -255,7 +256,7 @@ public class TestTableWriterOperator
 
     private static Slice getTableCommitContext(boolean lastPage)
     {
-        return wrappedBuffer(TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(Lifespan.taskWide(), 0, 0, false, lastPage)));
+        return wrappedBuffer(TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(new TableCommitContext(Lifespan.taskWide(), new TaskId("query", 0, 0, 0), false, lastPage)));
     }
 
     private void assertMemoryIsReleased(TableWriterOperator tableWriterOperator)
