@@ -25,50 +25,37 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
-public class TaskId
+public class StageExecutionId
 {
-    private final StageExecutionId stageExecutionId;
+    private final StageId stageId;
     private final int id;
 
     @JsonCreator
-    public static TaskId valueOf(String taskId)
+    public static StageExecutionId valueOf(String stageExecutionAttemptId)
     {
-        List<String> parts = parseDottedId(taskId, 4, "taskId");
-        return new TaskId(parts.get(0), parseInt(parts.get(1)), parseInt(parts.get(2)), parseInt(parts.get(3)));
+        return valueOf(parseDottedId(stageExecutionAttemptId, 3, "stageExecutionAttemptId"));
     }
 
-    public TaskId(String queryId, int stageId, int stageExecutionId, int id)
+    public static StageExecutionId valueOf(List<String> ids)
     {
-        this(new StageExecutionId(new StageId(new QueryId(queryId), stageId), stageExecutionId), id);
+        checkArgument(ids.size() == 3, "Expected 3 ids but got: %s", ids);
+        return new StageExecutionId(new StageId(new QueryId(ids.get(0)), parseInt(ids.get(1))), parseInt(ids.get(2)));
     }
 
-    public TaskId(StageExecutionId stageExecutionId, int id)
+    public StageExecutionId(StageId stageId, int id)
     {
-        this.stageExecutionId = requireNonNull(stageExecutionId, "stageExecutionId");
-        checkArgument(id >= 0, "id is negative");
+        this.stageId = requireNonNull(stageId, "stageId is null");
         this.id = id;
     }
 
-    public StageExecutionId getStageExecutionId()
+    public StageId getStageId()
     {
-        return stageExecutionId;
+        return stageId;
     }
 
     public int getId()
     {
         return id;
-    }
-
-    public QueryId getQueryId()
-    {
-        return stageExecutionId.getStageId().getQueryId();
-    }
-
-    @Override
-    @JsonValue
-    public String toString()
-    {
-        return stageExecutionId + "." + id;
     }
 
     @Override
@@ -80,14 +67,21 @@ public class TaskId
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        TaskId taskId = (TaskId) o;
-        return id == taskId.id &&
-                Objects.equals(stageExecutionId, taskId.stageExecutionId);
+        StageExecutionId that = (StageExecutionId) o;
+        return id == that.id &&
+                Objects.equals(stageId, that.stageId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(stageExecutionId, id);
+        return Objects.hash(stageId, id);
+    }
+
+    @Override
+    @JsonValue
+    public String toString()
+    {
+        return stageId + "." + id;
     }
 }

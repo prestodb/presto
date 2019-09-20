@@ -343,8 +343,7 @@ public class TableWriterOperator
         return wrappedBuffer(tableCommitContextCodec.toJsonBytes(
                 new TableCommitContext(
                         operatorContext.getDriverContext().getLifespan(),
-                        taskId.getStageId().getId(),
-                        taskId.getId(),
+                        taskId,
                         partitionCommitRequired,
                         lastPage)));
     }

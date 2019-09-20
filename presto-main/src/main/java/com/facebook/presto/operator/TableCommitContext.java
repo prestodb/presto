@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.execution.TaskId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -23,22 +24,19 @@ import static java.util.Objects.requireNonNull;
 public class TableCommitContext
 {
     private final Lifespan lifespan;
-    private final int stageId;
-    private final int taskId;
+    private final TaskId taskId;
     private final boolean lifespanCommitRequired;
     private final boolean lastPage;
 
     @JsonCreator
     public TableCommitContext(
             @JsonProperty("lifespan") Lifespan lifespan,
-            @JsonProperty("stageId") int stageId,
-            @JsonProperty("taskId") int taskId,
+            @JsonProperty("taskId") TaskId taskId,
             @JsonProperty("lifespanCommitRequired") boolean lifespanCommitRequired,
             @JsonProperty("lastPage") boolean lastPage)
     {
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
-        this.stageId = stageId;
-        this.taskId = taskId;
+        this.taskId = requireNonNull(taskId, "taskId is null");
         this.lifespanCommitRequired = lifespanCommitRequired;
         this.lastPage = lastPage;
     }
@@ -50,13 +48,7 @@ public class TableCommitContext
     }
 
     @JsonProperty
-    public int getStageId()
-    {
-        return stageId;
-    }
-
-    @JsonProperty
-    public int getTaskId()
+    public TaskId getTaskId()
     {
         return taskId;
     }
@@ -78,7 +70,6 @@ public class TableCommitContext
     {
         return toStringHelper(this)
                 .add("lifespan", lifespan)
-                .add("stageId", stageId)
                 .add("taskId", taskId)
                 .add("lifespanCommitRequired", lifespanCommitRequired)
                 .add("lastPage", lastPage)

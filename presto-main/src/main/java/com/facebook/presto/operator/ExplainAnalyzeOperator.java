@@ -169,7 +169,7 @@ public class ExplainAnalyzeOperator
 
     private boolean isFinalStageInfo(StageInfo stageInfo)
     {
-        List<StageInfo> subStages = getSubStagesOf(operatorContext.getDriverContext().getTaskId().getStageId(), stageInfo);
+        List<StageInfo> subStages = getSubStagesOf(operatorContext.getDriverContext().getTaskId().getStageExecutionId().getStageId(), stageInfo);
         return subStages.stream().allMatch(StageInfo::isFinalStageInfo);
     }
 
