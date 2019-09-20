@@ -46,7 +46,7 @@ public class PlanNodeStatsSummarizer
     public static Map<PlanNodeId, PlanNodeStats> aggregateStageStats(List<StageInfo> stageInfos)
     {
         return aggregateTaskStats(stageInfos.stream()
-                .flatMap(s -> s.getTasks().stream())
+                .flatMap(s -> s.getLatestAttemptExecutionInfo().getTasks().stream())
                 .collect(toList()));
     }
 

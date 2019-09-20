@@ -17,8 +17,9 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
-import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageExecutionStats;
+import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -254,11 +255,12 @@ public class PlanPrinter
                 fragment.getPartitioning()));
 
         if (stageInfo.isPresent()) {
-            StageExecutionStats stageExecutionStats = stageInfo.get().getStageStats();
+            StageExecutionStats stageExecutionStats = stageInfo.get().getLatestAttemptExecutionInfo().getStats();
+            List<TaskInfo> tasks = stageInfo.get().getLatestAttemptExecutionInfo().getTasks();
 
-            double avgPositionsPerTask = stageInfo.get().getTasks().stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
-            double squaredDifferences = stageInfo.get().getTasks().stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
-            double sdAmongTasks = Math.sqrt(squaredDifferences / stageInfo.get().getTasks().size());
+            double avgPositionsPerTask = tasks.stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
+            double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
+            double sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
 
             builder.append(indentString(1))
                     .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",

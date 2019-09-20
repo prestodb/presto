@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class StageGcStatistics
 {
     private final int stageId;
+    private final int stageExecutionId;
     private final int tasks;
 
     private final int fullGcTasks;
@@ -31,6 +32,7 @@ public class StageGcStatistics
     @JsonCreator
     public StageGcStatistics(
             @JsonProperty("stageId") int stageId,
+            @JsonProperty("stageExecutionId") int stageExecutionId,
             @JsonProperty("tasks") int tasks,
             @JsonProperty("fullGcTasks") int fullGcTasks,
             @JsonProperty("minFullGcSec") int minFullGcSec,
@@ -39,6 +41,7 @@ public class StageGcStatistics
             @JsonProperty("averageFullGcSec") int averageFullGcSec)
     {
         this.stageId = stageId;
+        this.stageExecutionId = stageExecutionId;
         this.tasks = tasks;
         this.fullGcTasks = fullGcTasks;
         this.minFullGcSec = minFullGcSec;
@@ -51,6 +54,12 @@ public class StageGcStatistics
     public int getStageId()
     {
         return stageId;
+    }
+
+    @JsonProperty
+    public int getStageExecutionId()
+    {
+        return stageExecutionId;
     }
 
     @JsonProperty

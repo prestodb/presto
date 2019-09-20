@@ -73,6 +73,7 @@ public class TestStageExecutionStats
 
             new StageGcStatistics(
                     101,
+                    1001,
                     102,
                     103,
                     104,
@@ -134,6 +135,7 @@ public class TestStageExecutionStats
         assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(26, BYTE));
 
         assertEquals(actual.getGcInfo().getStageId(), 101);
+        assertEquals(actual.getGcInfo().getStageExecutionId(), 1001);
         assertEquals(actual.getGcInfo().getTasks(), 102);
         assertEquals(actual.getGcInfo().getFullGcTasks(), 103);
         assertEquals(actual.getGcInfo().getMinFullGcSec(), 104);

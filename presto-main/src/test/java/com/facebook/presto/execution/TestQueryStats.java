@@ -201,6 +201,7 @@ public class TestQueryStats
 
             ImmutableList.of(new StageGcStatistics(
                     101,
+                    1001,
                     102,
                     103,
                     104,
@@ -279,6 +280,7 @@ public class TestQueryStats
         assertEquals(actual.getStageGcStatistics().size(), 1);
         StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);
         assertEquals(gcStatistics.getStageId(), 101);
+        assertEquals(gcStatistics.getStageExecutionId(), 1001);
         assertEquals(gcStatistics.getTasks(), 102);
         assertEquals(gcStatistics.getFullGcTasks(), 103);
         assertEquals(gcStatistics.getMinFullGcSec(), 104);

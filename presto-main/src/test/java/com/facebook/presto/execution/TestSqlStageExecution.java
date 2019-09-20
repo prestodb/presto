@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.cost.StatsAndCosts;
-import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.metadata.InternalNode;
@@ -100,8 +99,7 @@ public class TestSqlStageExecution
 
         StageId stageId = new StageId(new QueryId("query"), 0);
         SqlStageExecution stage = createSqlStageExecution(
-                stageId,
-                new MockLocationFactory().createStageLocation(stageId),
+                new StageExecutionId(stageId, 0),
                 createExchangePlanFragment(),
                 new MockRemoteTaskFactory(executor, scheduledExecutor),
                 TEST_SESSION,
@@ -113,7 +111,7 @@ public class TestSqlStageExecution
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 
         // add listener that fetches stage info when the final status is available
-        SettableFuture<StageInfo> finalStageInfo = SettableFuture.create();
+        SettableFuture<StageExecutionInfo> finalStageInfo = SettableFuture.create();
         stage.addFinalStageInfoListener(finalStageInfo::set);
 
         // in a background thread add a ton of tasks
@@ -142,14 +140,14 @@ public class TestSqlStageExecution
 
         // wait for some tasks to be created, and then abort the query
         latch.await(1, MINUTES);
-        assertFalse(stage.getStageInfo().getTasks().isEmpty());
+        assertFalse(stage.getStageExecutionInfo().getTasks().isEmpty());
         stage.abort();
 
         // once the final stage info is available, verify that it is complete
-        StageInfo stageInfo = finalStageInfo.get(1, MINUTES);
+        StageExecutionInfo stageInfo = finalStageInfo.get(1, MINUTES);
         assertFalse(stageInfo.getTasks().isEmpty());
-        assertTrue(stageInfo.isFinalStageInfo());
-        assertSame(stage.getStageInfo(), stageInfo);
+        assertTrue(stageInfo.isFinal());
+        assertSame(stage.getStageExecutionInfo(), stageInfo);
 
         // cancel the background thread adding tasks
         addTasksTask.cancel(true);

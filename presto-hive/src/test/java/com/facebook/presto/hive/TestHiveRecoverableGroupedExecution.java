@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -335,7 +334,7 @@ public class TestHiveRecoverableGroupedExecution
         }
 
         return queryRunner.getQueryInfo(runningQueryId.get()).getOutputStage().get().getSubStages().stream()
-                .map(StageInfo::getState)
+                .map(info -> info.getLatestAttemptExecutionInfo().getState())
                 .allMatch(SPLIT_SCHEDULING_STARTED_STATES::contains);
     }
 

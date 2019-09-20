@@ -91,7 +91,6 @@ public final class SqlStageExecution
     private final Session session;
     private final StageExecutionStateMachine stateMachine;
     private final PlanFragment planFragment;
-    private final URI location;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
@@ -135,8 +134,7 @@ public final class SqlStageExecution
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
 
     public static SqlStageExecution createSqlStageExecution(
-            StageId stageId,
-            URI location,
+            StageExecutionId stageExecutionId,
             PlanFragment fragment,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
@@ -146,8 +144,7 @@ public final class SqlStageExecution
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats)
     {
-        requireNonNull(stageId, "stageId is null");
-        requireNonNull(location, "location is null");
+        requireNonNull(stageExecutionId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
         requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         requireNonNull(session, "session is null");
@@ -158,9 +155,8 @@ public final class SqlStageExecution
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
                 session,
-                new StageExecutionStateMachine(stageId, executor, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty()),
+                new StageExecutionStateMachine(stageExecutionId, executor, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty()),
                 fragment,
-                location,
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,
@@ -175,7 +171,6 @@ public final class SqlStageExecution
             Session session,
             StageExecutionStateMachine stateMachine,
             PlanFragment planFragment,
-            URI location,
             RemoteTaskFactory remoteTaskFactory,
             NodeTaskMap nodeTaskMap,
             boolean summarizeTaskInfo,
@@ -186,7 +181,6 @@ public final class SqlStageExecution
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
         this.planFragment = requireNonNull(planFragment, "planFragment is null");
-        this.location = requireNonNull(location, "location is null");
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
@@ -211,9 +205,9 @@ public final class SqlStageExecution
         completedLifespansChangeListeners.addListener(lifespans -> finishedLifespans.addAll(lifespans));
     }
 
-    public StageId getStageId()
+    public StageExecutionId getStageExecutionId()
     {
-        return stateMachine.getStageId();
+        return stateMachine.getStageExecutionId();
     }
 
     public StageExecutionState getState()
@@ -236,7 +230,7 @@ public final class SqlStageExecution
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    public void addFinalStageInfoListener(StateChangeListener<StageInfo> stateChangeListener)
+    public void addFinalStageInfoListener(StateChangeListener<StageExecutionInfo> stateChangeListener)
     {
         stateMachine.addFinalStageInfoListener(stateChangeListener);
     }
@@ -338,9 +332,9 @@ public final class SqlStageExecution
         return stateMachine.getBasicStageStats(this::getAllTaskInfo);
     }
 
-    public StageInfo getStageInfo()
+    public StageExecutionInfo getStageExecutionInfo()
     {
-        return stateMachine.getStageInfo(this::getAllTaskInfo, finishedLifespans.size(), totalLifespans, location, planFragment);
+        return stateMachine.getStageExecutionInfo(this::getAllTaskInfo, finishedLifespans.size(), totalLifespans);
     }
 
     private Iterable<TaskInfo> getAllTaskInfo()
@@ -439,7 +433,7 @@ public final class SqlStageExecution
             return Optional.empty();
         }
         checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
-        return Optional.of(scheduleTask(node, new TaskId(new StageExecutionId(stateMachine.getStageId(), 0), partition), ImmutableMultimap.of(), totalPartitions));
+        return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageExecutionId(), partition), ImmutableMultimap.of(), totalPartitions));
     }
 
     public synchronized Set<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
@@ -460,7 +454,7 @@ public final class SqlStageExecution
         if (tasks == null) {
             // The output buffer depends on the task id starting from 0 and being sequential, since each
             // task is assigned a private buffer based on task id.
-            TaskId taskId = new TaskId(new StageExecutionId(stateMachine.getStageId(), 0), nextTaskId.getAndIncrement());
+            TaskId taskId = new TaskId(stateMachine.getStageExecutionId(), nextTaskId.getAndIncrement());
             task = scheduleTask(node, taskId, splits, OptionalInt.empty());
             newTasks.add(task);
         }
@@ -633,7 +627,7 @@ public final class SqlStageExecution
             List<TaskInfo> finalTaskInfos = getAllTasks().stream()
                     .map(RemoteTask::getTaskInfo)
                     .collect(toImmutableList());
-            stateMachine.setAllTasksFinal(finalTaskInfos, totalLifespans, location, planFragment);
+            stateMachine.setAllTasksFinal(finalTaskInfos, totalLifespans);
         }
     }
 

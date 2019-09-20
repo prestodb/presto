@@ -20,7 +20,6 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
-import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -29,7 +28,6 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -72,12 +70,12 @@ public class StageExecutionStateMachine
 {
     private static final Logger log = Logger.get(StageExecutionStateMachine.class);
 
-    private final StageId stageId;
+    private final StageExecutionId stageExecutionId;
     private final SplitSchedulerStats scheduledStats;
     private final boolean containsTableScans;
 
     private final StateMachine<StageExecutionState> state;
-    private final StateMachine<Optional<StageInfo>> finalInfo;
+    private final StateMachine<Optional<StageExecutionInfo>> finalInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
@@ -88,24 +86,24 @@ public class StageExecutionStateMachine
     private final AtomicLong currentTotalMemory = new AtomicLong();
 
     public StageExecutionStateMachine(
-            StageId stageId,
+            StageExecutionId stageExecutionId,
             ExecutorService executor,
             SplitSchedulerStats schedulerStats,
             boolean containsTableScans)
     {
-        this.stageId = requireNonNull(stageId, "stageId is null");
+        this.stageExecutionId = requireNonNull(stageExecutionId, "stageId is null");
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.containsTableScans = containsTableScans;
 
-        state = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
-        state.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
+        state = new StateMachine<>("stage execution " + stageExecutionId, executor, PLANNED, TERMINAL_STAGE_STATES);
+        state.addStateChangeListener(state -> log.debug("Stage Execution %s is %s", stageExecutionId, state));
 
-        finalInfo = new StateMachine<>("final stage " + stageId, executor, Optional.empty());
+        finalInfo = new StateMachine<>("final stage execution " + stageExecutionId, executor, Optional.empty());
     }
 
-    public StageId getStageId()
+    public StageExecutionId getStageExecutionId()
     {
-        return stageId;
+        return stageExecutionId;
     }
 
     public StageExecutionState getState()
@@ -171,10 +169,10 @@ public class StageExecutionStateMachine
         failureCause.compareAndSet(null, Failures.toFailure(throwable));
         boolean failed = state.setIf(FAILED, currentState -> !currentState.isDone());
         if (failed) {
-            log.error(throwable, "Stage %s failed", stageId);
+            log.error(throwable, "Stage execution %s failed", stageExecutionId);
         }
         else {
-            log.debug(throwable, "Failure after stage %s finished", stageId);
+            log.debug(throwable, "Failure after stage execution %s finished", stageExecutionId);
         }
         return failed;
     }
@@ -185,10 +183,10 @@ public class StageExecutionStateMachine
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    public void addFinalStageInfoListener(StateChangeListener<StageInfo> finalStatusListener)
+    public void addFinalStageInfoListener(StateChangeListener<StageExecutionInfo> finalStatusListener)
     {
         AtomicBoolean done = new AtomicBoolean();
-        StateChangeListener<Optional<StageInfo>> fireOnceStateChangeListener = finalStageInfo -> {
+        StateChangeListener<Optional<StageExecutionInfo>> fireOnceStateChangeListener = finalStageInfo -> {
             if (finalStageInfo.isPresent() && done.compareAndSet(false, true)) {
                 finalStatusListener.stateChanged(finalStageInfo.get());
             }
@@ -196,12 +194,12 @@ public class StageExecutionStateMachine
         finalInfo.addStateChangeListener(fireOnceStateChangeListener);
     }
 
-    public void setAllTasksFinal(Iterable<TaskInfo> finalTaskInfos, int totalLifespans, URI location, PlanFragment fragment)
+    public void setAllTasksFinal(Iterable<TaskInfo> finalTaskInfos, int totalLifespans)
     {
         requireNonNull(finalTaskInfos, "finalTaskInfos is null");
         checkState(state.get().isDone());
-        StageInfo stageInfo = getStageInfo(() -> finalTaskInfos, totalLifespans, totalLifespans, location, fragment);
-        checkArgument(stageInfo.isFinalStageInfo(), "finalTaskInfos are not all done");
+        StageExecutionInfo stageInfo = getStageExecutionInfo(() -> finalTaskInfos, totalLifespans, totalLifespans);
+        checkArgument(stageInfo.isFinal(), "finalTaskInfos are not all done");
         finalInfo.compareAndSet(Optional.empty(), Optional.of(stageInfo));
     }
 
@@ -224,10 +222,10 @@ public class StageExecutionStateMachine
 
     public BasicStageExecutionStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
     {
-        Optional<StageInfo> finalStageInfo = this.finalInfo.get();
+        Optional<StageExecutionInfo> finalStageInfo = this.finalInfo.get();
         if (finalStageInfo.isPresent()) {
             return finalStageInfo.get()
-                    .getStageStats()
+                    .getStats()
                     .toBasicStageStats(finalStageInfo.get().getState());
         }
 
@@ -316,9 +314,9 @@ public class StageExecutionStateMachine
                 progressPercentage);
     }
 
-    public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, int finishedLifespans, int totalLifespans, URI location, PlanFragment fragment)
+    public StageExecutionInfo getStageExecutionInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, int finishedLifespans, int totalLifespans)
     {
-        Optional<StageInfo> finalStageInfo = this.finalInfo.get();
+        Optional<StageExecutionInfo> finalStageInfo = this.finalInfo.get();
         if (finalStageInfo.isPresent()) {
             return finalStageInfo.get();
         }
@@ -469,7 +467,8 @@ public class StageExecutionStateMachine
                 succinctBytes(physicalWrittenDataSize),
 
                 new StageGcStatistics(
-                        stageId.getId(),
+                        stageExecutionId.getStageId().getId(),
+                        stageExecutionId.getId(),
                         totalTasks,
                         fullGcTaskCount,
                         minFullGcSec,
@@ -483,14 +482,11 @@ public class StageExecutionStateMachine
         if (state == FAILED) {
             failureInfo = Optional.of(failureCause.get());
         }
-        return new StageInfo(stageId,
+        return new StageExecutionInfo(
+                stageExecutionId,
                 state,
-                location,
-                Optional.of(fragment),
-                fragment.getTypes(),
                 stageExecutionStats,
                 taskInfos,
-                ImmutableList.of(),
                 failureInfo);
     }
 
@@ -505,8 +501,8 @@ public class StageExecutionStateMachine
     public String toString()
     {
         return toStringHelper(this)
-                .add("stageId", stageId)
-                .add("stageState", state)
+                .add("stageExecutionId", stageExecutionId)
+                .add("state", state)
                 .toString();
     }
 }
