@@ -25,6 +25,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -609,7 +610,8 @@ class Query
             return null;
         }
 
-        StageExecutionStats stageExecutionStats = stageInfo.getStageStats();
+        StageExecutionInfo currentStageExecutionInfo = stageInfo.getLatestAttemptExecutionInfo();
+        StageExecutionStats stageExecutionStats = currentStageExecutionInfo.getStats();
 
         ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
         for (StageInfo subStage : stageInfo.getSubStages()) {
@@ -617,7 +619,7 @@ class Query
         }
 
         Set<String> uniqueNodes = new HashSet<>();
-        for (TaskInfo task : stageInfo.getTasks()) {
+        for (TaskInfo task : currentStageExecutionInfo.getTasks()) {
             // todo add nodeId to TaskInfo
             URI uri = task.getTaskStatus().getSelf();
             uniqueNodes.add(uri.getHost() + ":" + uri.getPort());
@@ -625,8 +627,8 @@ class Query
 
         return StageStats.builder()
                 .setStageId(String.valueOf(stageInfo.getStageId().getId()))
-                .setState(stageInfo.getState().toString())
-                .setDone(stageInfo.getState().isDone())
+                .setState(currentStageExecutionInfo.getState().toString())
+                .setDone(currentStageExecutionInfo.getState().isDone())
                 .setNodes(uniqueNodes.size())
                 .setTotalSplits(stageExecutionStats.getTotalDrivers())
                 .setQueuedSplits(stageExecutionStats.getQueuedDrivers())
@@ -646,7 +648,7 @@ class Query
             return ImmutableSet.of();
         }
         ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
-        for (TaskInfo task : stageInfo.getTasks()) {
+        for (TaskInfo task : stageInfo.getLatestAttemptExecutionInfo().getTasks()) {
             // todo add nodeId to TaskInfo
             URI uri = task.getTaskStatus().getSelf();
             nodes.add(uri.getHost() + ":" + uri.getPort());
@@ -667,7 +669,7 @@ class Query
     private static URI findCancelableLeafStage(StageInfo stage)
     {
         // if this stage is already done, we can't cancel it
-        if (stage.getState().isDone()) {
+        if (stage.getLatestAttemptExecutionInfo().getState().isDone()) {
             return null;
         }
 

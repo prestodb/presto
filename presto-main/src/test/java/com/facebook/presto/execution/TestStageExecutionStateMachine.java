@@ -31,7 +31,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -43,14 +42,11 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestStageExecutionStateMachine
 {
-    private static final StageId STAGE_ID = new StageId(new QueryId("query"), 0);
-    private static final URI LOCATION = URI.create("fake://fake-stage");
-    private static final PlanFragment PLAN_FRAGMENT = createValuesPlan();
+    private static final StageExecutionId STAGE_ID = new StageExecutionId(new StageId(new QueryId("query"), 0), 0);
     private static final SQLException FAILED_CAUSE = new SQLException("FAILED");
 
     private final ExecutorService executor = newCachedThreadPool();
@@ -289,26 +285,22 @@ public class TestStageExecutionStateMachine
 
     private static void assertState(StageExecutionStateMachine stateMachine, StageExecutionState expectedState)
     {
-        assertEquals(stateMachine.getStageId(), STAGE_ID);
+        assertEquals(stateMachine.getStageExecutionId(), STAGE_ID);
 
-        StageInfo stageInfo = stateMachine.getStageInfo(ImmutableList::of, 0, 0, LOCATION, PLAN_FRAGMENT);
-        assertEquals(stageInfo.getStageId(), STAGE_ID);
-        assertEquals(stageInfo.getSelf(), LOCATION);
-        assertEquals(stageInfo.getSubStages(), ImmutableList.of());
-        assertEquals(stageInfo.getTasks(), ImmutableList.of());
-        assertEquals(stageInfo.getTypes(), ImmutableList.of(VARCHAR));
-        assertSame(stageInfo.getPlan().get(), PLAN_FRAGMENT);
+        StageExecutionInfo stageExecutionInfo = stateMachine.getStageExecutionInfo(ImmutableList::of, 0, 0);
+        assertEquals(stageExecutionInfo.getStageExecutionId(), STAGE_ID);
+        assertEquals(stageExecutionInfo.getTasks(), ImmutableList.of());
 
         assertEquals(stateMachine.getState(), expectedState);
-        assertEquals(stageInfo.getState(), expectedState);
+        assertEquals(stageExecutionInfo.getState(), expectedState);
 
         if (expectedState == StageExecutionState.FAILED) {
-            ExecutionFailureInfo failure = stageInfo.getFailureCause().get();
+            ExecutionFailureInfo failure = stageExecutionInfo.getFailureCause().get();
             assertEquals(failure.getMessage(), FAILED_CAUSE.getMessage());
             assertEquals(failure.getType(), FAILED_CAUSE.getClass().getName());
         }
         else {
-            assertFalse(stageInfo.getFailureCause().isPresent());
+            assertFalse(stageExecutionInfo.getFailureCause().isPresent());
         }
     }
 

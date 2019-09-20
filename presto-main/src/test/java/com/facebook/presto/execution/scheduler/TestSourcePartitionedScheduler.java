@@ -21,6 +21,7 @@ import com.facebook.presto.execution.MockRemoteTaskFactory.MockRemoteTask;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
+import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
@@ -501,8 +502,8 @@ public class TestSourcePartitionedScheduler
     private SqlStageExecution createSqlStageExecution(SubPlan tableScanPlan, NodeTaskMap nodeTaskMap)
     {
         StageId stageId = new StageId(new QueryId("query"), 0);
-        SqlStageExecution stage = SqlStageExecution.createSqlStageExecution(stageId,
-                locationFactory.createStageLocation(stageId),
+        SqlStageExecution stage = SqlStageExecution.createSqlStageExecution(
+                new StageExecutionId(stageId, 0),
                 tableScanPlan.getFragment(),
                 new MockRemoteTaskFactory(queryExecutor, scheduledExecutor),
                 TEST_SESSION,
