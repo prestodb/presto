@@ -305,13 +305,13 @@ class StageSummary extends React.Component {
 
     componentDidUpdate() {
         const stage = this.props.stage;
-        const numTasks = stage.tasks.length;
+        const numTasks = stage.latestAttemptExecutionInfo.tasks.length;
 
         // sort the x-axis
-        stage.tasks.sort((taskA, taskB) => getTaskNumber(taskA.taskStatus.taskId) - getTaskNumber(taskB.taskStatus.taskId));
+        stage.latestAttemptExecutionInfo.tasks.sort((taskA, taskB) => getTaskNumber(taskA.taskStatus.taskId) - getTaskNumber(taskB.taskStatus.taskId));
 
-        const scheduledTimes = stage.tasks.map(task => parseDuration(task.stats.totalScheduledTime));
-        const cpuTimes = stage.tasks.map(task => parseDuration(task.stats.totalCpuTime));
+        const scheduledTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalScheduledTime));
+        const cpuTimes = stage.latestAttemptExecutionInfo.tasks.map(task => parseDuration(task.stats.totalCpuTime));
 
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
@@ -340,10 +340,22 @@ class StageSummary extends React.Component {
         }
     }
 
-    renderTaskList() {
-        let tasks = this.state.expanded ? this.props.stage.tasks : [];
+    renderStageExecutionAttemptsTasks(attempts) {
+        return attempts.map(attempt => {
+            return this.renderTaskList(attempt.tasks)
+        });
+    }
+
+    renderTaskList(tasks) {
+        tasks = this.state.expanded ? tasks : [];
         tasks = tasks.filter(task => this.state.taskFilter.predicate(task.taskStatus.state), this);
-        return (<TaskList tasks={tasks}/>);
+        return (
+            <tr style={this.getExpandedStyle()}>
+                <td colSpan="6">
+                    <TaskList tasks={tasks}/>
+                </td>
+            </tr>
+        );
     }
 
     renderTaskFilterListItem(taskFilter) {
@@ -402,7 +414,7 @@ class StageSummary extends React.Component {
                 </tr>);
         }
 
-        const totalBufferedBytes = stage.tasks
+        const totalBufferedBytes = stage.latestAttemptExecutionInfo.tasks
             .map(task => task.outputBuffers.totalBufferedBytes)
             .reduce((a, b) => a + b, 0);
 
@@ -433,7 +445,7 @@ class StageSummary extends React.Component {
                                             Scheduled
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.totalScheduledTime}
+                                            {stage.latestAttemptExecutionInfo.stats.totalScheduledTime}
                                         </td>
                                     </tr>
                                     <tr>
@@ -441,7 +453,7 @@ class StageSummary extends React.Component {
                                             Blocked
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.totalBlockedTime}
+                                            {stage.latestAttemptExecutionInfo.stats.totalBlockedTime}
                                         </td>
                                     </tr>
                                     <tr>
@@ -449,7 +461,7 @@ class StageSummary extends React.Component {
                                             CPU
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.totalCpuTime}
+                                            {stage.latestAttemptExecutionInfo.stats.totalCpuTime}
                                         </td>
                                     </tr>
                                     </tbody>
@@ -471,7 +483,7 @@ class StageSummary extends React.Component {
                                             Cumulative
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {formatDataSizeBytes(stage.stageStats.cumulativeUserMemory / 1000)}
+                                            {formatDataSizeBytes(stage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -479,7 +491,7 @@ class StageSummary extends React.Component {
                                             Current
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.userMemoryReservation}
+                                            {stage.latestAttemptExecutionInfo.stats.userMemoryReservation}
                                         </td>
                                     </tr>
                                     <tr>
@@ -495,7 +507,7 @@ class StageSummary extends React.Component {
                                             Peak
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.peakUserMemoryReservation}
+                                            {stage.latestAttemptExecutionInfo.stats.peakUserMemoryReservation}
                                         </td>
                                     </tr>
                                     </tbody>
@@ -517,7 +529,7 @@ class StageSummary extends React.Component {
                                             Pending
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.tasks.filter(task => task.taskStatus.state === "PLANNED").length}
+                                            {stage.latestAttemptExecutionInfo.tasks.filter(task => task.taskStatus.state === "PLANNED").length}
                                         </td>
                                     </tr>
                                     <tr>
@@ -525,7 +537,7 @@ class StageSummary extends React.Component {
                                             Running
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.tasks.filter(task => task.taskStatus.state === "RUNNING").length}
+                                            {stage.latestAttemptExecutionInfo.tasks.filter(task => task.taskStatus.state === "RUNNING").length}
                                         </td>
                                     </tr>
                                     <tr>
@@ -533,7 +545,7 @@ class StageSummary extends React.Component {
                                             Blocked
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.tasks.filter(task => task.stats.fullyBlocked).length}
+                                            {stage.latestAttemptExecutionInfo.tasks.filter(task => task.stats.fullyBlocked).length}
                                         </td>
                                     </tr>
                                     <tr>
@@ -541,7 +553,7 @@ class StageSummary extends React.Component {
                                             Total
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.tasks.length}
+                                            {stage.latestAttemptExecutionInfo.tasks.length}
                                         </td>
                                     </tr>
                                     </tbody>
@@ -626,11 +638,9 @@ class StageSummary extends React.Component {
                                 {this.renderTaskFilter()}
                             </td>
                         </tr>
-                        <tr style={this.getExpandedStyle()}>
-                            <td colSpan="6">
-                                {this.renderTaskList()}
-                            </td>
-                        </tr>
+                        {this.renderStageExecutionAttemptsTasks([stage.latestAttemptExecutionInfo])}
+
+                        {this.renderStageExecutionAttemptsTasks(stage.previousAttemptsExecutionInfos)}
                         </tbody>
                     </table>
                 </td>
