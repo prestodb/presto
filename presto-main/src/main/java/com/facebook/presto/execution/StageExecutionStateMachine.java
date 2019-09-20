@@ -79,8 +79,8 @@ public class StageExecutionStateMachine
     private final Session session;
     private final SplitSchedulerStats scheduledStats;
 
-    private final StateMachine<StageExecutionState> stageState;
-    private final StateMachine<Optional<StageInfo>> finalStageInfo;
+    private final StateMachine<StageExecutionState> state;
+    private final StateMachine<Optional<StageInfo>> finalInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
     private final AtomicReference<Optional<String>> renderedPlan = new AtomicReference<>(Optional.empty());
 
@@ -105,10 +105,10 @@ public class StageExecutionStateMachine
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
 
-        stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
-        stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
+        state = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
+        state.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
 
-        finalStageInfo = new StateMachine<>("final stage " + stageId, executor, Optional.empty());
+        finalInfo = new StateMachine<>("final stage " + stageId, executor, Optional.empty());
     }
 
     public StageId getStageId()
@@ -128,7 +128,7 @@ public class StageExecutionStateMachine
 
     public StageExecutionState getState()
     {
-        return stageState.get();
+        return state.get();
     }
 
     public PlanFragment getFragment()
@@ -143,48 +143,48 @@ public class StageExecutionStateMachine
      */
     public void addStateChangeListener(StateChangeListener<StageExecutionState> stateChangeListener)
     {
-        stageState.addStateChangeListener(stateChangeListener);
+        state.addStateChangeListener(stateChangeListener);
     }
 
     public synchronized boolean transitionToScheduling()
     {
-        return stageState.compareAndSet(PLANNED, SCHEDULING);
+        return state.compareAndSet(PLANNED, SCHEDULING);
     }
 
     public synchronized boolean transitionToFinishedTaskScheduling()
     {
-        return stageState.compareAndSet(SCHEDULING, FINISHED_TASK_SCHEDULING);
+        return state.compareAndSet(SCHEDULING, FINISHED_TASK_SCHEDULING);
     }
 
     public synchronized boolean transitionToSchedulingSplits()
     {
-        return stageState.setIf(SCHEDULING_SPLITS, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING);
+        return state.setIf(SCHEDULING_SPLITS, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING);
     }
 
     public synchronized boolean transitionToScheduled()
     {
         schedulingComplete.compareAndSet(null, DateTime.now());
-        return stageState.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING || currentState == SCHEDULING_SPLITS);
+        return state.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING || currentState == SCHEDULING_SPLITS);
     }
 
     public boolean transitionToRunning()
     {
-        return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
+        return state.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
     }
 
     public boolean transitionToFinished()
     {
-        return stageState.setIf(FINISHED, currentState -> !currentState.isDone());
+        return state.setIf(FINISHED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToCanceled()
     {
-        return stageState.setIf(CANCELED, currentState -> !currentState.isDone());
+        return state.setIf(CANCELED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToAborted()
     {
-        return stageState.setIf(ABORTED, currentState -> !currentState.isDone());
+        return state.setIf(ABORTED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToFailed(Throwable throwable)
@@ -192,7 +192,7 @@ public class StageExecutionStateMachine
         requireNonNull(throwable, "throwable is null");
 
         failureCause.compareAndSet(null, Failures.toFailure(throwable));
-        boolean failed = stageState.setIf(FAILED, currentState -> !currentState.isDone());
+        boolean failed = state.setIf(FAILED, currentState -> !currentState.isDone());
         if (failed) {
             log.error(throwable, "Stage %s failed", stageId);
         }
@@ -216,16 +216,16 @@ public class StageExecutionStateMachine
                 finalStatusListener.stateChanged(finalStageInfo.get());
             }
         };
-        finalStageInfo.addStateChangeListener(fireOnceStateChangeListener);
+        finalInfo.addStateChangeListener(fireOnceStateChangeListener);
     }
 
     public void setAllTasksFinal(Iterable<TaskInfo> finalTaskInfos, int totalLifespans)
     {
         requireNonNull(finalTaskInfos, "finalTaskInfos is null");
-        checkState(stageState.get().isDone());
+        checkState(state.get().isDone());
         StageInfo stageInfo = getStageInfo(() -> finalTaskInfos, totalLifespans, totalLifespans);
         checkArgument(stageInfo.isFinalStageInfo(), "finalTaskInfos are not all done");
-        finalStageInfo.compareAndSet(Optional.empty(), Optional.of(stageInfo));
+        finalInfo.compareAndSet(Optional.empty(), Optional.of(stageInfo));
     }
 
     public long getUserMemoryReservation()
@@ -247,7 +247,7 @@ public class StageExecutionStateMachine
 
     public BasicStageExecutionStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
     {
-        Optional<StageInfo> finalStageInfo = this.finalStageInfo.get();
+        Optional<StageInfo> finalStageInfo = this.finalInfo.get();
         if (finalStageInfo.isPresent()) {
             return finalStageInfo.get()
                     .getStageStats()
@@ -258,7 +258,7 @@ public class StageExecutionStateMachine
         // consistent view of the stage. For example, building this
         // information, the stage could finish, and the task states would
         // never be visible.
-        StageExecutionState state = stageState.get();
+        StageExecutionState state = this.state.get();
         boolean isScheduled = (state == RUNNING) || state.isDone();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
@@ -341,7 +341,7 @@ public class StageExecutionStateMachine
 
     public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier, int finishedLifespans, int totalLifespans)
     {
-        Optional<StageInfo> finalStageInfo = this.finalStageInfo.get();
+        Optional<StageInfo> finalStageInfo = this.finalInfo.get();
         if (finalStageInfo.isPresent()) {
             return finalStageInfo.get();
         }
@@ -350,7 +350,7 @@ public class StageExecutionStateMachine
         // consistent view of the stage. For example, building this
         // information, the stage could finish, and the task states would
         // never be visible.
-        StageExecutionState state = stageState.get();
+        StageExecutionState state = this.state.get();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
 
@@ -529,7 +529,7 @@ public class StageExecutionStateMachine
     {
         return toStringHelper(this)
                 .add("stageId", stageId)
-                .add("stageState", stageState)
+                .add("stageState", state)
                 .toString();
     }
 }
