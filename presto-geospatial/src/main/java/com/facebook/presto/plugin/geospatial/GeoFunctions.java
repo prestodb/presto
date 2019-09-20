@@ -102,7 +102,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.PI;
@@ -123,6 +122,7 @@ public final class GeoFunctions
     private static final Joiner OR_JOINER = Joiner.on(" or ");
     private static final Slice EMPTY_POLYGON = serialize(new OGCPolygon(new Polygon(), null));
     private static final Slice EMPTY_MULTIPOINT = serialize(createFromEsriGeometry(new MultiPoint(), null, true));
+    private static final Slice EMPTY_POINT = serialize(createFromEsriGeometry(new Point(), null));
     private static final double EARTH_RADIUS_KM = 6371.01;
     private static final double EARTH_RADIUS_M = EARTH_RADIUS_KM * 1000.0;
     private static final Map<Reason, String> NON_SIMPLE_REASONS = ImmutableMap.<Reason, String>builder()
@@ -327,6 +327,14 @@ public final class GeoFunctions
     {
         // Every SphericalGeography object is a valid geometry object
         return input;
+    }
+
+    @Description("Returns the Well-Known Text (WKT) representation of the spherical geometry")
+    @ScalarFunction("ST_AsText")
+    @SqlType(VARCHAR)
+    public static Slice stSphericalAsText(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
+    {
+        return utf8Slice(deserialize(input).asText());
     }
 
     @Description("Returns the Well-Known Text (WKT) representation of the geometry")
@@ -1386,8 +1394,12 @@ public final class GeoFunctions
         if (geometryType == GeometryType.POINT) {
             return input;
         }
+        Point centroid = SphericalCentroidCalculator.centroid(geometry);
+        if (centroid == null) {
+            return EMPTY_POINT;
+        }
 
-        return serialize(OGCGeometry.createFromEsriGeometry(SphericalCentroidCalculator.centroid(geometry), geometry.getEsriSpatialReference()));
+        return serialize(OGCGeometry.createFromEsriGeometry(centroid, geometry.getEsriSpatialReference()));
     }
 
     public static class SphericalCentroidCalculator
@@ -1448,6 +1460,11 @@ public final class GeoFunctions
                     pointCount++;
                 }
             }
+
+            // Lickely this point is the center of the sphere, so we can't find a centroid on the surface, as we are in balance with all the points
+            if (Math.abs(sum[0]) < Math.pow(10, -9) && Math.abs(sum[1]) < Math.pow(10, -9) && Math.abs(sum[2]) < Math.pow(10, -9)) {
+                return null;
+            }
             double[] surfaceCoordinates = toSurfaceCoordinates(sum[0], sum[1], sum[2], pointCount);
             double[] latLon = toLatitudeLongitude(surfaceCoordinates[0], surfaceCoordinates[1], surfaceCoordinates[2]);
 
@@ -1466,6 +1483,11 @@ public final class GeoFunctions
                 sum[0] += cartesianCoordinate[0];
                 sum[1] += cartesianCoordinate[1];
                 sum[2] += cartesianCoordinate[2];
+            }
+
+            // Lickely this point is the center of the sphere, so we can't find a centroid on the surface, as we are in balance with all the points
+            if (sum[0] < Math.pow(10, -9) && sum[1] < Math.pow(10, -9) && sum[2] < Math.pow(10, -9)) {
+                return null;
             }
             double[] surfaceCoordinates = toSurfaceCoordinates(sum[0], sum[1], sum[2], pointCount);
             double[] latLon = toLatitudeLongitude(surfaceCoordinates[0], surfaceCoordinates[1], surfaceCoordinates[2]);
