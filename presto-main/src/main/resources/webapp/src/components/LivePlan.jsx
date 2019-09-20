@@ -55,8 +55,8 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
             id: stageInfo.plan.id,
             root: stageInfo.plan.root.id,
             distribution: stageInfo.plan.distribution,
-            stageStats: stageInfo.stageStats,
-            state: stageInfo.state,
+            stageStats: stageInfo.latestAttemptExecutionInfo.stats,
+            state: stageInfo.latestAttemptExecutionInfo.state,
             nodes: nodes
         });
     }

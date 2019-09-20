@@ -115,7 +115,7 @@ d3.json('/v1/query/' + window.location.search.substring(1), function (query) {
 function renderTimeline(data) {
     function getTasks(stage) {
         return [].concat.apply(
-                stage.tasks,
+                stage.latestAttemptExecutionInfo.tasks,
                 stage.subStages.map(getTasks));
     }
     tasks = getTasks(data.outputStage);
