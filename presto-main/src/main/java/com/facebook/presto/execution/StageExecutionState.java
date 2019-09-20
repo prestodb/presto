@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-public enum StageState
+public enum StageExecutionState
 {
     /**
      * Stage is planned but has not been scheduled yet.  A stage will
@@ -66,12 +66,12 @@ public enum StageState
      */
     FAILED(true, true);
 
-    public static final Set<StageState> TERMINAL_STAGE_STATES = Stream.of(StageState.values()).filter(StageState::isDone).collect(toImmutableSet());
+    public static final Set<StageExecutionState> TERMINAL_STAGE_STATES = Stream.of(StageExecutionState.values()).filter(StageExecutionState::isDone).collect(toImmutableSet());
 
     private final boolean doneState;
     private final boolean failureState;
 
-    StageState(boolean doneState, boolean failureState)
+    StageExecutionState(boolean doneState, boolean failureState)
     {
         checkArgument(!failureState || doneState, "%s is a non-done failure state", name());
         this.doneState = doneState;

@@ -47,7 +47,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
-public class TestStageStateMachine
+public class TestStageExecutionStateMachine
 {
     private static final StageId STAGE_ID = new StageId(new QueryId("query"), 0);
     private static final URI LOCATION = URI.create("fake://fake-stage");
@@ -65,201 +65,201 @@ public class TestStageStateMachine
     @Test
     public void testBasicStateChanges()
     {
-        StageStateMachine stateMachine = createStageStateMachine();
-        assertState(stateMachine, StageState.PLANNED);
+        StageExecutionStateMachine stateMachine = createStageStateMachine();
+        assertState(stateMachine, StageExecutionState.PLANNED);
 
         assertTrue(stateMachine.transitionToScheduling());
-        assertState(stateMachine, StageState.SCHEDULING);
+        assertState(stateMachine, StageExecutionState.SCHEDULING);
 
         assertTrue(stateMachine.transitionToScheduled());
-        assertState(stateMachine, StageState.SCHEDULED);
+        assertState(stateMachine, StageExecutionState.SCHEDULED);
 
         assertTrue(stateMachine.transitionToRunning());
-        assertState(stateMachine, StageState.RUNNING);
+        assertState(stateMachine, StageExecutionState.RUNNING);
 
         assertTrue(stateMachine.transitionToFinished());
-        assertState(stateMachine, StageState.FINISHED);
+        assertState(stateMachine, StageExecutionState.FINISHED);
     }
 
     @Test
     public void testPlanned()
     {
-        StageStateMachine stateMachine = createStageStateMachine();
-        assertState(stateMachine, StageState.PLANNED);
+        StageExecutionStateMachine stateMachine = createStageStateMachine();
+        assertState(stateMachine, StageExecutionState.PLANNED);
 
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToScheduling());
-        assertState(stateMachine, StageState.SCHEDULING);
+        assertState(stateMachine, StageExecutionState.SCHEDULING);
 
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToRunning());
-        assertState(stateMachine, StageState.RUNNING);
+        assertState(stateMachine, StageExecutionState.RUNNING);
 
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToFinished());
-        assertState(stateMachine, StageState.FINISHED);
+        assertState(stateMachine, StageExecutionState.FINISHED);
 
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, StageState.FAILED);
+        assertState(stateMachine, StageExecutionState.FAILED);
 
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToAborted());
-        assertState(stateMachine, StageState.ABORTED);
+        assertState(stateMachine, StageExecutionState.ABORTED);
 
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToCanceled());
-        assertState(stateMachine, StageState.CANCELED);
+        assertState(stateMachine, StageExecutionState.CANCELED);
     }
 
     @Test
     public void testScheduling()
     {
-        StageStateMachine stateMachine = createStageStateMachine();
+        StageExecutionStateMachine stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToScheduling());
-        assertState(stateMachine, StageState.SCHEDULING);
+        assertState(stateMachine, StageExecutionState.SCHEDULING);
 
         assertFalse(stateMachine.transitionToScheduling());
-        assertState(stateMachine, StageState.SCHEDULING);
+        assertState(stateMachine, StageExecutionState.SCHEDULING);
 
         assertTrue(stateMachine.transitionToScheduled());
-        assertState(stateMachine, StageState.SCHEDULED);
+        assertState(stateMachine, StageExecutionState.SCHEDULED);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduling();
         assertTrue(stateMachine.transitionToRunning());
-        assertState(stateMachine, StageState.RUNNING);
+        assertState(stateMachine, StageExecutionState.RUNNING);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduling();
         assertTrue(stateMachine.transitionToFinished());
-        assertState(stateMachine, StageState.FINISHED);
+        assertState(stateMachine, StageExecutionState.FINISHED);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduling();
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, StageState.FAILED);
+        assertState(stateMachine, StageExecutionState.FAILED);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduling();
         assertTrue(stateMachine.transitionToAborted());
-        assertState(stateMachine, StageState.ABORTED);
+        assertState(stateMachine, StageExecutionState.ABORTED);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduling();
         assertTrue(stateMachine.transitionToCanceled());
-        assertState(stateMachine, StageState.CANCELED);
+        assertState(stateMachine, StageExecutionState.CANCELED);
     }
 
     @Test
     public void testScheduled()
     {
-        StageStateMachine stateMachine = createStageStateMachine();
+        StageExecutionStateMachine stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToScheduled());
-        assertState(stateMachine, StageState.SCHEDULED);
+        assertState(stateMachine, StageExecutionState.SCHEDULED);
 
         assertFalse(stateMachine.transitionToScheduling());
-        assertState(stateMachine, StageState.SCHEDULED);
+        assertState(stateMachine, StageExecutionState.SCHEDULED);
 
         assertFalse(stateMachine.transitionToScheduled());
-        assertState(stateMachine, StageState.SCHEDULED);
+        assertState(stateMachine, StageExecutionState.SCHEDULED);
 
         assertTrue(stateMachine.transitionToRunning());
-        assertState(stateMachine, StageState.RUNNING);
+        assertState(stateMachine, StageExecutionState.RUNNING);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduled();
         assertTrue(stateMachine.transitionToFinished());
-        assertState(stateMachine, StageState.FINISHED);
+        assertState(stateMachine, StageExecutionState.FINISHED);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduled();
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, StageState.FAILED);
+        assertState(stateMachine, StageExecutionState.FAILED);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduled();
         assertTrue(stateMachine.transitionToAborted());
-        assertState(stateMachine, StageState.ABORTED);
+        assertState(stateMachine, StageExecutionState.ABORTED);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduled();
         assertTrue(stateMachine.transitionToCanceled());
-        assertState(stateMachine, StageState.CANCELED);
+        assertState(stateMachine, StageExecutionState.CANCELED);
     }
 
     @Test
     public void testRunning()
     {
-        StageStateMachine stateMachine = createStageStateMachine();
+        StageExecutionStateMachine stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToRunning());
-        assertState(stateMachine, StageState.RUNNING);
+        assertState(stateMachine, StageExecutionState.RUNNING);
 
         assertFalse(stateMachine.transitionToScheduling());
-        assertState(stateMachine, StageState.RUNNING);
+        assertState(stateMachine, StageExecutionState.RUNNING);
 
         assertFalse(stateMachine.transitionToScheduled());
-        assertState(stateMachine, StageState.RUNNING);
+        assertState(stateMachine, StageExecutionState.RUNNING);
 
         assertFalse(stateMachine.transitionToRunning());
-        assertState(stateMachine, StageState.RUNNING);
+        assertState(stateMachine, StageExecutionState.RUNNING);
 
         assertTrue(stateMachine.transitionToFinished());
-        assertState(stateMachine, StageState.FINISHED);
+        assertState(stateMachine, StageExecutionState.FINISHED);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToRunning();
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, StageState.FAILED);
+        assertState(stateMachine, StageExecutionState.FAILED);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToRunning();
         assertTrue(stateMachine.transitionToAborted());
-        assertState(stateMachine, StageState.ABORTED);
+        assertState(stateMachine, StageExecutionState.ABORTED);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToRunning();
         assertTrue(stateMachine.transitionToCanceled());
-        assertState(stateMachine, StageState.CANCELED);
+        assertState(stateMachine, StageExecutionState.CANCELED);
     }
 
     @Test
     public void testFinished()
     {
-        StageStateMachine stateMachine = createStageStateMachine();
+        StageExecutionStateMachine stateMachine = createStageStateMachine();
 
         assertTrue(stateMachine.transitionToFinished());
-        assertFinalState(stateMachine, StageState.FINISHED);
+        assertFinalState(stateMachine, StageExecutionState.FINISHED);
     }
 
     @Test
     public void testFailed()
     {
-        StageStateMachine stateMachine = createStageStateMachine();
+        StageExecutionStateMachine stateMachine = createStageStateMachine();
 
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertFinalState(stateMachine, StageState.FAILED);
+        assertFinalState(stateMachine, StageExecutionState.FAILED);
     }
 
     @Test
     public void testAborted()
     {
-        StageStateMachine stateMachine = createStageStateMachine();
+        StageExecutionStateMachine stateMachine = createStageStateMachine();
 
         assertTrue(stateMachine.transitionToAborted());
-        assertFinalState(stateMachine, StageState.ABORTED);
+        assertFinalState(stateMachine, StageExecutionState.ABORTED);
     }
 
     @Test
     public void testCanceled()
     {
-        StageStateMachine stateMachine = createStageStateMachine();
+        StageExecutionStateMachine stateMachine = createStageStateMachine();
 
         assertTrue(stateMachine.transitionToCanceled());
-        assertFinalState(stateMachine, StageState.CANCELED);
+        assertFinalState(stateMachine, StageExecutionState.CANCELED);
     }
 
-    private static void assertFinalState(StageStateMachine stateMachine, StageState expectedState)
+    private static void assertFinalState(StageExecutionStateMachine stateMachine, StageExecutionState expectedState)
     {
         assertTrue(expectedState.isDone());
 
@@ -288,7 +288,7 @@ public class TestStageStateMachine
         assertState(stateMachine, expectedState);
     }
 
-    private static void assertState(StageStateMachine stateMachine, StageState expectedState)
+    private static void assertState(StageExecutionStateMachine stateMachine, StageExecutionState expectedState)
     {
         assertEquals(stateMachine.getStageId(), STAGE_ID);
         assertEquals(stateMachine.getLocation(), LOCATION);
@@ -305,7 +305,7 @@ public class TestStageStateMachine
         assertEquals(stateMachine.getState(), expectedState);
         assertEquals(stageInfo.getState(), expectedState);
 
-        if (expectedState == StageState.FAILED) {
+        if (expectedState == StageExecutionState.FAILED) {
             ExecutionFailureInfo failure = stageInfo.getFailureCause().get();
             assertEquals(failure.getMessage(), FAILED_CAUSE.getMessage());
             assertEquals(failure.getType(), FAILED_CAUSE.getClass().getName());
@@ -315,9 +315,9 @@ public class TestStageStateMachine
         }
     }
 
-    private StageStateMachine createStageStateMachine()
+    private StageExecutionStateMachine createStageStateMachine()
     {
-        return new StageStateMachine(STAGE_ID, LOCATION, TEST_SESSION, PLAN_FRAGMENT, executor, new SplitSchedulerStats());
+        return new StageExecutionStateMachine(STAGE_ID, LOCATION, TEST_SESSION, PLAN_FRAGMENT, executor, new SplitSchedulerStats());
     }
 
     private static PlanFragment createValuesPlan()

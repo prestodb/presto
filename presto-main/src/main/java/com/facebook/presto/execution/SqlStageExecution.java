@@ -90,7 +90,7 @@ public final class SqlStageExecution
             REMOTE_TASK_MISMATCH.toErrorCode(),
             REMOTE_TASK_ERROR.toErrorCode());
 
-    private final StageStateMachine stateMachine;
+    private final StageExecutionStateMachine stateMachine;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
@@ -156,7 +156,7 @@ public final class SqlStageExecution
         requireNonNull(schedulerStats, "schedulerStats is null");
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
-                new StageStateMachine(stageId, location, session, fragment, executor, schedulerStats),
+                new StageExecutionStateMachine(stageId, location, session, fragment, executor, schedulerStats),
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,
@@ -168,7 +168,7 @@ public final class SqlStageExecution
     }
 
     private SqlStageExecution(
-            StageStateMachine stateMachine,
+            StageExecutionStateMachine stateMachine,
             RemoteTaskFactory remoteTaskFactory,
             NodeTaskMap nodeTaskMap,
             boolean summarizeTaskInfo,
@@ -206,7 +206,7 @@ public final class SqlStageExecution
         return stateMachine.getStageId();
     }
 
-    public StageState getState()
+    public StageExecutionState getState()
     {
         return stateMachine.getState();
     }
@@ -215,7 +215,7 @@ public final class SqlStageExecution
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor.
      */
-    public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
+    public void addStateChangeListener(StateChangeListener<StageExecutionState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);
     }
@@ -273,7 +273,7 @@ public final class SqlStageExecution
             return;
         }
 
-        if (getAllTasks().stream().anyMatch(task -> getState() == StageState.RUNNING)) {
+        if (getAllTasks().stream().anyMatch(task -> getState() == StageExecutionState.RUNNING)) {
             stateMachine.transitionToRunning();
         }
         if (finishedTasks.size() == allTasks.size()) {
@@ -323,7 +323,7 @@ public final class SqlStageExecution
         return new Duration(millis, TimeUnit.MILLISECONDS);
     }
 
-    public BasicStageStats getBasicStageStats()
+    public BasicStageExecutionStats getBasicStageStats()
     {
         return stateMachine.getBasicStageStats(this::getAllTaskInfo);
     }
@@ -538,8 +538,8 @@ public final class SqlStageExecution
     private synchronized void updateTaskStatus(TaskStatus taskStatus)
     {
         try {
-            StageState stageState = getState();
-            if (stageState.isDone()) {
+            StageExecutionState stageExecutionState = getState();
+            if (stageExecutionState.isDone()) {
                 return;
             }
 
@@ -570,13 +570,13 @@ public final class SqlStageExecution
             }
             else if (taskState == TaskState.ABORTED) {
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+                stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageExecutionState));
             }
             else if (taskState == TaskState.FINISHED) {
                 finishedTasks.add(taskStatus.getTaskId());
             }
 
-            if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING) {
+            if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING) {
                 if (taskState == TaskState.RUNNING) {
                     stateMachine.transitionToRunning();
                 }

@@ -33,11 +33,11 @@ import static java.util.Objects.requireNonNull;
 public class StageInfo
 {
     private final StageId stageId;
-    private final StageState state;
+    private final StageExecutionState state;
     private final URI self;
     private final Optional<PlanFragment> plan;
     private final List<Type> types;
-    private final StageStats stageStats;
+    private final StageExecutionStats stageStats;
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
     private final Optional<ExecutionFailureInfo> failureCause;
@@ -45,11 +45,11 @@ public class StageInfo
     @JsonCreator
     public StageInfo(
             @JsonProperty("stageId") StageId stageId,
-            @JsonProperty("state") StageState state,
+            @JsonProperty("state") StageExecutionState state,
             @JsonProperty("self") URI self,
             @JsonProperty("plan") Optional<PlanFragment> plan,
             @JsonProperty("types") List<Type> types,
-            @JsonProperty("stageStats") StageStats stageStats,
+            @JsonProperty("stageStats") StageExecutionStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
             @JsonProperty("failureCause") Optional<ExecutionFailureInfo> failureCause)
@@ -72,7 +72,7 @@ public class StageInfo
     }
 
     @JsonProperty
-    public StageState getState()
+    public StageExecutionState getState()
     {
         return state;
     }
@@ -96,7 +96,7 @@ public class StageInfo
     }
 
     @JsonProperty
-    public StageStats getStageStats()
+    public StageExecutionStats getStageStats()
     {
         return stageStats;
     }

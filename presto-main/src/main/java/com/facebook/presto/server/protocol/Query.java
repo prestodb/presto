@@ -25,6 +25,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.StageExecutionStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.buffer.PagesSerde;
@@ -608,7 +609,7 @@ class Query
             return null;
         }
 
-        com.facebook.presto.execution.StageStats stageStats = stageInfo.getStageStats();
+        StageExecutionStats stageExecutionStats = stageInfo.getStageStats();
 
         ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
         for (StageInfo subStage : stageInfo.getSubStages()) {
@@ -627,14 +628,14 @@ class Query
                 .setState(stageInfo.getState().toString())
                 .setDone(stageInfo.getState().isDone())
                 .setNodes(uniqueNodes.size())
-                .setTotalSplits(stageStats.getTotalDrivers())
-                .setQueuedSplits(stageStats.getQueuedDrivers())
-                .setRunningSplits(stageStats.getRunningDrivers() + stageStats.getBlockedDrivers())
-                .setCompletedSplits(stageStats.getCompletedDrivers())
-                .setCpuTimeMillis(stageStats.getTotalCpuTime().toMillis())
-                .setWallTimeMillis(stageStats.getTotalScheduledTime().toMillis())
-                .setProcessedRows(stageStats.getRawInputPositions())
-                .setProcessedBytes(stageStats.getRawInputDataSize().toBytes())
+                .setTotalSplits(stageExecutionStats.getTotalDrivers())
+                .setQueuedSplits(stageExecutionStats.getQueuedDrivers())
+                .setRunningSplits(stageExecutionStats.getRunningDrivers() + stageExecutionStats.getBlockedDrivers())
+                .setCompletedSplits(stageExecutionStats.getCompletedDrivers())
+                .setCpuTimeMillis(stageExecutionStats.getTotalCpuTime().toMillis())
+                .setWallTimeMillis(stageExecutionStats.getTotalScheduledTime().toMillis())
+                .setProcessedRows(stageExecutionStats.getRawInputPositions())
+                .setProcessedBytes(stageExecutionStats.getRawInputDataSize().toBytes())
                 .setSubStages(subStages.build())
                 .build();
     }

@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.BasicStageStats;
+import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryState;
@@ -24,7 +24,7 @@ import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -76,15 +76,15 @@ import static com.facebook.presto.SystemSessionProperties.getConcurrentLifespans
 import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
-import static com.facebook.presto.execution.BasicStageStats.aggregateBasicStageStats;
+import static com.facebook.presto.execution.BasicStageExecutionStats.aggregateBasicStageStats;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
-import static com.facebook.presto.execution.StageState.ABORTED;
-import static com.facebook.presto.execution.StageState.CANCELED;
-import static com.facebook.presto.execution.StageState.FAILED;
-import static com.facebook.presto.execution.StageState.FINISHED;
-import static com.facebook.presto.execution.StageState.PLANNED;
-import static com.facebook.presto.execution.StageState.RUNNING;
-import static com.facebook.presto.execution.StageState.SCHEDULED;
+import static com.facebook.presto.execution.StageExecutionState.ABORTED;
+import static com.facebook.presto.execution.StageExecutionState.CANCELED;
+import static com.facebook.presto.execution.StageExecutionState.FAILED;
+import static com.facebook.presto.execution.StageExecutionState.FINISHED;
+import static com.facebook.presto.execution.StageExecutionState.PLANNED;
+import static com.facebook.presto.execution.StageExecutionState.RUNNING;
+import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardingOutputBuffers;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
@@ -568,7 +568,7 @@ public class SqlQueryScheduler
                     nodeScheduler.createNodeSelector(null),
                     schedulerExecutor,
                     getWriterMinSize(session));
-            whenAllStages(childStages, StageState::isDone)
+            whenAllStages(childStages, StageExecutionState::isDone)
                     .addListener(scheduler::finish, directExecutor());
             stageSchedulers.put(stageId, scheduler);
         }
@@ -576,9 +576,9 @@ public class SqlQueryScheduler
         return stages.build();
     }
 
-    public BasicStageStats getBasicStageStats()
+    public BasicStageExecutionStats getBasicStageStats()
     {
-        List<BasicStageStats> stageStats = stages.values().stream()
+        List<BasicStageExecutionStats> stageStats = stages.values().stream()
                 .map(SqlStageExecution::getBasicStageStats)
                 .collect(toImmutableList());
 
@@ -762,7 +762,7 @@ public class SqlQueryScheduler
             }
 
             for (SqlStageExecution stage : scheduledStages) {
-                StageState state = stage.getState();
+                StageExecutionState state = stage.getState();
                 if (state != SCHEDULED && state != RUNNING && !state.isDone()) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stage.getStageId(), state));
                 }
@@ -867,7 +867,7 @@ public class SqlQueryScheduler
         }
     }
 
-    private static ListenableFuture<?> whenAllStages(Collection<SqlStageExecution> stages, Predicate<StageState> predicate)
+    private static ListenableFuture<?> whenAllStages(Collection<SqlStageExecution> stages, Predicate<StageExecutionState> predicate)
     {
         checkArgument(!stages.isEmpty(), "stages is empty");
         Set<StageId> stageIds = newConcurrentHashSet(stages.stream()
@@ -962,7 +962,7 @@ public class SqlQueryScheduler
             return childStageIds;
         }
 
-        public void processScheduleResults(StageState newState, Set<RemoteTask> newTasks)
+        public void processScheduleResults(StageExecutionState newState, Set<RemoteTask> newTasks)
         {
             boolean noMoreTasks = false;
             switch (newState) {
