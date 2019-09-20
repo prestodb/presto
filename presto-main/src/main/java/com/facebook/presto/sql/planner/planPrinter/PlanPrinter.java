@@ -18,7 +18,7 @@ import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.StageStats;
+import com.facebook.presto.execution.StageExecutionStats;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -254,7 +254,7 @@ public class PlanPrinter
                 fragment.getPartitioning()));
 
         if (stageInfo.isPresent()) {
-            StageStats stageStats = stageInfo.get().getStageStats();
+            StageExecutionStats stageExecutionStats = stageInfo.get().getStageStats();
 
             double avgPositionsPerTask = stageInfo.get().getTasks().stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
             double squaredDifferences = stageInfo.get().getTasks().stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
@@ -262,14 +262,14 @@ public class PlanPrinter
 
             builder.append(indentString(1))
                     .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
-                            stageStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
-                            stageStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
-                            formatPositions(stageStats.getProcessedInputPositions()),
-                            stageStats.getProcessedInputDataSize(),
+                            stageExecutionStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
+                            stageExecutionStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
+                            formatPositions(stageExecutionStats.getProcessedInputPositions()),
+                            stageExecutionStats.getProcessedInputDataSize(),
                             formatDouble(avgPositionsPerTask),
                             formatDouble(sdAmongTasks),
-                            formatPositions(stageStats.getOutputPositions()),
-                            stageStats.getOutputDataSize()));
+                            formatPositions(stageExecutionStats.getOutputPositions()),
+                            stageExecutionStats.getOutputDataSize()));
         }
 
         PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();

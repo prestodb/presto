@@ -31,13 +31,13 @@ import java.util.List;
 import java.util.OptionalDouble;
 import java.util.Set;
 
-import static com.facebook.presto.execution.StageState.RUNNING;
+import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class StageStats
+public class StageExecutionStats
 {
     private final DateTime schedulingComplete;
 
@@ -84,7 +84,7 @@ public class StageStats
     private final List<OperatorStats> operatorSummaries;
 
     @JsonCreator
-    public StageStats(
+    public StageExecutionStats(
             @JsonProperty("schedulingComplete") DateTime schedulingComplete,
 
             @JsonProperty("getSplitDistribution") DistributionSnapshot getSplitDistribution,
@@ -372,16 +372,16 @@ public class StageStats
         return operatorSummaries;
     }
 
-    public BasicStageStats toBasicStageStats(StageState stageState)
+    public BasicStageExecutionStats toBasicStageStats(StageExecutionState stageExecutionState)
     {
-        boolean isScheduled = (stageState == RUNNING) || stageState.isDone();
+        boolean isScheduled = (stageExecutionState == RUNNING) || stageExecutionState.isDone();
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
         if (isScheduled && totalDrivers != 0) {
             progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
         }
 
-        return new BasicStageStats(
+        return new BasicStageExecutionStats(
                 isScheduled,
                 totalDrivers,
                 queuedDrivers,

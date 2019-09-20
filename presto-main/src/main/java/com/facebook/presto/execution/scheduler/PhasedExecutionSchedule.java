@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.SqlStageExecution;
-import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -47,8 +47,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.execution.StageState.RUNNING;
-import static com.facebook.presto.execution.StageState.SCHEDULED;
+import static com.facebook.presto.execution.StageExecutionState.RUNNING;
+import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -90,7 +90,7 @@ public class PhasedExecutionSchedule
     private void removeCompletedStages()
     {
         for (Iterator<SqlStageExecution> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
-            StageState state = stageIterator.next().getState();
+            StageExecutionState state = stageIterator.next().getState();
             if (state == SCHEDULED || state == RUNNING || state.isDone()) {
                 stageIterator.remove();
             }

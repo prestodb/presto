@@ -16,7 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.StageState;
+import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
@@ -67,7 +67,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestHiveRecoverableGroupedExecution
 {
-    private static final Set<StageState> SPLIT_SCHEDULING_STARTED_STATES = ImmutableSet.of(StageState.SCHEDULING_SPLITS, StageState.SCHEDULED, StageState.RUNNING, StageState.FINISHED);
+    private static final Set<StageExecutionState> SPLIT_SCHEDULING_STARTED_STATES = ImmutableSet.of(StageExecutionState.SCHEDULING_SPLITS, StageExecutionState.SCHEDULED, StageExecutionState.RUNNING, StageExecutionState.FINISHED);
 
     private final Session recoverableSession;
     private final DistributedQueryRunnerSupplier distributedQueryRunnerSupplier;

@@ -29,9 +29,9 @@ import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class BasicStageStats
+public class BasicStageExecutionStats
 {
-    public static final BasicStageStats EMPTY_STAGE_STATS = new BasicStageStats(
+    public static final BasicStageExecutionStats EMPTY_STAGE_STATS = new BasicStageExecutionStats(
             false,
 
             0,
@@ -70,7 +70,7 @@ public class BasicStageStats
     private final Set<BlockedReason> blockedReasons;
     private final OptionalDouble progressPercentage;
 
-    public BasicStageStats(
+    public BasicStageExecutionStats(
             boolean isScheduled,
 
             int totalDrivers,
@@ -185,7 +185,7 @@ public class BasicStageStats
         return progressPercentage;
     }
 
-    public static BasicStageStats aggregateBasicStageStats(Iterable<BasicStageStats> stages)
+    public static BasicStageExecutionStats aggregateBasicStageStats(Iterable<BasicStageExecutionStats> stages)
     {
         int totalDrivers = 0;
         int queuedDrivers = 0;
@@ -207,7 +207,7 @@ public class BasicStageStats
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
-        for (BasicStageStats stageStats : stages) {
+        for (BasicStageExecutionStats stageStats : stages) {
             totalDrivers += stageStats.getTotalDrivers();
             queuedDrivers += stageStats.getQueuedDrivers();
             runningDrivers += stageStats.getRunningDrivers();
@@ -234,7 +234,7 @@ public class BasicStageStats
             progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
         }
 
-        return new BasicStageStats(
+        return new BasicStageExecutionStats(
                 isScheduled,
 
                 totalDrivers,

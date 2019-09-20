@@ -44,17 +44,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.execution.StageState.ABORTED;
-import static com.facebook.presto.execution.StageState.CANCELED;
-import static com.facebook.presto.execution.StageState.FAILED;
-import static com.facebook.presto.execution.StageState.FINISHED;
-import static com.facebook.presto.execution.StageState.FINISHED_TASK_SCHEDULING;
-import static com.facebook.presto.execution.StageState.PLANNED;
-import static com.facebook.presto.execution.StageState.RUNNING;
-import static com.facebook.presto.execution.StageState.SCHEDULED;
-import static com.facebook.presto.execution.StageState.SCHEDULING;
-import static com.facebook.presto.execution.StageState.SCHEDULING_SPLITS;
-import static com.facebook.presto.execution.StageState.TERMINAL_STAGE_STATES;
+import static com.facebook.presto.execution.StageExecutionState.ABORTED;
+import static com.facebook.presto.execution.StageExecutionState.CANCELED;
+import static com.facebook.presto.execution.StageExecutionState.FAILED;
+import static com.facebook.presto.execution.StageExecutionState.FINISHED;
+import static com.facebook.presto.execution.StageExecutionState.FINISHED_TASK_SCHEDULING;
+import static com.facebook.presto.execution.StageExecutionState.PLANNED;
+import static com.facebook.presto.execution.StageExecutionState.RUNNING;
+import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
+import static com.facebook.presto.execution.StageExecutionState.SCHEDULING;
+import static com.facebook.presto.execution.StageExecutionState.SCHEDULING_SPLITS;
+import static com.facebook.presto.execution.StageExecutionState.TERMINAL_STAGE_STATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -69,9 +69,9 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
-public class StageStateMachine
+public class StageExecutionStateMachine
 {
-    private static final Logger log = Logger.get(StageStateMachine.class);
+    private static final Logger log = Logger.get(StageExecutionStateMachine.class);
 
     private final StageId stageId;
     private final URI location;
@@ -79,7 +79,7 @@ public class StageStateMachine
     private final Session session;
     private final SplitSchedulerStats scheduledStats;
 
-    private final StateMachine<StageState> stageState;
+    private final StateMachine<StageExecutionState> stageState;
     private final StateMachine<Optional<StageInfo>> finalStageInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
     private final AtomicReference<Optional<String>> renderedPlan = new AtomicReference<>(Optional.empty());
@@ -91,7 +91,7 @@ public class StageStateMachine
     private final AtomicLong currentUserMemory = new AtomicLong();
     private final AtomicLong currentTotalMemory = new AtomicLong();
 
-    public StageStateMachine(
+    public StageExecutionStateMachine(
             StageId stageId,
             URI location,
             Session session,
@@ -126,7 +126,7 @@ public class StageStateMachine
         return session;
     }
 
-    public StageState getState()
+    public StageExecutionState getState()
     {
         return stageState.get();
     }
@@ -141,7 +141,7 @@ public class StageStateMachine
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    public void addStateChangeListener(StateChangeListener<StageState> stateChangeListener)
+    public void addStateChangeListener(StateChangeListener<StageExecutionState> stateChangeListener)
     {
         stageState.addStateChangeListener(stateChangeListener);
     }
@@ -245,7 +245,7 @@ public class StageStateMachine
         peakUserMemory.updateAndGet(currentPeakValue -> max(currentUserMemory.get(), currentPeakValue));
     }
 
-    public BasicStageStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
+    public BasicStageExecutionStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
     {
         Optional<StageInfo> finalStageInfo = this.finalStageInfo.get();
         if (finalStageInfo.isPresent()) {
@@ -258,7 +258,7 @@ public class StageStateMachine
         // consistent view of the stage. For example, building this
         // information, the stage could finish, and the task states would
         // never be visible.
-        StageState state = stageState.get();
+        StageExecutionState state = stageState.get();
         boolean isScheduled = (state == RUNNING) || state.isDone();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
@@ -315,7 +315,7 @@ public class StageStateMachine
             progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
         }
 
-        return new BasicStageStats(
+        return new BasicStageExecutionStats(
                 isScheduled,
 
                 totalDrivers,
@@ -350,7 +350,7 @@ public class StageStateMachine
         // consistent view of the stage. For example, building this
         // information, the stage could finish, and the task states would
         // never be visible.
-        StageState state = stageState.get();
+        StageExecutionState state = stageState.get();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
 
@@ -455,7 +455,7 @@ public class StageStateMachine
             }
         }
 
-        StageStats stageStats = new StageStats(
+        StageExecutionStats stageExecutionStats = new StageExecutionStats(
                 schedulingComplete.get(),
                 getSplitDistribution.snapshot(),
 
@@ -511,7 +511,7 @@ public class StageStateMachine
                 location,
                 Optional.of(fragment),
                 fragment.getTypes(),
-                stageStats,
+                stageExecutionStats,
                 taskInfos,
                 ImmutableList.of(),
                 failureInfo);

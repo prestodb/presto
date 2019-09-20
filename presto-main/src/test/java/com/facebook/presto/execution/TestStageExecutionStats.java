@@ -28,9 +28,9 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 
-public class TestStageStats
+public class TestStageExecutionStats
 {
-    private static final StageStats EXPECTED = new StageStats(
+    private static final StageExecutionStats EXPECTED = new StageExecutionStats(
             new DateTime(0),
 
             getTestDistribution(1),
@@ -85,15 +85,15 @@ public class TestStageStats
     @Test
     public void testJson()
     {
-        JsonCodec<StageStats> codec = JsonCodec.jsonCodec(StageStats.class);
+        JsonCodec<StageExecutionStats> codec = JsonCodec.jsonCodec(StageExecutionStats.class);
 
         String json = codec.toJson(EXPECTED);
-        StageStats actual = codec.fromJson(json);
+        StageExecutionStats actual = codec.fromJson(json);
 
         assertExpectedStageStats(actual);
     }
 
-    private static void assertExpectedStageStats(StageStats actual)
+    private static void assertExpectedStageStats(StageExecutionStats actual)
     {
         assertEquals(actual.getSchedulingComplete().getMillis(), 0);
 
