@@ -20,9 +20,9 @@ import com.facebook.presto.operator.WorkProcessor.Transformation;
 import com.facebook.presto.operator.WorkProcessor.TransformationState;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
