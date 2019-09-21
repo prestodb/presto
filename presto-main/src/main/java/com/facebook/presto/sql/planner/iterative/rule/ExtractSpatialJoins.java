@@ -53,14 +53,8 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
-import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.StringLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.*;
+import com.facebook.presto.util.SpatialJoinUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -375,10 +369,48 @@ public class ExtractSpatialJoins
         Optional<KdbTree> kdbTree = spatialPartitioningTableName.map(tableName -> loadKdbTree(tableName, context.getSession(), metadata, splitManager, pageSourceManager));
 
         List<Expression> arguments = spatialFunction.getArguments();
-        verify(arguments.size() == 2);
+        Expression firstArgument;
+        Expression secondArgument;
+        QualifiedName spatialFunctionName;
+        Expression addAndExpression = null;
+        Optional<Expression> distanceRadius = Optional.empty();
+        if (spatialFunction.getName().getSuffix().equalsIgnoreCase(SpatialJoinUtils.GREAT_CIRCLE_DISTANCE.getSuffix())) {
+            verify(arguments.size() == 4);
+            for (int i = 0; i < 4; i++) {
+                Expression arg = arguments.get(i);
+                if (!getExpressionType(arg, context, metadata, sqlParser).equals(DOUBLE)) {
+                    return Result.empty();
+                }
+                Set<VariableReferenceExpression> argVariables = VariablesExtractor.extractUnique(arg, context.getVariableAllocator().getTypes());
 
-        Expression firstArgument = arguments.get(0);
-        Expression secondArgument = arguments.get(1);
+                if (argVariables.isEmpty()) {
+                    return Result.empty();
+                }
+            }
+
+            firstArgument = new FunctionCall(QualifiedName.of("ST_Point"), ImmutableList.of(arguments.get(0), arguments.get(1)));
+            secondArgument = new FunctionCall(QualifiedName.of("ST_Point"), ImmutableList.of(arguments.get(2), arguments.get(3)));
+
+            spatialFunctionName = QualifiedName.of(SpatialJoinUtils.ST_DISTANCE.getSuffix());
+            addAndExpression = replaceExpression(filter, ImmutableMap.of(spatialFunction, new FunctionCall(spatialFunction.getName(), arguments)));
+
+            if (radius.isPresent()) {
+                //distanceRadius <- radius / (111.321 * cos(radians(u.latitude)))
+                Expression latRadiansExpression = new FunctionCall(QualifiedName.of("radians"), ImmutableList.of(arguments.get(2)));
+                Expression cosExpression = new FunctionCall(QualifiedName.of("cos"), ImmutableList.of(latRadiansExpression));
+                distanceRadius = Optional.of(
+                    new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE, radius.get(),
+                        new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY,  new DoubleLiteral("111.321"), cosExpression)
+                    ));
+            }
+        } else {
+            verify(arguments.size() == 2);
+
+            firstArgument = arguments.get(0);
+            secondArgument = arguments.get(1);
+
+            spatialFunctionName = spatialFunction.getName();
+        }
 
         Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
         if (getExpressionType(firstArgument, context, metadata, sqlParser).equals(sphericalGeographyType)
@@ -424,19 +456,29 @@ public class ExtractSpatialJoins
         if (kdbTree.isPresent()) {
             leftPartitionVariable = Optional.of(context.getVariableAllocator().newVariable("pid", INTEGER));
             rightPartitionVariable = Optional.of(context.getVariableAllocator().newVariable("pid", INTEGER));
+            Optional<Expression> radiusForPartitioning = radius;
+            if (distanceRadius.isPresent()) {
+                radiusForPartitioning = distanceRadius;
+            }
 
             if (alignment > 0) {
                 newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newSecondArgument, radius);
+                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newSecondArgument, radiusForPartitioning);
             }
             else {
                 newLeftNode = addPartitioningNodes(context, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newSecondArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newFirstArgument, radius);
+                newRightNode = addPartitioningNodes(context, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newFirstArgument, radiusForPartitioning);
             }
         }
 
-        Expression newSpatialFunction = new FunctionCall(spatialFunction.getName(), ImmutableList.of(newFirstArgument, newSecondArgument));
+        Expression newSpatialFunction = new FunctionCall(spatialFunctionName, ImmutableList.of(newFirstArgument, newSecondArgument));
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
+        if (distanceRadius.isPresent() && radius.isPresent()) {
+            newFilter = replaceExpression(newFilter, ImmutableMap.of(radius.get(), distanceRadius.get()));
+        }
+        if (addAndExpression != null) {
+            newFilter = new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, addAndExpression, newFilter);
+        }
 
         return Result.ofPlanNode(new SpatialJoinNode(
                 nodeId,

@@ -294,6 +294,19 @@ public class TestSpatialJoinPlanning
     }
 
     @Test
+    public void testGreatCircleDistanceJoin() {
+        assertPlan("SELECT b.name, a.name " +
+                        "FROM (VALUES (2.1, 2.1, 'x')) AS a (lng, lat, name), (VALUES (2.1, 2.1, 'x')) AS b (lng, lat, name) " +
+                        "WHERE great_circle_distance(a.lng, a.lat, b.lng, b.lat) <= 3.1",
+                anyTree(
+                        spatialJoin("(great_circle_distance(a_lng, a_lat, b_lng, b_lat) <= radius) AND (st_distance(st_point_a, st_point_b) <= radius_2)", //(radius / (111.321 * cos(radians(b_lng))) )
+                                project(ImmutableMap.of("st_point_a", expression("ST_Point(cast(a_lng as double), cast(a_lat as double))")),
+                                        anyTree(values(ImmutableMap.of("a_lng", 0, "a_lat", 1)))),
+                                anyTree(project(ImmutableMap.of("st_point_b", expression("ST_Point(cast(b_lng as double), cast(b_lat as double))"), "radius", expression("3.1e0")),
+                                        anyTree(values(ImmutableMap.of("b_lng", 0, "b_lat", 1))))))));
+    }
+
+    @Test
     public void testNotContains()
     {
         assertPlan("SELECT b.name, a.name " +

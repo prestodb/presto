@@ -37,6 +37,7 @@ public class SpatialJoinUtils
     public static final FullyQualifiedName ST_WITHIN = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_within");
     public static final FullyQualifiedName ST_INTERSECTS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_intersects");
     public static final FullyQualifiedName ST_DISTANCE = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_distance");
+    public static final FullyQualifiedName GREAT_CIRCLE_DISTANCE = FullyQualifiedName.of(DEFAULT_NAMESPACE, "great_circle_distance");
 
     private SpatialJoinUtils() {}
 
@@ -114,10 +115,10 @@ public class SpatialJoinUtils
         switch (expression.getOperator()) {
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
-                return isSTDistance(expression.getLeft());
+                return isSTDistance(expression.getLeft()) || isGreatCircleDistance(expression.getLeft());
             case GREATER_THAN:
             case GREATER_THAN_OR_EQUAL:
-                return isSTDistance(expression.getRight());
+                return isSTDistance(expression.getRight()) || isGreatCircleDistance(expression.getRight());
             default:
                 return false;
         }
@@ -130,10 +131,10 @@ public class SpatialJoinUtils
         switch (metadata.getOperatorType().get()) {
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
-                return isSTDistance(expression.getArguments().get(0), functionManager);
+                return isSTDistance(expression.getArguments().get(0), functionManager) || isGreatCircleDistance(expression.getArguments().get(0), functionManager);
             case GREATER_THAN:
             case GREATER_THAN_OR_EQUAL:
-                return isSTDistance(expression.getArguments().get(1), functionManager);
+                return isSTDistance(expression.getArguments().get(1), functionManager) || isGreatCircleDistance(expression.getArguments().get(1), functionManager);
             default:
                 return false;
         }
@@ -152,6 +153,24 @@ public class SpatialJoinUtils
     {
         if (expression instanceof CallExpression) {
             return functionManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getName().equals(ST_DISTANCE);
+        }
+
+        return false;
+    }
+
+    private static boolean isGreatCircleDistance(Expression expression)
+    {
+        if (expression instanceof FunctionCall) {
+            return ((FunctionCall) expression).getName().getSuffix().equalsIgnoreCase(GREAT_CIRCLE_DISTANCE.getSuffix());
+        }
+
+        return false;
+    }
+
+    private static boolean isGreatCircleDistance(RowExpression expression, FunctionManager functionManager)
+    {
+        if (expression instanceof CallExpression) {
+            return functionManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getName().equals(GREAT_CIRCLE_DISTANCE);
         }
 
         return false;
