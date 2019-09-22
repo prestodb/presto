@@ -50,6 +50,9 @@ public class HiveColumnHandle
 
     private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
+    // Ids <= this can be used for distinguishing between different prefilled columns.
+    public static final int MAX_PARTITION_KEY_COLUMN_INDEX = -13;
+
     public enum ColumnType
     {
         PARTITION_KEY,

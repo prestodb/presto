@@ -506,16 +506,16 @@ public class TestHivePushdownFilterQueries
     @Test
     public void testPartitionColumns()
     {
-        assertUpdate("CREATE TABLE test_partition_columns WITH (partitioned_by = ARRAY['p']) AS\n" +
-                "SELECT * FROM (VALUES (1, 'abc'), (2, 'abc')) as t(x, p)", 2);
+        assertUpdate("CREATE TABLE test_partition_columns WITH (partitioned_by = ARRAY['p', 'q']) AS\n" +
+                "SELECT * FROM (VALUES (1, 'abc', 'cba'), (2, 'abc', 'def')) as t(x, p, q)", 2);
 
-        assertQuery("SELECT * FROM test_partition_columns", "SELECT 1, 'abc' UNION ALL SELECT 2, 'abc'");
+        assertQuery("SELECT * FROM test_partition_columns", "SELECT 1, 'abc', 'cba' UNION ALL SELECT 2, 'abc', 'def'");
 
-        assertQuery("SELECT * FROM test_partition_columns WHERE p = 'abc'", "SELECT 1, 'abc' UNION ALL SELECT 2, 'abc'");
+        assertQuery("SELECT * FROM test_partition_columns WHERE p = 'abc'", "SELECT 1, 'abc', 'cba' UNION ALL SELECT 2, 'abc', 'def'");
 
-        assertQuery("SELECT * FROM test_partition_columns WHERE p LIKE 'a%'", "SELECT 1, 'abc' UNION ALL SELECT 2, 'abc'");
+        assertQuery("SELECT * FROM test_partition_columns WHERE p LIKE 'a%'", "SELECT 1, 'abc', 'cba' UNION ALL SELECT 2, 'abc', 'def'");
 
-        assertQuery("SELECT * FROM test_partition_columns WHERE substr(p, x, 1) = 'a'", "SELECT 1, 'abc'");
+        assertQuery("SELECT * FROM test_partition_columns WHERE substr(p, x, 1) = 'a' and substr(q, 1, 1) = 'c'", "SELECT 1, 'abc', 'cba'");
 
         assertQueryReturnsEmptyResult("SELECT * FROM test_partition_columns WHERE p = 'xxx'");
 
