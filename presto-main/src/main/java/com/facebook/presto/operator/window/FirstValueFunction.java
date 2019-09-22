@@ -40,6 +40,23 @@ public class FirstValueFunction
             return;
         }
 
-        windowIndex.appendTo(argumentChannel, frameStart, output);
+        int valuePosition = frameStart;
+
+        if (ignoreNulls) {
+            while (valuePosition >= 0 && valuePosition <= frameEnd) {
+                if (!windowIndex.isNull(argumentChannel, valuePosition)) {
+                    break;
+                }
+
+                valuePosition++;
+            }
+
+            if (valuePosition > frameEnd) {
+                output.appendNull();
+                return;
+            }
+        }
+
+        windowIndex.appendTo(argumentChannel, valuePosition, output);
     }
 }

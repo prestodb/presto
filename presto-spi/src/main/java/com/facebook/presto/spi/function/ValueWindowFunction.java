@@ -20,6 +20,8 @@ public abstract class ValueWindowFunction
 {
     protected WindowIndex windowIndex;
 
+    protected boolean ignoreNulls;
+
     private int currentPosition;
 
     @Override
@@ -56,4 +58,14 @@ public abstract class ValueWindowFunction
      * @param currentPosition the current position for this row
      */
     public abstract void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition);
+
+    /**
+     * Set ignore nulls indicator.
+     *
+     * @param ignoreNulls true if nulls should be ignored
+     */
+    public void setIgnoreNulls(boolean ignoreNulls)
+    {
+        this.ignoreNulls = ignoreNulls;
+    }
 }

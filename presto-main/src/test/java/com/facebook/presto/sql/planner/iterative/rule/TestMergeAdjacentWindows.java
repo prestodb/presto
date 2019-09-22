@@ -228,6 +228,7 @@ public class TestMergeAdjacentWindows
                         functionHandle,
                         BIGINT,
                         Arrays.stream(symbols).map(symbol -> new VariableReferenceExpression(symbol, BIGINT)).collect(Collectors.toList())),
-                frame);
+                frame,
+                false);
     }
 }

@@ -94,6 +94,8 @@ public class TestStatementBuilder
                 ", sum(salary) over (partition by depname order by salary rows between current row and 3 following)\n" +
                 ", sum(salary) over (partition by depname range unbounded preceding)\n" +
                 ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
+                ", lag(salary, 1) ignore nulls over (partition by depname)\n" +
+                ", lag(salary, 1) respect nulls over (partition by depname)\n" +
                 "from emp");
 
         printStatement("" +

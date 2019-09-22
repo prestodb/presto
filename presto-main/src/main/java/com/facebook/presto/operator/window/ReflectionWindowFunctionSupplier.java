@@ -16,6 +16,7 @@ package com.facebook.presto.operator.window;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.ValueWindowFunction;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.Lists;
@@ -55,15 +56,23 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     }
 
     @Override
-    protected T newWindowFunction(List<Integer> inputs)
+    protected T newWindowFunction(List<Integer> inputs, boolean ignoreNulls)
     {
         try {
+            T windowFunction;
+
             if (getSignature().getArgumentTypes().isEmpty()) {
-                return constructor.newInstance();
+                windowFunction = constructor.newInstance();
             }
             else {
-                return constructor.newInstance(inputs);
+                windowFunction = constructor.newInstance(inputs);
             }
+
+            if (windowFunction instanceof ValueWindowFunction) {
+                ((ValueWindowFunction) windowFunction).setIgnoreNulls(ignoreNulls);
+            }
+
+            return windowFunction;
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);

@@ -121,6 +121,7 @@ public class TestLagFunction
                         .row(32, "O", 4)
                         .row(34, "O", 7)
                         .build());
+
         assertWindowQueryWithNulls("lag(orderkey, 2, -1) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", -1L)
@@ -189,6 +190,109 @@ public class TestLagFunction
                         .row(7, "O", "1996-01-10")
                         .row(32, "O", "1995-07-16")
                         .row(34, "O", "1998-07-21")
+                        .build());
+    }
+
+    @Test
+    public void testLagFunctionWithNullTreatment()
+    {
+        assertWindowQueryWithNulls("lag(orderkey, 1, -1) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3L, "F", -1L)
+                        .row(5L, "F", 3L)
+                        .row(6L, "F", 5L)
+                        .row(null, "F", 6L)
+                        .row(34L, "O", -1L)
+                        .row(null, "O", 34L)
+                        .row(1L, null, -1L)
+                        .row(7L, null, 1L)
+                        .row(null, null, 7L)
+                        .row(null, null, null)
+                        .build());
+
+        assertWindowQueryWithNulls("lag(orderstatus, 1, null) RESPECT NULLS OVER (ORDER BY orderkey, orderstatus)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(1L, null, null)
+                        .row(3L, "F", null)
+                        .row(5L, "F", "F")
+                        .row(6L, "F", "F")
+                        .row(7L, null, "F")
+                        .row(34L, "O", null)
+                        .row(null, "F", "O")
+                        .row(null, "O", "F")
+                        .row(null, null, "O")
+                        .row(null, null, null)
+                        .build());
+
+        assertWindowQueryWithNulls("lag(orderstatus, 0) RESPECT NULLS OVER (ORDER BY orderkey, orderstatus)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(1L, null, null)
+                        .row(3L, "F", "F")
+                        .row(5L, "F", "F")
+                        .row(6L, "F", "F")
+                        .row(7L, null, null)
+                        .row(34L, "O", "O")
+                        .row(null, "F", "F")
+                        .row(null, "O", "O")
+                        .row(null, null, null)
+                        .row(null, null, null)
+                        .build());
+
+        assertWindowQueryWithNulls("lag(orderkey, 1, -1) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3L, "F", -1L)
+                        .row(5L, "F", 3L)
+                        .row(6L, "F", 5L)
+                        .row(null, "F", 6L)
+                        .row(34L, "O", -1L)
+                        .row(null, "O", 34L)
+                        .row(1L, null, -1L)
+                        .row(7L, null, 1L)
+                        .row(null, null, 7L)
+                        .row(null, null, 7L)
+                        .build());
+
+        assertWindowQueryWithNulls("lag(orderstatus, 1, null) IGNORE NULLS OVER (ORDER BY orderkey, orderstatus)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(1L, null, null)
+                        .row(3L, "F", null)
+                        .row(5L, "F", "F")
+                        .row(6L, "F", "F")
+                        .row(7L, null, "F")
+                        .row(34L, "O", "F")
+                        .row(null, "F", "O")
+                        .row(null, "O", "F")
+                        .row(null, null, "O")
+                        .row(null, null, "O")
+                        .build());
+
+        assertWindowQueryWithNulls("lag(orderstatus, 0) IGNORE NULLS OVER (ORDER BY orderkey, orderstatus)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
+                        .row(1L, null, null)
+                        .row(3L, "F", "F")
+                        .row(5L, "F", "F")
+                        .row(6L, "F", "F")
+                        .row(7L, null, null)
+                        .row(34L, "O", "O")
+                        .row(null, "F", "F")
+                        .row(null, "O", "O")
+                        .row(null, null, null)
+                        .row(null, null, null)
+                        .build());
+
+        assertWindowQueryWithNulls("lag(orderkey, 1, -1) RESPECT NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey), " +
+                "lag(orderkey, 1, -1) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3L, "F", -1L, -1L)
+                        .row(5L, "F", 3L, 3L)
+                        .row(6L, "F", 5L, 5L)
+                        .row(null, "F", 6L, 6L)
+                        .row(34L, "O", -1L, -1L)
+                        .row(null, "O", 34L, 34L)
+                        .row(1L, null, -1L, -1L)
+                        .row(7L, null, 1L, 1L)
+                        .row(null, null, 7L, 7L)
+                        .row(null, null, null, 7L)
                         .build());
     }
 }
