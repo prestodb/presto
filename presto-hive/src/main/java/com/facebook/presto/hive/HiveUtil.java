@@ -1035,10 +1035,16 @@ public final class HiveUtil
         for (HiveColumnHandle column : columns) {
             Integer physicalOrdinal = physicalNameOrdinalMap.get(column.getName());
             if (physicalOrdinal == null) {
-                // if the column is missing from the file, assign it a column number larger
-                // than the number of columns in the file so the reader will fill it with nulls
-                physicalOrdinal = nextMissingColumnIndex;
-                nextMissingColumnIndex++;
+                // if the column is missing from the file, assign it a column number larger than the number of columns in the
+                // file so the reader will fill it with nulls.  If the index is negative, i.e. this is a sythesized column like
+                // a partitioning key, $bucket or $path, leave it as is.
+                if (column.getHiveColumnIndex() < 0) {
+                    physicalOrdinal = column.getHiveColumnIndex();
+                }
+                else {
+                    physicalOrdinal = nextMissingColumnIndex;
+                    nextMissingColumnIndex++;
+                }
             }
             physicalColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment(), column.getRequiredSubfields()));
         }

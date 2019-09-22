@@ -49,6 +49,7 @@ import java.util.Set;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
@@ -108,7 +109,7 @@ public class HivePageSourceProvider
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
         if (isPushdownFilterEnabled(session)) {
-            return createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, hiveColumns, hiveStorageTimeZone, rowExpressionService);
+            return createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, assignUniqueIndicesToPartitionColumns(hiveColumns), hiveStorageTimeZone, rowExpressionService);
         }
 
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
@@ -203,6 +204,23 @@ public class HivePageSourceProvider
         }
 
         throw new IllegalStateException("Could not find a file reader for split " + split);
+    }
+
+    private static List<HiveColumnHandle> assignUniqueIndicesToPartitionColumns(List<HiveColumnHandle> columns)
+    {
+        // Gives a distinct hiveColumnIndex to partitioning columns. Columns are identified by these indices in the rest of the
+        // selective read path.
+        int nextIndex = MAX_PARTITION_KEY_COLUMN_INDEX;
+        ImmutableList.Builder<HiveColumnHandle> newColumns = ImmutableList.builder();
+        for (HiveColumnHandle column : columns) {
+            if (column.isPartitionKey()) {
+                newColumns.add(new HiveColumnHandle(column.getName(), column.getHiveType(), column.getTypeSignature(), nextIndex--, column.getColumnType(), column.getComment(), column.getRequiredSubfields()));
+            }
+            else {
+                newColumns.add(column);
+            }
+        }
+        return newColumns.build();
     }
 
     public static Optional<ConnectorPageSource> createHivePageSource(
