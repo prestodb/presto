@@ -46,7 +46,7 @@ public class MapEncoding
         byte elementSeparator = getSeparator(depth);
         byte keyValueSeparator = getSeparator(depth + 1);
 
-        Block map = block.getObject(position, Block.class);
+        Block map = block.getObject(position);
         boolean first = true;
         for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
             if (map.isNull(elementIndex)) {

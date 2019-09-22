@@ -178,7 +178,7 @@ public class MongoPageSink
         if (isArrayType(type)) {
             Type elementType = type.getTypeParameters().get(0);
 
-            Block arrayBlock = block.getObject(position, Block.class);
+            Block arrayBlock = block.getObject(position);
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -192,7 +192,7 @@ public class MongoPageSink
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
 
-            Block mapBlock = block.getObject(position, Block.class);
+            Block mapBlock = block.getObject(position);
 
             // map type is converted into list of fixed keys document
             List<Object> values = new ArrayList<>(mapBlock.getPositionCount() / 2);
@@ -206,7 +206,7 @@ public class MongoPageSink
             return unmodifiableList(values);
         }
         if (isRowType(type)) {
-            Block rowBlock = block.getObject(position, Block.class);
+            Block rowBlock = block.getObject(position);
 
             List<Type> fieldTypes = type.getTypeParameters();
             if (fieldTypes.size() != rowBlock.getPositionCount()) {

@@ -63,8 +63,8 @@ public class ArrayType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        Block leftArray = leftBlock.getObject(leftPosition, Block.class);
-        Block rightArray = rightBlock.getObject(rightPosition, Block.class);
+        Block leftArray = leftBlock.getObject(leftPosition);
+        Block rightArray = rightBlock.getObject(rightPosition);
 
         if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
             return false;
@@ -99,8 +99,8 @@ public class ArrayType
             throw new UnsupportedOperationException(getTypeSignature() + " type is not orderable");
         }
 
-        Block leftArray = leftBlock.getObject(leftPosition, Block.class);
-        Block rightArray = rightBlock.getObject(rightPosition, Block.class);
+        Block leftArray = leftBlock.getObject(leftPosition);
+        Block rightArray = rightBlock.getObject(rightPosition);
 
         int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
         int index = 0;
@@ -132,7 +132,7 @@ public class ArrayType
             return ((AbstractArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
         }
         else {
-            Block arrayBlock = block.getObject(position, Block.class);
+            Block arrayBlock = block.getObject(position);
             return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
         }
     }
@@ -180,7 +180,7 @@ public class ArrayType
     @Override
     public Block getObject(Block block, int position)
     {
-        return block.getObject(position, Block.class);
+        return block.getObject(position);
     }
 
     @Override

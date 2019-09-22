@@ -322,7 +322,7 @@ public abstract class AbstractTestBlock
             }
         }
         else if (expectedValue instanceof long[]) {
-            Block actual = block.getObject(position, Block.class);
+            Block actual = block.getObject(position);
             long[] expected = (long[]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
@@ -330,7 +330,7 @@ public abstract class AbstractTestBlock
             }
         }
         else if (expectedValue instanceof Slice[]) {
-            Block actual = block.getObject(position, Block.class);
+            Block actual = block.getObject(position);
             Slice[] expected = (Slice[]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
@@ -338,7 +338,7 @@ public abstract class AbstractTestBlock
             }
         }
         else if (expectedValue instanceof long[][]) {
-            Block actual = block.getObject(position, Block.class);
+            Block actual = block.getObject(position);
             long[][] expected = (long[][]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
@@ -534,7 +534,7 @@ public abstract class AbstractTestBlock
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.appendStructure(block.getObject(i, Block.class));
+                blockBuilder.appendStructure(block.getObject(i));
             }
         }
         return blockBuilder.build();

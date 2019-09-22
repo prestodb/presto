@@ -209,10 +209,10 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getObject(int position)
     {
         checkReadablePosition(position);
-        return value.getObject(0, clazz);
+        return value.getObject(0);
     }
 
     @Override
@@ -359,7 +359,7 @@ public class RunLengthEncodedBlock
     public Block getBlockUnchecked(int internalPosition)
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
-        return value.getObject(0, Block.class);
+        return value.getObject(0);
     }
 
     @Override

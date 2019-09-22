@@ -116,9 +116,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getObject(int position)
     {
-        return block.getObject(position, clazz);
+        return block.getObject(position);
     }
 
     @Override
@@ -278,7 +278,7 @@ public class GroupByIdBlock
     @Override
     public Block getBlockUnchecked(int internalPosition)
     {
-        return block.getObject(internalPosition, Block.class);
+        return block.getObject(internalPosition);
     }
 
     @Override

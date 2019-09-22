@@ -168,7 +168,7 @@ public class TestRowBlock
         requireNonNull(row, "row is null");
 
         assertFalse(rowBlock.isNull(position));
-        SingleRowBlock singleRowBlock = (SingleRowBlock) rowBlock.getObject(position, Block.class);
+        SingleRowBlock singleRowBlock = (SingleRowBlock) rowBlock.getObject(position);
         assertEquals(singleRowBlock.getPositionCount(), row.size());
 
         for (int i = 0; i < row.size(); i++) {

@@ -158,14 +158,11 @@ public abstract class AbstractRowBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getObject(int position)
     {
-        if (clazz != Block.class) {
-            throw new IllegalArgumentException("clazz must be Block.class");
-        }
         checkReadablePosition(position);
 
-        return clazz.cast(new SingleRowBlock(getFieldBlockOffset(position), getRawFieldBlocks()));
+        return new SingleRowBlock(getFieldBlockOffset(position), getRawFieldBlocks());
     }
 
     @Override

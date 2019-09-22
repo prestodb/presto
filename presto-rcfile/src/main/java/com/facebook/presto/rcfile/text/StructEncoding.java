@@ -45,7 +45,7 @@ public class StructEncoding
     {
         byte separator = getSeparator(depth);
 
-        Block row = block.getObject(position, Block.class);
+        Block row = block.getObject(position);
         for (int fieldIndex = 0; fieldIndex < structFields.size(); fieldIndex++) {
             if (fieldIndex > 0) {
                 output.writeByte(separator);

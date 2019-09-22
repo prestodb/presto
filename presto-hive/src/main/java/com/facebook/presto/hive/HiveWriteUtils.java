@@ -386,7 +386,7 @@ public final class HiveWriteUtils
         if (isArrayType(type)) {
             Type elementType = type.getTypeParameters().get(0);
 
-            Block arrayBlock = block.getObject(position, Block.class);
+            Block arrayBlock = block.getObject(position);
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -400,7 +400,7 @@ public final class HiveWriteUtils
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
 
-            Block mapBlock = block.getObject(position, Block.class);
+            Block mapBlock = block.getObject(position);
             Map<Object, Object> map = new HashMap<>();
             for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
                 Object key = getField(keyType, mapBlock, i);
@@ -411,7 +411,7 @@ public final class HiveWriteUtils
             return Collections.unmodifiableMap(map);
         }
         if (isRowType(type)) {
-            Block rowBlock = block.getObject(position, Block.class);
+            Block rowBlock = block.getObject(position);
 
             List<Type> fieldTypes = type.getTypeParameters();
             checkCondition(fieldTypes.size() == rowBlock.getPositionCount(), StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
@@ -1074,7 +1074,7 @@ public final class HiveWriteUtils
         @Override
         public void setField(Block block, int position)
         {
-            Block arrayBlock = block.getObject(position, Block.class);
+            Block arrayBlock = block.getObject(position);
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -1102,7 +1102,7 @@ public final class HiveWriteUtils
         @Override
         public void setField(Block block, int position)
         {
-            Block mapBlock = block.getObject(position, Block.class);
+            Block mapBlock = block.getObject(position);
             Map<Object, Object> map = new HashMap<>(mapBlock.getPositionCount() * 2);
             for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
                 Object key = getField(keyType, mapBlock, i);
@@ -1128,7 +1128,7 @@ public final class HiveWriteUtils
         @Override
         public void setField(Block block, int position)
         {
-            Block rowBlock = block.getObject(position, Block.class);
+            Block rowBlock = block.getObject(position);
 
             // TODO reuse row object and use FieldSetters, like we do at the top level
             // Ideally, we'd use the same recursive structure starting from the top, but
