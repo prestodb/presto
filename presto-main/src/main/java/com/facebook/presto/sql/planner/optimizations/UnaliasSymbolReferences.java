@@ -225,7 +225,8 @@ public class UnaliasSymbolReferences
                                         callExpression.getFunctionHandle(),
                                         callExpression.getType(),
                                         rewrittenArguments),
-                                canonicalFrame));
+                                canonicalFrame,
+                                entry.getValue().isIgnoreNulls()));
             }
 
             return new WindowNode(

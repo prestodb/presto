@@ -44,7 +44,9 @@ public final class WindowAnnotationsParser
                 .collect(toImmutableList());
     }
 
-    private static SqlWindowFunction parse(Class<? extends WindowFunction> clazz, WindowFunctionSignature window)
+    private static SqlWindowFunction parse(
+            Class<? extends WindowFunction> clazz,
+            WindowFunctionSignature window)
     {
         List<TypeVariableConstraint> typeVariables = ImmutableList.of();
         if (!window.typeVariable().isEmpty()) {

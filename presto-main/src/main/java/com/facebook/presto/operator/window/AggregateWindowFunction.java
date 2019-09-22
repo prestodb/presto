@@ -94,7 +94,7 @@ public class AggregateWindowFunction
         return new AbstractWindowFunctionSupplier(signature, null)
         {
             @Override
-            protected WindowFunction newWindowFunction(List<Integer> inputs)
+            protected WindowFunction newWindowFunction(List<Integer> inputs, boolean ignoreNulls)
             {
                 return new AggregateWindowFunction(function, inputs);
             }

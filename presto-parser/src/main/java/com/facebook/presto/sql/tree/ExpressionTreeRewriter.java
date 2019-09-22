@@ -539,7 +539,7 @@ public final class ExpressionTreeRewriter<C>
 
             if (!sameElements(node.getArguments(), arguments) || !sameElements(rewrittenWindow, node.getWindow())
                     || !sameElements(filter, node.getFilter())) {
-                return new FunctionCall(node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), arguments);
+                return new FunctionCall(node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), node.isIgnoreNulls(), arguments);
             }
             return node;
         }

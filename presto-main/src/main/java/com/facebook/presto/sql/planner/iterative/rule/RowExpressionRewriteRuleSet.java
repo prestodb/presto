@@ -264,7 +264,8 @@ public class RowExpressionRewriteRuleSet
                                         callExpression.getFunctionHandle(),
                                         callExpression.getType(),
                                         newArguments.build()),
-                                entry.getValue().getFrame()));
+                                entry.getValue().getFrame(),
+                                entry.getValue().isIgnoreNulls()));
             }
             if (anyRewritten) {
                 return Result.ofPlanNode(new WindowNode(

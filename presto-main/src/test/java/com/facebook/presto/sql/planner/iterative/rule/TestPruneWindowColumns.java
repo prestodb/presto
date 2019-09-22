@@ -226,7 +226,8 @@ public class TestPruneWindowColumns
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
                                                 Optional.of(new SymbolReference(startValue1.getName())).map(Expression::toString),
-                                                Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString))),
+                                                Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString)),
+                                        false),
                                 output2,
                                 new WindowNode.Function(
                                         call(FUNCTION_NAME, FUNCTION_HANDLE, BIGINT, input2),
@@ -237,7 +238,8 @@ public class TestPruneWindowColumns
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
                                                 Optional.of(new SymbolReference(startValue2.getName())).map(Expression::toString),
-                                                Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString)))),
+                                                Optional.of(new SymbolReference(endValue2.getName())).map(Expression::toString)),
+                                        false)),
                         hash,
                         p.values(
                                 filteredInputs,

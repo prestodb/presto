@@ -119,7 +119,8 @@ public class TestVerifyNoOriginalExpression
                 originalEndValue);
         WindowNode.Function function = new WindowNode.Function(
                 comparisonCallExpression,
-                frame);
+                frame,
+                false);
         ImmutableList<VariableReferenceExpression> partitionBy = ImmutableList.of(VARIABLE_REFERENCE_EXPRESSION);
         Optional<OrderingScheme> orderingScheme = Optional.empty();
         ImmutableMap<VariableReferenceExpression, WindowNode.Function> functions = ImmutableMap.of(VARIABLE_REFERENCE_EXPRESSION, function);

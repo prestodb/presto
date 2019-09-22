@@ -342,14 +342,17 @@ public class WindowNode
     {
         private final CallExpression functionCall;
         private final Frame frame;
+        private final boolean ignoreNulls;
 
         @JsonCreator
         public Function(
                 @JsonProperty("functionCall") CallExpression functionCall,
-                @JsonProperty("frame") Frame frame)
+                @JsonProperty("frame") Frame frame,
+                @JsonProperty("ignoreNulls") boolean ignoreNulls)
         {
             this.functionCall = requireNonNull(functionCall, "functionCall is null");
             this.frame = requireNonNull(frame, "Frame is null");
+            this.ignoreNulls = ignoreNulls;
         }
 
         @JsonProperty
@@ -373,7 +376,7 @@ public class WindowNode
         @Override
         public int hashCode()
         {
-            return Objects.hash(functionCall, frame);
+            return Objects.hash(functionCall, frame, ignoreNulls);
         }
 
         @Override
@@ -387,7 +390,13 @@ public class WindowNode
             }
             Function other = (Function) obj;
             return Objects.equals(this.functionCall, other.functionCall) &&
-                    Objects.equals(this.frame, other.frame);
+                    Objects.equals(this.frame, other.frame) &&
+                    Objects.equals(this.ignoreNulls, other.ignoreNulls);
+        }
+
+        public boolean isIgnoreNulls()
+        {
+            return ignoreNulls;
         }
     }
 }

@@ -334,7 +334,7 @@ primaryExpression
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)? ')' filter? over?                            #functionCall
+        (ORDER BY sortItem (',' sortItem)*)? ')' filter? (nullTreatment? over)?           #functionCall
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
     | '(' query ')'                                                                       #subqueryExpression
@@ -364,6 +364,11 @@ primaryExpression
 string
     : STRING                                #basicStringLiteral
     | UNICODE_STRING (UESCAPE STRING)?      #unicodeStringLiteral
+    ;
+
+nullTreatment
+    : IGNORE NULLS
+    | RESPECT NULLS
     ;
 
 timeZoneSpecifier
@@ -520,14 +525,14 @@ nonReserved
     | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
     | GRANT | GRANTED | GRANTS | GRAPHVIZ
     | HOUR
-    | IF | INCLUDING | INPUT | INTERVAL | IO | ISOLATION
+    | IF | IGNORE | INCLUDING | INPUT | INTERVAL | IO | ISOLATION
     | JSON
     | LANGUAGE | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
     | MAP | MINUTE | MONTH
     | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
     | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIVILEGES | PROPERTIES
-    | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
+    | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SERIALIZABLE | SESSION | SET | SETS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
@@ -612,6 +617,7 @@ GROUPING: 'GROUPING';
 HAVING: 'HAVING';
 HOUR: 'HOUR';
 IF: 'IF';
+IGNORE: 'IGNORE';
 IN: 'IN';
 INCLUDING: 'INCLUDING';
 INNER: 'INNER';
@@ -673,6 +679,7 @@ RENAME: 'RENAME';
 REPEATABLE: 'REPEATABLE';
 REPLACE: 'REPLACE';
 RESET: 'RESET';
+RESPECT: 'RESPECT';
 RESTRICT: 'RESTRICT';
 RETURN: 'RETURN';
 RETURNS: 'RETURNS';

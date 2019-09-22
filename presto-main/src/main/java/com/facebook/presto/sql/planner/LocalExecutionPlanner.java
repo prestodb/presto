@@ -948,8 +948,9 @@ public class LocalExecutionPlanner
 
                 FrameInfo frameInfo = new FrameInfo(frame.getType(), frame.getStartType(), frameStartChannel, frame.getEndType(), frameEndChannel);
 
-                CallExpression call = entry.getValue().getFunctionCall();
-                FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
+                WindowNode.Function function = entry.getValue();
+                CallExpression call = function.getFunctionCall();
+                FunctionHandle functionHandle = function.getFunctionHandle();
                 ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
                 for (RowExpression argument : call.getArguments()) {
                     checkState(argument instanceof VariableReferenceExpression);
@@ -959,7 +960,7 @@ public class LocalExecutionPlanner
                 FunctionManager functionManager = metadata.getFunctionManager();
                 WindowFunctionSupplier windowFunctionSupplier = functionManager.getWindowFunctionImplementation(functionHandle);
                 Type type = metadata.getType(functionManager.getFunctionMetadata(functionHandle).getReturnType());
-                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, arguments.build()));
+                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, function.isIgnoreNulls(), arguments.build()));
                 windowFunctionOutputVariablesBuilder.add(variable);
             }
 

@@ -825,7 +825,8 @@ class QueryPlanner
                             analysis.getFunctionHandle(windowFunction),
                             returnType,
                             ((FunctionCall) rewritten).getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
-                    frame);
+                    frame,
+                    windowFunction.isIgnoreNulls());
 
             ImmutableList.Builder<VariableReferenceExpression> orderByVariables = ImmutableList.builder();
             orderByVariables.addAll(orderings.keySet());
