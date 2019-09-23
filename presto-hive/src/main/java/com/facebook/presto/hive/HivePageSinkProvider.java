@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.SortingColumn;
@@ -24,25 +25,35 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.mapred.JobConf;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
+import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
@@ -125,12 +136,39 @@ public class HivePageSinkProvider
 
     private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, boolean partitionCommitRequired)
     {
+        JobConf conf = configureCompression(
+                hdfsEnvironment.getConfiguration(
+                        new HdfsContext(session, handle.getSchemaName(), handle.getTableName()),
+                        locationService.getQueryWriteInfo(handle.getLocationHandle()).getWritePath()),
+                handle.getCompressionCodec());
+
         OptionalInt bucketCount = OptionalInt.empty();
-        List<SortingColumn> sortedBy = ImmutableList.of();
+        Optional<SortingFileWriterFactory> sortingFileWriterFactory = Optional.empty();
 
         if (handle.getBucketProperty().isPresent()) {
             bucketCount = OptionalInt.of(handle.getBucketProperty().get().getBucketCount());
-            sortedBy = handle.getBucketProperty().get().getSortedBy();
+            List<SortingColumn> sortedBy = handle.getBucketProperty().get().getSortedBy();
+            if (!sortedBy.isEmpty()) {
+                List<Type> types = new ArrayList<>();
+                Map<String, Integer> columnIndexes = new HashMap<>();
+                for (int i = 0; i < handle.getInputColumns().size(); i++) {
+                    HiveColumnHandle columnHandle = handle.getInputColumns().get(i);
+                    types.add(columnHandle.getHiveType().getType(typeManager));
+                    columnIndexes.put(columnHandle.getName(), i);
+                }
+
+                List<Integer> sortFields = new ArrayList<>();
+                List<SortOrder> sortOrders = new ArrayList<>();
+                for (SortingColumn column : sortedBy) {
+                    Integer index = columnIndexes.get(column.getColumnName());
+                    if (index == null) {
+                        throw new PrestoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does exist in table '%s.%s'", column.getColumnName(), handle.getSchemaName(), handle.getTableName()));
+                    }
+                    sortFields.add(index);
+                    sortOrders.add(column.getOrder().getSortOrder());
+                }
+                sortingFileWriterFactory = Optional.of(new HiveSortingFileWriterFactory(hdfsEnvironment, session, conf, types, sortFields, sortOrders, writerSortBufferSize, maxOpenSortFiles, pageSorter, orcFileWriterFactory));
+            }
         }
 
         HiveWriterFactory writerFactory = new HiveWriterFactory(
@@ -143,7 +181,6 @@ public class HivePageSinkProvider
                 handle.getPartitionStorageFormat(),
                 handle.getCompressionCodec(),
                 bucketCount,
-                sortedBy,
                 handle.getLocationHandle(),
                 locationService,
                 handle.getFilePrefix(),
@@ -152,17 +189,15 @@ public class HivePageSinkProvider
                 new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize)),
                 typeManager,
                 hdfsEnvironment,
-                pageSorter,
-                writerSortBufferSize,
-                maxOpenSortFiles,
                 immutablePartitions,
                 session,
                 nodeManager,
                 eventClient,
                 hiveSessionProperties,
                 hiveWriterStats,
-                orcFileWriterFactory,
-                partitionCommitRequired);
+                partitionCommitRequired,
+                sortingFileWriterFactory,
+                conf);
 
         return new HivePageSink(
                 writerFactory,
