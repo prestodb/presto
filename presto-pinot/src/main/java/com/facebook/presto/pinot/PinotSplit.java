@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.log.Logger;
 
 import java.util.List;
 
@@ -26,13 +25,9 @@ import static java.util.Objects.requireNonNull;
 public class PinotSplit
         implements ConnectorSplit
 {
-    private static final Logger log = Logger.get(PinotSplit.class);
-
-    private final String connectorId;
     private final String tableName;
     private final String host;
     private final String segment;
-    private final boolean remotelyAccessible;
     private final List<HostAddress> addresses;
     private final PinotColumn timeColumn;
     private final String timeFilter;
@@ -41,7 +36,6 @@ public class PinotSplit
 
     @JsonCreator
     public PinotSplit(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("host") String host,
             @JsonProperty("segment") String segment,
@@ -50,7 +44,6 @@ public class PinotSplit
             @JsonProperty("pinotFilter") String pinotFilter,
             @JsonProperty("limit") long limit)
     {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.tableName = requireNonNull(tableName, "table name is null");
         this.host = requireNonNull(host, "host is null");
         this.segment = requireNonNull(segment, "segment is null");
@@ -59,13 +52,6 @@ public class PinotSplit
         this.pinotFilter = pinotFilter;
         this.timeFilter = timeFilter;
         this.limit = limit;
-        this.remotelyAccessible = true;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -114,7 +100,7 @@ public class PinotSplit
     public boolean isRemotelyAccessible()
     {
         // only http or https is remotely accessible
-        return remotelyAccessible;
+        return true;
     }
 
     @Override

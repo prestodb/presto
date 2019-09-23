@@ -19,27 +19,24 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static com.facebook.presto.pinot.Types.checkType;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.pinot.PinotUtils.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class PinotPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final String connectorId;
     private final PinotConfig pinotConfig;
     private final PinotScatterGatherQueryClient pinotQueryClient;
 
     @Inject
-    public PinotPageSourceProvider(PinotConnectorId connectorId, PinotConfig pinotConfig, PinotScatterGatherQueryClient pinotQueryClient)
+    public PinotPageSourceProvider(PinotConfig pinotConfig, PinotScatterGatherQueryClient pinotQueryClient)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
         this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
     }
@@ -49,19 +46,16 @@ public class PinotPageSourceProvider
     {
         requireNonNull(split, "partitionChunk is null");
         PinotSplit pinotSplit = checkType(split, PinotSplit.class, "split");
-        checkArgument(pinotSplit.getConnectorId().equals(connectorId), "split is not for this connector");
 
-        List<PinotColumnHandle> handles = new ArrayList<>();
+        ImmutableList.Builder<PinotColumnHandle> handlesBuilder = ImmutableList.builder();
         if (columns.isEmpty()) {
             // For COUNT(*) and COUNT(1), no columns are passed down to Pinot
             // Since this is the only known type of queries for this scenario, we just select time column from Pinot to facilitate the COUNT
-            handles.add(new PinotColumnHandle(this.connectorId, pinotSplit.getTimeColumn().getName(), pinotSplit.getTimeColumn().getType(), 0));
+            handlesBuilder.add(new PinotColumnHandle(pinotSplit.getTimeColumn().getName(), pinotSplit.getTimeColumn().getType(), 0));
         }
         else {
-            for (ColumnHandle handle : columns) {
-                handles.add(checkType(handle, PinotColumnHandle.class, "handle"));
-            }
+            columns.forEach(handle -> handlesBuilder.add(checkType(handle, PinotColumnHandle.class, "handle")));
         }
-        return new PinotPageSource(this.pinotConfig, this.pinotQueryClient, pinotSplit, handles);
+        return new PinotPageSource(pinotConfig, pinotQueryClient, pinotSplit, handlesBuilder.build());
     }
 }

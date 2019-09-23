@@ -22,7 +22,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestPinotTableHandle
 {
-    private final PinotTableHandle tableHandle = new PinotTableHandle("connectorId", "schemaName", "tableName");
+    private final PinotTableHandle tableHandle = new PinotTableHandle("schemaName", "tableName");
 
     @Test
     public void testJsonRoundTrip()
@@ -36,6 +36,10 @@ public class TestPinotTableHandle
     @Test
     public void testEquivalence()
     {
-        EquivalenceTester.equivalenceTester().addEquivalentGroup(new PinotTableHandle("connector", "schema", "table"), new PinotTableHandle("connector", "schema", "table")).addEquivalentGroup(new PinotTableHandle("connectorX", "schema", "table"), new PinotTableHandle("connectorX", "schema", "table")).addEquivalentGroup(new PinotTableHandle("connector", "schemaX", "table"), new PinotTableHandle("connector", "schemaX", "table")).addEquivalentGroup(new PinotTableHandle("connector", "schema", "tableX"), new PinotTableHandle("connector", "schema", "tableX")).check();
+        EquivalenceTester.equivalenceTester()
+                .addEquivalentGroup(new PinotTableHandle("schema", "table"), new PinotTableHandle("schema", "table"))
+                .addEquivalentGroup(new PinotTableHandle("schemaX", "table"), new PinotTableHandle("schemaX", "table"))
+                .addEquivalentGroup(new PinotTableHandle("schema", "tableX"), new PinotTableHandle("schema", "tableX"))
+                .check();
     }
 }

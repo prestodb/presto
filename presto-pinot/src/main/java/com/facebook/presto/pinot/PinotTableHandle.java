@@ -28,26 +28,17 @@ import static java.util.Objects.requireNonNull;
 public final class PinotTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final String schemaName;
     private final String tableName;
     private TupleDomain<ColumnHandle> constraintSummary;
 
     @JsonCreator
     public PinotTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -80,7 +71,7 @@ public final class PinotTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName);
+        return Objects.hash(schemaName, tableName);
     }
 
     @Override
@@ -94,12 +85,12 @@ public final class PinotTableHandle
         }
 
         PinotTableHandle other = (PinotTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) && Objects.equals(this.schemaName, other.schemaName) && Objects.equals(this.tableName, other.tableName);
+        return Objects.equals(this.schemaName, other.schemaName) && Objects.equals(this.tableName, other.tableName);
     }
 
     @Override
     public String toString()
     {
-        return Joiner.on(":").join(connectorId, schemaName, tableName);
+        return Joiner.on(":").join(schemaName, tableName);
     }
 }

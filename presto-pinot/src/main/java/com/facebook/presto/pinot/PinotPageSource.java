@@ -29,6 +29,7 @@ import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataTable;
 
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -36,7 +37,7 @@ import java.util.Map;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
-import static com.facebook.presto.pinot.PinotQueryGenerator.getPinotQuery;
+import static com.facebook.presto.pinot.PinotQueryBuilder.getPinotQuery;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -45,7 +46,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This class retrieves Pinot data from a Pinot client, and re-constructs the data into Presto Pages.
+ * This class retrieves Pinot data from a Pinot client and re-constructs the data into Presto Pages.
  */
 
 public class PinotPageSource
@@ -53,15 +54,15 @@ public class PinotPageSource
 {
     private static final Logger log = Logger.get(PinotPageSource.class);
 
-    private List<PinotColumnHandle> columnHandles;
-    private List<Type> columnTypes;
+    private static List<PinotColumnHandle> columnHandles;
+    private static List<Type> columnTypes;
 
     private PinotConfig pinotConfig;
     private PinotSplit split;
     private PinotScatterGatherQueryClient pinotQueryClient;
 
     // dataTableList stores the dataTable returned from each server. Each dataTable is constructed to a Page, and then destroyed to save memory.
-    private LinkedList<PinotDataTableWithSize> dataTableList = new LinkedList<>();
+    private Deque<PinotDataTableWithSize> dataTableList = new LinkedList<>();
     private long completedBytes;
     private long readTimeNanos;
     private long estimatedMemoryUsageInBytes;
@@ -141,8 +142,7 @@ public class PinotPageSource
             Type columnType = columnTypes.get(columnHandleIdx);
             writeBlock(blockBuilder, columnType, pinotColumnNameIndexMap.get(columnHandles.get(columnHandleIdx).getColumnName()));
         }
-        Page page = pageBuilder.build();
-        return page;
+        return pageBuilder.build();
     }
 
     /**
@@ -152,9 +152,11 @@ public class PinotPageSource
     {
         log.debug("Fetching data from Pinot for table %s, segment %s", split.getTableName(), split.getSegment());
         long startTimeNanos = System.nanoTime();
-        int idx = 0;
-        for (PinotColumnHandle columnHandle : columnHandles) {
-            pinotColumnNameIndexMap.put(columnHandle.getColumnName(), idx++);
+        if (pinotColumnNameIndexMap.isEmpty()) {
+            int idx = 0;
+            for (PinotColumnHandle columnHandle : columnHandles) {
+                pinotColumnNameIndexMap.put(columnHandle.getColumnName(), idx++);
+            }
         }
         String pinotQuery = getPinotQuery(pinotConfig, columnHandles, split.getPinotFilter(), split.getTimeFilter(), split.getTableName(), split.getLimit());
         Map<ServerInstance, DataTable> dataTableMap = pinotQueryClient.queryPinotServerForDataTable(pinotQuery, split.getHost(), split.getSegment());
@@ -172,12 +174,11 @@ public class PinotPageSource
                     estimatedMemoryUsageInBytes += estimatedTableSizeInBytes;
                 });
         ImmutableList.Builder<Type> types = ImmutableList.builder();
-        columnHandles
-                .stream()
-                .map(columnHandle -> getTypeForBlock(columnHandle))
+        columnHandles.stream()
+                .map(PinotPageSource::getTypeForBlock)
                 .forEach(types::add);
-        this.columnTypes = types.build();
-        readTimeNanos = System.nanoTime() - startTimeNanos;
+        columnTypes = types.build();
+        readTimeNanos += System.nanoTime() - startTimeNanos;
         isPinotDataFetched = true;
     }
 
@@ -263,71 +264,67 @@ public class PinotPageSource
         });
     }
 
-    Type getType(int colIdx)
+    private static Type getType(int columnIndex)
     {
-        checkArgument(colIdx < columnHandles.size(), "Invalid field index");
-        return columnHandles.get(colIdx).getColumnType();
+        checkArgument(columnIndex < columnHandles.size(), "Invalid field index");
+        return columnHandles.get(columnIndex).getColumnType();
     }
 
-    boolean getBoolean(int rowIdx, int colIdx)
+    private boolean getBoolean(int rowIndex, int columnIndex)
     {
-        return Boolean.getBoolean(currentDataTable.getDataTable().getString(rowIdx, colIdx));
+        return Boolean.getBoolean(currentDataTable.getDataTable().getString(rowIndex, columnIndex));
     }
 
-    long getLong(int rowIdx, int colIdx)
+    private long getLong(int rowIndex, int columnIndex)
     {
-        DataSchema.ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(colIdx);
+        DataSchema.ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         // Note columnType in the dataTable could be different from the original columnType in the columnHandle.
         // e.g. when original column type is int/long and aggregation value is requested, the returned dataType from Pinot would be double.
         // So need to cast it back to the original columnType.
-        if (dataType.equals(DataType.DOUBLE)) {
-            return (long) currentDataTable.getDataTable().getDouble(rowIdx, colIdx);
+        if (dataType.equals(DataSchema.ColumnDataType.DOUBLE)) {
+            return (long) currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
         }
-        if (dataType.equals(DataType.INT)) {
-            return (long) currentDataTable.getDataTable().getInt(rowIdx, colIdx);
+        if (dataType.equals(DataSchema.ColumnDataType.INT)) {
+            return (long) currentDataTable.getDataTable().getInt(rowIndex, columnIndex);
         }
-        else {
-            return currentDataTable.getDataTable().getLong(rowIdx, colIdx);
-        }
+        return currentDataTable.getDataTable().getLong(rowIndex, columnIndex);
     }
 
-    double getDouble(int rowIdx, int colIdx)
+    private double getDouble(int rowIndex, int columnIndex)
     {
-        DataSchema.ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(colIdx);
+        DataSchema.ColumnDataType dataType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         if (dataType.equals(DataType.FLOAT)) {
-            return currentDataTable.getDataTable().getFloat(rowIdx, colIdx);
+            return currentDataTable.getDataTable().getFloat(rowIndex, columnIndex);
         }
-        else {
-            return currentDataTable.getDataTable().getDouble(rowIdx, colIdx);
-        }
+        return currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
     }
 
-    Slice getSlice(int rowIdx, int colIdx)
+    private Slice getSlice(int rowIndex, int columnIndex)
     {
-        checkColumnType(colIdx, VARCHAR);
-        DataSchema.ColumnDataType columnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(colIdx);
+        checkColumnType(columnIndex, VARCHAR);
+        DataSchema.ColumnDataType columnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         switch (columnType) {
             case INT_ARRAY:
-                int[] intArray = currentDataTable.getDataTable().getIntArray(rowIdx, colIdx);
+                int[] intArray = currentDataTable.getDataTable().getIntArray(rowIndex, columnIndex);
                 return utf8Slice(Arrays.toString(intArray));
             case LONG_ARRAY:
-                long[] longArray = currentDataTable.getDataTable().getLongArray(rowIdx, colIdx);
+                long[] longArray = currentDataTable.getDataTable().getLongArray(rowIndex, columnIndex);
                 return utf8Slice(Arrays.toString(longArray));
             case FLOAT_ARRAY:
-                float[] floatArray = currentDataTable.getDataTable().getFloatArray(rowIdx, colIdx);
+                float[] floatArray = currentDataTable.getDataTable().getFloatArray(rowIndex, columnIndex);
                 return utf8Slice(Arrays.toString(floatArray));
             case DOUBLE_ARRAY:
-                double[] doubleArray = currentDataTable.getDataTable().getDoubleArray(rowIdx, colIdx);
+                double[] doubleArray = currentDataTable.getDataTable().getDoubleArray(rowIndex, columnIndex);
                 return utf8Slice(Arrays.toString(doubleArray));
             case STRING_ARRAY:
-                String[] stringArray = currentDataTable.getDataTable().getStringArray(rowIdx, colIdx);
+                String[] stringArray = currentDataTable.getDataTable().getStringArray(rowIndex, columnIndex);
                 return utf8Slice(Arrays.toString(stringArray));
             case STRING:
-                String fieldStr = currentDataTable.getDataTable().getString(rowIdx, colIdx);
-                if (fieldStr == null || fieldStr.isEmpty()) {
+                String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
+                if (field == null || field.isEmpty()) {
                     return Slices.EMPTY_SLICE;
                 }
-                return Slices.utf8Slice(fieldStr);
+                return Slices.utf8Slice(field);
         }
         return Slices.EMPTY_SLICE;
     }
@@ -354,44 +351,40 @@ public class PinotPageSource
                     return Integer.BYTES;
             }
         }
-        else {
-            return pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
-        }
+        return pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
     }
 
-    void checkColumnType(int colIdx, Type expected)
+    private static void checkColumnType(int columnIndex, Type expected)
     {
-        Type actual = getType(colIdx);
-        checkArgument(actual.equals(expected), "Expected column %s to be type %s but is %s", colIdx, expected, actual);
+        Type actual = getType(columnIndex);
+        checkArgument(actual.equals(expected), "Expected column %s to be type %s but is %s", columnIndex, expected, actual);
     }
 
-    Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)
+    private static Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)
     {
         if (pinotColumnHandle.getColumnType().equals(INTEGER)) {
             return BIGINT;
         }
-        else {
-            return pinotColumnHandle.getColumnType();
-        }
+        return pinotColumnHandle.getColumnType();
     }
 
-    private class PinotDataTableWithSize
+    private static class PinotDataTableWithSize
     {
-        DataTable dataTable;
+        final DataTable dataTable;
         int estimatedSizeInBytes;
 
         PinotDataTableWithSize(DataTable dataTable, int estimatedSizeInBytes)
         {
-            this.dataTable = dataTable;
+            this.dataTable = requireNonNull(dataTable);
             this.estimatedSizeInBytes = estimatedSizeInBytes;
         }
 
-        DataTable getDataTable()
+        public DataTable getDataTable()
         {
             return dataTable;
         }
 
-        int getEstimatedSizeInBytes()
+        public int getEstimatedSizeInBytes()
         {
             return estimatedSizeInBytes;
         }

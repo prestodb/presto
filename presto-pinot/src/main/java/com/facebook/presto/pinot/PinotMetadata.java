@@ -30,7 +30,6 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
@@ -40,24 +39,20 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_FAILURE_GETTING_SCHEMA;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_FAILURE_GETTING_TABLE;
-import static com.facebook.presto.pinot.Types.checkType;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.pinot.PinotUtils.checkType;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class PinotMetadata
         implements ConnectorMetadata
 {
-    private static final Logger log = Logger.get(PinotMetadata.class);
-
-    private final String connectorId;
     private final PinotConnection pinotPrestoConnection;
 
     @Inject
-    public PinotMetadata(PinotConnectorId connectorId, PinotConnection pinotPrestoConnection)
+    public PinotMetadata(PinotConnection pinotPrestoConnection)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.pinotPrestoConnection = requireNonNull(pinotPrestoConnection, "pinotPrestoConnection is null");
     }
 
@@ -71,13 +66,15 @@ public class PinotMetadata
     {
         try {
             ImmutableList.Builder<String> schemaNamesListBuilder = ImmutableList.builder();
-            for (String table : pinotPrestoConnection.getTableNames()) {
-                schemaNamesListBuilder.add(table.toLowerCase(ENGLISH));
-            }
+            pinotPrestoConnection.getTableNames().forEach(table ->
+                    schemaNamesListBuilder.add(table.toLowerCase(ENGLISH)));
             return schemaNamesListBuilder.build();
         }
         catch (Exception e) {
-            return ImmutableList.of();
+            throw new PrestoException(
+                    PINOT_FAILURE_GETTING_SCHEMA,
+                    "Failed to list schema names.",
+                    e);
         }
     }
 
@@ -88,7 +85,9 @@ public class PinotMetadata
                 return pinotTableName;
             }
         }
-        return null;
+        throw new PrestoException(
+                PINOT_FAILURE_GETTING_SCHEMA,
+                String.format("Failed to get pinot table from presto table name: %s.", prestoTableName));
     }
 
     @Override
@@ -97,6 +96,7 @@ public class PinotMetadata
         if (!listSchemaNames(session).contains(tableName.getSchemaName().toLowerCase(ENGLISH))) {
             return null;
         }
+
         String pinotTableName;
         try {
             pinotTableName = getPinotTableNameFromPrestoTableName(tableName.getTableName());
@@ -111,7 +111,7 @@ public class PinotMetadata
                     String.format("Failed to get TableHandle for %s", tableName),
                     e);
         }
-        return new PinotTableHandle(connectorId, tableName.getSchemaName(), pinotTableName);
+        return new PinotTableHandle(tableName.getSchemaName(), pinotTableName);
     }
 
     @Override
@@ -133,7 +133,6 @@ public class PinotMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         PinotTableHandle pinotTableHandle = checkType(table, PinotTableHandle.class, "table");
-        checkArgument(pinotTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
         SchemaTableName tableName = new SchemaTableName(pinotTableHandle.getSchemaName(), pinotTableHandle.getTableName());
 
         return getTableMetadata(tableName);
@@ -167,7 +166,6 @@ public class PinotMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         PinotTableHandle pinotTableHandle = checkType(tableHandle, PinotTableHandle.class, "tableHandle");
-        checkArgument(pinotTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
 
         String pinotTableName = getPinotTableNameFromPrestoTableName(pinotTableHandle.getTableName());
         try {
@@ -178,14 +176,16 @@ public class PinotMetadata
             ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
             int index = 0;
             for (ColumnMetadata column : table.getColumnsMetadata()) {
-                columnHandles.put(column.getName().toLowerCase(ENGLISH), new PinotColumnHandle(connectorId, ((PinotColumnMetadata) column).getPinotName(), column.getType(), index));
+                columnHandles.put(column.getName().toLowerCase(ENGLISH), new PinotColumnHandle(((PinotColumnMetadata) column).getPinotName(), column.getType(), index));
                 index++;
             }
             return columnHandles.build();
         }
         catch (Exception e) {
-            log.error("Failed to get ColumnHandles for table : " + pinotTableHandle.getTableName(), e);
-            return null;
+            throw new PrestoException(
+                    PINOT_FAILURE_GETTING_TABLE,
+                    String.format("Failed to get ColumnHandles for table : %s.", pinotTableHandle.getTableName()),
+                    e);
         }
     }
 

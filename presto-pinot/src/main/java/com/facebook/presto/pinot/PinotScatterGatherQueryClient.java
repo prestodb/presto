@@ -14,6 +14,8 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.yammer.metrics.core.MetricsRegistry;
 import io.airlift.log.Logger;
@@ -43,14 +45,9 @@ import org.apache.pinot.transport.scattergather.ScatterGatherRequest;
 import org.apache.pinot.transport.scattergather.ScatterGatherStats;
 import org.apache.thrift.protocol.TCompactProtocol;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -59,6 +56,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_FAILURE_QUERYING_DATA;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class acts as the Pinot broker, fetches data from Pinot segments, gathers and returns the result.
@@ -74,16 +73,12 @@ public class PinotScatterGatherQueryClient
 
     private final AtomicLong requestIdGenerator;
     private final String prestoHostId;
-    private final MetricsRegistry registry;
     private final BrokerMetrics brokerMetrics;
     private final ScatterGather scatterGatherer;
+
     // Netty Specific
     private EventLoopGroup eventLoopGroup;
-    private PooledNettyClientResourceManager resourceManager;
-    // Connection Pool Related
-    private KeyedPool<PooledNettyClientResourceManager.PooledClientConnection> connPool;
-    private ScheduledThreadPoolExecutor poolTimeoutExecutor;
-    private ExecutorService requestSenderPool;
+
     private Duration connectionTimeout;
 
     @Inject
@@ -92,12 +87,12 @@ public class PinotScatterGatherQueryClient
         requestIdGenerator = new AtomicLong(0);
         prestoHostId = getDefaultPrestoId();
 
-        registry = new MetricsRegistry();
+        final MetricsRegistry registry = new MetricsRegistry();
         brokerMetrics = new BrokerMetrics(registry, DEFAULT_EMIT_TABLE_LEVEL_METRICS);
         brokerMetrics.initializeGlobalMeters();
-
         eventLoopGroup = new NioEventLoopGroup();
-        /**
+
+        /*
          * Some of the client metrics uses histogram which is doing synchronous operation.
          * These are fixed overhead per request/response.
          * TODO: Measure the overhead of this.
@@ -105,16 +100,24 @@ public class PinotScatterGatherQueryClient
         final NettyClientMetrics clientMetrics = new NettyClientMetrics(registry, "presto_pinot_client_");
 
         // Setup Netty Connection Pool
-        resourceManager = new PooledNettyClientResourceManager(eventLoopGroup, new HashedWheelTimer(), clientMetrics);
-
-        requestSenderPool = Executors.newFixedThreadPool(pinotConfig.getThreadPoolSize());
-        poolTimeoutExecutor = new ScheduledThreadPoolExecutor(pinotConfig.getCorePoolSize());
+        PooledNettyClientResourceManager resourceManager = new PooledNettyClientResourceManager(eventLoopGroup, new HashedWheelTimer(), clientMetrics);
+        // Connection Pool Related
+        ExecutorService requestSenderPool = Executors.newFixedThreadPool(pinotConfig.getThreadPoolSize());
+        ScheduledThreadPoolExecutor poolTimeoutExecutor = new ScheduledThreadPoolExecutor(pinotConfig.getCorePoolSize());
         connectionTimeout = pinotConfig.getConnectionTimeout();
-        connPool = new KeyedPoolImpl<PooledNettyClientResourceManager.PooledClientConnection>(pinotConfig.getMinConnectionsPerServer(), pinotConfig.getMaxConnectionsPerServer(), pinotConfig.getIdleTimeout().toMillis(), pinotConfig.getMaxBacklogPerServer(), resourceManager, poolTimeoutExecutor, requestSenderPool, registry);
-        resourceManager.setPool(connPool);
+        KeyedPool<PooledNettyClientResourceManager.PooledClientConnection> connectionPool = new KeyedPoolImpl<>(
+                pinotConfig.getMinConnectionsPerServer(),
+                pinotConfig.getMaxConnectionsPerServer(),
+                pinotConfig.getIdleTimeout().toMillis(),
+                pinotConfig.getMaxBacklogPerServer(),
+                resourceManager,
+                poolTimeoutExecutor,
+                requestSenderPool,
+                registry);
 
+        resourceManager.setPool(connectionPool);
         // Setup ScatterGather
-        scatterGatherer = new ScatterGatherImpl(connPool, requestSenderPool);
+        scatterGatherer = new ScatterGatherImpl(connectionPool, requestSenderPool);
     }
 
     private String getDefaultPrestoId()
@@ -144,27 +147,26 @@ public class PinotScatterGatherQueryClient
                     e);
         }
 
-        Map<String, List<String>> routingTable = new HashMap<>();
-        List<String> segmentList = new ArrayList<>();
-        segmentList.add(segment);
-        routingTable.put(serverHost, segmentList);
-        ScatterGatherRequestImpl scatterRequest = new ScatterGatherRequestImpl(brokerRequest, routingTable, 0, connectionTimeout.toMillis(), prestoHostId);
+        ImmutableMap.Builder<String, List<String>> routingTableBuilder = ImmutableMap.builder();
+        List<String> segmentList = Arrays.asList(segment);
+        routingTableBuilder.put(serverHost, segmentList);
+        ScatterGatherRequest scatterRequest = new SimpleScatterGatherRequest(brokerRequest, routingTableBuilder.build(), 0, connectionTimeout.toMillis(), prestoHostId);
 
         ScatterGatherStats scatterGatherStats = new ScatterGatherStats();
         CompositeFuture<byte[]> compositeFuture = routeScatterGather(scatterRequest, scatterGatherStats);
 
         if (compositeFuture == null) {
-            // No server found in either OFFLINE or REALTIME table.
-            return null;
+            throw new PrestoException(
+                    PINOT_FAILURE_QUERYING_DATA,
+                    String.format("Failed to get data from table. PQL = %s.", pql));
         }
 
-        Map<ServerInstance, DataTable> dataTableMap = new HashMap<>();
+        ImmutableMap.Builder<ServerInstance, DataTable> dataTableMapBuilder = ImmutableMap.builder();
+        ImmutableList.Builder<ProcessingException> processingExceptionsBuilder = ImmutableList.builder();
+        Map<ServerInstance, byte[]> serverResponseMap = gatherServerResponses(compositeFuture, scatterGatherStats, true, brokerRequest.getQuerySource().getTableName(), processingExceptionsBuilder);
 
-        List<ProcessingException> processingExceptions = new ArrayList<>();
-        Map<ServerInstance, byte[]> serverResponseMap = null;
-        serverResponseMap = gatherServerResponses(compositeFuture, scatterGatherStats, true, brokerRequest.getQuerySource().getTableName(), processingExceptions);
-        deserializeServerResponses(serverResponseMap, true, dataTableMap, brokerRequest.getQuerySource().getTableName(), processingExceptions);
-        return dataTableMap;
+        deserializeServerResponses(serverResponseMap, dataTableMapBuilder, brokerRequest.getQuerySource().getTableName(), processingExceptionsBuilder);
+        return dataTableMapBuilder.build();
     }
 
     /**
@@ -174,26 +176,20 @@ public class PinotScatterGatherQueryClient
      * @param scatterGatherStats scatter-gather statistics.
      * @param isOfflineTable whether the scatter-gather target is an OFFLINE table.
      * @param tableNameWithType table name with type suffix.
-     * @param processingExceptions list of processing exceptions.
+     * @param processingExceptionsBuilder list of processing exceptions.
      * @return server response map.
      */
-    @Nullable
     private Map<ServerInstance, byte[]> gatherServerResponses(
-            @Nonnull CompositeFuture<byte[]> compositeFuture,
-            @Nonnull ScatterGatherStats scatterGatherStats, boolean isOfflineTable,
-            @Nonnull String tableNameWithType,
-            @Nonnull List<ProcessingException> processingExceptions)
+            CompositeFuture<byte[]> compositeFuture,
+            ScatterGatherStats scatterGatherStats,
+            boolean isOfflineTable,
+            String tableNameWithType,
+            ImmutableList.Builder<ProcessingException> processingExceptionsBuilder)
     {
         try {
             Map<ServerInstance, byte[]> serverResponseMap = compositeFuture.get();
-            Iterator<Map.Entry<ServerInstance, byte[]>> iterator = serverResponseMap.entrySet().iterator();
-            while (iterator.hasNext()) {
-                Map.Entry<ServerInstance, byte[]> entry = iterator.next();
-                if (entry.getValue().length == 0) {
-                    throw new PrestoException(
-                            PINOT_FAILURE_QUERYING_DATA,
-                            String.format("Got empty data for table: %s in server %s.", tableNameWithType, entry.getKey().getShortHostName()));
-                }
+            for (Map.Entry<ServerInstance, byte[]> entry : serverResponseMap.entrySet()) {
+                checkState(entry.getValue().length > 0, "Got empty data for table: %s in server %s.", tableNameWithType, entry.getKey().getShortHostName());
             }
             Map<ServerInstance, Long> responseTimes = compositeFuture.getResponseTimes();
             scatterGatherStats.setResponseTimeMillis(responseTimes, isOfflineTable);
@@ -201,10 +197,10 @@ public class PinotScatterGatherQueryClient
         }
         catch (Exception e) {
             brokerMetrics.addMeteredTableValue(tableNameWithType, BrokerMeter.RESPONSE_FETCH_EXCEPTIONS, 1L);
-            processingExceptions.add(QueryException.getException(QueryException.BROKER_GATHER_ERROR, e));
+            processingExceptionsBuilder.add(QueryException.getException(QueryException.BROKER_GATHER_ERROR, e));
             throw new PrestoException(
                     PINOT_FAILURE_QUERYING_DATA,
-                    String.format("Caught exception while fetching responses for table: %s", tableNameWithType),
+                    String.format("Caught exception while fetching responses for table: %s. Processing Exceptions: %s", tableNameWithType, processingExceptionsBuilder.build().toString()),
                     e);
         }
     }
@@ -216,28 +212,24 @@ public class PinotScatterGatherQueryClient
      * them.
      *
      * @param responseMap map from server to response.
-     * @param isOfflineTable whether the responses are from an OFFLINE table.
-     * @param dataTableMap map from server to data table.
+     * @param dataTableMapBuilder map from server to data table.
      * @param tableNameWithType table name with type suffix.
-     * @param processingExceptions list of processing exceptions.
+     * @param processingExceptionsBuilder list of processing exceptions.
      */
     private void deserializeServerResponses(
-            @Nonnull Map<ServerInstance, byte[]> responseMap, boolean isOfflineTable,
-            @Nonnull Map<ServerInstance, DataTable> dataTableMap,
-            @Nonnull String tableNameWithType,
-            @Nonnull List<ProcessingException> processingExceptions)
+            Map<ServerInstance, byte[]> responseMap,
+            ImmutableMap.Builder<ServerInstance, DataTable> dataTableMapBuilder,
+            String tableNameWithType,
+            ImmutableList.Builder<ProcessingException> processingExceptionsBuilder)
     {
         for (Map.Entry<ServerInstance, byte[]> entry : responseMap.entrySet()) {
             ServerInstance serverInstance = entry.getKey();
-            if (!isOfflineTable) {
-                serverInstance = serverInstance.withSeq(1);
-            }
             try {
-                dataTableMap.put(serverInstance, DataTableFactory.getDataTable(entry.getValue()));
+                dataTableMapBuilder.put(serverInstance, DataTableFactory.getDataTable(entry.getValue()));
             }
             catch (Exception e) {
                 brokerMetrics.addMeteredTableValue(tableNameWithType, BrokerMeter.DATA_TABLE_DESERIALIZATION_EXCEPTIONS, 1L);
-                processingExceptions.add(QueryException.getException(QueryException.DATA_TABLE_DESERIALIZATION_ERROR, e));
+                processingExceptionsBuilder.add(QueryException.getException(QueryException.DATA_TABLE_DESERIALIZATION_ERROR, e));
                 throw new PrestoException(
                         PINOT_FAILURE_QUERYING_DATA,
                         String.format("Caught exceptions while deserializing response for table: %s from server: %s", tableNameWithType, serverInstance),
@@ -246,22 +238,20 @@ public class PinotScatterGatherQueryClient
         }
     }
 
-    private CompositeFuture<byte[]> routeScatterGather(ScatterGatherRequestImpl scatterRequest, ScatterGatherStats scatterGatherStats)
+    private CompositeFuture<byte[]> routeScatterGather(ScatterGatherRequest scatterRequest, ScatterGatherStats scatterGatherStats)
     {
-        CompositeFuture<byte[]> compositeFuture = null;
         try {
-            compositeFuture = this.scatterGatherer.scatterGather(scatterRequest, scatterGatherStats, true, brokerMetrics);
+            return scatterGatherer.scatterGather(scatterRequest, scatterGatherStats, true, brokerMetrics);
         }
         catch (InterruptedException e) {
             throw new PrestoException(
                     PINOT_FAILURE_QUERYING_DATA,
-                    "Caught exception querying Pinot servers.",
+                    "Caught exception querying Pinot servers",
                     e);
         }
-        return compositeFuture;
     }
 
-    private static class ScatterGatherRequestImpl
+    private static class SimpleScatterGatherRequest
             implements ScatterGatherRequest
     {
         private final BrokerRequest brokerRequest;
@@ -270,14 +260,13 @@ public class PinotScatterGatherQueryClient
         private final long requestTimeoutMs;
         private final String brokerId;
 
-        public ScatterGatherRequestImpl(BrokerRequest request, Map<String, List<String>> routingTable, long requestId, long requestTimeoutMs, String brokerId)
+        public SimpleScatterGatherRequest(BrokerRequest request, Map<String, List<String>> routingTable, long requestId, long requestTimeoutMs, String brokerId)
         {
-            brokerRequest = request;
-            this.routingTable = routingTable;
-            this.requestId = requestId;
-
-            this.requestTimeoutMs = requestTimeoutMs;
-            this.brokerId = brokerId;
+            this.brokerRequest = requireNonNull(request);
+            this.routingTable = requireNonNull(routingTable);
+            this.requestId = requireNonNull(requestId);
+            this.requestTimeoutMs = requireNonNull(requestTimeoutMs);
+            this.brokerId = requireNonNull(brokerId);
         }
 
         @Override
@@ -289,13 +278,13 @@ public class PinotScatterGatherQueryClient
         @Override
         public byte[] getRequestForService(List<String> segments)
         {
-            InstanceRequest r = new InstanceRequest();
-            r.setRequestId(requestId);
-            r.setEnableTrace(brokerRequest.isEnableTrace());
-            r.setQuery(brokerRequest);
-            r.setSearchSegments(segments);
-            r.setBrokerId(brokerId);
-            return new SerDe(new TCompactProtocol.Factory()).serialize(r);
+            InstanceRequest request = new InstanceRequest();
+            request.setRequestId(requestId);
+            request.setEnableTrace(brokerRequest.isEnableTrace());
+            request.setQuery(brokerRequest);
+            request.setSearchSegments(segments);
+            request.setBrokerId(brokerId);
+            return new SerDe(new TCompactProtocol.Factory()).serialize(request);
         }
 
         @Override

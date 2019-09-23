@@ -17,18 +17,12 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.EquatableValueSet;
 import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.testing.assertions.Assert;
 import io.airlift.slice.Slices;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import java.net.SocketException;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -37,62 +31,12 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.ColorType.COLOR;
 
-public class PinotSplitManagerTest
+public class TestPinotSplitManager
 {
-    PinotSplitManager pinotSplitManager;
-    PinotColumnHandle columnCityId;
-    PinotColumnHandle columnCountryName;
-    PinotColumnHandle columnColor;
-
-    @BeforeTest
-    void init() throws SocketException, UnknownHostException
-    {
-        pinotSplitManager = new PinotSplitManager(new PinotConnectorId(""), new PinotConfig(), new PinotConnection(new PinotClusterInfoFetcher(new PinotConfig())));
-        columnCityId = new PinotColumnHandle("pinot", "city_id", BIGINT, 0);
-        columnCountryName = new PinotColumnHandle("pinot", "country_name", VARCHAR, 1);
-        columnColor = new PinotColumnHandle("pinot", "color", COLOR, 2);
-    }
-
-    @Test
-    public void testSingleValueRanges()
-    {
-        Domain domain = com.facebook.presto.spi.predicate.Domain.multipleValues(BIGINT, new ArrayList<>(Arrays.asList(1L, 10L)));
-        String expectedFilter = "city_id IN (1,10)";
-
-        Assert.assertEquals(expectedFilter, pinotSplitManager.getColumnPredicate(domain, columnCityId.getColumnName()));
-    }
-
-    @Test
-    public void testRangeValues()
-    {
-        Domain domain = Domain.create(ValueSet.ofRanges(
-                Range.greaterThan(BIGINT, 1L).intersect(Range.lessThan(BIGINT, 10L))), false);
-
-        String expectedFilter = "(1 < city_id AND city_id < 10)";
-        Assert.assertEquals(expectedFilter, pinotSplitManager.getColumnPredicate(domain, columnCityId.getColumnName()));
-    }
-
-    @Test
-    public void testOneSideRanges()
-    {
-        Domain domain = Domain.create(ValueSet.ofRanges(
-                Range.lessThanOrEqual(BIGINT, 10L)), false);
-
-        String expectedFilter = "(city_id <= 10)";
-        Assert.assertEquals(expectedFilter, pinotSplitManager.getColumnPredicate(domain, columnCityId.getColumnName()));
-    }
-
-    @Test
-    public void testMultipleRanges()
-    {
-        Domain domain = Domain.create(ValueSet.ofRanges(
-                Range.equal(BIGINT, 20L),
-                Range.greaterThan(BIGINT, 1L).intersect(Range.lessThan(BIGINT, 10L)),
-                Range.greaterThan(BIGINT, 12L).intersect(Range.lessThan(BIGINT, 18L))), false);
-
-        String expectedFilter = "(1 < city_id AND city_id < 10) OR (12 < city_id AND city_id < 18) OR city_id IN (20)";
-        Assert.assertEquals(expectedFilter, pinotSplitManager.getColumnPredicate(domain, columnCityId.getColumnName()));
-    }
+    private static final PinotSplitManager pinotSplitManager = new PinotSplitManager(new PinotConnection(new PinotClusterInfoFetcher(new PinotConfig())));
+    private static final PinotColumnHandle columnCityId = new PinotColumnHandle("city_id", BIGINT, 0);
+    private static final PinotColumnHandle columnCountryName = new PinotColumnHandle("country_name", VARCHAR, 1);
+    private static final PinotColumnHandle columnColor = new PinotColumnHandle("color", COLOR, 2);
 
     @Test
     public void testMultipleColumns()
@@ -153,26 +97,8 @@ public class PinotSplitManagerTest
     }
 
     @Test
-    public void testEmptyDomain()
-    {
-        SortedRangeSet sortedRangeSet = SortedRangeSet.copyOf(BIGINT, new ArrayList<>());
-        Domain domain = Domain.create(sortedRangeSet, false);
-
-        Assert.assertEquals("", pinotSplitManager.getColumnPredicate(domain, columnCityId.getColumnName()));
-    }
-
-    @Test
     public void testEmptyConstraintSummary()
     {
         Assert.assertEquals("", pinotSplitManager.getPinotPredicate(TupleDomain.all()));
-    }
-
-    @Test
-    public void testGetDiscretePredicate()
-    {
-        Assert.assertEquals("", pinotSplitManager.getDiscretePredicate(true, "city_id", new ArrayList<>()));
-        Assert.assertEquals("city_id IN (1,2)", pinotSplitManager.getDiscretePredicate(true, "city_id", new ArrayList<>(Arrays.asList("1", "2"))));
-        Assert.assertEquals("city_id NOT IN (1,2)", pinotSplitManager.getDiscretePredicate(false, "city_id", new ArrayList<>(Arrays.asList("1", "2"))));
-        Assert.assertEquals("country_name NOT IN (\"cn\",\"us\")", pinotSplitManager.getDiscretePredicate(false, "country_name", new ArrayList<>(Arrays.asList("\"cn\"", "\"us\""))));
     }
 }

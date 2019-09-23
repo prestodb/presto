@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.ErrorType;
 
 import static com.facebook.presto.spi.ErrorType.EXTERNAL;
+import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
 
 public enum PinotErrorCode
         implements ErrorCodeSupplier
@@ -25,7 +26,8 @@ public enum PinotErrorCode
     PINOT_UNSUPPORTED_COLUMN_TYPE(0, EXTERNAL),
     PINOT_FAILURE_GETTING_TABLE(1, EXTERNAL),
     PINOT_FAILURE_GETTING_SCHEMA(2, EXTERNAL),
-    PINOT_FAILURE_QUERYING_DATA(3, EXTERNAL);
+    PINOT_FAILURE_QUERYING_DATA(3, EXTERNAL),
+    PINOT_FAILURE_INITIATING_RESOURCES(4, INTERNAL_ERROR);
 
     /**
      * Connectors can use error codes starting at the range 0x0100_0000
@@ -38,7 +40,7 @@ public enum PinotErrorCode
 
     PinotErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0505_0000, name(), type);
+        errorCode = new ErrorCode(code + 0x0106_0000, name(), type);
     }
 
     @Override

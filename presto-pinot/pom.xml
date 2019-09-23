@@ -41,11 +41,6 @@
             <version>${dep.fastjson.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-        </dependency>
-
         <!-- Pinot Dependency Starts -->
         <dependency>
             <groupId>org.apache.pinot</groupId>

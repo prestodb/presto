@@ -16,14 +16,14 @@ package com.facebook.presto.pinot;
 import io.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.pinot.MetadataUtil.COLUMN_CODEC;
+import static com.facebook.presto.pinot.TestPinotMetadataUtil.COLUMN_CODEC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestPinotColumnHandle
 {
-    private final PinotColumnHandle columnHandle = new PinotColumnHandle("connectorId", "columnName", VARCHAR, 0);
+    private static final PinotColumnHandle columnHandle = new PinotColumnHandle("columnName", VARCHAR, 0);
 
     @Test
     public void testJsonRoundTrip()
@@ -39,20 +39,15 @@ public class TestPinotColumnHandle
         EquivalenceTester
                 .equivalenceTester()
                 .addEquivalentGroup(
-                        new PinotColumnHandle("connectorId", "columnName", VARCHAR, 0),
-                        new PinotColumnHandle("connectorId", "columnName", VARCHAR, 0),
-                        new PinotColumnHandle("connectorId", "columnName", BIGINT, 0),
-                        new PinotColumnHandle("connectorId", "columnName", VARCHAR, 1))
+                        new PinotColumnHandle("columnName", VARCHAR, 0),
+                        new PinotColumnHandle("columnName", VARCHAR, 0),
+                        new PinotColumnHandle("columnName", BIGINT, 0),
+                        new PinotColumnHandle("columnName", VARCHAR, 1))
                 .addEquivalentGroup(
-                        new PinotColumnHandle("connectorIdX", "columnName", VARCHAR, 0),
-                        new PinotColumnHandle("connectorIdX", "columnName", VARCHAR, 0),
-                        new PinotColumnHandle("connectorIdX", "columnName", BIGINT, 0),
-                        new PinotColumnHandle("connectorIdX", "columnName", VARCHAR, 1))
-                .addEquivalentGroup(
-                        new PinotColumnHandle("connectorId", "columnNameX", VARCHAR, 0),
-                        new PinotColumnHandle("connectorId", "columnNameX", VARCHAR, 0),
-                        new PinotColumnHandle("connectorId", "columnNameX", BIGINT, 0),
-                        new PinotColumnHandle("connectorId", "columnNameX", VARCHAR, 1))
+                        new PinotColumnHandle("columnNameX", VARCHAR, 0),
+                        new PinotColumnHandle("columnNameX", VARCHAR, 0),
+                        new PinotColumnHandle("columnNameX", BIGINT, 0),
+                        new PinotColumnHandle("columnNameX", VARCHAR, 1))
                 .check();
     }
 }

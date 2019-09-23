@@ -14,20 +14,21 @@
 package com.facebook.presto.pinot;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
-final class Types
+final class PinotUtils
 {
-    private Types()
+    private PinotUtils()
     {
     }
 
+    public static final String TIME_COLUMN_NAME = "timeColumnName";
+    public static final String TIME_COLUMN_VALUE = "timeColumnValue";
+    public static final String QUOTE = "\"";
+
     public static <A, B extends A> B checkType(A value, Class<B> target, String name)
     {
-        if (value == null) {
-            throw new NullPointerException(format("%s is null", name));
-        }
-        checkArgument(target.isInstance(value), "%s must be of type %s, not %s", name, target.getName(), value.getClass().getName());
+        checkArgument(target.isInstance(requireNonNull(value)), "%s must be of type %s, not %s", name, target.getName(), value.getClass().getName());
         return target.cast(value);
     }
 }

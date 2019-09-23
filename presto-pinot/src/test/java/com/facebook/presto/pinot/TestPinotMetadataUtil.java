@@ -33,14 +33,25 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
-public final class MetadataUtil
+public final class TestPinotMetadataUtil
 {
-    public static final JsonCodec<Map<String, List<PinotTable>>> CATALOG_CODEC;
-    public static final JsonCodec<PinotTable> TABLE_CODEC;
     public static final JsonCodec<PinotColumnHandle> COLUMN_CODEC;
 
-    private MetadataUtil()
+    private static final JsonCodec<Map<String, List<PinotTable>>> CATALOG_CODEC;
+    private static final JsonCodec<PinotTable> TABLE_CODEC;
+
+    static {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TestingTypeDeserializer()));
+        JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
+        CATALOG_CODEC = codecFactory.mapJsonCodec(String.class, listJsonCodec(PinotTable.class));
+        TABLE_CODEC = codecFactory.jsonCodec(PinotTable.class);
+        COLUMN_CODEC = codecFactory.jsonCodec(PinotColumnHandle.class);
+    }
+
+    private TestPinotMetadataUtil()
     {
     }
 
@@ -58,19 +69,7 @@ public final class MetadataUtil
         protected Type _deserialize(String value, DeserializationContext context)
         {
             Type type = types.get(value.toLowerCase(ENGLISH));
-            if (type == null) {
-                throw new IllegalArgumentException(String.valueOf("Unknown type " + value));
-            }
-            return type;
+            return requireNonNull(type);
         }
-    }
-
-    static {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TestingTypeDeserializer()));
-        JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
-        CATALOG_CODEC = codecFactory.mapJsonCodec(String.class, listJsonCodec(PinotTable.class));
-        TABLE_CODEC = codecFactory.jsonCodec(PinotTable.class);
-        COLUMN_CODEC = codecFactory.jsonCodec(PinotColumnHandle.class);
     }
 }
