@@ -299,7 +299,7 @@ public class PlanPrinter
                 .flatMap(f -> f.getVariables().stream())
                 .distinct()
                 .collect(toImmutableList()));
-        builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionDescriptor()), functionManager, fragment.getStatsAndCosts(), session, planNodeStats, 1, verbose))
+        builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionDescriptor()), functionManager, fragment.getStatsAndCosts().orElse(StatsAndCosts.empty()), session, planNodeStats, 1, verbose))
                 .append("\n");
 
         return builder.toString();
@@ -317,7 +317,7 @@ public class PlanPrinter
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputVariables()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
-                StatsAndCosts.empty(),
+                Optional.empty(),
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment), session, functionManager);
     }
