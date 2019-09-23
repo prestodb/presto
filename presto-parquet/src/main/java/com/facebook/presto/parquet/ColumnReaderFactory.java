@@ -16,10 +16,15 @@ package com.facebook.presto.parquet;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.batchreader.BinaryFlatBatchReader;
+import com.facebook.presto.parquet.batchreader.BinaryNestedBatchReader;
 import com.facebook.presto.parquet.batchreader.BooleanFlatBatchReader;
+import com.facebook.presto.parquet.batchreader.BooleanNestedBatchReader;
 import com.facebook.presto.parquet.batchreader.Int32FlatBatchReader;
+import com.facebook.presto.parquet.batchreader.Int32NestedBatchReader;
 import com.facebook.presto.parquet.batchreader.Int64FlatBatchReader;
+import com.facebook.presto.parquet.batchreader.Int64NestedBatchReader;
 import com.facebook.presto.parquet.batchreader.TimestampFlatBatchReader;
+import com.facebook.presto.parquet.batchreader.TimestampNestedBatchReader;
 import com.facebook.presto.parquet.reader.AbstractColumnReader;
 import com.facebook.presto.parquet.reader.BinaryColumnReader;
 import com.facebook.presto.parquet.reader.BooleanColumnReader;
@@ -31,6 +36,7 @@ import com.facebook.presto.parquet.reader.LongDecimalColumnReader;
 import com.facebook.presto.parquet.reader.ShortDecimalColumnReader;
 import com.facebook.presto.parquet.reader.TimestampColumnReader;
 import com.facebook.presto.spi.PrestoException;
+import org.apache.parquet.schema.OriginalType;
 
 import java.util.Optional;
 
@@ -45,35 +51,22 @@ public class ColumnReaderFactory
 
     public static ColumnReader createReader(RichColumnDescriptor descriptor, boolean batchReadEnabled)
     {
-        if (batchReadEnabled) {
+        // decimal is not supported in batch readers
+        if (batchReadEnabled && descriptor.getPrimitiveType().getOriginalType() != OriginalType.DECIMAL) {
             final boolean isNested = descriptor.getPath().length > 1;
             switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
                 case BOOLEAN:
-                    if (!isNested) {
-                        return new BooleanFlatBatchReader(descriptor);
-                    }
-                    break;
+                    return isNested ? new BooleanNestedBatchReader(descriptor) : new BooleanFlatBatchReader(descriptor);
                 case INT32:
                 case FLOAT:
-                    if (!isNested) {
-                        return new Int32FlatBatchReader(descriptor);
-                    }
-                    break;
+                    return isNested ? new Int32NestedBatchReader(descriptor) : new Int32FlatBatchReader(descriptor);
                 case INT64:
                 case DOUBLE:
-                    if (!isNested) {
-                        return new Int64FlatBatchReader(descriptor);
-                    }
-                    break;
+                    return isNested ? new Int64NestedBatchReader(descriptor) : new Int64FlatBatchReader(descriptor);
                 case INT96:
-                    if (!isNested) {
-                        return new TimestampFlatBatchReader(descriptor);
-                    }
-                    break;
+                    return isNested ? new TimestampNestedBatchReader(descriptor) : new TimestampFlatBatchReader(descriptor);
                 case BINARY:
-                    if (!isNested) {
-                        return new BinaryFlatBatchReader(descriptor);
-                    }
+                    return isNested ? new BinaryNestedBatchReader(descriptor) : new BinaryFlatBatchReader(descriptor);
             }
         }
 

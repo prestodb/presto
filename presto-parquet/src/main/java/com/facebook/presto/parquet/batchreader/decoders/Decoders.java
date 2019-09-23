@@ -37,6 +37,7 @@ import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.dictionary.IntegerDictionary;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
 import com.facebook.presto.spi.PrestoException;
+import io.airlift.slice.Slice;
 import org.apache.parquet.Preconditions;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.bytes.BytesUtils;
@@ -195,10 +196,74 @@ public class Decoders
             definitionLevelDecoder = new FlatDefinitionLevelDecoder(valueCount, new ByteArrayInputStream(pageV2.getDefinitionLevels().getBytes()));
         }
 
-        final byte[] dataBuffer = pageV2.getSlice().getBytes();
-        ValuesDecoder valuesDecoder = createValuesDecoder(columnDescriptor, dictionary, pageV2.getValueCount(), pageV2.getDataEncoding(), dataBuffer, 0, dataBuffer.length);
+        ValuesDecoder valuesDecoder = createValuesDecoderV2(pageV2, columnDescriptor, dictionary);
 
         return new FlatDecoders(definitionLevelDecoder, valuesDecoder);
+    }
+
+    public static NestedDecoders readNestedPage(DataPage page, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
+    {
+        try {
+            if (page instanceof DataPageV1) {
+                return readNestedPageV1((DataPageV1) page, columnDescriptor, dictionary);
+            }
+
+            return readNestedPageV2((DataPageV2) page, columnDescriptor, dictionary);
+        }
+        catch (IOException e) {
+            throw new PrestoException(PARQUET_IO_READ_ERROR, "Error reading parquet page " + page + " in column " + columnDescriptor, e);
+        }
+    }
+
+    private static NestedDecoders readNestedPageV1(DataPageV1 page, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
+            throws IOException
+    {
+        byte[] bytes = page.getSlice().getBytes();
+        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes, 0, bytes.length);
+
+        RepetitionLevelDecoder repetitionLevelDecoder = createRepetitionLevelDecoder(page.getRepetitionLevelEncoding(), columnDescriptor.getMaxRepetitionLevel(), page.getValueCount(), byteBuffer);
+        DefinitionLevelDecoder definitionLevelDecoder = createDefinitionLevelDecoder(page.getDefinitionLevelEncoding(), columnDescriptor.getMaxDefinitionLevel(), page.getValueCount(), byteBuffer);
+        ValuesDecoder valuesDecoder = createValuesDecoder(columnDescriptor, dictionary, page.getValueCount(), page.getValueEncoding(), bytes, byteBuffer.position(), bytes.length - byteBuffer.position());
+        return new NestedDecoders(repetitionLevelDecoder, definitionLevelDecoder, valuesDecoder);
+    }
+
+    private static NestedDecoders readNestedPageV2(DataPageV2 pageV2, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
+            throws IOException
+    {
+        final int valueCount = pageV2.getValueCount();
+        return new NestedDecoders(
+                createRepetitionLevelDecoderV2(valueCount, columnDescriptor, pageV2.getRepetitionLevels()),
+                createDefinitionLevelDecoderV2(valueCount, columnDescriptor, pageV2.getDefinitionLevels()),
+                createValuesDecoderV2(pageV2, columnDescriptor, dictionary));
+    }
+
+    private static final RepetitionLevelDecoder createRepetitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice repetitionLevelBuffer)
+    {
+        final int maxRL = columnDescriptor.getMaxRepetitionLevel();
+        final int rlBitWidth = getWidthFromMaxInt(maxRL);
+        if (maxRL == 0 || rlBitWidth == 0) {
+            return new RepetitionLevelDecoder(0, valueCount);
+        }
+
+        return new RepetitionLevelDecoder(valueCount, rlBitWidth, new ByteArrayInputStream(repetitionLevelBuffer.getBytes()));
+    }
+
+    private static final DefinitionLevelDecoder createDefinitionLevelDecoderV2(int valueCount, RichColumnDescriptor columnDescriptor, Slice definitionLevelBuffer)
+    {
+        final int maxDL = columnDescriptor.getMaxDefinitionLevel();
+        final int dlBitWidth = getWidthFromMaxInt(maxDL);
+        if (maxDL == 0 || dlBitWidth == 0) {
+            return new DefinitionLevelDecoder(0, valueCount);
+        }
+
+        return new DefinitionLevelDecoder(valueCount, dlBitWidth, new ByteArrayInputStream(definitionLevelBuffer.getBytes()));
+    }
+
+    private static final ValuesDecoder createValuesDecoderV2(DataPageV2 pageV2, RichColumnDescriptor columnDescriptor, Dictionary dictionary)
+            throws IOException
+    {
+        final byte[] valueBuffer = pageV2.getSlice().getBytes();
+        return createValuesDecoder(columnDescriptor, dictionary, pageV2.getValueCount(), pageV2.getDataEncoding(), valueBuffer, 0, valueBuffer.length);
     }
 
     private static final FlatDefinitionLevelDecoder createFlatDefLevelDecoder(ParquetEncoding encoding, boolean isRequiredType, int maxLevelValue, int valueCount, ByteBuffer buffer)
@@ -230,6 +295,48 @@ public class Decoders
         throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("DL Encoding: %s", encoding));
     }
 
+    public static final RepetitionLevelDecoder createRepetitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
+            throws IOException
+    {
+        final int bitWidth = getWidthFromMaxInt(maxLevelValue);
+        if (maxLevelValue == 0 || bitWidth == 0) {
+            return new RepetitionLevelDecoder(0, valueCount);
+        }
+
+        if (encoding == RLE) {
+            ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(buffer);
+
+            final int bufferSize = BytesUtils.readIntLittleEndian(bufferInputStream);
+            RepetitionLevelDecoder repetitionLevelDecoder = new RepetitionLevelDecoder(valueCount, bitWidth, bufferInputStream.sliceStream(bufferSize));
+
+            buffer.position(buffer.position() + bufferSize + 4);
+            return repetitionLevelDecoder;
+        }
+
+        throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("RL Encoding: %s", encoding));
+    }
+
+    public static final DefinitionLevelDecoder createDefinitionLevelDecoder(ParquetEncoding encoding, int maxLevelValue, int valueCount, ByteBuffer buffer)
+            throws IOException
+    {
+        final int bitWidth = getWidthFromMaxInt(maxLevelValue);
+        if (maxLevelValue == 0 || bitWidth == 0) {
+            return new DefinitionLevelDecoder(0, valueCount);
+        }
+
+        if (encoding == RLE) {
+            ByteBufferInputStream bufferInputStream = ByteBufferInputStream.wrap(buffer);
+
+            final int bufferSize = BytesUtils.readIntLittleEndian(bufferInputStream);
+            DefinitionLevelDecoder definitionLevelDecoder = new DefinitionLevelDecoder(valueCount, bitWidth, bufferInputStream.sliceStream(bufferSize));
+
+            buffer.position(buffer.position() + bufferSize + 4);
+            return definitionLevelDecoder;
+        }
+
+        throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("Definition level encoding: %s is not supported", encoding));
+    }
+
     public static class FlatDecoders
     {
         private final FlatDefinitionLevelDecoder definitionLevelDecoder;
@@ -242,6 +349,35 @@ public class Decoders
         }
 
         public FlatDefinitionLevelDecoder getDefinitionLevelDecoder()
+        {
+            return definitionLevelDecoder;
+        }
+
+        public ValuesDecoder getValuesDecoder()
+        {
+            return valuesDecoder;
+        }
+    }
+
+    public static class NestedDecoders
+    {
+        private final RepetitionLevelDecoder repetitionLevelDecoder;
+        private final DefinitionLevelDecoder definitionLevelDecoder;
+        private final ValuesDecoder valuesDecoder;
+
+        private NestedDecoders(RepetitionLevelDecoder repetitionLevelDecoder, DefinitionLevelDecoder definitionLevelDecoder, ValuesDecoder valuesDecoder)
+        {
+            this.repetitionLevelDecoder = repetitionLevelDecoder;
+            this.definitionLevelDecoder = definitionLevelDecoder;
+            this.valuesDecoder = valuesDecoder;
+        }
+
+        public RepetitionLevelDecoder getRepetitionLevelDecoder()
+        {
+            return repetitionLevelDecoder;
+        }
+
+        public DefinitionLevelDecoder getDefinitionLevelDecoder()
         {
             return definitionLevelDecoder;
         }
