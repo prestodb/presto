@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
@@ -51,7 +52,7 @@ public class PlanFragment
     private final PartitioningScheme partitioningScheme;
     private final StageExecutionDescriptor stageExecutionDescriptor;
     private final boolean outputTableWriterFragment;
-    private final StatsAndCosts statsAndCosts;
+    private final Optional<StatsAndCosts> statsAndCosts;
     private final Optional<String> jsonRepresentation;
 
     @JsonCreator
@@ -64,7 +65,7 @@ public class PlanFragment
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
             @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
             @JsonProperty("outputTableWriterFragment") boolean outputTableWriterFragment,
-            @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
+            @JsonProperty("statsAndCosts") Optional<StatsAndCosts> statsAndCosts,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
@@ -139,17 +140,15 @@ public class PlanFragment
         return outputTableWriterFragment;
     }
 
-    @JsonProperty
-    public StatsAndCosts getStatsAndCosts()
+    @JsonIgnore
+    public Optional<StatsAndCosts> getStatsAndCosts()
     {
         return statsAndCosts;
     }
 
-    @JsonProperty
+    @JsonIgnore
     public Optional<String> getJsonRepresentation()
     {
-        // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
-        // workers don't need this, so that should be OK, but it's worth thinking about.
         return jsonRepresentation;
     }
 

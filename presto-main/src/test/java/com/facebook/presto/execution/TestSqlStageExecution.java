@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
@@ -173,7 +172,7 @@ public class TestSqlStageExecution
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputVariables()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
-                StatsAndCosts.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 }

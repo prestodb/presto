@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
@@ -124,7 +123,7 @@ public class MockRemoteTaskFactory
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(variable)),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
-                StatsAndCosts.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
