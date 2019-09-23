@@ -946,20 +946,6 @@ public class HiveClientConfig
         return this;
     }
 
-    @Deprecated
-    public boolean isOptimizeMismatchedBucketCount()
-    {
-        return optimizeMismatchedBucketCount;
-    }
-
-    @Deprecated
-    @Config("hive.optimize-mismatched-bucket-count")
-    public HiveClientConfig setOptimizeMismatchedBucketCount(boolean optimizeMismatchedBucketCount)
-    {
-        this.optimizeMismatchedBucketCount = optimizeMismatchedBucketCount;
-        return this;
-    }
-
     public enum HiveMetastoreAuthenticationType
     {
         NONE,

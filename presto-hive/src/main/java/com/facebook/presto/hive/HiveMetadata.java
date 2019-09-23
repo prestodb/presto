@@ -152,7 +152,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.getVirtualBucketCou
 import static com.facebook.presto.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
-import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
@@ -1902,46 +1901,6 @@ public class HiveMetadata
                 Optional.empty(),
                 discretePredicates,
                 ImmutableList.of());
-    }
-
-    @Override
-    public Optional<ConnectorPartitioningHandle> getCommonPartitioningHandle(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
-    {
-        HivePartitioningHandle leftHandle = (HivePartitioningHandle) left;
-        HivePartitioningHandle rightHandle = (HivePartitioningHandle) right;
-
-        if (!leftHandle.getHiveTypes().equals(rightHandle.getHiveTypes())) {
-            return Optional.empty();
-        }
-        if (leftHandle.getBucketCount() == rightHandle.getBucketCount()) {
-            return Optional.of(leftHandle);
-        }
-        if (!isOptimizedMismatchedBucketCount(session)) {
-            return Optional.empty();
-        }
-
-        int largerBucketCount = Math.max(leftHandle.getBucketCount(), rightHandle.getBucketCount());
-        int smallerBucketCount = Math.min(leftHandle.getBucketCount(), rightHandle.getBucketCount());
-        if (largerBucketCount % smallerBucketCount != 0) {
-            // must be evenly divisible
-            return Optional.empty();
-        }
-        if (Integer.bitCount(largerBucketCount / smallerBucketCount) != 1) {
-            // ratio must be power of two
-            return Optional.empty();
-        }
-
-        OptionalInt maxCompatibleBucketCount = min(leftHandle.getMaxCompatibleBucketCount(), rightHandle.getMaxCompatibleBucketCount());
-        if (maxCompatibleBucketCount.isPresent() && maxCompatibleBucketCount.getAsInt() < smallerBucketCount) {
-            // maxCompatibleBucketCount must be larger than or equal to smallerBucketCount
-            // because the current code uses the smallerBucketCount as the common partitioning handle.
-            return Optional.empty();
-        }
-
-        return Optional.of(new HivePartitioningHandle(
-                smallerBucketCount,
-                leftHandle.getHiveTypes(),
-                maxCompatibleBucketCount));
     }
 
     @Override

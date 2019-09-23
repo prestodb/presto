@@ -141,12 +141,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public boolean isRefinedPartitioningOver(Session session, PartitioningHandle a, PartitioningHandle b)
     {
         throw new UnsupportedOperationException();

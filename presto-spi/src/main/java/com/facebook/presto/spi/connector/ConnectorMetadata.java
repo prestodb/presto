@@ -148,18 +148,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
-     */
-    @Deprecated
-    default Optional<ConnectorPartitioningHandle> getCommonPartitioningHandle(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
-    {
-        if (left.equals(right)) {
-            return Optional.of(left);
-        }
-        return Optional.empty();
-    }
-
-    /**
      * Partitioning <code>a = {a_1, ... a_n}</code> is considered as a refined partitioning over
      * partitioning <code>b = {b_1, ... b_m}</code> if:
      * <ul>

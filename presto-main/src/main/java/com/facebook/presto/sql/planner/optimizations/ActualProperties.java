@@ -125,22 +125,18 @@ public class ActualProperties
         return global.isNodePartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
     }
 
-    @Deprecated
-    public boolean isCompatibleTablePartitioningWith(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
+    public boolean isNodePartitionedOn(Partitioning partitioning, boolean nullsAndAnyReplicated)
     {
-        return global.isCompatibleTablePartitioningWith(partitioning, nullsAndAnyReplicated, metadata, session);
+        return global.isNodePartitionedOn(partitioning, nullsAndAnyReplicated);
     }
 
-    @Deprecated
-    public boolean isCompatibleTablePartitioningWith(ActualProperties other, Function<VariableReferenceExpression, Set<VariableReferenceExpression>> symbolMappings, Metadata metadata, Session session)
+    public boolean isNodePartitionedWith(ActualProperties other, Function<VariableReferenceExpression, Set<VariableReferenceExpression>> symbolMappings)
     {
-        return global.isCompatibleTablePartitioningWith(
+        return global.isNodePartitionedWith(
                 other.global,
                 symbolMappings,
                 variable -> Optional.ofNullable(constants.get(variable)),
-                variable -> Optional.ofNullable(other.constants.get(variable)),
-                metadata,
-                session);
+                variable -> Optional.ofNullable(other.constants.get(variable)));
     }
 
     public boolean isRefinedPartitioningOver(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
@@ -471,28 +467,24 @@ public class ActualProperties
             return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOn(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
-        private boolean isCompatibleTablePartitioningWith(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
+        private boolean isNodePartitionedOn(Partitioning partitioning, boolean nullsAndAnyReplicated)
         {
-            return nodePartitioning.isPresent() && nodePartitioning.get().isCompatibleWith(partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && nodePartitioning.get().equals(partitioning) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
-        private boolean isCompatibleTablePartitioningWith(
+        private boolean isNodePartitionedWith(
                 Global other,
                 Function<VariableReferenceExpression, Set<VariableReferenceExpression>> symbolMappings,
                 Function<VariableReferenceExpression, Optional<ConstantExpression>> leftConstantMapping,
-                Function<VariableReferenceExpression, Optional<ConstantExpression>> rightConstantMapping,
-                Metadata metadata,
-                Session session)
+                Function<VariableReferenceExpression, Optional<ConstantExpression>> rightConstantMapping)
         {
             return nodePartitioning.isPresent() &&
                     other.nodePartitioning.isPresent() &&
-                    nodePartitioning.get().isCompatibleWith(
+                    nodePartitioning.get().isPartitionedWith(
                             other.nodePartitioning.get(),
                             symbolMappings,
                             leftConstantMapping,
-                            rightConstantMapping,
-                            metadata,
-                            session) &&
+                            rightConstantMapping) &&
                     nullsAndAnyReplicated == other.nullsAndAnyReplicated;
         }
 

@@ -572,8 +572,7 @@ public class AddExchanges
             }
 
             if (partitioningScheme.isPresent() &&
-                    // TODO: Deprecate compatible table partitioning
-                    !source.getProperties().isCompatibleTablePartitioningWith(partitioningScheme.get().getPartitioning(), false, metadata, session) &&
+                    !source.getProperties().isNodePartitionedOn(partitioningScheme.get().getPartitioning(), false) &&
                     !(source.getProperties().isRefinedPartitioningOver(partitioningScheme.get().getPartitioning(), false, metadata, session) &&
                             canPushdownPartialMerge(source.getNode(), partialMergePushdownStrategy))) {
                 source = withDerivedProperties(
@@ -723,8 +722,7 @@ public class AddExchanges
             if (left.getProperties().isNodePartitionedOn(leftVariables) && !left.getProperties().isSingleNode()) {
                 Partitioning rightPartitioning = left.getProperties().translateVariable(createTranslator(leftToRight)).getNodePartitioning().get();
                 right = node.getRight().accept(this, PreferredProperties.partitioned(rightPartitioning));
-                if (!right.getProperties().isCompatibleTablePartitioningWith(left.getProperties(), rightToLeft::get, metadata, session) &&
-                        // TODO: Deprecate compatible table partitioning
+                if (!right.getProperties().isNodePartitionedWith(left.getProperties(), rightToLeft::get) &&
                         !(right.getProperties().isRefinedPartitioningOver(left.getProperties(), rightToLeft::get, metadata, session) &&
                                 canPushdownPartialMerge(right.getNode(), partialMergePushdownStrategy))) {
                     right = withDerivedProperties(
@@ -769,8 +767,7 @@ public class AddExchanges
                 }
             }
 
-            // TODO: Deprecate compatible table partitioning
-            verify(left.getProperties().isCompatibleTablePartitioningWith(right.getProperties(), leftToRight::get, metadata, session) ||
+            verify(left.getProperties().isNodePartitionedWith(right.getProperties(), leftToRight::get) ||
                     (right.getProperties().isRefinedPartitioningOver(left.getProperties(), rightToLeft::get, metadata, session) && canPushdownPartialMerge(right.getNode(), partialMergePushdownStrategy)));
 
             // if colocated joins are disabled, force redistribute when using a custom partitioning
@@ -888,8 +885,7 @@ public class AddExchanges
                 if (source.getProperties().isNodePartitionedOn(sourceVariables) && !source.getProperties().isSingleNode()) {
                     Partitioning filteringPartitioning = source.getProperties().translateVariable(createTranslator(sourceToFiltering)).getNodePartitioning().get();
                     filteringSource = node.getFilteringSource().accept(this, PreferredProperties.partitionedWithNullsAndAnyReplicated(filteringPartitioning));
-                    // TODO: Deprecate compatible table partitioning
-                    if (!source.getProperties().withReplicatedNulls(true).isCompatibleTablePartitioningWith(filteringSource.getProperties(), sourceToFiltering::get, metadata, session) &&
+                    if (!source.getProperties().withReplicatedNulls(true).isNodePartitionedWith(filteringSource.getProperties(), sourceToFiltering::get) &&
                             !(filteringSource.getProperties().withReplicatedNulls(true).isRefinedPartitioningOver(source.getProperties(), filteringToSource::get, metadata, session) &&
                                     canPushdownPartialMerge(filteringSource.getNode(), partialMergePushdownStrategy))) {
                         filteringSource = withDerivedProperties(
@@ -926,8 +922,7 @@ public class AddExchanges
                     }
                 }
 
-                verify(source.getProperties().withReplicatedNulls(true).isCompatibleTablePartitioningWith(filteringSource.getProperties(), sourceToFiltering::get, metadata, session) ||
-                        // TODO: Deprecate compatible table partitioning
+                verify(source.getProperties().withReplicatedNulls(true).isNodePartitionedWith(filteringSource.getProperties(), sourceToFiltering::get) ||
                         (filteringSource.getProperties().withReplicatedNulls(true).isRefinedPartitioningOver(source.getProperties(), filteringToSource::get, metadata, session) && canPushdownPartialMerge(filteringSource.getNode(), partialMergePushdownStrategy)));
 
                 // if colocated joins are disabled, force redistribute when using a custom partitioning
@@ -1101,8 +1096,7 @@ public class AddExchanges
                             .build();
 
                     PlanWithProperties source = node.getSources().get(sourceIndex).accept(this, childPreferred);
-                    // TODO: Deprecate compatible table partitioning
-                    if (!source.getProperties().isCompatibleTablePartitioningWith(childPartitioning, nullsAndAnyReplicated, metadata, session) &&
+                    if (!source.getProperties().isNodePartitionedOn(childPartitioning, nullsAndAnyReplicated) &&
                             !(source.getProperties().isRefinedPartitioningOver(childPartitioning, nullsAndAnyReplicated, metadata, session) && canPushdownPartialMerge(source.getNode(), partialMergePushdownStrategy))) {
                         source = withDerivedProperties(
                                 partitionedExchange(

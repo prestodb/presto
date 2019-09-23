@@ -844,12 +844,6 @@ public class PlanFragmenter
                 return this;
             }
 
-            Optional<PartitioningHandle> commonPartitioning = metadata.getCommonPartitioning(session, currentPartitioning, distribution);
-            if (commonPartitioning.isPresent()) {
-                partitioningHandle = commonPartitioning;
-                return this;
-            }
-
             if (metadata.isRefinedPartitioningOver(session, distribution, currentPartitioning)) {
                 return this;
             }

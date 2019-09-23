@@ -113,12 +113,6 @@ public interface Metadata
     PushdownFilterResult pushdownFilter(Session session, TableHandle tableHandle, RowExpression filter);
 
     /**
-     * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
-     */
-    @Deprecated
-    Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
-
-    /**
      * Return whether {@code left} is a refined partitioning over {@code right}.
      * See
      * {@link com.facebook.presto.spi.connector.ConnectorMetadata#isRefinedPartitioningOver(ConnectorSession, ConnectorPartitioningHandle, ConnectorPartitioningHandle)}

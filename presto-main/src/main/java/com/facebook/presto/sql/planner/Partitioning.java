@@ -95,29 +95,13 @@ public final class Partitioning
                 .collect(toImmutableSet());
     }
 
-    @Deprecated
-    public boolean isCompatibleWith(
-            Partitioning right,
-            Metadata metadata,
-            Session session)
-    {
-        if (!handle.equals(right.handle) && !metadata.getCommonPartitioning(session, handle, right.handle).isPresent()) {
-            return false;
-        }
-
-        return arguments.equals(right.arguments);
-    }
-
-    @Deprecated
-    public boolean isCompatibleWith(
+    public boolean isPartitionedWith(
             Partitioning right,
             Function<VariableReferenceExpression, Set<VariableReferenceExpression>> leftToRightMappings,
             Function<VariableReferenceExpression, Optional<ConstantExpression>> leftConstantMapping,
-            Function<VariableReferenceExpression, Optional<ConstantExpression>> rightConstantMapping,
-            Metadata metadata,
-            Session session)
+            Function<VariableReferenceExpression, Optional<ConstantExpression>> rightConstantMapping)
     {
-        if (!handle.equals(right.handle) && !metadata.getCommonPartitioning(session, handle, right.handle).isPresent()) {
+        if (!handle.equals(right.handle)) {
             return false;
         }
 

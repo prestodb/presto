@@ -448,24 +448,6 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right)
-    {
-        Optional<ConnectorId> leftConnectorId = left.getConnectorId();
-        Optional<ConnectorId> rightConnectorId = right.getConnectorId();
-        if (!leftConnectorId.isPresent() || !rightConnectorId.isPresent() || !leftConnectorId.equals(rightConnectorId)) {
-            return Optional.empty();
-        }
-        if (!left.getTransactionHandle().equals(right.getTransactionHandle())) {
-            return Optional.empty();
-        }
-        ConnectorId connectorId = leftConnectorId.get();
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-        Optional<ConnectorPartitioningHandle> commonHandle = metadata.getCommonPartitioningHandle(session.toConnectorSession(connectorId), left.getConnectorHandle(), right.getConnectorHandle());
-        return commonHandle.map(handle -> new PartitioningHandle(Optional.of(connectorId), left.getTransactionHandle(), handle));
-    }
-
-    @Override
     public boolean isRefinedPartitioningOver(Session session, PartitioningHandle left, PartitioningHandle right)
     {
         Optional<ConnectorId> leftConnectorId = left.getConnectorId();

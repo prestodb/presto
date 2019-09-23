@@ -2394,125 +2394,44 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testMismatchedBucketWithBucketPredicate()
+    public void testPartialMergePushdownWithBucketPredicate()
     {
         try {
             assertUpdate(
-                    "CREATE TABLE test_mismatch_bucketing_with_predicate_8\n" +
+                    "CREATE TABLE test_partial_merge_pushdown_with_predicate_8\n" +
                             "WITH (bucket_count = 8, bucketed_by = ARRAY['key8']) AS\n" +
                             "SELECT custkey key8, comment value8 FROM orders",
                     15000);
             assertUpdate(
-                    "CREATE TABLE test_mismatch_bucketing_with_predicate_32\n" +
+                    "CREATE TABLE test_partial_merge_pushdown_with_predicate_32\n" +
                             "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS\n" +
                             "SELECT custkey key32, comment value32 FROM orders",
                     15000);
 
             Session withMismatchOptimization = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
+                    .setSystemProperty(PARTIAL_MERGE_PUSHDOWN_STRATEGY, PUSH_THROUGH_LOW_MEMORY_OPERATORS.name())
                     .build();
             Session withoutMismatchOptimization = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
+                    .setSystemProperty(PARTIAL_MERGE_PUSHDOWN_STRATEGY, PUSH_THROUGH_LOW_MEMORY_OPERATORS.name())
                     .build();
 
             @Language("SQL") String query = "SELECT count(*) AS count\n" +
                     "FROM (\n" +
                     "  SELECT key32\n" +
-                    "  FROM test_mismatch_bucketing_with_predicate_32\n" +
+                    "  FROM test_partial_merge_pushdown_with_predicate_32\n" +
                     "  WHERE \"$bucket\" between 16 AND 31\n" +
                     ") a\n" +
-                    "JOIN test_mismatch_bucketing_with_predicate_8 b\n" +
+                    "JOIN test_partial_merge_pushdown_with_predicate_8 b\n" +
                     "ON a.key32 = b.key8";
 
             assertQuery(withMismatchOptimization, query, "SELECT 130361");
             assertQuery(withoutMismatchOptimization, query, "SELECT 130361");
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_predicate_8");
-            assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_with_predicate_32");
-        }
-    }
-
-    @Test
-    public void testMismatchedBucketing()
-    {
-        testMismatchedBucketing(getSession());
-        testMismatchedBucketing(materializeExchangesSession);
-    }
-
-    public void testMismatchedBucketing(Session session)
-    {
-        try {
-            assertUpdate(
-                    session,
-                    "CREATE TABLE test_mismatch_bucketing16\n" +
-                            "WITH (bucket_count = 16, bucketed_by = ARRAY['key16']) AS\n" +
-                            "SELECT orderkey key16, comment value16 FROM orders",
-                    15000);
-            assertUpdate(
-                    session,
-                    "CREATE TABLE test_mismatch_bucketing32\n" +
-                            "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS\n" +
-                            "SELECT orderkey key32, comment value32 FROM orders",
-                    15000);
-            assertUpdate(
-                    session,
-                    "CREATE TABLE test_mismatch_bucketingN AS\n" +
-                            "SELECT orderkey keyN, comment valueN FROM orders",
-                    15000);
-
-            Session withMismatchOptimization = Session.builder(session)
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "true")
-                    .build();
-            Session withoutMismatchOptimization = Session.builder(session)
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
-                    .build();
-
-            @Language("SQL") String writeToTableWithMoreBuckets = "CREATE TABLE test_mismatch_bucketing_out32\n" +
-                    "WITH (bucket_count = 32, bucketed_by = ARRAY['key16'])\n" +
-                    "AS\n" +
-                    "SELECT key16, value16, key32, value32, keyN, valueN\n" +
-                    "FROM\n" +
-                    "  test_mismatch_bucketing16\n" +
-                    "JOIN\n" +
-                    "  test_mismatch_bucketing32\n" +
-                    "ON key16=key32\n" +
-                    "JOIN\n" +
-                    "  test_mismatch_bucketingN\n" +
-                    "ON key16=keyN";
-            @Language("SQL") String writeToTableWithFewerBuckets = "CREATE TABLE test_mismatch_bucketing_out8\n" +
-                    "WITH (bucket_count = 8, bucketed_by = ARRAY['key16'])\n" +
-                    "AS\n" +
-                    "SELECT key16, value16, key32, value32, keyN, valueN\n" +
-                    "FROM\n" +
-                    "  test_mismatch_bucketing16\n" +
-                    "JOIN\n" +
-                    "  test_mismatch_bucketing32\n" +
-                    "ON key16=key32\n" +
-                    "JOIN\n" +
-                    "  test_mismatch_bucketingN\n" +
-                    "ON key16=keyN";
-
-            assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(4));
-            assertQuery(withoutMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
-            assertUpdate(withoutMismatchOptimization, "DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
-
-            assertUpdate(withMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(2));
-            assertQuery(withMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
-
-            assertUpdate(withMismatchOptimization, writeToTableWithFewerBuckets, 15000, assertRemoteExchangesCount(2));
-            assertQuery(withMismatchOptimization, "SELECT * FROM test_mismatch_bucketing_out8", "SELECT orderkey, comment, orderkey, comment, orderkey, comment from orders");
-        }
-        finally {
-            assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketing16");
-            assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketing32");
-            assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketingN");
-            assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
-            assertUpdate(session, "DROP TABLE IF EXISTS test_mismatch_bucketing_out8");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_with_predicate_8");
+            assertUpdate("DROP TABLE IF EXISTS test_partial_merge_pushdown_with_predicate_32");
         }
     }
 
