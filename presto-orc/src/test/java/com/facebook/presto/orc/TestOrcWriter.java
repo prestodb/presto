@@ -18,6 +18,7 @@ import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
+import com.facebook.presto.orc.stream.OrcDataOutput;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -31,6 +32,7 @@ import org.testng.annotations.Test;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -118,6 +120,81 @@ public class TestOrcWriter
                     }
                 }
             }
+        }
+    }
+
+    // TODO: the exception will be removed once the bug is fixed
+    @Test(expectedExceptions = IllegalStateException.class)
+    public void testVerifyIllegalStateException()
+            throws IOException
+    {
+        OrcWriter writer = new OrcWriter(
+                new MockOrcDataSink(),
+                ImmutableList.of("test1"),
+                ImmutableList.of(VARCHAR),
+                ORC,
+                NONE,
+                new OrcWriterOptions()
+                        .withStripeMinSize(new DataSize(0, MEGABYTE))
+                        .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                        .withStripeMaxRowCount(10)
+                        .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
+                        .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
+                ImmutableMap.of(),
+                HIVE_STORAGE_TIME_ZONE,
+                false,
+                null,
+                new OrcWriterStats());
+
+        int entries = 65536;
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
+        byte[] bytes = "dummyString".getBytes();
+        for (int j = 0; j < entries; j++) {
+            // force to write different data
+            bytes[0] = (byte) ((bytes[0] + 1) % 128);
+            blockBuilder.writeBytes(Slices.wrappedBuffer(bytes, 0, bytes.length), 0, bytes.length);
+            blockBuilder.closeEntry();
+        }
+        Block[] blocks = new Block[] {blockBuilder.build()};
+
+        try {
+            // Throw IOException after first flush
+            writer.write(new Page(blocks));
+        }
+        catch (IOException e) {
+            writer.close();
+        }
+    }
+
+    public static class MockOrcDataSink
+            implements OrcDataSink
+    {
+        public MockOrcDataSink()
+        {
+        }
+
+        @Override
+        public long size()
+        {
+            return -1L;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return -1L;
+        }
+
+        @Override
+        public void write(List<OrcDataOutput> outputData)
+                throws IOException
+        {
+            throw new IOException("Dummy exception from mocked instance");
+        }
+
+        @Override
+        public void close()
+        {
         }
     }
 }
