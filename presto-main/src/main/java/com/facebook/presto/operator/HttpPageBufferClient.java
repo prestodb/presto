@@ -110,7 +110,6 @@ public final class HttpPageBufferClient
     }
 
     private final HttpClient httpClient;
-    private final DataSize maxResponseSize;
     private final boolean acknowledgePages;
     private final URI location;
     private final ClientCallback clientCallback;
@@ -146,7 +145,6 @@ public final class HttpPageBufferClient
 
     public HttpPageBufferClient(
             HttpClient httpClient,
-            DataSize maxResponseSize,
             Duration maxErrorDuration,
             boolean acknowledgePages,
             URI location,
@@ -154,12 +152,11 @@ public final class HttpPageBufferClient
             ScheduledExecutorService scheduler,
             Executor pageBufferClientCallbackExecutor)
     {
-        this(httpClient, maxResponseSize, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
+        this(httpClient, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
     }
 
     public HttpPageBufferClient(
             HttpClient httpClient,
-            DataSize maxResponseSize,
             Duration maxErrorDuration,
             boolean acknowledgePages,
             URI location,
@@ -169,7 +166,6 @@ public final class HttpPageBufferClient
             Executor pageBufferClientCallbackExecutor)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
         this.acknowledgePages = acknowledgePages;
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
@@ -252,7 +248,7 @@ public final class HttpPageBufferClient
         }
     }
 
-    public synchronized void scheduleRequest()
+    public synchronized void scheduleRequest(DataSize maxResponseSize)
     {
         if (closed || (future != null) || scheduled) {
             return;
@@ -265,7 +261,7 @@ public final class HttpPageBufferClient
         long delayNanos = backoff.getBackoffDelayNanos();
         scheduler.schedule(() -> {
             try {
-                initiateRequest();
+                initiateRequest(maxResponseSize);
             }
             catch (Throwable t) {
                 // should not happen, but be safe and fail the operator
@@ -277,7 +273,7 @@ public final class HttpPageBufferClient
         requestsScheduled.incrementAndGet();
     }
 
-    private synchronized void initiateRequest()
+    private synchronized void initiateRequest(DataSize maxResponseSize)
     {
         scheduled = false;
         if (closed || (future != null)) {
@@ -288,13 +284,13 @@ public final class HttpPageBufferClient
             sendDelete();
         }
         else {
-            sendGetResults();
+            sendGetResults(maxResponseSize);
         }
 
         lastUpdate = DateTime.now();
     }
 
-    private synchronized void sendGetResults()
+    private synchronized void sendGetResults(DataSize maxResponseSize)
     {
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(

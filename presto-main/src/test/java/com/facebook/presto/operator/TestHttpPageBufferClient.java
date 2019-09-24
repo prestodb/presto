@@ -102,7 +102,6 @@ public class TestHttpPageBufferClient
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                expectedMaxSize,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -115,7 +114,7 @@ public class TestHttpPageBufferClient
         // fetch a page and verify
         processor.addPage(location, expectedPage);
         callback.resetStats();
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
 
         assertEquals(callback.getPages().size(), 1);
@@ -126,7 +125,7 @@ public class TestHttpPageBufferClient
 
         // fetch no data and verify
         callback.resetStats();
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
 
         assertEquals(callback.getPages().size(), 0);
@@ -138,7 +137,7 @@ public class TestHttpPageBufferClient
         processor.addPage(location, expectedPage);
         processor.addPage(location, expectedPage);
         callback.resetStats();
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
 
         assertEquals(callback.getPages().size(), 2);
@@ -153,7 +152,7 @@ public class TestHttpPageBufferClient
         // finish and verify
         callback.resetStats();
         processor.setComplete(location);
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
 
         // get the buffer complete signal
@@ -162,7 +161,7 @@ public class TestHttpPageBufferClient
 
         // schedule the delete call to the buffer
         callback.resetStats();
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getFinishedBuffers(), 1);
 
@@ -177,6 +176,7 @@ public class TestHttpPageBufferClient
     public void testLifecycle()
             throws Exception
     {
+        DataSize expectedMaxSize = new DataSize(10, Unit.MEGABYTE);
         CyclicBarrier beforeRequest = new CyclicBarrier(2);
         CyclicBarrier afterRequest = new CyclicBarrier(2);
         StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
@@ -187,7 +187,6 @@ public class TestHttpPageBufferClient
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -197,7 +196,7 @@ public class TestHttpPageBufferClient
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         beforeRequest.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "running", 0, 1, 0, 0, "PROCESSING_REQUEST");
         assertEquals(client.isRunning(), true);
@@ -218,6 +217,7 @@ public class TestHttpPageBufferClient
     public void testInvalidResponses()
             throws Exception
     {
+        DataSize expectedMaxSize = new DataSize(10, Unit.MEGABYTE);
         CyclicBarrier beforeRequest = new CyclicBarrier(1);
         CyclicBarrier afterRequest = new CyclicBarrier(1);
         StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
@@ -227,7 +227,6 @@ public class TestHttpPageBufferClient
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -239,7 +238,7 @@ public class TestHttpPageBufferClient
 
         // send not found response and verify response was ignored
         processor.setResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), new byte[0]));
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
@@ -252,7 +251,7 @@ public class TestHttpPageBufferClient
         // send invalid content type response and verify response was ignored
         callback.resetStats();
         processor.setResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "INVALID_TYPE"), new byte[0]));
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
@@ -265,7 +264,7 @@ public class TestHttpPageBufferClient
         // send unexpected content type response and verify response was ignored
         callback.resetStats();
         processor.setResponse(new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(CONTENT_TYPE, "text/plain"), new byte[0]));
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
@@ -285,6 +284,7 @@ public class TestHttpPageBufferClient
     public void testCloseDuringPendingRequest()
             throws Exception
     {
+        DataSize expectedMaxSize = new DataSize(10, Unit.MEGABYTE);
         CyclicBarrier beforeRequest = new CyclicBarrier(2);
         CyclicBarrier afterRequest = new CyclicBarrier(2);
         StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
@@ -295,7 +295,6 @@ public class TestHttpPageBufferClient
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -306,7 +305,7 @@ public class TestHttpPageBufferClient
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
         // send request
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         beforeRequest.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "running", 0, 1, 0, 0, "PROCESSING_REQUEST");
         assertEquals(client.isRunning(), true);
@@ -335,6 +334,7 @@ public class TestHttpPageBufferClient
     public void testExceptionFromResponseHandler()
             throws Exception
     {
+        DataSize expectedMaxSize = new DataSize(10, Unit.MEGABYTE);
         TestingTicker ticker = new TestingTicker();
         AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
 
@@ -349,7 +349,6 @@ public class TestHttpPageBufferClient
 
         URI location = URI.create("http://localhost:8080");
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
-                new DataSize(10, Unit.MEGABYTE),
                 new Duration(30, TimeUnit.SECONDS),
                 true,
                 location,
@@ -362,7 +361,7 @@ public class TestHttpPageBufferClient
 
         // request processor will throw exception, verify the request is marked a completed
         // this starts the error stopwatch
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 1);
@@ -374,7 +373,7 @@ public class TestHttpPageBufferClient
         tickerIncrement.set(new Duration(30, TimeUnit.SECONDS));
 
         // verify that the client has not failed
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 2);
@@ -386,7 +385,7 @@ public class TestHttpPageBufferClient
         tickerIncrement.set(new Duration(31, TimeUnit.SECONDS));
 
         // verify that the client has failed
-        client.scheduleRequest();
+        client.scheduleRequest(expectedMaxSize);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
         assertEquals(callback.getCompletedRequests(), 3);

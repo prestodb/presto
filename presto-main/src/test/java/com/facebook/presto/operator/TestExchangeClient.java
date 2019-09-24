@@ -22,6 +22,9 @@ import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -30,6 +33,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -38,8 +44,10 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -112,6 +120,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
+                0.2,
                 new TestingHttpClient(processor, scheduler),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
@@ -151,6 +160,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
+                0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
@@ -223,6 +233,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
+                0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
@@ -305,6 +316,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
+                0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
@@ -330,6 +342,100 @@ public class TestExchangeClient
     }
 
     @Test
+    public void testInitialRequestLimit()
+    {
+        DataSize maxResponseSize = new DataSize(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, BYTE);
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize) {
+            @Override
+            public Response handle(Request request)
+            {
+                if (!awaitUninterruptibly(countDownLatch, 10, SECONDS)) {
+                    throw new UncheckedTimeoutException();
+                }
+                return super.handle(request);
+            }
+        };
+
+        List<URI> locations = new ArrayList<>();
+        int numLocations = 16;
+        List<DataSize> expectedMaxSizes = new ArrayList<>();
+
+        // add pages
+        for (int i = 0; i < numLocations; i++) {
+            URI location = URI.create("http://localhost:" + (8080 + i));
+            locations.add(location);
+
+            processor.addPage(location, createPage(DEFAULT_MAX_PAGE_SIZE_IN_BYTES));
+            processor.addPage(location, createPage(DEFAULT_MAX_PAGE_SIZE_IN_BYTES));
+            processor.addPage(location, createPage(DEFAULT_MAX_PAGE_SIZE_IN_BYTES));
+
+            processor.setComplete(location);
+
+            expectedMaxSizes.add(maxResponseSize);
+        }
+
+        try (ExchangeClient exchangeClient = new ExchangeClient(
+                new DataSize(16, MEGABYTE),
+                maxResponseSize,
+                1,
+                new Duration(1, MINUTES),
+                true,
+                0.2,
+                new TestingHttpClient(processor, testingHttpClientExecutor),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor)) {
+            for (int i = 0; i < numLocations; i++) {
+                exchangeClient.addLocation(locations.get(i), TaskId.valueOf("taskid.0.0." + i));
+            }
+            exchangeClient.noMoreLocations();
+            assertFalse(exchangeClient.isClosed());
+
+            long start = System.nanoTime();
+            countDownLatch.countDown();
+
+            // wait for a page to be fetched
+            do {
+                // there is no thread coordination here, so sleep is the best we can do
+                assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+                sleepUninterruptibly(100, MILLISECONDS);
+            }
+            while (exchangeClient.getStatus().getBufferedPages() < 16);
+
+            // Client should have sent 16 requests for a single page (0) and gotten them back
+            // The memory limit should be hit immediately and then it doesn't fetch the third page from each
+            assertEquals(exchangeClient.getStatus().getBufferedPages(), 16);
+            assertTrue(exchangeClient.getStatus().getBufferedBytes() > 0);
+            List<PageBufferClientStatus> pageBufferClientStatuses = exchangeClient.getStatus().getPageBufferClientStatuses();
+            assertEquals(
+                    16,
+                    pageBufferClientStatuses.stream()
+                            .filter(status -> status.getPagesReceived() == 1)
+                            .mapToInt(PageBufferClientStatus::getPagesReceived)
+                            .sum());
+            assertEquals(processor.getRequestMaxSizes(), expectedMaxSizes);
+
+            for (int i = 0; i < numLocations * 3; i++) {
+                assertNotNull(getNextPage(exchangeClient));
+            }
+
+            do {
+                // there is no thread coordination here, so sleep is the best we can do
+                assertLessThan(Duration.nanosSince(start), new Duration(5, TimeUnit.SECONDS));
+                sleepUninterruptibly(100, MILLISECONDS);
+            }
+            while (processor.getRequestMaxSizes().size() < 64);
+
+            for (int i = 0; i < 48; i++) {
+                expectedMaxSizes.add(maxResponseSize);
+            }
+
+            assertEquals(processor.getRequestMaxSizes(), expectedMaxSizes);
+        }
+    }
+
+    @Test
     public void testRemoveRemoteSource()
             throws Exception
     {
@@ -351,6 +457,7 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
+                0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
                 scheduler,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
