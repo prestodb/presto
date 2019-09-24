@@ -33,6 +33,7 @@ import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.RowFieldName;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -942,6 +943,24 @@ public class OrcTester
                 if (index >= ((List) nestedValue).size()) {
                     return true;
                 }
+                nestedValue = ((List) nestedValue).get(index);
+            }
+            else if (nestedType instanceof RowType) {
+                assertTrue(pathElement instanceof Subfield.NestedField);
+                if (nestedValue == null) {
+                    return filter.testNull();
+                }
+                String fieldName = ((Subfield.NestedField) pathElement).getName();
+                int index = -1;
+                List<RowType.Field> fields = ((RowType) nestedType).getFields();
+                for (int i = 0; i < fields.size(); i++) {
+                    if (fieldName.equalsIgnoreCase(fields.get(i).getName().get())) {
+                        index = i;
+                        nestedType = fields.get(i).getType();
+                        break;
+                    }
+                }
+                assertTrue(index >= 0, "Struct field not found: " + fieldName);
                 nestedValue = ((List) nestedValue).get(index);
             }
             else {

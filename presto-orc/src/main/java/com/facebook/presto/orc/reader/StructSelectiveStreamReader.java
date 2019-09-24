@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
@@ -54,6 +55,8 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStr
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
@@ -70,6 +73,7 @@ public class StructSelectiveStreamReader
     private final Type outputType;
 
     private final Map<String, SelectiveStreamReader> nestedReaders;
+    private final SelectiveStreamReader[] orderedNestedReaders;
 
     private final LocalMemoryContext systemMemoryContext;
 
@@ -100,16 +104,26 @@ public class StructSelectiveStreamReader
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryContext)
     {
-        checkArgument(filters.keySet().stream().map(Subfield::getPath).allMatch(List::isEmpty), "filters on nested columns are not supported yet");
-
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null").newLocalMemoryContext(StructSelectiveStreamReader.class.getSimpleName());
         this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
         this.outputType = outputType.orElse(null);
 
-        TupleDomainFilter filter = getTopLevelFilter(filters).orElse(null);
-        this.nullsAllowed = filter == null || filter.testNull();
-        this.nonNullsAllowed = filter == null || filter.testNonNull();
+        if (filters.isEmpty()) {
+            nullsAllowed = true;
+            nonNullsAllowed = true;
+        }
+        else {
+            Optional<TupleDomainFilter> topLevelFilter = getTopLevelFilter(filters);
+            if (topLevelFilter.isPresent()) {
+                nullsAllowed = topLevelFilter.get() == IS_NULL;
+                nonNullsAllowed = !nullsAllowed;
+            }
+            else {
+                nullsAllowed = filters.values().stream().allMatch(TupleDomainFilter::testNull);
+                nonNullsAllowed = true;
+            }
+        }
 
         Optional<List<Type>> nestedTypes = outputType.map(type -> type.getTypeParameters());
         List<StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams();
@@ -119,7 +133,16 @@ public class StructSelectiveStreamReader
         // TODO streamDescriptor may be missing some fields (due to schema evolution, e.g. add field?)
         // TODO fields in streamDescriptor may be out of order (due to schema evolution, e.g. remove field?)
 
-        if (outputRequired) {
+        Set<String> fieldsWithFilters = filters.keySet().stream()
+                .map(Subfield::getPath)
+                .filter(path -> path.size() > 0)
+                .map(path -> path.get(0))
+                .filter(Subfield.NestedField.class::isInstance)
+                .map(Subfield.NestedField.class::cast)
+                .map(Subfield.NestedField::getName)
+                .collect(toImmutableSet());
+
+        if (outputRequired || !fieldsWithFilters.isEmpty()) {
             ImmutableMap.Builder<String, SelectiveStreamReader> nestedReaders = ImmutableMap.builder();
             for (int i = 0; i < nestedStreams.size(); i++) {
                 StreamDescriptor nestedStream = nestedStreams.get(i);
@@ -127,11 +150,15 @@ public class StructSelectiveStreamReader
                 Optional<Type> fieldOutputType = nestedTypes.isPresent() ? Optional.of(nestedTypes.get().get(i)) : Optional.empty();
                 boolean requiredField = requiredFields.map(names -> names.containsKey(fieldName)).orElse(true);
 
-                if (requiredField) {
+                if (requiredField || fieldsWithFilters.contains(fieldName)) {
+                    Map<Subfield, TupleDomainFilter> nestedFilters = filters.entrySet().stream()
+                            .filter(entry -> entry.getKey().getPath().size() > 0)
+                            .filter(entry -> ((Subfield.NestedField) entry.getKey().getPath().get(0)).getName().equalsIgnoreCase(fieldName))
+                            .collect(toImmutableMap(entry -> entry.getKey().tail(fieldName), Map.Entry::getValue));
                     List<Subfield> nestedRequiredSubfields = requiredFields.map(names -> names.get(fieldName)).orElse(ImmutableList.of());
                     SelectiveStreamReader nestedReader = SelectiveStreamReaders.createStreamReader(
                             nestedStream,
-                            ImmutableMap.of(),
+                            nestedFilters,
                             fieldOutputType,
                             nestedRequiredSubfields,
                             hiveStorageTimeZone,
@@ -143,11 +170,30 @@ public class StructSelectiveStreamReader
                 }
             }
             this.nestedReaders = nestedReaders.build();
+            this.orderedNestedReaders = orderNestedReaders(this.nestedReaders, fieldsWithFilters);
         }
         else {
             // No need to read the elements when output is not required and the filter is a simple IS [NOT] NULL
             this.nestedReaders = ImmutableMap.of();
+            this.orderedNestedReaders = new SelectiveStreamReader[0];
         }
+    }
+
+    private static SelectiveStreamReader[] orderNestedReaders(Map<String, SelectiveStreamReader> nestedReaders, Set<String> fieldsWithFilters)
+    {
+        SelectiveStreamReader[] order = new SelectiveStreamReader[nestedReaders.size()];
+
+        int index = 0;
+        for (String fieldName : fieldsWithFilters) {
+            order[index++] = nestedReaders.get(fieldName);
+        }
+        for (Map.Entry<String, SelectiveStreamReader> entry : nestedReaders.entrySet()) {
+            if (!fieldsWithFilters.contains(entry.getKey())) {
+                order[index++] = entry.getValue();
+            }
+        }
+
+        return order;
     }
 
     @Override
@@ -176,11 +222,17 @@ public class StructSelectiveStreamReader
         if (presentStream == null) {
             // no nulls
             if (nonNullsAllowed) {
-                readNestedStreams(offset, positions, positionCount);
+                if (nestedReaders.isEmpty()) {
+                    outputPositions = positions;
+                    outputPositionCount = positionCount;
+                    outputPositionsReadOnly = true;
+                }
+                else {
+                    readNestedStreams(offset, positions, positionCount);
+                    outputPositions = nestedOutputPositions;
+                    outputPositionCount = nestedOutputPositionCount;
+                }
                 readOffset = offset + positions[positionCount - 1];
-                outputPositions = positions;
-                outputPositionCount = positionCount;
-                outputPositionsReadOnly = true;
             }
             else {
                 outputPositionCount = 0;
@@ -234,34 +286,83 @@ public class StructSelectiveStreamReader
                 }
             }
 
-            if (nestedPositionCount > 0) {
-                readNestedStreams(nestedReadOffset, nestedPositions, nestedPositionCount);
-            }
-            else {
-                allNulls = true;
+            if (!nestedReaders.isEmpty()) {
+                if (nestedPositionCount == 0) {
+                    allNulls = true;
+                }
+                else {
+                    readNestedStreams(nestedReadOffset, nestedPositions, nestedPositionCount);
+                    pruneOutputPositions(nestedPositionCount);
+                }
+                nestedReadOffset += streamPosition - nullCount;
             }
 
             readOffset = offset + streamPosition;
-            nestedReadOffset += streamPosition - nullCount;
         }
 
         return outputPositionCount;
     }
 
+    private void pruneOutputPositions(int nestedPositionCount)
+    {
+        if (nestedOutputPositionCount == 0) {
+            allNulls = true;
+        }
+
+        if (nestedOutputPositionCount < nestedPositionCount) {
+            if (outputPositionsReadOnly) {
+                outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+                outputPositionsReadOnly = false;
+            }
+
+            int nestedIndex = 0;
+            int skipped = 0;
+            int nestedOutputIndex = 0;
+            for (int i = 0; i < outputPositionCount; i++) {
+                outputPositions[i - skipped] = outputPositions[i];
+                if (nullsAllowed) {
+                    nulls[i - skipped] = nulls[i];
+
+                    if (nulls[i]) {
+                        continue;
+                    }
+                }
+
+                if (nestedOutputIndex >= nestedOutputPositionCount) {
+                    skipped++;
+                }
+                else if (nestedPositions[nestedIndex] < nestedOutputPositions[nestedOutputIndex]) {
+                    skipped++;
+                }
+                else {
+                    nestedOutputIndex++;
+                }
+
+                nestedIndex++;
+            }
+        }
+        outputPositionCount -= nestedPositionCount - nestedOutputPositionCount;
+    }
+
     private void readNestedStreams(int offset, int[] positions, int positionCount)
             throws IOException
     {
-        if (nestedReaders.isEmpty()) {
-            return;
+        int[] readPositions = positions;
+        int readPositionCount = positionCount;
+        for (SelectiveStreamReader reader : orderedNestedReaders) {
+            readPositionCount = reader.read(offset, readPositions, readPositionCount);
+            if (readPositionCount == 0) {
+                break;
+            }
+
+            readPositions = reader.getReadPositions();
         }
 
-        for (SelectiveStreamReader reader : nestedReaders.values()) {
-            reader.read(offset, positions, positionCount);
+        if (readPositionCount > 0) {
+            nestedOutputPositions = ensureCapacity(nestedOutputPositions, positionCount);
+            System.arraycopy(readPositions, 0, nestedOutputPositions, 0, readPositionCount);
         }
-
-        nestedOutputPositions = ensureCapacity(nestedOutputPositions, positionCount);
-        System.arraycopy(positions, 0, nestedOutputPositions, 0, positionCount);
-        nestedOutputPositionCount = positionCount;
+        nestedOutputPositionCount = readPositionCount;
     }
 
     private void openRowGroup()

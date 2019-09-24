@@ -436,6 +436,7 @@ public class TestHivePushdownFilterQueries
 
         Function<String, String> rewriter = query -> query.replaceAll("info.orderkey", "info[1]")
                 .replaceAll("info.linenumber", "info[2]")
+                .replaceAll("info.shipdate.ship_day", "info[3][1]")
                 .replaceAll("info.shipdate.ship_year", "info[3][3]")
                 .replaceAll("info.shipdate", "info[3]")
                 .replaceAll("dates\\[1\\].day", "dates[1][1]");
@@ -463,6 +464,14 @@ public class TestHivePushdownFilterQueries
 
         // filter-only struct
         assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL");
+
+        // filters on subfields
+        assertQueryUsingH2Cte("SELECT info.orderkey, info.linenumber FROM lineitem_ex WHERE info.linenumber = 2", rewriter);
+        assertQueryUsingH2Cte("SELECT linenumber FROM lineitem_ex WHERE info.linenumber = 2", rewriter);
+        assertQueryUsingH2Cte("SELECT linenumber FROM lineitem_ex WHERE info IS NULL OR info.linenumber = 2", rewriter);
+
+        assertQueryUsingH2Cte("SELECT info.shipdate.ship_day FROM lineitem_ex WHERE info.shipdate.ship_day < 15", rewriter);
+        assertQueryUsingH2Cte("SELECT info.linenumber FROM lineitem_ex WHERE info.shipdate.ship_day < 15", rewriter);
     }
 
     private void assertFilterProject(String filter, String projections)

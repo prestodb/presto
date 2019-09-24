@@ -532,17 +532,21 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(
                         createList(NUM_ROWS, i -> random.nextInt()),
                         createList(NUM_ROWS, i -> ImmutableList.of(random.nextInt(), random.nextBoolean()))),
-                toSubfieldFilters(
-                        ImmutableMap.of(0, BigintRange.of(0, Integer.MAX_VALUE, false)),
-                        ImmutableMap.of(1, IS_NULL),
-                        ImmutableMap.of(1, IS_NOT_NULL)));
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter(BigintRange.of(0, Integer.MAX_VALUE, false))),
+                        ImmutableMap.of(1, toSubfieldFilter(IS_NULL)),
+                        ImmutableMap.of(1, toSubfieldFilter(IS_NOT_NULL)),
+                        ImmutableMap.of(1, toSubfieldFilter("c.field_0", BigintRange.of(0, Integer.MAX_VALUE, false))),
+                        ImmutableMap.of(1, toSubfieldFilter("c.field_0", IS_NULL))));
 
         tester.testRoundTripTypes(ImmutableList.of(rowType(INTEGER, BOOLEAN), INTEGER),
                 ImmutableList.of(
                         createList(NUM_ROWS, i -> i % 7 == 0 ? null : ImmutableList.of(random.nextInt(), random.nextBoolean())),
                         createList(NUM_ROWS, i -> i % 11 == 0 ? null : random.nextInt())),
-                toSubfieldFilters(
-                        ImmutableMap.of(0, IS_NOT_NULL, 1, IS_NULL)));
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter(IS_NOT_NULL), 1, toSubfieldFilter(IS_NULL)),
+                        ImmutableMap.of(0, toSubfieldFilter("c.field_0", BigintRange.of(0, Integer.MAX_VALUE, false))),
+                        ImmutableMap.of(0, toSubfieldFilter("c.field_0", BigintRange.of(0, Integer.MAX_VALUE, true)))));
     }
 
     @Test
