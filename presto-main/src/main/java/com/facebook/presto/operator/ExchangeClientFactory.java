@@ -43,6 +43,7 @@ public class ExchangeClientFactory
     private final HttpClient httpClient;
     private final DataSize maxResponseSize;
     private final boolean acknowledgePages;
+    private final double responseSizeExponentialMovingAverageDecayingAlpha;
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutorMBean executorMBean;
     private final ExecutorService pageBufferClientCallbackExecutor;
@@ -60,6 +61,7 @@ public class ExchangeClientFactory
                 config.getMaxErrorDuration(),
                 config.isAcknowledgePages(),
                 config.getPageBufferClientMaxCallbackThreads(),
+                config.getResponseSizeExponentialMovingAverageDecayingAlpha(),
                 httpClient,
                 scheduler);
     }
@@ -71,6 +73,7 @@ public class ExchangeClientFactory
             Duration maxErrorDuration,
             boolean acknowledgePages,
             int pageBufferClientMaxCallbackThreads,
+            double responseSizeExponentialMovingAverageDecayingAlpha,
             HttpClient httpClient,
             ScheduledExecutorService scheduler)
     {
@@ -91,9 +94,12 @@ public class ExchangeClientFactory
         this.pageBufferClientCallbackExecutor = newFixedThreadPool(pageBufferClientMaxCallbackThreads, daemonThreadsNamed("page-buffer-client-callback-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) pageBufferClientCallbackExecutor);
 
+        this.responseSizeExponentialMovingAverageDecayingAlpha = responseSizeExponentialMovingAverageDecayingAlpha;
+
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
         checkArgument(concurrentRequestMultiplier > 0, "concurrentRequestMultiplier must be at least 1: %s", concurrentRequestMultiplier);
+        checkArgument(responseSizeExponentialMovingAverageDecayingAlpha >= 0.0 && responseSizeExponentialMovingAverageDecayingAlpha <= 1.0, "responseSizeExponentialMovingAverageDecayingAlpha must be between 0 and 1: %s", responseSizeExponentialMovingAverageDecayingAlpha);
     }
 
     @PreDestroy
@@ -118,6 +124,7 @@ public class ExchangeClientFactory
                 concurrentRequestMultiplier,
                 maxErrorDuration,
                 acknowledgePages,
+                responseSizeExponentialMovingAverageDecayingAlpha,
                 httpClient,
                 scheduler,
                 systemMemoryContext,

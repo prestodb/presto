@@ -46,10 +46,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -103,7 +108,7 @@ public class ExchangeClient
     @GuardedBy("this")
     private long successfulRequests;
     @GuardedBy("this")
-    private long averageBytesPerRequest;
+    private final ExponentialMovingAverage responseSizeExponentialMovingAverage;
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -119,11 +124,13 @@ public class ExchangeClient
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
             boolean acknowledgePages,
+            double responseSizeExponentialMovingAverageDecayingAlpha,
             HttpClient httpClient,
             ScheduledExecutorService scheduler,
             LocalMemoryContext systemMemoryContext,
             Executor pageBufferClientCallbackExecutor)
     {
+        checkArgument(responseSizeExponentialMovingAverageDecayingAlpha >= 0.0 && responseSizeExponentialMovingAverageDecayingAlpha <= 1.0, "responseSizeExponentialMovingAverageDecayingAlpha must be between 0 and 1: %s", responseSizeExponentialMovingAverageDecayingAlpha);
         this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -134,6 +141,7 @@ public class ExchangeClient
         this.systemMemoryContext = systemMemoryContext;
         this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
+        this.responseSizeExponentialMovingAverage = new ExponentialMovingAverage(responseSizeExponentialMovingAverageDecayingAlpha, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
     }
 
     public ExchangeClientStatus getStatus()
@@ -151,7 +159,7 @@ public class ExchangeClient
             if (bufferedPages > 0 && pageBuffer.peekLast() == NO_MORE_PAGES) {
                 bufferedPages--;
             }
-            return new ExchangeClientStatus(bufferRetainedSizeInBytes, maxBufferRetainedSizeInBytes, averageBytesPerRequest, successfulRequests, bufferedPages, noMoreLocations, pageBufferClientStatus);
+            return new ExchangeClientStatus(bufferRetainedSizeInBytes, maxBufferRetainedSizeInBytes, responseSizeExponentialMovingAverage.get(), successfulRequests, bufferedPages, noMoreLocations, pageBufferClientStatus);
         }
     }
 
@@ -179,7 +187,6 @@ public class ExchangeClient
 
         HttpPageBufferClient client = new HttpPageBufferClient(
                 httpClient,
-                maxResponseSize,
                 maxErrorDuration,
                 acknowledgePages,
                 location,
@@ -345,9 +352,9 @@ public class ExchangeClient
         if (neededBytes <= 0) {
             return;
         }
-
-        int clientCount = (int) ((1.0 * neededBytes / averageBytesPerRequest) * concurrentRequestMultiplier);
-        clientCount = Math.max(clientCount, 1);
+        long averageResponseSize = max(1, responseSizeExponentialMovingAverage.get());
+        int clientCount = (int) ((1.0 * neededBytes / averageResponseSize) * concurrentRequestMultiplier);
+        clientCount = max(clientCount, 1);
 
         int pendingClients = allClients.size() - queuedClients.size() - completedClients.size();
         clientCount -= pendingClients;
@@ -363,7 +370,8 @@ public class ExchangeClient
                 continue;
             }
 
-            client.scheduleRequest();
+            DataSize max = new DataSize(min(averageResponseSize * 2, maxResponseSize.toBytes()), BYTE);
+            client.scheduleRequest(max);
             i++;
         }
     }
@@ -396,15 +404,14 @@ public class ExchangeClient
                 .sum();
 
         bufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
-        maxBufferRetainedSizeInBytes = Math.max(maxBufferRetainedSizeInBytes, bufferRetainedSizeInBytes);
+        maxBufferRetainedSizeInBytes = max(maxBufferRetainedSizeInBytes, bufferRetainedSizeInBytes);
         systemMemoryContext.setBytes(bufferRetainedSizeInBytes);
         successfulRequests++;
 
         long responseSize = pages.stream()
                 .mapToLong(SerializedPage::getSizeInBytes)
                 .sum();
-        // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
-        averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + responseSize / successfulRequests);
+        responseSizeExponentialMovingAverage.update(responseSize);
 
         return true;
     }
@@ -504,6 +511,29 @@ public class ExchangeClient
         }
         catch (RuntimeException e) {
             // ignored
+        }
+    }
+
+    private static class ExponentialMovingAverage
+    {
+        private final double alpha;
+        private double oldValue;
+
+        public ExponentialMovingAverage(double alpha, long initialValue)
+        {
+            this.alpha = alpha;
+            this.oldValue = initialValue;
+        }
+
+        public void update(long value)
+        {
+            double newValue = oldValue + (alpha * (value - oldValue));
+            oldValue = newValue;
+        }
+
+        public long get()
+        {
+            return (long) oldValue;
         }
     }
 }

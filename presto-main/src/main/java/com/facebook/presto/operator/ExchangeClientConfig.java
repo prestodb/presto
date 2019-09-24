@@ -36,6 +36,7 @@ public class ExchangeClientConfig
     private int clientThreads = 25;
     private int pageBufferClientMaxCallbackThreads = 25;
     private boolean acknowledgePages = true;
+    private double responseSizeExponentialMovingAverageDecayingAlpha = 0.1;
 
     @NotNull
     public DataSize getMaxBufferSize()
@@ -140,5 +141,17 @@ public class ExchangeClientConfig
     {
         this.acknowledgePages = acknowledgePages;
         return this;
+    }
+
+    @Config("exchange.response-size-exponential-moving-average-decaying-alpha")
+    public ExchangeClientConfig setResponseSizeExponentialMovingAverageDecayingAlpha(double responseSizeExponentialMovingAverageDecayingAlpha)
+    {
+        this.responseSizeExponentialMovingAverageDecayingAlpha = responseSizeExponentialMovingAverageDecayingAlpha;
+        return this;
+    }
+
+    public double getResponseSizeExponentialMovingAverageDecayingAlpha()
+    {
+        return responseSizeExponentialMovingAverageDecayingAlpha;
     }
 }
