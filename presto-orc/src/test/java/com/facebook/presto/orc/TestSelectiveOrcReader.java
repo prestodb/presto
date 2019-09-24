@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.OrcTester.OrcReaderSettings;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
@@ -416,6 +417,32 @@ public class TestSelectiveOrcReader
     }
 
     @Test
+    public void testArraysWithSubfieldPruning()
+            throws Exception
+    {
+        tester.assertRoundTripWithSettings(arrayType(INTEGER),
+                createList(NUM_ROWS, i -> ImmutableList.of(1, 2, 3, 4)),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[1]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[1]", "c[2]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2]").build()));
+
+        Random random = new Random(0);
+
+        tester.assertRoundTripWithSettings(arrayType(INTEGER),
+                createList(NUM_ROWS, i -> ImmutableList.of(random.nextInt(10), random.nextInt(10), 3, 4)),
+                ImmutableList.of(
+                        OrcReaderSettings.builder()
+                            .addRequiredSubfields(0, "c[1]", "c[3]")
+                            .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[1]"), BigintRange.of(0, 4, false))))
+                            .build(),
+                        OrcReaderSettings.builder()
+                                .addRequiredSubfields(0, "c[2]", "c[3]")
+                                .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[2]"), BigintRange.of(0, 4, false))))
+                                .build()));
+    }
+
+    @Test
     public void testArrayIndexOutOfBounds()
             throws Exception
     {
@@ -550,6 +577,19 @@ public class TestSelectiveOrcReader
                         createList(NUM_ROWS, i -> random.nextInt()),
                         Collections.nCopies(NUM_ROWS, ImmutableMap.of())),
                 ImmutableList.of());
+    }
+
+    @Test
+    public void testMapsWithSubfieldPruning()
+            throws Exception
+    {
+        tester.assertRoundTripWithSettings(mapType(INTEGER, INTEGER),
+                createList(NUM_ROWS, i -> ImmutableMap.of(1, 10, 2, 20)),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[1]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[10]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2]", "c[10]").build()));
     }
 
     private static Map<Integer, Integer> createMap(int seed)

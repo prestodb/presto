@@ -30,6 +30,7 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.SqlDate;
@@ -148,8 +149,10 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -550,6 +553,12 @@ public class OrcTester
         assertRoundTrip(type, type, readValues, readValues, true, ImmutableList.of());
     }
 
+    public void assertRoundTripWithSettings(Type type, List<?> readValues, List<OrcReaderSettings> settings)
+            throws Exception
+    {
+        assertRoundTrip(type, type, readValues, readValues, true, settings);
+    }
+
     public void assertRoundTrip(Type type, List<?> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
             throws Exception
     {
@@ -821,10 +830,9 @@ public class OrcTester
             for (OrcReaderSettings entry : settings) {
                 assertTrue(entry.getFilterFunctions().isEmpty(), "Filter functions are not supported yet");
                 assertTrue(entry.getFilterFunctionInputMapping().isEmpty(), "Filter functions are not supported yet");
-                assertTrue(entry.getRequiredSubfields().isEmpty(), "Subfield pruning is not supported yet");
 
                 Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters = entry.getColumnFilters();
-                List<List<?>> filteredRows = filterRows(types, expectedValues, columnFilters);
+                List<List<?>> prunedAndFilteredRows = pruneValues(types, filterRows(types, expectedValues, columnFilters), entry.getRequiredSubfields());
 
                 Optional<TupleDomainFilterOrderChecker> orderChecker = Optional.empty();
                 List<Integer> expectedFilterOrder = entry.getExpectedFilterOrder();
@@ -834,7 +842,7 @@ public class OrcTester
 
                 Optional<Map<Integer, Map<Subfield, TupleDomainFilter>>> transformedFilters = Optional.of(orderChecker.map(checker -> addOrderTracking(columnFilters, checker)).orElse(columnFilters));
 
-                assertFileContentsPresto(types, tempFile.getFile(), filteredRows, orcEncoding, orcPredicate, transformedFilters, ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of());
+                assertFileContentsPresto(types, tempFile.getFile(), prunedAndFilteredRows, orcEncoding, orcPredicate, transformedFilters, entry.getFilterFunctions(), entry.getFilterFunctionInputMapping(), entry.getRequiredSubfields());
 
                 orderChecker.ifPresent(TupleDomainFilterOrderChecker::assertOrder);
             }
@@ -995,6 +1003,150 @@ public class OrcTester
 
         fail("Unsupported type: " + type);
         return false;
+    }
+
+    private interface SubfieldPruner
+    {
+        Object prune(Object value);
+    }
+
+    private static SubfieldPruner createSubfieldPruner(Type type, List<Subfield> requiredSubfields)
+    {
+        if (type instanceof ArrayType) {
+            return new ListSubfieldPruner(type, requiredSubfields);
+        }
+
+        if (type instanceof MapType) {
+            return new MapSubfieldPruner(type, requiredSubfields);
+        }
+
+        throw new UnsupportedOperationException("Unsupported type: " + type);
+    }
+
+    private static class ListSubfieldPruner
+            implements SubfieldPruner
+    {
+        private final int maxIndex;
+        private final Optional<SubfieldPruner> nestedSubfieldPruner;
+
+        public ListSubfieldPruner(Type type, List<Subfield> requiredSubfields)
+        {
+            checkArgument(type instanceof ArrayType, "type is not an array type: " + type);
+
+            maxIndex = requiredSubfields.stream()
+                    .map(Subfield::getPath)
+                    .map(path -> path.get(0))
+                    .map(Subfield.LongSubscript.class::cast)
+                    .map(Subfield.LongSubscript::getIndex)
+                    .mapToInt(Long::intValue)
+                    .max()
+                    .orElse(-1);
+
+            List<Subfield> elementSubfields = requiredSubfields.stream()
+                    .filter(subfield -> subfield.getPath().size() > 1)
+                    .map(subfield -> subfield.tail(subfield.getRootName()))
+                    .distinct()
+                    .collect(toImmutableList());
+
+            if (elementSubfields.isEmpty()) {
+                nestedSubfieldPruner = Optional.empty();
+            }
+            else {
+                nestedSubfieldPruner = Optional.of(createSubfieldPruner(((ArrayType) type).getElementType(), elementSubfields));
+            }
+        }
+
+        @Override
+        public Object prune(Object value)
+        {
+            if (value == null) {
+                return null;
+            }
+
+            List list = (List) value;
+            List prunedList;
+            if (maxIndex == -1) {
+                prunedList = list;
+            }
+            else {
+                prunedList = list.size() < maxIndex ? list : list.subList(0, maxIndex);
+            }
+
+            return nestedSubfieldPruner.map(pruner -> prunedList.stream().map(pruner::prune).collect(toList())).orElse(prunedList);
+        }
+    }
+
+    private static class MapSubfieldPruner
+            implements SubfieldPruner
+    {
+        private final Set<Long> keys;
+        private final Optional<SubfieldPruner> nestedSubfieldPruner;
+
+        public MapSubfieldPruner(Type type, List<Subfield> requiredSubfields)
+        {
+            checkArgument(type instanceof MapType, "type is not a map type: " + type);
+
+            keys = requiredSubfields.stream()
+                    .map(Subfield::getPath)
+                    .map(path -> path.get(0))
+                    .map(Subfield.LongSubscript.class::cast)
+                    .map(Subfield.LongSubscript::getIndex)
+                    .collect(toImmutableSet());
+
+            List<Subfield> elementSubfields = requiredSubfields.stream()
+                    .filter(subfield -> subfield.getPath().size() > 1)
+                    .map(subfield -> subfield.tail(subfield.getRootName()))
+                    .distinct()
+                    .collect(toImmutableList());
+
+            if (elementSubfields.isEmpty()) {
+                nestedSubfieldPruner = Optional.empty();
+            }
+            else {
+                nestedSubfieldPruner = Optional.of(createSubfieldPruner(((MapType) type).getValueType(), elementSubfields));
+            }
+        }
+
+        @Override
+        public Object prune(Object value)
+        {
+            if (value == null) {
+                return null;
+            }
+
+            Map map = (Map) value;
+            Map prunedMap;
+            if (keys.isEmpty()) {
+                prunedMap = map;
+            }
+            else {
+                prunedMap = Maps.filterKeys((Map) value, key -> keys.contains(Long.valueOf(((Number) key).longValue())));
+            }
+
+            return nestedSubfieldPruner.map(pruner -> Maps.transformValues(prunedMap, pruner::prune)).orElse(prunedMap);
+        }
+    }
+
+    private static List<List<?>> pruneValues(List<Type> types, List<List<?>> values, Map<Integer, List<Subfield>> requiredSubfields)
+    {
+        if (requiredSubfields.isEmpty()) {
+            return values;
+        }
+
+        ImmutableList.Builder<List<?>> builder = ImmutableList.builder();
+        for (int i = 0; i < types.size(); i++) {
+            List<Subfield> subfields = requiredSubfields.get(i);
+
+            if (subfields.isEmpty()) {
+                builder.add(values.get(i));
+                continue;
+            }
+
+            SubfieldPruner subfieldPruner = createSubfieldPruner(types.get(i), subfields);
+            builder.add(values.get(i).stream().map(subfieldPruner::prune).collect(toList()));
+        }
+
+        return builder.build();
     }
 
     private static void assertColumnValueEquals(Type type, Object actual, Object expected)
