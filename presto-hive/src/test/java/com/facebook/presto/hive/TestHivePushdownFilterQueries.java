@@ -383,6 +383,9 @@ public class TestHivePushdownFilterQueries
         // equality filter
         assertQuery("SELECT orderkey FROM lineitem_ex WHERE keys = ARRAY[1, 22, 48]", "SELECT orderkey FROM lineitem WHERE orderkey = 1 AND partkey = 22 AND suppkey = 48");
 
+        // subfield pruning
+        assertQueryUsingH2Cte("SELECT nested_keys[2][1], nested_keys[1] FROM lineitem_ex");
+
         assertFilterProjectFails("keys[5] > 0", "orderkey", "Array subscript out of bounds");
         assertFilterProjectFails("nested_keys[5][1] > 0", "orderkey", "Array subscript out of bounds");
         assertFilterProjectFails("nested_keys[1][5] > 0", "orderkey", "Array subscript out of bounds");
