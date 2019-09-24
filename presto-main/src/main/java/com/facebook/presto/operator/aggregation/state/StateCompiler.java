@@ -244,7 +244,7 @@ public class StateCompiler
         }
         else if (fields.size() > 1) {
             Variable row = scope.declareVariable(Block.class, "row");
-            deserializerBody.append(row.set(block.invoke("getObject", Object.class, index, constantClass(Block.class)).cast(Block.class)));
+            deserializerBody.append(row.set(block.invoke("getObject", Object.class, index).cast(Block.class)));
             int position = 0;
             for (StateField field : fields) {
                 Method setter = getSetter(clazz, field);
