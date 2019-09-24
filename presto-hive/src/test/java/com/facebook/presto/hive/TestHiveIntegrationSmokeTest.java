@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.Metadata;
@@ -2550,7 +2551,7 @@ public class TestHiveIntegrationSmokeTest
 
         // verify error messages
         Session materializeAllDefaultPartitioningProvider = Session.builder(getSession())
-                .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, "ALL")
+                .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.ALL.name())
                 .build();
         assertQueryFails(
                 materializeAllDefaultPartitioningProvider,
@@ -2558,7 +2559,7 @@ public class TestHiveIntegrationSmokeTest
                 "The \"partitioning_provider_catalog\" session property must be set to enable the exchanges materialization\\. " +
                         "The catalog must support providing a custom partitioning and storing temporary tables\\.");
         Session materializeAllWrongPartitioningProvider = Session.builder(getSession())
-                .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, "ALL")
+                .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.ALL.name())
                 .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, "tpch")
                 .build();
         assertQueryFails(
