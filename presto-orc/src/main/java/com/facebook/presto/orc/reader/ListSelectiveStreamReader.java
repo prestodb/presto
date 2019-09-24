@@ -31,6 +31,7 @@ import com.facebook.presto.spi.block.BlockLease;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import org.joda.time.DateTimeZone;
@@ -56,6 +57,7 @@ import static com.facebook.presto.spi.block.ClosingBlockLease.newLease;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -190,7 +192,15 @@ public class ListSelectiveStreamReader
         StreamDescriptor elementStreamDescriptor = streamDescriptor.getNestedStreams().get(0);
         Optional<Type> elementOutputType = outputType.map(type -> type.getTypeParameters().get(0));
 
-        this.elementStreamReader = createNestedStreamReader(elementStreamDescriptor, level + 1, Optional.ofNullable(this.listFilter), elementOutputType, hiveStorageTimeZone, systemMemoryContext);
+        List<Subfield> elementSubfields = ImmutableList.of();
+        if (subfields.stream().map(Subfield::getPath).allMatch(path -> path.size() > 1)) {
+            elementSubfields = subfields.stream()
+                    .map(subfield -> subfield.tail(subfield.getRootName()))
+                    .distinct()
+                    .collect(toImmutableList());
+        }
+
+        this.elementStreamReader = createNestedStreamReader(elementStreamDescriptor, level + 1, Optional.ofNullable(this.listFilter), elementOutputType, elementSubfields, hiveStorageTimeZone, systemMemoryContext);
         this.systemMemoryContext = systemMemoryContext.newLocalMemoryContext(ListSelectiveStreamReader.class.getSimpleName());
     }
 

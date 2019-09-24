@@ -19,7 +19,6 @@ import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.joda.time.DateTimeZone;
@@ -112,6 +111,7 @@ public final class SelectiveStreamReaders
             int level,
             Optional<HierarchicalFilter> parentFilter,
             Optional<Type> outputType,
+            List<Subfield> requiredSubfields,
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryContext)
     {
@@ -141,16 +141,16 @@ public final class SelectiveStreamReaders
                     // No need to read the elements when output is not required and the filter is a simple IS [NOT] NULL
                     return null;
                 }
-                return createStreamReader(streamDescriptor, elementFilters, outputType, ImmutableList.of(), hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
+                return createStreamReader(streamDescriptor, elementFilters, outputType, requiredSubfields, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
             case LIST:
                 Optional<ListFilter> childFilter = parentFilter.map(HierarchicalFilter::getChild).map(ListFilter.class::cast);
-                return new ListSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), ImmutableList.of(), childFilter.orElse(null), level, outputType, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
+                return new ListSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, childFilter.orElse(null), level, outputType, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
             case STRUCT:
                 checkArgument(!parentFilter.isPresent(), "Filters on nested structs are not supported yet");
-                return new StructSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), ImmutableList.of(), outputType, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
+                return new StructSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
             case MAP:
                 checkArgument(!parentFilter.isPresent(), "Filters on nested maps are not supported yet");
-                return new MapSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), ImmutableList.of(), outputType, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
+                return new MapSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, outputType, hiveStorageTimeZone, systemMemoryContext.newAggregatedMemoryContext());
             case UNION:
             default:
                 throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getOrcTypeKind());

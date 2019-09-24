@@ -440,6 +440,22 @@ public class TestSelectiveOrcReader
                                 .addRequiredSubfields(0, "c[2]", "c[3]")
                                 .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[2]"), BigintRange.of(0, 4, false))))
                                 .build()));
+
+        // arrays of arrays
+        tester.assertRoundTripWithSettings(arrayType(arrayType(INTEGER)),
+                createList(NUM_ROWS, i -> nCopies(1 + random.nextInt(5), ImmutableList.of(1, 2, 3))),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[1][1]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][2]", "c[4][2]", "c[5][3]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][3]", "c[10][2]", "c[3][10]").build()));
+
+        // arrays of maps
+        tester.assertRoundTripWithSettings(arrayType(mapType(INTEGER, INTEGER)),
+                createList(NUM_ROWS, i -> nCopies(5, ImmutableMap.of(1, 10, 2, 20))),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[1][1]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][1]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][1]", "c[4][1]", "c[3][2]").build()));
     }
 
     @Test
@@ -590,6 +606,23 @@ public class TestSelectiveOrcReader
                         OrcReaderSettings.builder().addRequiredSubfields(0, "c[2]").build(),
                         OrcReaderSettings.builder().addRequiredSubfields(0, "c[10]").build(),
                         OrcReaderSettings.builder().addRequiredSubfields(0, "c[2]", "c[10]").build()));
+
+        // maps of maps
+        tester.assertRoundTripWithSettings(mapType(INTEGER, mapType(INTEGER, INTEGER)),
+                createList(NUM_ROWS, i -> ImmutableMap.of(1, createMap(i), 2, createMap(i + 1))),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[1][1]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][2]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][1]", "c[10][1]").build()));
+
+        // maps of arrays
+        tester.assertRoundTripWithSettings(mapType(INTEGER, arrayType(INTEGER)),
+                createList(NUM_ROWS, i -> ImmutableMap.of(1, nCopies(5, 10), 2, nCopies(5, 20))),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[1][1]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][2]", "c[2][3]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][2]", "c[10][3]", "c[2][10]").build(),
+                        OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][2]", "c[1][2]").build()));
     }
 
     private static Map<Integer, Integer> createMap(int seed)
