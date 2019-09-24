@@ -392,15 +392,17 @@ public class TestHivePushdownFilterQueries
     @Test
     public void testArrayOfMaps()
     {
-        getQueryRunner().execute("CREATE TABLE test AS\n" +
+        getQueryRunner().execute("CREATE TABLE test_arrays_of_maps AS\n" +
                 "SELECT orderkey, ARRAY[MAP(ARRAY[1, 2, 3], ARRAY[orderkey, partkey, suppkey]), MAP(ARRAY[1, 2, 3], ARRAY[orderkey + 1, partkey + 1, suppkey + 1])] as array_of_maps\n" +
                 "FROM lineitem");
 
         try {
-            assertQuery("SELECT t.maps[1] FROM test CROSS JOIN UNNEST(array_of_maps) AS t(maps)", "SELECT orderkey FROM lineitem UNION ALL SELECT orderkey + 1 FROM lineitem");
+            assertQuery("SELECT t.maps[1] FROM test_arrays_of_maps CROSS JOIN UNNEST(array_of_maps) AS t(maps)", "SELECT orderkey FROM lineitem UNION ALL SELECT orderkey + 1 FROM lineitem");
+
+            assertQuery("SELECT cardinality(array_of_maps[1]) > 0, t.maps[1] FROM test_arrays_of_maps CROSS JOIN UNNEST(array_of_maps) AS t(maps)", "SELECT true, orderkey FROM lineitem UNION ALL SELECT true, orderkey + 1 FROM lineitem");
         }
         finally {
-            getQueryRunner().execute("DROP TABLE test");
+            getQueryRunner().execute("DROP TABLE test_arrays_of_maps");
         }
     }
 

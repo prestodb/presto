@@ -64,6 +64,7 @@ public class ListSelectiveStreamReader
         implements SelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListSelectiveStreamReader.class).instanceSize();
+    private static final int ELEMENT_LENGTH_UNBOUNDED = -1;
 
     private final StreamDescriptor streamDescriptor;
     private final int level;
@@ -74,6 +75,7 @@ public class ListSelectiveStreamReader
     private final boolean outputRequired;
     @Nullable
     private final ArrayType outputType;
+    private final int maxElementLength;
     // elementStreamReader is null if output is not required and filter is a simple IS [NOT] NULL
     @Nullable
     private final SelectiveStreamReader elementStreamReader;
@@ -134,6 +136,23 @@ public class ListSelectiveStreamReader
         this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
         this.outputType = (ArrayType) outputType.orElse(null);
         this.level = subfieldLevel;
+
+        if (subfields.stream()
+                .map(Subfield::getPath)
+                .map(path -> path.get(0))
+                .anyMatch(Subfield.AllSubscripts.class::isInstance)) {
+            maxElementLength = ELEMENT_LENGTH_UNBOUNDED;
+        }
+        else {
+            maxElementLength = subfields.stream()
+                    .map(Subfield::getPath)
+                    .map(path -> path.get(0))
+                    .map(Subfield.LongSubscript.class::cast)
+                    .map(Subfield.LongSubscript::getIndex)
+                    .mapToInt(Long::intValue)
+                    .max()
+                    .orElse(ELEMENT_LENGTH_UNBOUNDED);
+        }
 
         if (listFilter != null) {
             nullsAllowed = true;
@@ -376,7 +395,7 @@ public class ListSelectiveStreamReader
         }
         elementOffsets[outputPositionCount] = elementPositionCount + skippedElements;
 
-        populateElementPositions(elementPositionCount);
+        elementPositionCount = populateElementPositions(elementPositionCount);
 
         if (listFilter != null) {
             listFilter.populateElementFilters(outputPositionCount, nulls, elementLengths, elementPositionCount);
@@ -388,7 +407,7 @@ public class ListSelectiveStreamReader
         else if (listFilter != null && listFilter.getChild() != null) {
             elementStreamReader.read(elementReadOffset, elementPositions, elementPositionCount);
         }
-        elementReadOffset += elementPositionCount + skippedElements;
+        elementReadOffset += elementOffsets[outputPositionCount];
 
         if (listFilter == null || level > 0) {
             populateOutputPositionsNoFilter(elementPositionCount);
@@ -400,17 +419,24 @@ public class ListSelectiveStreamReader
         return streamPosition;
     }
 
-    private void populateElementPositions(int elementPositionCount)
+    private int populateElementPositions(int elementPositionCount)
     {
         elementPositions = ensureCapacity(elementPositions, elementPositionCount);
 
         int index = 0;
         for (int i = 0; i < outputPositionCount; i++) {
-            for (int j = 0; j < elementLengths[i]; j++) {
+            int length = elementLengths[i];
+            if (maxElementLength != ELEMENT_LENGTH_UNBOUNDED && length > maxElementLength) {
+                length = maxElementLength;
+                elementLengths[i] = length;
+            }
+
+            for (int j = 0; j < length; j++) {
                 elementPositions[index] = elementOffsets[i] + j;
                 index++;
             }
         }
+        return index;
     }
 
     private void populateOutputPositionsNoFilter(int elementPositionCount)
