@@ -262,6 +262,15 @@ public class Subfield
         return false;
     }
 
+    public Subfield tail(String name)
+    {
+        if (path.isEmpty()) {
+            throw new IllegalStateException("path is empty");
+        }
+
+        return new Subfield(name, path.subList(1, path.size()));
+    }
+
     @JsonValue
     public String serialize()
     {
