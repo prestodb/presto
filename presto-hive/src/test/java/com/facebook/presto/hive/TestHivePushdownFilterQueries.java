@@ -410,6 +410,26 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testMapsOfArrays()
+    {
+        getQueryRunner().execute("CREATE TABLE test_maps_of_arrays AS\n" +
+                "SELECT orderkey, map_from_entries(array_agg(row(linenumber, array[quantity, discount, tax]))) items\n" +
+                "FROM lineitem\n" +
+                "GROUP BY 1");
+
+        try {
+            assertQuery("SELECT t.doubles[2] FROM test_maps_of_arrays CROSS JOIN UNNEST(items) AS t(linenumber, doubles)", "SELECT discount FROM lineitem");
+
+            assertQuery("SELECT t.linenumber, t.doubles[2] FROM test_maps_of_arrays CROSS JOIN UNNEST(items) AS t(linenumber, doubles)", "SELECT linenumber, discount FROM lineitem");
+
+            assertQuery("SELECT cardinality(items[1]) > 0, t.doubles[2] FROM test_maps_of_arrays CROSS JOIN UNNEST(items) AS t(linenumber, doubles)", "SELECT true, discount FROM lineitem");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_maps_of_arrays");
+        }
+    }
+
+    @Test
     public void testStructs()
     {
         assertQueryUsingH2Cte("SELECT orderkey, info, dates FROM lineitem_ex");
