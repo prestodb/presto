@@ -159,6 +159,13 @@ public class MapDirectSelectiveStreamReader
             return Optional.empty();
         }
 
+        if (requiredSubfields.stream()
+                .map(Subfield::getPath)
+                .map(path -> path.get(0))
+                .anyMatch(Subfield.AllSubscripts.class::isInstance)) {
+            return Optional.empty();
+        }
+
         switch (orcType) {
             case BYTE:
             case SHORT:

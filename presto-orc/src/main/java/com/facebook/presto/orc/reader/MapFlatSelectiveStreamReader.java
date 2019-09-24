@@ -156,31 +156,40 @@ public class MapFlatSelectiveStreamReader
         this.nonNullsAllowed = filter == null || filter.testNonNull();
 
         requireNonNull(requiredSubfields, "requiredSubfields is null");
-        switch (keyOrcTypeKind) {
-            case BYTE:
-            case SHORT:
-            case INT:
-            case LONG:
-                requiredLongKeys = requiredSubfields.stream()
-                        .map(Subfield::getPath)
-                        .map(path -> path.get(0))
-                        .map(Subfield.LongSubscript.class::cast)
-                        .map(Subfield.LongSubscript::getIndex)
-                        .collect(toImmutableSet());
-                requiredStringKeys = null;
-                return;
-            case STRING:
-            case BINARY:
-                requiredStringKeys = requiredSubfields.stream()
-                        .map(Subfield::getPath)
-                        .map(path -> path.get(0))
-                        .map(Subfield.StringSubscript.class::cast)
-                        .map(Subfield.StringSubscript::getIndex)
-                        .collect(toImmutableSet());
-                requiredLongKeys = null;
-                return;
-            default:
-                throw new IllegalArgumentException("Unsupported flat map key type: " + keyOrcTypeKind);
+        if (requiredSubfields.stream()
+                .map(Subfield::getPath)
+                .map(path -> path.get(0))
+                .anyMatch(Subfield.AllSubscripts.class::isInstance)) {
+            requiredLongKeys = null;
+            requiredStringKeys = null;
+        }
+        else {
+            switch (keyOrcTypeKind) {
+                case BYTE:
+                case SHORT:
+                case INT:
+                case LONG:
+                    requiredLongKeys = requiredSubfields.stream()
+                            .map(Subfield::getPath)
+                            .map(path -> path.get(0))
+                            .map(Subfield.LongSubscript.class::cast)
+                            .map(Subfield.LongSubscript::getIndex)
+                            .collect(toImmutableSet());
+                    requiredStringKeys = null;
+                    return;
+                case STRING:
+                case BINARY:
+                    requiredStringKeys = requiredSubfields.stream()
+                            .map(Subfield::getPath)
+                            .map(path -> path.get(0))
+                            .map(Subfield.StringSubscript.class::cast)
+                            .map(Subfield.StringSubscript::getIndex)
+                            .collect(toImmutableSet());
+                    requiredLongKeys = null;
+                    return;
+                default:
+                    throw new IllegalArgumentException("Unsupported flat map key type: " + keyOrcTypeKind);
+            }
         }
     }
 
