@@ -553,7 +553,11 @@ public class OrcTester
     public void assertRoundTrip(Type type, List<?> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
             throws Exception
     {
-        assertRoundTrip(type, type, readValues, readValues, true, filters);
+        List<OrcReaderSettings> settings = filters.stream()
+                .map(entry -> OrcReaderSettings.builder().setColumnFilters(entry).build())
+                .collect(toImmutableList());
+
+        assertRoundTrip(type, type, readValues, readValues, true, settings);
     }
 
     public void assertRoundTrip(Type type, List<?> readValues, boolean verifyWithHiveReader)
@@ -565,16 +569,22 @@ public class OrcTester
     public void assertRoundTrip(List<Type> types, List<List<?>> readValues, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters, List<List<Integer>> expectedFilterOrder)
             throws Exception
     {
-        assertRoundTrip(types, types, readValues, readValues, true, filters, expectedFilterOrder);
+        List<OrcReaderSettings> settings = IntStream.range(0, filters.size())
+                .mapToObj(i -> OrcReaderSettings.builder()
+                        .setColumnFilters(filters.get(i))
+                        .setExpectedFilterOrder(expectedFilterOrder.isEmpty() ? ImmutableList.of() : expectedFilterOrder.get(i))
+                        .build())
+                .collect(toImmutableList());
+        assertRoundTrip(types, types, readValues, readValues, true, settings);
     }
 
-    private void assertRoundTrip(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean verifyWithHiveReader, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters)
+    private void assertRoundTrip(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean verifyWithHiveReader, List<OrcReaderSettings> settings)
             throws Exception
     {
-        assertRoundTrip(ImmutableList.of(writeType), ImmutableList.of(readType), ImmutableList.of(writeValues), ImmutableList.of(readValues), verifyWithHiveReader, filters, ImmutableList.of());
+        assertRoundTrip(ImmutableList.of(writeType), ImmutableList.of(readType), ImmutableList.of(writeValues), ImmutableList.of(readValues), verifyWithHiveReader, settings);
     }
 
-    private void assertRoundTrip(List<Type> writeTypes, List<Type> readTypes, List<List<?>> writeValues, List<List<?>> readValues, boolean verifyWithHiveReader, List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters, List<List<Integer>> expectedFilterOrder)
+    private void assertRoundTrip(List<Type> writeTypes, List<Type> readTypes, List<List<?>> writeValues, List<List<?>> readValues, boolean verifyWithHiveReader, List<OrcReaderSettings> settings)
             throws Exception
     {
         assertEquals(writeTypes.size(), readTypes.size());
@@ -595,7 +605,7 @@ public class OrcTester
                 if (hiveSupported) {
                     try (TempFile tempFile = new TempFile()) {
                         writeOrcColumnsHive(tempFile.getFile(), format, compression, writeTypes, writeValues);
-                        assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, true, useSelectiveOrcReader, filters, expectedFilterOrder);
+                        assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, true, useSelectiveOrcReader, settings);
                     }
                 }
 
@@ -607,20 +617,120 @@ public class OrcTester
                         assertFileContentsHive(readTypes, tempFile, format, readValues);
                     }
 
-                    assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, false, useSelectiveOrcReader, filters, expectedFilterOrder);
+                    assertFileContentsPresto(readTypes, tempFile, readValues, false, false, orcEncoding, format, false, useSelectiveOrcReader, settings);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContentsPresto(readTypes, tempFile, readValues, true, false, orcEncoding, format, false, useSelectiveOrcReader, filters, expectedFilterOrder);
+                        assertFileContentsPresto(readTypes, tempFile, readValues, true, false, orcEncoding, format, false, useSelectiveOrcReader, settings);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContentsPresto(readTypes, tempFile, readValues, false, true, orcEncoding, format, false, useSelectiveOrcReader, filters, expectedFilterOrder);
+                        assertFileContentsPresto(readTypes, tempFile, readValues, false, true, orcEncoding, format, false, useSelectiveOrcReader, settings);
                     }
                 }
             }
         }
 
         assertEquals(stats.getWriterSizeInBytes(), 0);
+    }
+
+    public static class OrcReaderSettings
+    {
+        private final Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters;
+        private final List<Integer> expectedFilterOrder;
+        private final List<FilterFunction> filterFunctions;
+        private final Map<Integer, Integer> filterFunctionInputMapping;
+        private final Map<Integer, List<Subfield>> requiredSubfields;
+
+        private OrcReaderSettings(Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters, List<Integer> expectedFilterOrder, List<FilterFunction> filterFunctions, Map<Integer, Integer> filterFunctionInputMapping, Map<Integer, List<Subfield>> requiredSubfields)
+        {
+            this.columnFilters = requireNonNull(columnFilters, "columnFilters is null");
+            this.expectedFilterOrder = requireNonNull(expectedFilterOrder, "expectedFilterOrder is null");
+            this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");
+            this.filterFunctionInputMapping = requireNonNull(filterFunctionInputMapping, "filterFunctionInputMapping is null");
+            this.requiredSubfields = requireNonNull(requiredSubfields, "requiredSubfields is null");
+        }
+
+        public Map<Integer, Map<Subfield, TupleDomainFilter>> getColumnFilters()
+        {
+            return columnFilters;
+        }
+
+        public List<Integer> getExpectedFilterOrder()
+        {
+            return expectedFilterOrder;
+        }
+
+        public List<FilterFunction> getFilterFunctions()
+        {
+            return filterFunctions;
+        }
+
+        public Map<Integer, Integer> getFilterFunctionInputMapping()
+        {
+            return filterFunctionInputMapping;
+        }
+
+        public Map<Integer, List<Subfield>> getRequiredSubfields()
+        {
+            return requiredSubfields;
+        }
+
+        public static Builder builder()
+        {
+            return new Builder();
+        }
+
+        public static class Builder
+        {
+            private Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters = ImmutableMap.of();
+            private List<Integer> expectedFilterOrder = ImmutableList.of();
+            private List<FilterFunction> filterFunctions = ImmutableList.of();
+            private Map<Integer, Integer> filterFunctionInputMapping = ImmutableMap.of();
+            private Map<Integer, List<Subfield>> requiredSubfields = new HashMap<>();
+
+            public Builder setColumnFilters(Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters)
+            {
+                this.columnFilters = requireNonNull(columnFilters, "columnFilters is null");
+                return this;
+            }
+
+            public Builder setExpectedFilterOrder(List<Integer> expectedFilterOrder)
+            {
+                this.expectedFilterOrder = requireNonNull(expectedFilterOrder, "expectedFilterOrder is null");
+                return this;
+            }
+
+            public Builder setFilterFunctions(List<FilterFunction> filterFunctions)
+            {
+                this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");
+                return this;
+            }
+
+            public Builder setFilterFunctionMapping(Map<Integer, Integer> filterFunctionInputMapping)
+            {
+                this.filterFunctionInputMapping = requireNonNull(filterFunctionInputMapping, "filterFunctionInputMapping is null");
+                return this;
+            }
+
+            public Builder setRequiredSubfields(Map<Integer, List<Subfield>> requiredSubfields)
+            {
+                requireNonNull(requiredSubfields, "requiredSubfields is null");
+                this.requiredSubfields.clear();
+                this.requiredSubfields.putAll(requiredSubfields);
+                return this;
+            }
+
+            public Builder addRequiredSubfields(int column, String... subfields)
+            {
+                this.requiredSubfields.put(column, Arrays.stream(subfields).map(subfield -> new Subfield(subfield)).collect(toImmutableList()));
+                return this;
+            }
+
+            public OrcReaderSettings build()
+            {
+                return new OrcReaderSettings(columnFilters, expectedFilterOrder, filterFunctions, filterFunctionInputMapping, requiredSubfields);
+            }
+        }
     }
 
     public static void assertFileContentsPresto(
@@ -702,20 +812,24 @@ public class OrcTester
             Format format,
             boolean isHiveWriter,
             boolean useSelectiveOrcReader,
-            List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters,
-            List<List<Integer>> expectedFilterOrder)
-            throws Exception
+            List<OrcReaderSettings> settings)
+            throws IOException
     {
         OrcPredicate orcPredicate = createOrcPredicate(types, expectedValues, format, isHiveWriter);
         if (useSelectiveOrcReader) {
             assertFileContentsPresto(types, tempFile.getFile(), expectedValues, orcEncoding, orcPredicate, Optional.empty(), ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of());
-            for (int i = 0; i < filters.size(); i++) {
-                Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters = filters.get(i);
+            for (OrcReaderSettings entry : settings) {
+                assertTrue(entry.getFilterFunctions().isEmpty(), "Filter functions are not supported yet");
+                assertTrue(entry.getFilterFunctionInputMapping().isEmpty(), "Filter functions are not supported yet");
+                assertTrue(entry.getRequiredSubfields().isEmpty(), "Subfield pruning is not supported yet");
+
+                Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters = entry.getColumnFilters();
                 List<List<?>> filteredRows = filterRows(types, expectedValues, columnFilters);
 
                 Optional<TupleDomainFilterOrderChecker> orderChecker = Optional.empty();
+                List<Integer> expectedFilterOrder = entry.getExpectedFilterOrder();
                 if (!expectedFilterOrder.isEmpty()) {
-                    orderChecker = Optional.of(new TupleDomainFilterOrderChecker(expectedFilterOrder.get(i)));
+                    orderChecker = Optional.of(new TupleDomainFilterOrderChecker(expectedFilterOrder));
                 }
 
                 Optional<Map<Integer, Map<Subfield, TupleDomainFilter>>> transformedFilters = Optional.of(orderChecker.map(checker -> addOrderTracking(columnFilters, checker)).orElse(columnFilters));
@@ -771,6 +885,10 @@ public class OrcTester
 
     public static List<List<?>> filterRows(List<Type> types, List<List<?>> values, Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters)
     {
+        if (columnFilters.isEmpty()) {
+            return values;
+        }
+
         List<Integer> passingRows = IntStream.range(0, values.get(0).size())
                 .filter(row -> testRow(types, values, row, columnFilters))
                 .boxed()
