@@ -220,6 +220,7 @@ import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
@@ -1758,11 +1759,12 @@ public class HiveMetadata
                 .map(HiveColumnHandle.class::cast)
                 .collect(toImmutableMap(HiveColumnHandle::getName, Functions.identity()));
 
+        SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         return new ConnectorPushdownFilterResult(
                 getTableLayout(
                         session,
                         new HiveTableLayoutHandle(
-                                ((HiveTableHandle) tableHandle).getSchemaTableName(),
+                                tableName,
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
                                 hivePartitionResult.getPartitions(),
                                 domainPredicate,
@@ -1771,9 +1773,23 @@ public class HiveMetadata
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hivePartitionResult.getBucketHandle(),
                                 hivePartitionResult.getBucketFilter(),
-                                session,
-                                rowExpression -> rowExpressionService.formatRowExpression(session, rowExpression))),
+                                createTableLayoutString(session, tableName, hivePartitionResult.getBucketHandle(), decomposedFilter.getRemainingExpression(), domainPredicate))),
                 TRUE_CONSTANT);
+    }
+
+    private String createTableLayoutString(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            Optional<HiveBucketHandle> bucketHandle,
+            RowExpression remainingPredicate,
+            TupleDomain<Subfield> domainPredicate)
+    {
+        return toStringHelper(tableName.toString())
+                .omitNullValues()
+                .add("buckets", bucketHandle.map(HiveBucketHandle::getReadBucketCount).orElse(null))
+                .add("filter", TRUE_CONSTANT.equals(remainingPredicate) ? null : rowExpressionService.formatRowExpression(session, remainingPredicate))
+                .add("domains", domainPredicate.isAll() ? null : domainPredicate.toString(session))
+                .toString();
     }
 
     private static Set<VariableReferenceExpression> extractAll(RowExpression expression)
@@ -1817,6 +1833,7 @@ public class HiveMetadata
             hiveBucketHandle = Optional.of(createVirtualBucketHandle(virtualBucketCount));
         }
 
+        TupleDomain<Subfield> domainPredicate = hivePartitionResult.getEffectivePredicate().transform(HiveMetadata::toSubfield);
         return ImmutableList.of(new ConnectorTableLayoutResult(
                 getTableLayout(
                         session,
@@ -1824,14 +1841,13 @@ public class HiveMetadata
                                 handle.getSchemaTableName(),
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
                                 hivePartitionResult.getPartitions(),
-                                hivePartitionResult.getEffectivePredicate().transform(HiveMetadata::toSubfield),
+                                domainPredicate,
                                 TRUE_CONSTANT,
                                 predicateColumns,
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hiveBucketHandle,
                                 hivePartitionResult.getBucketFilter(),
-                                session,
-                                rowExpression -> rowExpressionService.formatRowExpression(session, rowExpression))),
+                                createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), TRUE_CONSTANT, domainPredicate))),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
@@ -2004,8 +2020,7 @@ public class HiveMetadata
                 hiveLayoutHandle.getPartitionColumnPredicate(),
                 Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
                 hiveLayoutHandle.getBucketFilter(),
-                session,
-                rowExpression -> rowExpressionService.formatRowExpression(session, rowExpression));
+                hiveLayoutHandle.getLayoutString());
     }
 
     @Override

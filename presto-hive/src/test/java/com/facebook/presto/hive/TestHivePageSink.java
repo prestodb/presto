@@ -250,7 +250,8 @@ public class TestHivePageSink
                         ImmutableMap.of(),
                         TupleDomain.all(),
                         Optional.empty(),
-                        Optional.empty())));
+                        Optional.empty(),
+                        "layout")));
         HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveDataStreamFactories(config), ImmutableSet.of(), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
         return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()));
     }
