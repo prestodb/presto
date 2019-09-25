@@ -81,12 +81,12 @@ public final class ColumnarTestUtils
         }
         else if (expectedValue instanceof Slice[]) {
             // array or row
-            Block actual = block.getObject(position, Block.class);
+            Block actual = block.getBlock(position);
             assertBlock(actual, (Slice[]) expectedValue);
         }
         else if (expectedValue instanceof Slice[][]) {
             // map
-            Block actual = block.getObject(position, Block.class);
+            Block actual = block.getBlock(position);
             // a map is exposed as a block alternating key and value entries, so we need to flatten the expected values array
             assertBlock(actual, flattenMapEntries((Slice[][]) expectedValue));
         }

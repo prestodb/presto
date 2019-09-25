@@ -165,14 +165,14 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getBlock(int position)
     {
         position = getAbsolutePosition(position);
         if (position % 2 == 0) {
-            return getRawKeyBlock().getObject(position / 2, clazz);
+            return getRawKeyBlock().getBlock(position / 2);
         }
         else {
-            return getRawValueBlock().getObject(position / 2, clazz);
+            return getRawValueBlock().getBlock(position / 2);
         }
     }
 
@@ -317,9 +317,9 @@ public abstract class AbstractSingleMapBlock
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         if (internalPosition % 2 == 0) {
-            return getRawKeyBlock().getObject(internalPosition / 2, Block.class);
+            return getRawKeyBlock().getBlock(internalPosition / 2);
         }
-        return getRawValueBlock().getObject(internalPosition / 2, Block.class);
+        return getRawValueBlock().getBlock(internalPosition / 2);
     }
 
     @Override

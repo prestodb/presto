@@ -42,7 +42,7 @@ public class MapEncoding
     @Override
     public void encodeValue(Block block, int position, SliceOutput output)
     {
-        Block map = block.getObject(position, Block.class);
+        Block map = block.getBlock(position);
 
         // write entry count
         writeVInt(output, map.getPositionCount() / 2);
