@@ -165,6 +165,7 @@ public class HiveClientConfig
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
 
     private boolean pushdownFilterEnabled;
+    private boolean nestedColumnsFilterEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -1378,6 +1379,19 @@ public class HiveClientConfig
     public HiveClientConfig setPushdownFilterEnabled(boolean pushdownFilterEnabled)
     {
         this.pushdownFilterEnabled = pushdownFilterEnabled;
+        return this;
+    }
+
+    public boolean isNestedColumnsFilterEnabled()
+    {
+        return nestedColumnsFilterEnabled;
+    }
+
+    @Config("hive.nested-columns-filter-enabled")
+    @ConfigDescription("Experimental: enable filters on nested columns")
+    public HiveClientConfig setNestedColumnsFilterEnabled(boolean nestedColumnsFilterEnabled)
+    {
+        this.nestedColumnsFilterEnabled = nestedColumnsFilterEnabled;
         return this;
     }
 }

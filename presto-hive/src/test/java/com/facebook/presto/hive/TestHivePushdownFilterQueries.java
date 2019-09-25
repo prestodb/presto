@@ -286,6 +286,9 @@ public class TestHivePushdownFilterQueries
                 .replaceAll("test_maps", "lineitem_ex")
                 .replaceAll("cardinality", "array_length");
         try {
+            //filter on nested columns
+            assertQueryUsingH2Cte("SELECT * FROM test_maps WHERE map_keys[1] > 10 and map_keys[1] < 20", rewriter);
+
             assertQueryUsingH2Cte("SELECT map_keys[1] FROM test_maps WHERE linenumber < 3", rewriter);
 
             assertQueryUsingH2Cte("SELECT cardinality(map_keys) FROM test_maps", rewriter);

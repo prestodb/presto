@@ -54,6 +54,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
+import static com.facebook.presto.hive.HiveSessionProperties.NESTED_COLUMNS_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteExchangesCount;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
@@ -603,7 +604,7 @@ public class TestHiveLogicalPlanner
     private void assertPushdownFilterOnSubfields(String query, Map<Subfield, Domain> predicateDomains)
     {
         String tableName = "test_pushdown_filter_on_subfields";
-        assertPlan(pushdownFilterEnabled(), query,
+        assertPlan(pushdownFilterAndNestedColumnFilterEnabled(), query,
                 output(exchange(PlanMatchPattern.tableScan(tableName))),
                 plan -> assertTableLayout(
                         plan,
@@ -617,6 +618,14 @@ public class TestHiveLogicalPlanner
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+    }
+
+    private Session pushdownFilterAndNestedColumnFilterEnabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .setCatalogSessionProperty(HIVE_CATALOG, NESTED_COLUMNS_FILTER_ENABLED, "true")
                 .build();
     }
 
