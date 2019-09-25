@@ -145,16 +145,13 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getBlock(int position)
     {
-        if (clazz != Block.class) {
-            throw new IllegalArgumentException("clazz must be Block.class");
-        }
         checkReadablePosition(position);
 
         int startValueOffset = getOffset(position);
         int endValueOffset = getOffset(position + 1);
-        return clazz.cast(getRawElementBlock().getRegion(startValueOffset, endValueOffset - startValueOffset));
+        return getRawElementBlock().getRegion(startValueOffset, endValueOffset - startValueOffset);
     }
 
     @Override

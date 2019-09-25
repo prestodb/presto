@@ -259,19 +259,16 @@ public abstract class AbstractMapBlock
     }
 
     @Override
-    public <T> T getObject(int position, Class<T> clazz)
+    public Block getBlock(int position)
     {
-        if (clazz != Block.class) {
-            throw new IllegalArgumentException("clazz must be Block.class");
-        }
         checkReadablePosition(position);
 
         int startEntryOffset = getOffset(position);
         int endEntryOffset = getOffset(position + 1);
-        return clazz.cast(new SingleMapBlock(
+        return new SingleMapBlock(
                 startEntryOffset * 2,
                 (endEntryOffset - startEntryOffset) * 2,
-                this));
+                this);
     }
 
     @Override

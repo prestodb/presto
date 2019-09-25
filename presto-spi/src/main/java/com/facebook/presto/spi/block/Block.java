@@ -81,9 +81,10 @@ public interface Block
     }
 
     /**
-     * Gets an object in the value at {@code position}.
+     * Gets a block in the value at {@code position}.
+     * @return
      */
-    default <T> T getObject(int position, Class<T> clazz)
+    default Block getBlock(int position)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }

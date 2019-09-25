@@ -160,11 +160,11 @@ final class HiveBucketing
                 }
             }
             case LIST: {
-                Block elementsBlock = block.getObject(position, Block.class);
+                Block elementsBlock = block.getBlock(position);
                 return hashOfList((ListTypeInfo) type, elementsBlock);
             }
             case MAP: {
-                Block elementsBlock = block.getObject(position, Block.class);
+                Block elementsBlock = block.getBlock(position);
                 return hashOfMap((MapTypeInfo) type, elementsBlock);
             }
             default:

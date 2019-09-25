@@ -126,8 +126,8 @@ public class MapType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        Block leftMapBlock = leftBlock.getObject(leftPosition, Block.class);
-        Block rightMapBlock = rightBlock.getObject(rightPosition, Block.class);
+        Block leftMapBlock = leftBlock.getBlock(leftPosition);
+        Block rightMapBlock = rightBlock.getBlock(rightPosition);
 
         if (leftMapBlock.getPositionCount() != rightMapBlock.getPositionCount()) {
             return false;
@@ -202,7 +202,7 @@ public class MapType
             return null;
         }
 
-        Block singleMapBlock = block.getObject(position, Block.class);
+        Block singleMapBlock = block.getBlock(position);
         if (!(singleMapBlock instanceof SingleMapBlock)) {
             throw new UnsupportedOperationException("Map is encoded with legacy block representation");
         }
@@ -228,7 +228,7 @@ public class MapType
     @Override
     public Block getObject(Block block, int position)
     {
-        return block.getObject(position, Block.class);
+        return block.getBlock(position);
     }
 
     @Override
