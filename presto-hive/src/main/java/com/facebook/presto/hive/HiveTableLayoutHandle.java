@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Subfield;
@@ -31,10 +30,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveTableLayoutHandle
@@ -48,12 +44,11 @@ public final class HiveTableLayoutHandle
     private final TupleDomain<ColumnHandle> partitionColumnPredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
+    private final String layoutString;
 
     // coordinator-only properties
     @Nullable
     private final List<HivePartition> partitions;
-
-    private final String layoutString;
 
     @JsonCreator
     public HiveTableLayoutHandle(
@@ -64,7 +59,8 @@ public final class HiveTableLayoutHandle
             @JsonProperty("predicateColumns") Map<String, HiveColumnHandle> predicateColumns,
             @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate,
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
-            @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter)
+            @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
+            @JsonProperty("layoutString") String layoutString)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
@@ -75,12 +71,7 @@ public final class HiveTableLayoutHandle
         this.partitions = null;
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
-
-        // on a worker
-        layoutString = toStringHelper(schemaTableName.toString())
-                .omitNullValues()
-                .add("buckets", bucketHandle.map(HiveBucketHandle::getReadBucketCount).orElse(null))
-                .toString();
+        this.layoutString = requireNonNull(layoutString, "layoutString is null");
     }
 
     public HiveTableLayoutHandle(
@@ -93,8 +84,7 @@ public final class HiveTableLayoutHandle
             TupleDomain<ColumnHandle> partitionColumnPredicate,
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
-            ConnectorSession session,
-            Function<RowExpression, String> rowExpressionFormatter)
+            String layoutString)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
@@ -105,17 +95,7 @@ public final class HiveTableLayoutHandle
         this.partitionColumnPredicate = requireNonNull(partitionColumnPredicate, "partitionColumnPredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
-
-        // on coordinator
-        requireNonNull(session, "session is null");
-        requireNonNull(rowExpressionFormatter, "rowExpressionFormatter is null");
-
-        layoutString = toStringHelper(schemaTableName.toString())
-                .omitNullValues()
-                .add("buckets", bucketHandle.map(HiveBucketHandle::getReadBucketCount).orElse(null))
-                .add("filter", TRUE_CONSTANT.equals(remainingPredicate) ? null : rowExpressionFormatter.apply(remainingPredicate))
-                .add("domains", domainPredicate.isAll() ? null : domainPredicate.toString(session))
-                .toString();
+        this.layoutString = requireNonNull(layoutString, "layoutString is null");
     }
 
     @JsonProperty
@@ -175,6 +155,12 @@ public final class HiveTableLayoutHandle
     public Optional<HiveBucketFilter> getBucketFilter()
     {
         return bucketFilter;
+    }
+
+    @JsonProperty
+    public String getLayoutString()
+    {
+        return layoutString;
     }
 
     @Override
