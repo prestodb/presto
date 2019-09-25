@@ -60,12 +60,18 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
+import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 
 public class SliceDictionarySelectiveReader
         implements SelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionarySelectiveReader.class).instanceSize();
+
+    // filter evaluation states, using byte constants instead of enum as its memory efficient
+    private static final byte FILTER_NOT_EVALUATED = 0;
+    private static final byte FILTER_PASSED = 1;
+    private static final byte FILTER_FAILED = 2;
 
     private static final byte[] EMPTY_DICTIONARY_DATA = new byte[0];
     // add one extra entry for null after stripe/rowGroup dictionary
@@ -85,10 +91,11 @@ public class SliceDictionarySelectiveReader
     private byte[] currentDictionaryData = EMPTY_DICTIONARY_DATA;
     private int[] stripeDictionaryLength = new int[0];
     private int[] rowGroupDictionaryLength = new int[0];
+    private byte[] evaluationStatus;
 
     private int readOffset;
 
-    private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
+    private VariableWidthBlock dictionary = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     private BooleanInputStream presentStream;
@@ -190,7 +197,7 @@ public class SliceDictionarySelectiveReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                values[i] = dictionaryBlock.getPositionCount() - 1;
+                values[i] = dictionary.getPositionCount() - 1;
             }
             else {
                 boolean isInRowDictionary = inDictionaryStream != null && !inDictionaryStream.nextBit();
@@ -217,7 +224,7 @@ public class SliceDictionarySelectiveReader
             if (presentStream != null && !presentStream.nextBit()) {
                 if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                     if (outputRequired) {
-                        values[outputPositionCount] = dictionaryBlock.getPositionCount() - 1;
+                        values[outputPositionCount] = dictionary.getPositionCount() - 1;
                     }
                     outputPositions[outputPositionCount] = position;
                     outputPositionCount++;
@@ -234,23 +241,32 @@ public class SliceDictionarySelectiveReader
                 else {
                     length = inRowDictionary ? rowGroupDictionaryLength[rawIndex] : stripeDictionaryLength[rawIndex];
                 }
-                //TODO evaluate filter only once per dictionary value
-                if (filter.testLength(length)) {
-                    int currentPosLength = dictionaryBlock.getSliceLength(index);
-                    Slice data = dictionaryBlock.getSlice(index, 0, currentPosLength);
-                    if (isCharType && length != currentPosLength) {
-                        data = Chars.padSpaces(data, maxCodePointCount);
-                    }
-                    if (filter.testBytes(data.getBytes(), 0, length)) {
-                        if (outputRequired) {
-                            values[outputPositionCount] = index;
+                if (nonDeterministicFilter) {
+                    evaluateFilter(position, index, length);
+                }
+                else {
+                    switch (evaluationStatus[index]) {
+                        case FILTER_FAILED: {
+                            break;
                         }
-                        outputPositions[outputPositionCount] = position;
-                        outputPositionCount++;
+                        case FILTER_PASSED: {
+                            if (outputRequired) {
+                                values[outputPositionCount] = index;
+                            }
+                            outputPositions[outputPositionCount] = position;
+                            outputPositionCount++;
+                            break;
+                        }
+                        case FILTER_NOT_EVALUATED: {
+                            evaluationStatus[index] = evaluateFilter(position, index, length);
+                            break;
+                        }
+                        default: {
+                            throw new IllegalStateException("invalid evaluation state");
+                        }
                     }
                 }
             }
-
             streamPosition++;
 
             if (filter != null) {
@@ -269,6 +285,26 @@ public class SliceDictionarySelectiveReader
             }
         }
         return streamPosition;
+    }
+
+    private byte evaluateFilter(int position, int index, int length)
+    {
+        if (filter.testLength(length)) {
+            int currentLength = dictionary.getSliceLength(index);
+            Slice data = dictionary.getSlice(index, 0, currentLength);
+            if (isCharType && length != currentLength) {
+                data = Chars.padSpaces(data, maxCodePointCount);
+            }
+            if (filter.testBytes(data.getBytes(), 0, length)) {
+                if (outputRequired) {
+                    values[outputPositionCount] = index;
+                }
+                outputPositions[outputPositionCount] = position;
+                outputPositionCount++;
+                return FILTER_PASSED;
+            }
+        }
+        return FILTER_FAILED;
     }
 
     private int readAllNulls(int[] positions, int positionCount)
@@ -336,7 +372,7 @@ public class SliceDictionarySelectiveReader
         }
 
         if (positionCount == outputPositionCount) {
-            return new DictionaryBlock(positionCount, dictionaryBlock, values);
+            return new DictionaryBlock(positionCount, dictionary, values);
         }
 
         int[] valuesCopy = new int[positionCount];
@@ -356,7 +392,7 @@ public class SliceDictionarySelectiveReader
             nextPosition = positions[positionIndex];
         }
 
-        return new DictionaryBlock(positionCount, dictionaryBlock, valuesCopy);
+        return new DictionaryBlock(positionCount, dictionary, valuesCopy);
     }
 
     @Override
@@ -370,7 +406,7 @@ public class SliceDictionarySelectiveReader
         if (positionCount < outputPositionCount) {
             compactValues(positions, positionCount);
         }
-        return newLease(new DictionaryBlock(positionCount, dictionaryBlock, values));
+        return newLease(new DictionaryBlock(positionCount, dictionary, values));
     }
 
     private void compactValues(int[] positions, int positionCount)
@@ -592,8 +628,10 @@ public class SliceDictionarySelectiveReader
             boolean[] isNullVector = new boolean[positionCount];
             isNullVector[positionCount - 1] = true;
             dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
-            dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
+            dictionary = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
             currentDictionaryData = dictionaryData;
+            evaluationStatus = ensureCapacity(evaluationStatus, positionCount - 1);
+            fill(evaluationStatus, 0, evaluationStatus.length, FILTER_NOT_EVALUATED);
         }
     }
 

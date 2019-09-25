@@ -709,7 +709,7 @@ public class TestSelectiveOrcReader
     {
         // dictionary
         tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), NUM_ROWS)),
-                stringEquals(false, "apple"));
+                stringIn(false, "apple", "apple pie"));
 
         // direct
         tester.testRoundTrip(VARCHAR,
