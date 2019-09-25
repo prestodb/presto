@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.block.TestingSession;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.Domain;
@@ -34,6 +33,7 @@ import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
+import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -91,7 +91,11 @@ public class TestDomainTranslator
         columnExtractor = new SubfieldExtractor(
                 new FunctionResolution(metadata.getFunctionManager()),
                 (rowExpression, level, session) -> rowExpression,
-                TestingSession.SESSION).toColumnExtractor();
+                new TestingConnectorSession(
+                        new HiveSessionProperties(
+                                new HiveClientConfig().setNestedColumnsFilterEnabled(true),
+                                new OrcFileWriterConfig(),
+                                new ParquetFileWriterConfig()).getSessionProperties())).toColumnExtractor();
     }
 
     @Test

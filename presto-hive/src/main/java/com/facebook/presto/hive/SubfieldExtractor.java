@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveSessionProperties.isNestedColumnsFilterEnabled;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static java.util.Collections.unmodifiableList;
@@ -58,16 +59,34 @@ public final class SubfieldExtractor
     public DomainTranslator.ColumnExtractor<Subfield> toColumnExtractor()
     {
         return (expression, domain) -> {
-            // Only allow null checks on complex types
             Type type = expression.getType();
-            if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
-                if (!domain.isOnlyNull() && !(domain.getValues().isAll() && !domain.isNullAllowed())) {
-                    return Optional.empty();
-                }
+
+            // For complex types support only Filter IS_NULL and IS_NOT_NULL
+            if (isComplexType(type) && !(domain.isOnlyNull() || (domain.getValues().isAll() && !domain.isNullAllowed()))) {
+                return Optional.empty();
             }
 
-            return extract(expression);
+            Optional<Subfield> subfield = extract(expression);
+            // If the expression involves array or map subscripts, it is considered only if allowed by nested_columns_filter_enabled.
+            if (hasSubscripts(subfield)) {
+                if (isNestedColumnsFilterEnabled(connectorSession)) {
+                    return subfield;
+                }
+                return Optional.empty();
+            }
+            // The expression is a column or a set of nested struct field references.
+            return subfield;
         };
+    }
+
+    private static boolean isComplexType(Type type)
+    {
+        return type instanceof ArrayType || type instanceof MapType || type instanceof RowType;
+    }
+
+    private static boolean hasSubscripts(Optional<Subfield> subfield)
+    {
+        return subfield.isPresent() && subfield.get().getPath().stream().anyMatch(Subfield.PathElement::isSubscript);
     }
 
     public Optional<Subfield> extract(RowExpression expression)
