@@ -68,7 +68,8 @@ public class OrcSelectiveRecordReader
     private final Map<Integer, Type> columnTypes;                     // key: index into hiveColumnIndices array
     private final Object[] constantValues;                            // aligned with hiveColumnIndices array
     private final Function<Block, Block>[] coercers;                   // aligned with hiveColumnIndices array
-    private final List<FilterFunction> filterFunctions;
+    private final List<FilterFunction> filterFunctionsWithInputs;
+    private final List<FilterFunction> filterFunctionsWithoutInputs;
     private final Map<Integer, Integer> filterFunctionInputMapping;   // channel-to-index-into-hiveColumnIndices-array mapping
     private final Set<Integer> filterFunctionInputs;                  // channels
     private final Map<Integer, Integer> columnsWithFilterScores;      // keys are indices into hiveColumnIndices array; values are filter scores
@@ -165,7 +166,13 @@ public class OrcSelectiveRecordReader
         this.hiveColumnIndices = hiveColumnIndices.stream().mapToInt(i -> i).toArray();
         this.outputColumns = outputColumns.stream().map(zeroBasedIndices::get).collect(toImmutableList());
         this.columnTypes = includedColumns.entrySet().stream().collect(toImmutableMap(entry -> zeroBasedIndices.get(entry.getKey()), Map.Entry::getValue));
-        this.filterFunctions = filterFunctions;
+        this.filterFunctionsWithoutInputs = filterFunctions.stream()
+                .filter(x -> x.getInputChannels().length == 0)
+                .collect(toImmutableList());
+        this.filterFunctionsWithInputs = filterFunctions.stream()
+                .filter(x -> x.getInputChannels().length > 0)
+                .collect(toImmutableList());
+
         this.filterFunctionInputMapping = Maps.transformValues(filterFunctionInputMapping, zeroBasedIndices::get);
         this.filterFunctionInputs = filterFunctions.stream()
                 .flatMapToInt(function -> Arrays.stream(function.getInputChannels()))
@@ -341,10 +348,16 @@ public class OrcSelectiveRecordReader
         readPositions += batchSize;
 
         initializePositions(batchSize);
+        initalizeErrors(batchSize);
 
         int[] positionsToRead = this.positions;
         int positionCount = batchSize;
-        boolean filterFunctionsApplied = filterFunctions.isEmpty();
+        boolean filterFunctionsApplied = filterFunctionsWithInputs.isEmpty();
+        if (!filterFunctionsWithoutInputs.isEmpty()) {
+            positionCount = applyFilterFunctionsWithNoInputs(positionsToRead, positionCount);
+            positionsToRead = Arrays.copyOf(outputPositions, positionCount);
+        }
+
         for (int columnIndex : streamReaderOrder) {
             if (!filterFunctionsApplied && !hasAnyFilter(columnIndex)) {
                 positionCount = applyFilterFunctions(positionsToRead, positionCount);
@@ -428,6 +441,27 @@ public class OrcSelectiveRecordReader
         }
     }
 
+    private int applyFilterFunctionsWithNoInputs(int[] positions, int positionCount)
+    {
+        initializeOutputPositions(positionCount);
+
+        for (FilterFunction function : filterFunctionsWithoutInputs) {
+            Page page = new Page(positionCount);
+            positionCount = function.filter(page, outputPositions, positionCount, errors);
+            if (positionCount == 0) {
+                break;
+            }
+        }
+
+        // at this point outputPositions are relative to page, e.g. they are indices into positions array
+        // translate outputPositions to positions relative to the start of the row group,
+        // e.g. make outputPositions a subset of positions array
+        for (int i = 0; i < positionCount; i++) {
+            outputPositions[i] = positions[outputPositions[i]];
+        }
+        return positionCount;
+    }
+
     private int applyFilterFunctions(int[] positions, int positionCount)
     {
         BlockLease[] blockLeases = new BlockLease[hiveColumnIndices.length];
@@ -449,7 +483,7 @@ public class OrcSelectiveRecordReader
         try {
             initializeOutputPositions(positionCount);
 
-            for (FilterFunction function : filterFunctions) {
+            for (FilterFunction function : filterFunctionsWithInputs) {
                 int[] inputs = function.getInputChannels();
                 Block[] inputBlocks = new Block[inputs.length];
 
@@ -496,7 +530,10 @@ public class OrcSelectiveRecordReader
         for (int i = 0; i < positionCount; i++) {
             outputPositions[i] = i;
         }
+    }
 
+    private void initalizeErrors(int positionCount)
+    {
         if (errors == null || errors.length < positionCount) {
             errors = new RuntimeException[positionCount];
         }

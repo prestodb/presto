@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import com.facebook.presto.orc.SelectOrderer.SelectOrderable;
 
 import static com.facebook.presto.orc.ByteArrayUtils.compareRanges;
 import static com.facebook.presto.orc.ByteArrayUtils.hash;
@@ -30,7 +31,7 @@ import static java.util.Objects.requireNonNull;
  * A simple filter (e.g. comparison with literal) that can be applied efficiently
  * while extracting values from an ORC stream.
  */
-public interface TupleDomainFilter
+public interface TupleDomainFilter extends SelectOrderable
 {
     TupleDomainFilter ALWAYS_FALSE = new AlwaysFalse();
     TupleDomainFilter IS_NULL = new IsNull();

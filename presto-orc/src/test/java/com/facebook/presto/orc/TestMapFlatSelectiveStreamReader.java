@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -61,7 +60,6 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static java.util.stream.Collectors.toList;
@@ -395,7 +393,7 @@ public class TestMapFlatSelectiveStreamReader
                 ImmutableMap.of(),
                 ImmutableMap.of());
 
-        TestingFilterFunction filterFunction = new TestingFilterFunction(mapType);
+        TestingFlatMapFilterFunction filterFunction = new TestingFlatMapFilterFunction(mapType);
         assertFileContentsPresto(
                 types,
                 new File(getResource(testOrcFileName).getFile()),
@@ -602,19 +600,14 @@ public class TestMapFlatSelectiveStreamReader
         }
     }
 
-    static class TestingFilterFunction
+    private static class TestingFlatMapFilterFunction
             extends FilterFunction
+            implements TestingFilterFunction
     {
-        private static final Session TEST_SESSION = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
-
-        private final Type mapType;
-
-        public TestingFilterFunction(final Type mapType)
+        public TestingFlatMapFilterFunction(final Type mapType)
         {
-            super(TEST_SESSION.toConnectorSession(), true, new Predicate() {
+            super(TEST_SESSION.toConnectorSession(), true, new Predicate()
+            {
                 @Override
                 public int[] getInputChannels()
                 {
@@ -632,9 +625,9 @@ public class TestMapFlatSelectiveStreamReader
                     return map.containsKey(1);
                 }
             });
-            this.mapType = mapType;
         }
 
+        @Override
         public List<List<?>> filterRows(List<List<?>> values)
         {
             List<Integer> passingRows = IntStream.range(0, values.get(0).size())
@@ -642,8 +635,8 @@ public class TestMapFlatSelectiveStreamReader
                     .filter(row -> ((Map) values.get(0).get(row)).containsKey(1))
                     .boxed()
                     .collect(toList());
-            return IntStream.range(0, values.size())
-                    .mapToObj(column -> passingRows.stream().map(values.get(column)::get).collect(toList()))
+            return values.stream()
+                    .map(column -> passingRows.stream().map(column::get).collect(toList()))
                     .collect(toList());
         }
     }

@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.relation.Predicate;
+import com.facebook.presto.orc.SelectOrderer.SelectOrderable;
 
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -26,6 +27,7 @@ import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 
 public class FilterFunction
+    implements SelectOrderable
 {
     private static final byte FILTER_NOT_EVALUATED = 0;
     private static final byte FILTER_PASSED = 1;

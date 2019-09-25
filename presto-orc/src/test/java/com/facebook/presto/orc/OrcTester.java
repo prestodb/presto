@@ -654,6 +654,7 @@ public class OrcTester
         private final Map<Integer, Integer> filterFunctionInputMapping;
         private final Map<Integer, List<Subfield>> requiredSubfields;
         private final OrcFileTailSource orcFileTailSource;
+        private final Optional<String> expectedErrorMessage;
 
         private OrcReaderSettings(
                 Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters,
@@ -661,7 +662,9 @@ public class OrcTester
                 List<FilterFunction> filterFunctions,
                 Map<Integer, Integer> filterFunctionInputMapping,
                 Map<Integer, List<Subfield>> requiredSubfields,
-                OrcFileTailSource orcFileTailSource)
+                OrcFileTailSource orcFileTailSource,
+                Optional<String> expectedErrorMessage
+                )
         {
             this.columnFilters = requireNonNull(columnFilters, "columnFilters is null");
             this.expectedFilterOrder = requireNonNull(expectedFilterOrder, "expectedFilterOrder is null");
@@ -669,6 +672,7 @@ public class OrcTester
             this.filterFunctionInputMapping = requireNonNull(filterFunctionInputMapping, "filterFunctionInputMapping is null");
             this.requiredSubfields = requireNonNull(requiredSubfields, "requiredSubfields is null");
             this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
+            this.expectedErrorMessage = expectedErrorMessage;
         }
 
         public Map<Integer, Map<Subfield, TupleDomainFilter>> getColumnFilters()
@@ -701,6 +705,11 @@ public class OrcTester
             return orcFileTailSource;
         }
 
+        public Optional<String> getExpectedErrorMessage()
+        {
+            return expectedErrorMessage;
+        }
+
         public static Builder builder()
         {
             return new Builder();
@@ -714,6 +723,7 @@ public class OrcTester
             private Map<Integer, Integer> filterFunctionInputMapping = ImmutableMap.of();
             private Map<Integer, List<Subfield>> requiredSubfields = new HashMap<>();
             private OrcFileTailSource orcFileTailSource = new StorageOrcFileTailSource();
+            private Optional<String> expectedErrorMessage = Optional.empty();
 
             public Builder setColumnFilters(Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters)
             {
@@ -759,9 +769,25 @@ public class OrcTester
                 return this;
             }
 
+            public Builder setExpectedErrorMessage(String message)
+            {
+                this.expectedErrorMessage = Optional.of(message);
+                return this;
+            }
+
             public OrcReaderSettings build()
             {
-                return new OrcReaderSettings(columnFilters, expectedFilterOrder, filterFunctions, filterFunctionInputMapping, requiredSubfields, orcFileTailSource);
+                if (!filterFunctions.isEmpty() && filterFunctionInputMapping.isEmpty()) {
+                    int maxChannel = filterFunctions.stream()
+                            .flatMapToInt(filterFunction -> Arrays.stream(filterFunction.getInputChannels()))
+                            .max()
+                            .orElse(-1);
+                    filterFunctionInputMapping = IntStream.range(0, maxChannel + 1)
+                            .boxed()
+                            .collect(Collectors.toMap(Functions.identity(), Functions.identity()));
+                }
+
+                return new OrcReaderSettings(columnFilters, expectedFilterOrder, filterFunctions, filterFunctionInputMapping, requiredSubfields, orcFileTailSource, expectedErrorMessage);
             }
         }
     }
@@ -852,11 +878,13 @@ public class OrcTester
         if (useSelectiveOrcReader) {
             assertFileContentsPresto(types, tempFile.getFile(), expectedValues, orcEncoding, orcPredicate, Optional.empty(), ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of());
             for (OrcReaderSettings entry : settings) {
-                assertTrue(entry.getFilterFunctions().isEmpty(), "Filter functions are not supported yet");
-                assertTrue(entry.getFilterFunctionInputMapping().isEmpty(), "Filter functions are not supported yet");
-
                 Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters = entry.getColumnFilters();
-                List<List<?>> prunedAndFilteredRows = pruneValues(types, filterRows(types, expectedValues, columnFilters), entry.getRequiredSubfields());
+
+                List<List<?>> prunedAndFilteredRows = expectedValues;
+
+                if (!entry.getExpectedErrorMessage().isPresent()) {
+                    prunedAndFilteredRows = pruneValues(types, expectedValues, columnFilters, entry.getRequiredSubfields(), entry.getFilterFunctions());
+                }
 
                 Optional<TupleDomainFilterOrderChecker> orderChecker = Optional.empty();
                 List<Integer> expectedFilterOrder = entry.getExpectedFilterOrder();
@@ -866,7 +894,15 @@ public class OrcTester
 
                 Optional<Map<Integer, Map<Subfield, TupleDomainFilter>>> transformedFilters = Optional.of(orderChecker.map(checker -> addOrderTracking(columnFilters, checker)).orElse(columnFilters));
 
-                assertFileContentsPresto(types, tempFile.getFile(), prunedAndFilteredRows, orcEncoding, orcPredicate, transformedFilters, entry.getFilterFunctions(), entry.getFilterFunctionInputMapping(), entry.getRequiredSubfields());
+                try {
+                    assertFileContentsPresto(types, tempFile.getFile(), prunedAndFilteredRows, orcEncoding, orcPredicate, transformedFilters, entry.getFilterFunctions(), entry.getFilterFunctionInputMapping(), entry.getRequiredSubfields());
+                    if (entry.getExpectedErrorMessage().isPresent()) {
+                        fail("We expect this to throw a runtime exception");
+                    }
+                }
+                catch (RuntimeException e) {
+                    assertEquals(e.getMessage(), entry.getExpectedErrorMessage().get(), "This should fail for the same exception as we expected");
+                }
 
                 orderChecker.ifPresent(TupleDomainFilterOrderChecker::assertOrder);
             }
@@ -1180,8 +1216,21 @@ public class OrcTester
         }
     }
 
-    private static List<List<?>> pruneValues(List<Type> types, List<List<?>> values, Map<Integer, List<Subfield>> requiredSubfields)
+    private static List<List<?>> pruneValues(List<Type> types, List<List<?>> values, Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters, Map<Integer, List<Subfield>> requiredSubfields, List<FilterFunction> filterFunctions)
     {
+        for (FilterFunction function : filterFunctions) {
+            if (function.getInputChannels().length == 0 && function instanceof TestingFilterFunction) {
+                values = ((TestingFilterFunction) function).filterRows(values);
+            }
+        }
+        values = filterRows(types, values, columnFilters);
+
+        for (FilterFunction function : filterFunctions) {
+            if (function.getInputChannels().length > 0 && function instanceof TestingFilterFunction) {
+                values = ((TestingFilterFunction) function).filterRows(values);
+            }
+        }
+
         if (requiredSubfields.isEmpty()) {
             return values;
         }

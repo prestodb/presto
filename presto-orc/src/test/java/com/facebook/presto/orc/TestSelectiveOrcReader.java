@@ -21,8 +21,10 @@ import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.relation.Predicate;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
@@ -86,8 +88,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestSelectiveOrcReader
 {
@@ -384,6 +384,84 @@ public class TestSelectiveOrcReader
     }
 
     @Test
+    public void testFilterFunctionOrder()
+            throws Exception
+    {
+        // Basic: 1. No input. 2. No input, then with input
+        tester.assertRoundTripWithSettings(
+                INTEGER,
+                IntStream.range(0, 1000).boxed().collect(toImmutableList()),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().setFilterFunctions(ImmutableList.of(new TestingNoInputFilterFunction(row -> row % 2 == 0))).build(),
+                        OrcReaderSettings.builder().setFilterFunctions(ImmutableList.of(
+                                new TestingNoInputFilterFunction(row -> row % 2 == 0),
+                                new TestingWithInputIntegerFilterFunction(value -> value % 2 == 0, 0))).build()));
+
+        //  No Input that throws errors, then with input that filters out rows with those errors
+        tester.assertRoundTripWithSettings(
+                INTEGER,
+                IntStream.range(0, 1000).boxed().collect(toImmutableList()),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().setFilterFunctions(ImmutableList.of(
+                                new TestingNoInputFilterFunction(row -> {
+                                    if (row % 13 == 0) {
+                                        throw new RuntimeException("13 is unlucky");
+                                    }
+                                    return true;
+                                }),
+                                new TestingWithInputIntegerFilterFunction(row -> row % 13 != 0, 0))).build()));
+
+        // Throw errors in some positions in the no inputs filter function,
+        // then do not filter them all out in the second filter function (that has inputs)
+        // (This is expected to throw an error, which we will catch)
+        tester.assertRoundTripWithSettings(
+                INTEGER,
+                IntStream.range(0, 1000).boxed().collect(toImmutableList()),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().setFilterFunctions(ImmutableList.of(
+                                new TestingNoInputFilterFunction(row -> {
+                                    if (row % 13 == 0) {
+                                        throw new RuntimeException("13 is unlucky");
+                                    }
+                                    return true;
+                                }),
+                                new TestingWithInputIntegerFilterFunction(row -> row % 15 != 0, 0)))
+                                .setExpectedErrorMessage("13 is unlucky").build()));
+
+        // Filter some positions in the no inputs filter function,
+        // then throw errors with the second filter function (that has inputs) on those same positions
+        tester.assertRoundTripWithSettings(
+                INTEGER,
+                IntStream.range(0, 1000).boxed().collect(toImmutableList()),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().setFilterFunctions(ImmutableList.of(
+                                new TestingNoInputFilterFunction(row -> row % 13 != 0),
+                                new TestingWithInputIntegerFilterFunction(row -> {
+                                    if (row % 13 == 0) {
+                                        throw new RuntimeException("13 is unlucky");
+                                    }
+                                    return true;
+                                }, 0))).build()));
+
+        // Filter some positions in the no inputs filter function,
+        // then throw errors with the second filter function (that has inputs) on different positions
+        // (This is expected to throw an error, which we will catch)
+        tester.assertRoundTripWithSettings(
+                INTEGER,
+                IntStream.range(0, 1000).boxed().collect(toImmutableList()),
+                ImmutableList.of(
+                        OrcReaderSettings.builder().setFilterFunctions(ImmutableList.of(
+                                new TestingNoInputFilterFunction(row -> row % 15 != 0),
+                                new TestingWithInputIntegerFilterFunction(row -> {
+                                    if (row % 13 == 0) {
+                                        throw new RuntimeException("13 is unlucky");
+                                    }
+                                    return true;
+                                }, 0)))
+                                .setExpectedErrorMessage("13 is unlucky").build()));
+    }
+
+    @Test
     public void testArrays()
             throws Exception
     {
@@ -523,48 +601,36 @@ public class TestSelectiveOrcReader
         Random random = new Random(0);
 
         // non-null arrays of varying sizes
-        try {
-            tester.testRoundTrip(arrayType(INTEGER),
-                    createList(NUM_ROWS, i -> randomIntegers(random.nextInt(10), random)),
-                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2]"), IS_NULL)));
-            fail("Expected 'Array subscript out of bounds' exception");
-        }
-        catch (PrestoException e) {
-            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
-        }
+        tester.assertRoundTripWithSettings(arrayType(INTEGER),
+                createList(NUM_ROWS, i -> randomIntegers(random.nextInt(10), random)),
+                ImmutableList.of(OrcReaderSettings.builder()
+                        .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[2]"), IS_NULL)))
+                        .setExpectedErrorMessage("Array subscript out of bounds")
+                        .build()));
 
         // non-null nested arrays of varying sizes
-        try {
-            tester.testRoundTrip(arrayType(arrayType(INTEGER)),
-                    createList(NUM_ROWS, i -> ImmutableList.of(randomIntegers(random.nextInt(5), random), randomIntegers(random.nextInt(5), random))),
-                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)));
-            fail("Expected 'Array subscript out of bounds' exception");
-        }
-        catch (PrestoException e) {
-            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
-        }
+        tester.assertRoundTripWithSettings(arrayType(arrayType(INTEGER)),
+                createList(NUM_ROWS, i -> ImmutableList.of(randomIntegers(random.nextInt(5), random), randomIntegers(random.nextInt(5), random))),
+                ImmutableList.of(OrcReaderSettings.builder()
+                        .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)))
+                        .setExpectedErrorMessage("Array subscript out of bounds")
+                        .build()));
 
         // empty arrays
-        try {
-            tester.testRoundTrip(arrayType(INTEGER),
-                    nCopies(NUM_ROWS, ImmutableList.of()),
-                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2]"), IS_NULL)));
-            fail("Expected 'Array subscript out of bounds' exception");
-        }
-        catch (PrestoException e) {
-            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
-        }
+        tester.assertRoundTripWithSettings(arrayType(INTEGER),
+                nCopies(NUM_ROWS, ImmutableList.of()),
+                ImmutableList.of(OrcReaderSettings.builder()
+                        .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[2]"), IS_NULL)))
+                        .setExpectedErrorMessage("Array subscript out of bounds")
+                        .build()));
 
         // empty nested arrays
-        try {
-            tester.testRoundTrip(arrayType(arrayType(INTEGER)),
-                    nCopies(NUM_ROWS, ImmutableList.of()),
-                    ImmutableList.of(ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)));
-            fail("Expected 'Array subscript out of bounds' exception");
-        }
-        catch (PrestoException e) {
-            assertTrue(e.getMessage().contains("Array subscript out of bounds"));
-        }
+        tester.assertRoundTripWithSettings(arrayType(arrayType(INTEGER)),
+                nCopies(NUM_ROWS, ImmutableList.of()),
+                ImmutableList.of(OrcReaderSettings.builder()
+                        .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[2][3]"), IS_NULL)))
+                        .setExpectedErrorMessage("Array subscript out of bounds")
+                        .build()));
     }
 
     @Test
@@ -1101,5 +1167,92 @@ public class TestSelectiveOrcReader
     private static List<Byte> toByteArray(List<Integer> integers)
     {
         return integers.stream().map((i) -> i == null ? null : i.byteValue()).collect(toList());
+    }
+
+    private static class TestingNoInputFilterFunction
+            extends FilterFunction
+            implements TestingFilterFunction
+    {
+        private java.util.function.Predicate<Integer> predicate;
+
+        TestingNoInputFilterFunction(java.util.function.Predicate<Integer> predicate)
+        {
+            super(TEST_SESSION.toConnectorSession(), false, new Predicate()
+            {
+                @Override
+                public int[] getInputChannels()
+                {
+                    return new int[] {};
+                }
+
+                @Override
+                public boolean evaluate(ConnectorSession session, Page page, int position)
+                {
+                    return predicate.test(position);
+                }
+            });
+            this.predicate = predicate;
+        }
+
+        @Override
+        public List<List<?>> filterRows(List<List<?>> values)
+        {
+            List<Integer> passingRows = IntStream.range(0, values.get(0).size())
+                    .filter(row -> {
+                        try {
+                            return predicate.test(row);
+                        }
+                        catch (RuntimeException e) {
+                            return false;
+                        }
+                    })
+                    .boxed()
+                    .collect(toList());
+            return values.stream()
+                    .map(column -> passingRows.stream().map(column::get).collect(toList()))
+                    .collect(toList());
+        }
+    }
+
+    private static class TestingWithInputIntegerFilterFunction
+            extends FilterFunction
+            implements TestingFilterFunction
+    {
+        private java.util.function.Predicate<Integer> predicate;
+        private final int channel;
+
+        TestingWithInputIntegerFilterFunction(java.util.function.Predicate<Integer> predicate, int channel)
+        {
+            super(TEST_SESSION.toConnectorSession(), false, new Predicate()
+            {
+                @Override
+                public int[] getInputChannels()
+                {
+                    return new int[] {channel};
+                }
+
+                @Override
+                public boolean evaluate(ConnectorSession session, Page page, int position)
+                {
+                    int value = page.getBlock(channel).getInt(position);
+                    return predicate.test(value);
+                }
+            });
+            this.predicate = predicate;
+            this.channel = channel;
+        }
+
+        // Assume that the values are of type Integer
+        @Override
+        public List<List<?>> filterRows(List<List<?>> values)
+        {
+            List<Integer> passingRows = IntStream.range(0, values.get(channel).size())
+                    .filter(row -> predicate.test(((List<Integer>) values.get(channel)).get(row)))
+                    .boxed()
+                    .collect(toList());
+            return values.stream()
+                    .map(column -> passingRows.stream().map(column::get).collect(toList()))
+                    .collect(toList());
+        }
     }
 }
