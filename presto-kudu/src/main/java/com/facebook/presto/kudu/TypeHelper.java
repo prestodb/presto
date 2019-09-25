@@ -207,7 +207,7 @@ public class TypeHelper
                 return row.getDecimal(field);
             }
             else {
-                throw new IllegalStateException("getBlock not implemented for " + type);
+                throw new IllegalStateException("getObject not implemented for " + type);
             }
         }
     }

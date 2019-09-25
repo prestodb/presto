@@ -87,7 +87,7 @@ public class SqlTypeBytecodeExpression
         if (fromJavaElementType == Slice.class) {
             return invoke("getSlice", Slice.class, block, position);
         }
-        return invoke("getBlock", Object.class, block, position).cast(fromJavaElementType);
+        return invoke("getObject", Object.class, block, position).cast(fromJavaElementType);
     }
 
     public BytecodeExpression writeValue(BytecodeExpression blockBuilder, BytecodeExpression value)

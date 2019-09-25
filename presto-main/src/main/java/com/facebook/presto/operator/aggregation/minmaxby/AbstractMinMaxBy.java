@@ -109,7 +109,7 @@ public abstract class AbstractMinMaxBy
 
         // Generate states and serializers:
         // For value that is a Block or Slice, we store them as Block/position combination
-        // to avoid generating long-living objects through getSlice or getBlock.
+        // to avoid generating long-living objects through getSlice or getObject.
         // This can also help reducing cross-region reference in G1GC engine.
         // TODO: keys can have the same problem. But usually they are primitive types (given the nature of comparison).
         AccumulatorStateFactory<?> stateFactory;
