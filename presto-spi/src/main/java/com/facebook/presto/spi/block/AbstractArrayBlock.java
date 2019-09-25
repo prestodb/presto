@@ -145,7 +145,7 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public Block getObject(int position)
+    public Block getBlock(int position)
     {
         checkReadablePosition(position);
 

@@ -608,10 +608,10 @@ public interface AccumuloRowSerializer
     {
         if (Types.isArrayType(type)) {
             Type elementType = Types.getElementType(type);
-            return getArrayFromBlock(elementType, block.getObject(position));
+            return getArrayFromBlock(elementType, block.getBlock(position));
         }
         else if (Types.isMapType(type)) {
-            return getMapFromBlock(type, block.getObject(position));
+            return getMapFromBlock(type, block.getBlock(position));
         }
         else {
             if (type.getJavaType() == Slice.class) {

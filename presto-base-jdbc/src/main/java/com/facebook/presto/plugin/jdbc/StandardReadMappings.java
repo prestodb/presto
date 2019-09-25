@@ -129,7 +129,7 @@ public final class StandardReadMappings
              * This works correctly for all dates and zones except when the missing local times 'gap' is 24h. I.e. this fails when JVM time
              * zone is Pacific/Apia and date to be returned is 2011-12-30.
              *
-             * `return resultSet.getObject(columnIndex, LocalDate.class).toEpochDay()` avoids these problems but
+             * `return resultSet.getBlock(columnIndex, LocalDate.class).toEpochDay()` avoids these problems but
              * is currently known not to work with Redshift (old Postgres connector) and SQL Server.
              */
             long localMillis = resultSet.getDate(columnIndex).getTime();
@@ -146,7 +146,7 @@ public final class StandardReadMappings
             /*
              * TODO `resultSet.getTime(columnIndex)` returns wrong value if JVM's zone had forward offset change during 1970-01-01
              * and the time value being retrieved was not present in local time (a 'gap'), e.g. time retrieved is 00:10:00 and JVM zone is America/Hermosillo
-             * The problem can be averted by using `resultSet.getObject(columnIndex, LocalTime.class)` -- but this is not universally supported by JDBC drivers.
+             * The problem can be averted by using `resultSet.getBlock(columnIndex, LocalTime.class)` -- but this is not universally supported by JDBC drivers.
              */
             Time time = resultSet.getTime(columnIndex);
             return UTC_CHRONOLOGY.millisOfDay().get(time.getTime());
@@ -160,7 +160,7 @@ public final class StandardReadMappings
              * TODO `resultSet.getTimestamp(columnIndex)` returns wrong value if JVM's zone had forward offset change and the local time
              * corresponding to timestamp value being retrieved was not present (a 'gap'), this includes regular DST changes (e.g. Europe/Warsaw)
              * and one-time policy changes (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00).
-             * The problem can be averted by using `resultSet.getObject(columnIndex, LocalDateTime.class)` -- but this is not universally supported by JDBC drivers.
+             * The problem can be averted by using `resultSet.getBlock(columnIndex, LocalDateTime.class)` -- but this is not universally supported by JDBC drivers.
              */
             Timestamp timestamp = resultSet.getTimestamp(columnIndex);
             return timestamp.getTime();

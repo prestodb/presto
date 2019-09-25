@@ -254,7 +254,7 @@ public class Field
         boolean retval = block1.getPositionCount() == block2.getPositionCount();
         for (int i = 0; i < block1.getPositionCount() && retval; ++i) {
             if (block1 instanceof ArrayBlock && block2 instanceof ArrayBlock) {
-                retval = equals(block1.getObject(i), block2.getObject(i));
+                retval = equals(block1.getBlock(i), block2.getBlock(i));
             }
             else {
                 retval = block1.compareTo(i, 0, block1.getSliceLength(i), block2, i, 0, block2.getSliceLength(i)) == 0;

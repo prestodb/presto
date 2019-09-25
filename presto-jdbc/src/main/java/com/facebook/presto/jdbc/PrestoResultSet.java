@@ -1091,7 +1091,7 @@ public class PrestoResultSet
     public Object getObject(int columnIndex, Map<String, Class<?>> map)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getObject");
+        throw new SQLFeatureNotSupportedException("getBlock");
     }
 
     @Override
@@ -1134,7 +1134,7 @@ public class PrestoResultSet
     public Object getObject(String columnLabel, Map<String, Class<?>> map)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getObject");
+        throw new SQLFeatureNotSupportedException("getBlock");
     }
 
     @Override
@@ -1618,14 +1618,14 @@ public class PrestoResultSet
     public <T> T getObject(int columnIndex, Class<T> type)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getObject");
+        throw new SQLFeatureNotSupportedException("getBlock");
     }
 
     @Override
     public <T> T getObject(String columnLabel, Class<T> type)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getObject");
+        throw new SQLFeatureNotSupportedException("getBlock");
     }
 
     @SuppressWarnings("unchecked")

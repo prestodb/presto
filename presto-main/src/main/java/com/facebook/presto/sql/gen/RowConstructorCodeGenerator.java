@@ -69,7 +69,7 @@ public class RowConstructorCodeGenerator
         }
         block.comment("closeEntry; slice the SingleRowBlock; wasNull = false;");
         block.append(blockBuilder.invoke("closeEntry", BlockBuilder.class).pop());
-        block.append(constantType(binder, rowType).invoke("getObject", Object.class, blockBuilder.cast(Block.class), constantInt(0))
+        block.append(constantType(binder, rowType).invoke("getBlock", Object.class, blockBuilder.cast(Block.class), constantInt(0))
                 .cast(Block.class));
         block.append(context.wasNull().set(constantFalse()));
         outputBlockVariable.ifPresent(output -> block.append(generateWrite(context, rowType, output)));

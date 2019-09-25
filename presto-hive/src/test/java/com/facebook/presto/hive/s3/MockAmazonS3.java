@@ -84,7 +84,7 @@ public class MockAmazonS3
     public S3Object getObject(GetObjectRequest getObjectRequest)
     {
         if (getObjectHttpCode != SC_OK) {
-            AmazonS3Exception exception = new AmazonS3Exception("Failing getObject call with " + getObjectHttpCode);
+            AmazonS3Exception exception = new AmazonS3Exception("Failing getBlock call with " + getObjectHttpCode);
             exception.setStatusCode(getObjectHttpCode);
             throw exception;
         }

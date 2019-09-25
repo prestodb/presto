@@ -136,10 +136,10 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
-    public Block getObject(int position)
+    public Block getBlock(int position)
     {
         checkFieldIndex(position);
-        return getRawFieldBlock(position).getObject(rowIndex);
+        return getRawFieldBlock(position).getBlock(rowIndex);
     }
 
     @Override
@@ -238,7 +238,7 @@ public abstract class AbstractSingleRowBlock
     @Override
     public Block getBlockUnchecked(int internalPosition)
     {
-        return getRawFieldBlock(internalPosition).getObject(rowIndex);
+        return getRawFieldBlock(internalPosition).getBlock(rowIndex);
     }
 
     @Override

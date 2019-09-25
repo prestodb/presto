@@ -158,7 +158,7 @@ public abstract class AbstractRowBlock
     }
 
     @Override
-    public Block getObject(int position)
+    public Block getBlock(int position)
     {
         checkReadablePosition(position);
 

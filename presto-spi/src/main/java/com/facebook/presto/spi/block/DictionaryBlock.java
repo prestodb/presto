@@ -142,9 +142,9 @@ public class DictionaryBlock
     }
 
     @Override
-    public Block getObject(int position)
+    public Block getBlock(int position)
     {
-        return dictionary.getObject(getId(position));
+        return dictionary.getBlock(getId(position));
     }
 
     @Override
@@ -519,7 +519,7 @@ public class DictionaryBlock
     public Block getBlockUnchecked(int internalPosition)
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
-        return dictionary.getObject(ids[internalPosition]);
+        return dictionary.getBlock(ids[internalPosition]);
     }
 
     @Override

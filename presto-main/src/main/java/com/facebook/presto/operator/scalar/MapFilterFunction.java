@@ -219,7 +219,7 @@ public final class MapFilterFunction
         body.append(pageBuilder.invoke("declarePosition", void.class));
         body.append(constantType(binder, mapType)
                 .invoke(
-                        "getObject",
+                        "getBlock",
                         Object.class,
                         mapBlockBuilder.cast(Block.class),
                         subtract(mapBlockBuilder.invoke("getPositionCount", int.class), constantInt(1)))

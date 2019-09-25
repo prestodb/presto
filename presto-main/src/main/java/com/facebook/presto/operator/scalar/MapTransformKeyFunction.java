@@ -286,7 +286,7 @@ public final class MapTransformKeyFunction
         body.append(pageBuilder.invoke("declarePosition", void.class));
         body.append(constantType(binder, resultMapType)
                 .invoke(
-                        "getObject",
+                        "getBlock",
                         Object.class,
                         mapBlockBuilder.cast(Block.class),
                         subtract(mapBlockBuilder.invoke("getPositionCount", int.class), constantInt(1)))

@@ -92,10 +92,10 @@ public class LazyBlock
     }
 
     @Override
-    public Block getObject(int position)
+    public Block getBlock(int position)
     {
         assureLoaded();
-        return block.getObject(position);
+        return block.getBlock(position);
     }
 
     @Override
@@ -343,7 +343,7 @@ public class LazyBlock
     public Block getBlockUnchecked(int internalPosition)
     {
         assert block != null : "block is not loaded";
-        return block.getObject(internalPosition);
+        return block.getBlock(internalPosition);
     }
 
     @Override

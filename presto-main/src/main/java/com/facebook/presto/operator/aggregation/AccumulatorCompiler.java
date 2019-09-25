@@ -452,7 +452,7 @@ public class AccumulatorCompiler
                     else if (parameterType == Block.class) {
                         // Even though the method signature requires a Block parameter, we can pass an Object here.
                         // A runtime check will assert that the Object passed as a parameter is actually of type Block.
-                        expressions.add(index.invoke("getObject", Object.class, getChannel, position));
+                        expressions.add(index.invoke("getBlock", Object.class, getChannel, position));
                     }
                     else {
                         throw new IllegalArgumentException(format("Unsupported parameter type: %s", parameterType));
@@ -647,11 +647,11 @@ public class AccumulatorCompiler
                     .invokeInterface(Type.class, "getSlice", Slice.class, Block.class, int.class);
         }
         else {
-            block.comment("%s.getObject(block, position)", sqlType.getTypeSignature())
+            block.comment("%s.getBlock(block, position)", sqlType.getTypeSignature())
                     .append(constantType(callSiteBinder, sqlType))
                     .append(getBlockBytecode)
                     .append(position)
-                    .invokeInterface(Type.class, "getObject", Object.class, Block.class, int.class);
+                    .invokeInterface(Type.class, "getBlock", Object.class, Block.class, int.class);
         }
     }
 

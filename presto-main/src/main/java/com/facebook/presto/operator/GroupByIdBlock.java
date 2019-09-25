@@ -116,9 +116,9 @@ public class GroupByIdBlock
     }
 
     @Override
-    public Block getObject(int position)
+    public Block getBlock(int position)
     {
-        return block.getObject(position);
+        return block.getBlock(position);
     }
 
     @Override
@@ -278,7 +278,7 @@ public class GroupByIdBlock
     @Override
     public Block getBlockUnchecked(int internalPosition)
     {
-        return block.getObject(internalPosition);
+        return block.getBlock(internalPosition);
     }
 
     @Override

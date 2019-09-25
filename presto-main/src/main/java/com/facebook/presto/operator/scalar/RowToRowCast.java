@@ -162,7 +162,7 @@ public class RowToRowCast
         // call blockBuilder.closeEntry() and return the single row block
         body.append(blockBuilder.invoke("closeEntry", BlockBuilder.class).pop());
         body.append(constantType(binder, toType)
-                .invoke("getObject", Object.class, blockBuilder.cast(Block.class), constantInt(0))
+                .invoke("getBlock", Object.class, blockBuilder.cast(Block.class), constantInt(0))
                 .cast(Block.class)
                 .ret());
 
