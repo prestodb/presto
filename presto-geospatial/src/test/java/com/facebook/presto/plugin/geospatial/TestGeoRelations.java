@@ -15,8 +15,12 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+import org.testng.internal.collections.Pair;
+
+import java.util.List;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
@@ -24,6 +28,77 @@ import static java.lang.String.format;
 public class TestGeoRelations
         extends AbstractTestFunctions
 {
+    // A set of geometries such that:
+    // 0, 1: Within (1, 0: Contains)
+    // 0, 2: Touches
+    // 1, 2: Overlaps
+    // 0, 3: Touches
+    // 1, 3: Crosses
+    // 1, 4: Touches
+    // 1, 5: Touches
+    // 2, 3: Contains
+    // 2, 4: Crosses
+    // 2, 5: Crosses
+    // 3, 4: Crosses
+    // 3, 5: Touches
+    // 4, 5: Contains
+    // 1, 6: Contains
+    // 2, 6: Contains
+    // 1, 7: Touches
+    // 2, 7: Contains
+    // 3, 6: Contains
+    // 3, 7: Contains
+    // 4, 7: Contains
+    // 5, 7: Touches
+    public static final List<String> RELATION_GEOMETRIES_WKT = ImmutableList.of(
+            "'POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))'", // 0
+            "'POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'", // 1
+            "'POLYGON ((1 0, 1 1, 3 1, 3 0, 1 0))'", // 2
+            "'LINESTRING (1 0.5, 2.5 0.5)'", // 3
+            "'LINESTRING (2 0, 2 2)'", // 4
+            "'LINESTRING (2 0.5, 2 2)'", // 5
+            "'POINT (1.5 0.5)'", // 6
+            "'POINT (2 0.5)'"); // 7
+
+    public static final List<Pair<Integer, Integer>> EQUALS_PAIRS = ImmutableList.of(
+            Pair.of(0, 0),
+            Pair.of(1, 1),
+            Pair.of(2, 2),
+            Pair.of(3, 3),
+            Pair.of(4, 4),
+            Pair.of(5, 5),
+            Pair.of(6, 6),
+            Pair.of(7, 7));
+
+    public static final List<Pair<Integer, Integer>> CONTAINS_PAIRS = ImmutableList.of(
+            Pair.of(1, 0),
+            Pair.of(2, 3),
+            Pair.of(4, 5),
+            Pair.of(1, 6),
+            Pair.of(2, 6),
+            Pair.of(2, 7),
+            Pair.of(3, 6),
+            Pair.of(3, 7),
+            Pair.of(4, 7));
+
+    public static final List<Pair<Integer, Integer>> TOUCHES_PAIRS = ImmutableList.of(
+            Pair.of(0, 2),
+            Pair.of(0, 3),
+            Pair.of(1, 4),
+            Pair.of(1, 5),
+            Pair.of(3, 5),
+            Pair.of(1, 7),
+            Pair.of(5, 7));
+
+    public static final List<Pair<Integer, Integer>> OVERLAPS_PAIRS = ImmutableList.of(
+            Pair.of(1, 2));
+
+    public static final List<Pair<Integer, Integer>> CROSSES_PAIRS = ImmutableList.of(
+            Pair.of(1, 3),
+            Pair.of(2, 4),
+            Pair.of(2, 5),
+            Pair.of(3, 4));
+
     @BeforeClass
     protected void registerFunctions()
     {
@@ -155,6 +230,53 @@ public class TestGeoRelations
         assertRelation("ST_Within", "'LINESTRING (1 1, 3 3)'", "'POLYGON ((0 0, 0 4, 4 4, 4 0))'", true);
         assertRelation("ST_Within", "'MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'", "'POLYGON ((0 1, 3 1, 3 3, 0 3))'", false);
         assertRelation("ST_Within", "'POLYGON ((1 1, 1 5, 5 5, 5 1))'", "'POLYGON ((0 0, 0 4, 4 4, 4 0))'", false);
+    }
+
+    @Test
+    public void testContainsWithin()
+    {
+        for (int i = 0; i < RELATION_GEOMETRIES_WKT.size(); i++) {
+            for (int j = 0; j < RELATION_GEOMETRIES_WKT.size(); j++) {
+                boolean ok = (i == j) || CONTAINS_PAIRS.contains(Pair.of(i, j));
+                assertRelation("ST_Contains", RELATION_GEOMETRIES_WKT.get(i), RELATION_GEOMETRIES_WKT.get(j), ok);
+                // Within is just the inverse of contain
+                assertRelation("ST_Within", RELATION_GEOMETRIES_WKT.get(j), RELATION_GEOMETRIES_WKT.get(i), ok);
+            }
+        }
+    }
+
+    @Test
+    public void testEquals()
+    {
+        testSymmetricRelations("ST_Equals", EQUALS_PAIRS);
+    }
+
+    @Test
+    public void testTouches()
+    {
+        testSymmetricRelations("ST_Touches", TOUCHES_PAIRS);
+    }
+
+    @Test
+    public void testOverlaps()
+    {
+        testSymmetricRelations("ST_Overlaps", OVERLAPS_PAIRS);
+    }
+
+    @Test
+    public void testCrosses()
+    {
+        testSymmetricRelations("ST_Crosses", CROSSES_PAIRS);
+    }
+
+    private void testSymmetricRelations(String relation, List<Pair<Integer, Integer>> pairs)
+    {
+        for (int i = 0; i < RELATION_GEOMETRIES_WKT.size(); i++) {
+            for (int j = 0; j < RELATION_GEOMETRIES_WKT.size(); j++) {
+                boolean ok = pairs.contains(Pair.of(i, j)) || pairs.contains(Pair.of(j, i));
+                assertRelation(relation, RELATION_GEOMETRIES_WKT.get(i), RELATION_GEOMETRIES_WKT.get(j), ok);
+            }
+        }
     }
 
     private void assertRelation(String relation, String leftWkt, String rightWkt, Boolean expected)
