@@ -65,6 +65,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveSessionProperties.getSortedWriteTempPathSubdirectoryCount;
+import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.createPartitionValues;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
@@ -254,7 +256,19 @@ public class HiveWriterFactory
                 sortOrders.add(column.getOrder().getSortOrder());
             }
 
-            this.sortingFileWriterFactory = Optional.of(new SortingFileWriterFactory(hdfsEnvironment, session, conf, types, sortFields, sortOrders, sortBufferSize, maxOpenSortFiles, pageSorter, orcFileWriterFactory));
+            this.sortingFileWriterFactory = Optional.of(new SortingFileWriterFactory(
+                    hdfsEnvironment,
+                    session,
+                    conf,
+                    types,
+                    sortFields,
+                    sortOrders,
+                    sortBufferSize,
+                    maxOpenSortFiles,
+                    pageSorter,
+                    orcFileWriterFactory,
+                    isSortedWriteToTempPathEnabled(session),
+                    getSortedWriteTempPathSubdirectoryCount(session)));
         }
         else {
             this.sortingFileWriterFactory = Optional.empty();
@@ -269,7 +283,6 @@ public class HiveWriterFactory
         }
 
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
-
 
         this.partitionCommitRequired = partitionCommitRequired;
     }
@@ -519,7 +532,8 @@ public class HiveWriterFactory
         };
 
         if (sortingFileWriterFactory.isPresent()) {
-            hiveFileWriter = sortingFileWriterFactory.get().createSortingFileWriter(path, hiveFileWriter);
+            checkState(bucketNumber.isPresent(), "missing bucket number for sorted table write");
+            hiveFileWriter = sortingFileWriterFactory.get().createSortingFileWriter(path, hiveFileWriter, bucketNumber.getAsInt(), writeInfo.getTempPath());
         }
 
         return new HiveWriter(

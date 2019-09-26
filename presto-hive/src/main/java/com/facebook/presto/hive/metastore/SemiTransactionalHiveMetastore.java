@@ -871,7 +871,14 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges));
     }
 
-    public synchronized void declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName, boolean temporaryTable)
+    public synchronized void declareIntentionToWrite(
+            ConnectorSession session,
+            WriteMode writeMode,
+            Path stagingPathRoot,
+            Optional<Path> tempPathRoot,
+            String filePrefix,
+            SchemaTableName schemaTableName,
+            boolean temporaryTable)
     {
         setShared();
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
@@ -881,7 +888,7 @@ public class SemiTransactionalHiveMetastore
             }
         }
         HdfsContext context = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, stagingPathRoot, filePrefix, schemaTableName, temporaryTable));
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, stagingPathRoot, tempPathRoot, filePrefix, schemaTableName, temporaryTable));
     }
 
     public synchronized void commit()
@@ -1048,6 +1055,9 @@ public class SemiTransactionalHiveMetastore
 
             // Clean up empty staging directories (that may recursively contain empty directories)
             committer.deleteEmptyStagingDirectories(declaredIntentionsToWrite);
+
+            // Clean up root temp directories
+            deleteTempPathRootDirectory(declaredIntentionsToWrite, hdfsEnvironment);
         }
     }
 
@@ -1361,7 +1371,7 @@ public class SemiTransactionalHiveMetastore
                 if (declaredIntentionToWrite.getMode() != WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
                     continue;
                 }
-                Path path = declaredIntentionToWrite.getRootPath();
+                Path path = declaredIntentionToWrite.getStagingPathRoot();
                 recursiveDeleteFilesAndLog(declaredIntentionToWrite.getContext(), path, ImmutableList.of(), true, "staging directory cleanup");
             }
         }
@@ -1513,6 +1523,7 @@ public class SemiTransactionalHiveMetastore
         checkHoldsLock();
 
         deleteTemporaryTableDirectories(declaredIntentionsToWrite, hdfsEnvironment);
+        deleteTempPathRootDirectory(declaredIntentionsToWrite, hdfsEnvironment);
 
         for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
             switch (declaredIntentionToWrite.getMode()) {
@@ -1523,7 +1534,7 @@ public class SemiTransactionalHiveMetastore
                     }
                     // Note: For STAGE_AND_MOVE_TO_TARGET_DIRECTORY there is no need to cleanup the target directory as it will only be written
                     // to during the commit call and the commit call cleans up after failures.
-                    Path rootPath = declaredIntentionToWrite.getRootPath();
+                    Path rootPath = declaredIntentionToWrite.getStagingPathRoot();
 
                     // In the case of DIRECT_TO_TARGET_NEW_DIRECTORY, if the directory is not guaranteed to be unique
                     // for the query, it is possible that another query or compute engine may see the directory, wrote
@@ -1545,7 +1556,7 @@ public class SemiTransactionalHiveMetastore
                     // Check the base directory of the declared intention
                     // * existing partition may also be in this directory
                     // * this is where new partitions are created
-                    Path baseDirectory = declaredIntentionToWrite.getRootPath();
+                    Path baseDirectory = declaredIntentionToWrite.getStagingPathRoot();
                     pathsToClean.add(baseDirectory);
 
                     SchemaTableName schemaTableName = declaredIntentionToWrite.getSchemaTableName();
@@ -1598,7 +1609,16 @@ public class SemiTransactionalHiveMetastore
     {
         for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
             if (declaredIntentionToWrite.isTemporaryTable()) {
-                deleteRecursivelyIfExists(declaredIntentionToWrite.getContext(), hdfsEnvironment, declaredIntentionToWrite.getRootPath());
+                deleteRecursivelyIfExists(declaredIntentionToWrite.getContext(), hdfsEnvironment, declaredIntentionToWrite.getStagingPathRoot());
+            }
+        }
+    }
+
+    private static void deleteTempPathRootDirectory(List<DeclaredIntentionToWrite> declaredIntentionsToWrite, HdfsEnvironment hdfsEnvironment)
+    {
+        for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
+            if (declaredIntentionToWrite.getTempPathRoot().isPresent()) {
+                deleteRecursivelyIfExists(declaredIntentionToWrite.getContext(), hdfsEnvironment, declaredIntentionToWrite.getTempPathRoot().get());
             }
         }
     }
@@ -2176,15 +2196,24 @@ public class SemiTransactionalHiveMetastore
         private final WriteMode mode;
         private final HdfsContext context;
         private final String filePrefix;
-        private final Path rootPath;
+        private final Path stagingPathRoot;
+        private final Optional<Path> tempPathRoot;
         private final SchemaTableName schemaTableName;
         private final boolean temporaryTable;
 
-        public DeclaredIntentionToWrite(WriteMode mode, HdfsContext context, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName, boolean temporaryTable)
+        public DeclaredIntentionToWrite(
+                WriteMode mode,
+                HdfsContext context,
+                Path stagingPathRoot,
+                Optional<Path> tempPathRoot,
+                String filePrefix,
+                SchemaTableName schemaTableName,
+                boolean temporaryTable)
         {
             this.mode = requireNonNull(mode, "mode is null");
             this.context = requireNonNull(context, "context is null");
-            this.rootPath = requireNonNull(stagingPathRoot, "stagingPathRoot is null");
+            this.stagingPathRoot = requireNonNull(stagingPathRoot, "stagingPathRoot is null");
+            this.tempPathRoot = requireNonNull(tempPathRoot, "tempPathRoot is null");
             this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.temporaryTable = temporaryTable;
@@ -2205,9 +2234,14 @@ public class SemiTransactionalHiveMetastore
             return filePrefix;
         }
 
-        public Path getRootPath()
+        public Path getStagingPathRoot()
         {
-            return rootPath;
+            return stagingPathRoot;
+        }
+
+        public Optional<Path> getTempPathRoot()
+        {
+            return tempPathRoot;
         }
 
         public SchemaTableName getSchemaTableName()
@@ -2227,7 +2261,8 @@ public class SemiTransactionalHiveMetastore
                     .add("mode", mode)
                     .add("context", context)
                     .add("filePrefix", filePrefix)
-                    .add("rootPath", rootPath)
+                    .add("stagingPathRoot", stagingPathRoot)
+                    .add("tempPathRoot", tempPathRoot)
                     .add("schemaTableName", schemaTableName)
                     .add("temporaryTable", temporaryTable)
                     .toString();

@@ -88,6 +88,8 @@ import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchange
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TEMP_PATH_SUBDIRECTORY_COUNT;
+import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TO_TEMP_PATH_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -1910,6 +1912,65 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(
                 Session.builder(session).setSystemProperty("task_writer_count", "4").build(),
                 "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+    }
+
+    @Test
+    public void testWriteSortedTable()
+    {
+        testWriteSortedTable(getSession());
+        testWriteSortedTable(Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, SORTED_WRITE_TO_TEMP_PATH_ENABLED, "true")
+                .setCatalogSessionProperty(catalog, SORTED_WRITE_TEMP_PATH_SUBDIRECTORY_COUNT, "10")
+                .build());
+    }
+
+    private void testWriteSortedTable(Session session)
+    {
+        try {
+            // create table
+            assertUpdate(
+                    session,
+                    "CREATE TABLE create_partitioned_sorted_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "WITH (partitioned_by = ARRAY['orderstatus'], bucketed_by = ARRAY['custkey'], bucket_count = 11, sorted_by = ARRAY['orderkey']) AS\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+            assertQuery(
+                    session,
+                    "SELECT count(*) FROM create_partitioned_sorted_table",
+                    "SELECT count(*) * 100 FROM orders");
+
+            assertUpdate(
+                    session,
+                    "CREATE TABLE create_unpartitioned_sorted_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "WITH (bucketed_by = ARRAY['custkey'], bucket_count = 11, sorted_by = ARRAY['orderkey']) AS\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+            assertQuery(
+                    session,
+                    "SELECT count(*) FROM create_unpartitioned_sorted_table",
+                    "SELECT count(*) * 100 FROM orders");
+
+            // insert
+            assertUpdate(
+                    session,
+                    "CREATE TABLE insert_partitioned_sorted_table (LIKE create_partitioned_sorted_table) " +
+                            "WITH (partitioned_by = ARRAY['orderstatus'], bucketed_by = ARRAY['custkey'], bucket_count = 11, sorted_by = ARRAY['orderkey'])");
+
+            assertUpdate(
+                    session,
+                    "INSERT INTO insert_partitioned_sorted_table\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+            assertQuery(
+                    session,
+                    "SELECT count(*) FROM insert_partitioned_sorted_table",
+                    "SELECT count(*) * 100 FROM orders");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS create_partitioned_sorted_table");
+            assertUpdate(session, "DROP TABLE IF EXISTS create_unpartitioned_sorted_table");
+            assertUpdate(session, "DROP TABLE IF EXISTS insert_partitioned_sorted_table");
+        }
     }
 
     @Test
