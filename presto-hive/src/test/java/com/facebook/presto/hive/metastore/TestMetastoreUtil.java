@@ -27,8 +27,15 @@ import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveType.HIVE_DATE;
+import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
+import static com.facebook.presto.hive.HiveType.HIVE_INT;
+import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.reconstructPartitionSchema;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestMetastoreUtil
@@ -163,5 +170,28 @@ public class TestMetastoreUtil
     {
         Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS);
         ThriftMetastoreUtil.toMetastoreApiPartition(partition);
+    }
+
+    @Test
+    public void testReconstructPartitionSchema()
+    {
+        Column c1 = new Column("_c1", HIVE_STRING, Optional.empty());
+        Column c2 = new Column("_c2", HIVE_INT, Optional.empty());
+        Column c3 = new Column("_c3", HIVE_DOUBLE, Optional.empty());
+        Column c4 = new Column("_c4", HIVE_DATE, Optional.empty());
+
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(), 0, ImmutableMap.of()), ImmutableList.of());
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1), 0, ImmutableMap.of()), ImmutableList.of());
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1), 1, ImmutableMap.of()), ImmutableList.of(c1));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2), 1, ImmutableMap.of()), ImmutableList.of(c1));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2), 3, ImmutableMap.of(2, c3)), ImmutableList.of(c1, c2, c3));
+        assertEquals(reconstructPartitionSchema(ImmutableList.of(c1, c2, c3), 3, ImmutableMap.of(1, c4)), ImmutableList.of(c1, c4, c3));
+
+        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(), 1, ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of(0, c2)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

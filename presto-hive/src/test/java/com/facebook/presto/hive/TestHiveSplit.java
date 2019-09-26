@@ -16,6 +16,9 @@ package com.facebook.presto.hive;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.HostAddress;
@@ -40,7 +43,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
@@ -57,10 +59,6 @@ public class TestHiveSplit
     public void testJsonRoundTrip()
             throws Exception
     {
-        Properties schema = new Properties();
-        schema.setProperty("foo", "bar");
-        schema.setProperty("bar", "baz");
-
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
         HiveSplit expected = new HiveSplit(
@@ -71,13 +69,19 @@ public class TestHiveSplit
                 42,
                 87,
                 88,
-                schema,
+                new Storage(
+                        StorageFormat.create("serde", "input", "output"),
+                        "location",
+                        Optional.empty(),
+                        false,
+                        ImmutableMap.of()),
                 partitionKeys,
                 addresses,
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 true,
-                ImmutableMap.of(1, HIVE_STRING),
+                10,
+                ImmutableMap.of(1, new Column("name", HIVE_STRING, Optional.empty())),
                 Optional.of(new HiveSplit.BucketConversion(
                         32,
                         16,
@@ -95,10 +99,11 @@ public class TestHiveSplit
         assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getLength(), expected.getLength());
         assertEquals(actual.getFileSize(), expected.getFileSize());
-        assertEquals(actual.getSchema(), expected.getSchema());
+        assertEquals(actual.getStorage(), expected.getStorage());
         assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
         assertEquals(actual.getAddresses(), expected.getAddresses());
-        assertEquals(actual.getColumnCoercions(), expected.getColumnCoercions());
+        assertEquals(actual.getPartitionDataColumnCount(), expected.getPartitionDataColumnCount());
+        assertEquals(actual.getPartitionSchemaDifference(), expected.getPartitionSchemaDifference());
         assertEquals(actual.getBucketConversion(), expected.getBucketConversion());
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());

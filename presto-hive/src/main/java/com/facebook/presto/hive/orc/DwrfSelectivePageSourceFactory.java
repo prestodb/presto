@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -37,10 +38,8 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static java.util.Objects.requireNonNull;
@@ -74,7 +73,7 @@ public class DwrfSelectivePageSourceFactory
             long start,
             long length,
             long fileSize,
-            Properties schema,
+            Storage storage,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
             List<Integer> outputColumns,
@@ -82,7 +81,7 @@ public class DwrfSelectivePageSourceFactory
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isDeserializerClass(schema, OrcSerde.class)) {
+        if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
         }
 

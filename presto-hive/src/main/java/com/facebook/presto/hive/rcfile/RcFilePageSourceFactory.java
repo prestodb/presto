@@ -17,6 +17,7 @@ import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
 import com.facebook.presto.rcfile.RcFileCorruptionException;
@@ -49,13 +50,14 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -97,18 +99,18 @@ public class RcFilePageSourceFactory
             long start,
             long length,
             long fileSize,
-            Properties schema,
+            Storage storage,
+            Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         RcFileEncoding rcFileEncoding;
-        String deserializerClassName = getDeserializerClassName(schema);
-        if (deserializerClassName.equals(LazyBinaryColumnarSerDe.class.getName())) {
+        if (LazyBinaryColumnarSerDe.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             rcFileEncoding = new BinaryRcFileEncoding();
         }
-        else if (deserializerClassName.equals(ColumnarSerDe.class.getName())) {
-            rcFileEncoding = createTextVectorEncoding(schema, hiveStorageTimeZone);
+        else if (ColumnarSerDe.class.getName().equals(storage.getStorageFormat().getSerDe())) {
+            rcFileEncoding = createTextVectorEncoding(getHiveSchema(storage.getSerdeParameters(), tableParameters), hiveStorageTimeZone);
         }
         else {
             return Optional.empty();

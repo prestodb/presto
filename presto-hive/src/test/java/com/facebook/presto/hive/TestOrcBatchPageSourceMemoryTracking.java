@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
@@ -29,6 +31,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -91,7 +94,6 @@ import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -114,9 +116,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.ZLIB;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
@@ -403,7 +403,7 @@ public class TestOrcBatchPageSourceMemoryTracking
     private class TestPreparer
     {
         private final FileSplit fileSplit;
-        private final Properties schema;
+        private final Storage storage;
         private final TableHandle table;
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
@@ -421,17 +421,12 @@ public class TestOrcBatchPageSourceMemoryTracking
                 throws Exception
         {
             OrcSerde serde = new OrcSerde();
-            schema = new Properties();
-            schema.setProperty("columns",
-                    testColumns.stream()
-                            .map(TestColumn::getName)
-                            .collect(Collectors.joining(",")));
-            schema.setProperty("columns.types",
-                    testColumns.stream()
-                            .map(TestColumn::getType)
-                            .collect(Collectors.joining(",")));
-            schema.setProperty(FILE_INPUT_FORMAT, OrcInputFormat.class.getName());
-            schema.setProperty(SERIALIZATION_LIB, serde.getClass().getName());
+            storage = new Storage(
+                    StorageFormat.create(serde.getClass().getName(), OrcInputFormat.class.getName(), OrcOutputFormat.class.getName()),
+                    "location",
+                    Optional.empty(),
+                    false,
+                    ImmutableMap.of());
 
             partitionKeys = testColumns.stream()
                     .filter(TestColumn::isPartitionKey)
@@ -487,12 +482,17 @@ public class TestOrcBatchPageSourceMemoryTracking
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     fileSplit.getLength(),
-                    schema,
+                    storage,
                     TupleDomain.all(),
                     columns,
                     partitionKeys,
                     DateTimeZone.UTC,
                     TYPE_MANAGER,
+                    new SchemaTableName("schema", "table"),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    ImmutableMap.of(),
+                    0,
                     ImmutableMap.of(),
                     Optional.empty(),
                     false)

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
@@ -24,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nullable;
 
@@ -37,7 +39,9 @@ public final class HiveTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final SchemaTableName schemaTableName;
-    private final List<ColumnHandle> partitionColumns;
+    private final List<HiveColumnHandle> partitionColumns;
+    private final List<Column> dataColumns;
+    private final Map<String, String> tableParameters;
     private final TupleDomain<Subfield> domainPredicate;
     private final RowExpression remainingPredicate;
     private final Map<String, HiveColumnHandle> predicateColumns;
@@ -53,7 +57,9 @@ public final class HiveTableLayoutHandle
     @JsonCreator
     public HiveTableLayoutHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-            @JsonProperty("partitionColumns") List<ColumnHandle> partitionColumns,
+            @JsonProperty("partitionColumns") List<HiveColumnHandle> partitionColumns,
+            @JsonProperty("dataColumns") List<Column> dataColumns,
+            @JsonProperty("tableParameters") Map<String, String> tableParameters,
             @JsonProperty("domainPredicate") TupleDomain<Subfield> domainPredicate,
             @JsonProperty("remainingPredicate") RowExpression remainingPredicate,
             @JsonProperty("predicateColumns") Map<String, HiveColumnHandle> predicateColumns,
@@ -64,6 +70,8 @@ public final class HiveTableLayoutHandle
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
+        this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
+        this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
         this.domainPredicate = requireNonNull(domainPredicate, "domainPredicate is null");
         this.remainingPredicate = requireNonNull(remainingPredicate, "remainingPredicate is null");
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
@@ -76,7 +84,9 @@ public final class HiveTableLayoutHandle
 
     public HiveTableLayoutHandle(
             SchemaTableName schemaTableName,
-            List<ColumnHandle> partitionColumns,
+            List<HiveColumnHandle> partitionColumns,
+            List<Column> dataColumns,
+            Map<String, String> tableParameters,
             List<HivePartition> partitions,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
@@ -88,6 +98,8 @@ public final class HiveTableLayoutHandle
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
+        this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
+        this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.domainPredicate = requireNonNull(domainPredicate, "domainPredicate is null");
         this.remainingPredicate = requireNonNull(remainingPredicate, "remainingPredicate is null");
@@ -105,9 +117,21 @@ public final class HiveTableLayoutHandle
     }
 
     @JsonProperty
-    public List<ColumnHandle> getPartitionColumns()
+    public List<HiveColumnHandle> getPartitionColumns()
     {
         return partitionColumns;
+    }
+
+    @JsonProperty
+    public List<Column> getDataColumns()
+    {
+        return dataColumns;
+    }
+
+    @JsonProperty
+    public Map<String, String> getTableParameters()
+    {
+        return tableParameters;
     }
 
     /**

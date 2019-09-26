@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Subfield;
@@ -25,7 +26,6 @@ import org.joda.time.DateTimeZone;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 public interface HiveSelectivePageSourceFactory
 {
@@ -36,7 +36,7 @@ public interface HiveSelectivePageSourceFactory
             long start,
             long length,
             long fileSize,
-            Properties schema,
+            Storage storage,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,   // key is hiveColumnIndex
             List<Integer> outputColumns,            // element is hiveColumnIndex

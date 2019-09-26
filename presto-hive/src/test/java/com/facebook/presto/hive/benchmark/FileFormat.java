@@ -27,6 +27,8 @@ import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.RecordFileWriter;
 import com.facebook.presto.hive.TypeTranslator;
 import com.facebook.presto.hive.benchmark.HiveFileFormatBenchmark.TestData;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -400,7 +402,13 @@ public enum FileFormat
                         0,
                         targetFile.length(),
                         targetFile.length(),
-                        createSchema(format, columnNames, columnTypes),
+                        new Storage(
+                                StorageFormat.create(format.getSerDe(), format.getInputFormat(), format.getOutputFormat()),
+                                "location",
+                                Optional.empty(),
+                                false,
+                                ImmutableMap.of()),
+                        ImmutableMap.of(),
                         columnHandles,
                         TupleDomain.all(),
                         DateTimeZone.forID(session.getTimeZoneKey().getId()))

@@ -191,8 +191,13 @@ import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFact
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.hive.HiveTestUtils.rowType;
+import static com.facebook.presto.hive.HiveType.HIVE_BOOLEAN;
+import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
+import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
+import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
+import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
@@ -662,6 +667,8 @@ public abstract class AbstractTestHiveClient
         invalidTableLayoutHandle = new HiveTableLayoutHandle(
                 invalidTable,
                 ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
                 ImmutableList.of(new HivePartition(invalidTable, "unknown", ImmutableMap.of())),
                 TupleDomain.all(),
                 TRUE_CONSTANT,
@@ -677,7 +684,7 @@ public abstract class AbstractTestHiveClient
         intColumn = new HiveColumnHandle("t_int", HIVE_INT, parseTypeSignature(StandardTypes.INTEGER), -1, PARTITION_KEY, Optional.empty());
         invalidColumnHandle = new HiveColumnHandle(INVALID_COLUMN, HIVE_STRING, parseTypeSignature(StandardTypes.VARCHAR), 0, REGULAR, Optional.empty());
 
-        List<ColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn);
+        List<HiveColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn);
         List<HivePartition> partitions = ImmutableList.<HivePartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
                         "ds=2012-12-29/file_format=textfile/dummy=1",
@@ -713,7 +720,27 @@ public abstract class AbstractTestHiveClient
         TupleDomain<Subfield> domainPredicate = tupleDomain.transform(HiveColumnHandle.class::cast)
                 .transform(column -> new Subfield(column.getName(), ImmutableList.of()));
         tableLayout = new ConnectorTableLayout(
-                new HiveTableLayoutHandle(tablePartitionFormat, partitionColumns, partitions, domainPredicate, TRUE_CONSTANT, ImmutableMap.of(dsColumn.getName(), dsColumn), tupleDomain, Optional.empty(), Optional.empty(), "layout"),
+                new HiveTableLayoutHandle(
+                        tablePartitionFormat,
+                        partitionColumns,
+                        ImmutableList.of(
+                                new Column("t_string", HIVE_STRING, Optional.empty()),
+                                new Column("t_tinyint", HIVE_BYTE, Optional.empty()),
+                                new Column("t_smallint", HIVE_SHORT, Optional.empty()),
+                                new Column("t_int", HIVE_INT, Optional.empty()),
+                                new Column("t_bigint", HIVE_LONG, Optional.empty()),
+                                new Column("t_float", HIVE_FLOAT, Optional.empty()),
+                                new Column("t_double", HIVE_DOUBLE, Optional.empty()),
+                                new Column("t_boolean", HIVE_BOOLEAN, Optional.empty())),
+                        ImmutableMap.of(),
+                        partitions,
+                        domainPredicate,
+                        TRUE_CONSTANT,
+                        ImmutableMap.of(dsColumn.getName(), dsColumn),
+                        tupleDomain,
+                        Optional.empty(),
+                        Optional.empty(),
+                        "layout"),
                 Optional.empty(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
@@ -721,7 +748,7 @@ public abstract class AbstractTestHiveClient
                         dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 1L), Range.equal(INTEGER, 2L), Range.equal(INTEGER, 3L), Range.equal(INTEGER, 4L)), false))),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(new DiscretePredicates(partitionColumns, ImmutableList.of(
+                Optional.of(new DiscretePredicates(ImmutableList.copyOf(partitionColumns), ImmutableList.of(
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("textfile"))), false),
@@ -740,7 +767,21 @@ public abstract class AbstractTestHiveClient
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))))),
                 ImmutableList.of());
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned));
-        unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(tableUnpartitioned, ImmutableList.of(), unpartitionedPartitions, TupleDomain.all(), TRUE_CONSTANT, ImmutableMap.of(), TupleDomain.all(), Optional.empty(), Optional.empty(), "layout"));
+        unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(
+                tableUnpartitioned,
+                ImmutableList.of(),
+                ImmutableList.of(
+                        new Column("t_string", HIVE_STRING, Optional.empty()),
+                        new Column("t_tinyint", HIVE_BYTE, Optional.empty())),
+                ImmutableMap.of(),
+                unpartitionedPartitions,
+                TupleDomain.all(),
+                TRUE_CONSTANT,
+                ImmutableMap.of(),
+                TupleDomain.all(),
+                Optional.empty(),
+                Optional.empty(),
+                "layout"));
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
@@ -1773,6 +1814,8 @@ public abstract class AbstractTestHiveClient
             HiveTableLayoutHandle modifiedReadBucketCountLayoutHandle = new HiveTableLayoutHandle(
                     layoutHandle.getSchemaTableName(),
                     layoutHandle.getPartitionColumns(),
+                    layoutHandle.getDataColumns(),
+                    layoutHandle.getTableParameters(),
                     layoutHandle.getPartitions().get(),
                     layoutHandle.getDomainPredicate(),
                     layoutHandle.getRemainingPredicate(),
