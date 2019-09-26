@@ -26,8 +26,6 @@ import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -61,6 +59,8 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
@@ -69,8 +69,6 @@ import static java.util.stream.Collectors.toList;
 public class TestMapFlatSelectiveStreamReader
 {
     // TODO: Add tests for timestamp as value type
-
-    // TODO: Enable tests for strings, maps and varbinary
 
     private static final int NUM_ROWS = 31_234;
 
@@ -128,30 +126,30 @@ public class TestMapFlatSelectiveStreamReader
                 ExpectedValuesBuilder.get(Integer::longValue));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testString()
             throws Exception
     {
         runTest("test_flat_map/flat_map_string.dwrf",
-                VarcharType.VARCHAR,
+                VARCHAR,
                 ExpectedValuesBuilder.get(i -> Integer.toString(i)));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testStringWithNull()
             throws Exception
     {
         runTest("test_flat_map/flat_map_string_with_null.dwrf",
-                VarcharType.VARCHAR,
+                VARCHAR,
                 ExpectedValuesBuilder.get(i -> Integer.toString(i)).setNullValuesFrequency(SOME));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testBinary()
             throws Exception
     {
         runTest("test_flat_map/flat_map_binary.dwrf",
-                VarbinaryType.VARBINARY,
+                VARBINARY,
                 ExpectedValuesBuilder.get(i -> new SqlVarbinary(Integer.toString(i).getBytes(StandardCharsets.UTF_8))));
     }
 
@@ -237,25 +235,25 @@ public class TestMapFlatSelectiveStreamReader
                 ExpectedValuesBuilder.get(Function.identity(), TestMapFlatSelectiveStreamReader::intToList).setNullValuesFrequency(SOME));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMap()
             throws Exception
     {
         runTest(
                 "test_flat_map/flat_map_map.dwrf",
                 INTEGER,
-                mapType(VarcharType.VARCHAR, REAL),
+                mapType(VARCHAR, REAL),
                 ExpectedValuesBuilder.get(Function.identity(), TestMapFlatSelectiveStreamReader::intToMap));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMapWithNull()
             throws Exception
     {
         runTest(
                 "test_flat_map/flat_map_map_with_null.dwrf",
                 INTEGER,
-                mapType(VarcharType.VARCHAR, REAL),
+                mapType(VARCHAR, REAL),
                 ExpectedValuesBuilder.get(Function.identity(), TestMapFlatSelectiveStreamReader::intToMap).setNullValuesFrequency(SOME));
     }
 
@@ -369,14 +367,16 @@ public class TestMapFlatSelectiveStreamReader
         runTest(testOrcFileName, mapType, expectedValues.stream().filter(Objects::isNull).collect(toList()), orcPredicate, Optional.of(IS_NULL), ImmutableList.of());
         runTest(testOrcFileName, mapType, expectedValues.stream().filter(Objects::nonNull).collect(toList()), orcPredicate, Optional.of(IS_NOT_NULL), ImmutableList.of());
 
-        // read only some keys
-        List<K> keys = expectedValues.stream().filter(Objects::nonNull).flatMap(v -> v.keySet().stream()).distinct().collect(toImmutableList());
-        if (!keys.isEmpty()) {
-            List<K> requiredKeys = ImmutableList.of(keys.get(0));
-            runTest(testOrcFileName, mapType, pruneMaps(expectedValues, requiredKeys), orcPredicate, Optional.empty(), toSubfields(keyType, requiredKeys));
+        if (keyType != VARBINARY) {
+            // read only some keys
+            List<K> keys = expectedValues.stream().filter(Objects::nonNull).flatMap(v -> v.keySet().stream()).distinct().collect(toImmutableList());
+            if (!keys.isEmpty()) {
+                List<K> requiredKeys = ImmutableList.of(keys.get(0));
+                runTest(testOrcFileName, mapType, pruneMaps(expectedValues, requiredKeys), orcPredicate, Optional.empty(), toSubfields(keyType, requiredKeys));
 
-            requiredKeys = ImmutableList.of(keys.get(1), keys.get(3), keys.get(7), keys.get(11));
-            runTest(testOrcFileName, mapType, pruneMaps(expectedValues, requiredKeys), orcPredicate, Optional.empty(), toSubfields(keyType, requiredKeys));
+                requiredKeys = ImmutableList.of(keys.get(1), keys.get(3), keys.get(7), keys.get(11));
+                runTest(testOrcFileName, mapType, pruneMaps(expectedValues, requiredKeys), orcPredicate, Optional.empty(), toSubfields(keyType, requiredKeys));
+            }
         }
 
         // read only some rows
@@ -426,7 +426,15 @@ public class TestMapFlatSelectiveStreamReader
                     .collect(toImmutableList());
         }
 
-        return ImmutableList.of();
+        if (keyType == VARCHAR) {
+            return keys.stream()
+                    .map(String.class::cast)
+                    .map(key -> new Subfield.StringSubscript(key))
+                    .map(subscript -> new Subfield("c", ImmutableList.of(subscript)))
+                    .collect(toImmutableList());
+        }
+
+        throw new UnsupportedOperationException("Unsupported key type: " + keyType);
     }
 
     private <K, V> void runTest(String testOrcFileName, Type mapType, List<Map<K, V>> expectedValues, OrcPredicate orcPredicate, Optional<TupleDomainFilter> filter, List<Subfield> subfields)
