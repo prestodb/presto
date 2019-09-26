@@ -51,7 +51,9 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
+import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -60,6 +62,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -203,7 +206,14 @@ public class HivePageSourceProvider
             }
         }
 
-        throw new IllegalStateException("Could not find a file reader for split " + split);
+        String errorMessage = format("Cannot read file in format %s: %s. " +
+                "Optimized table scan supports only ORC and DWRF files. " +
+                "It is disabled for tables with schemas other than these specified in the Metastore. " +
+                "Use %s session property to disable optimized table scan for tables that report ORC/DWRF schema in Metastore, " +
+                "but include files in other formats. File schema: %s. File path: %s.",
+                getDeserializerClassName(split.getSchema()), path, PUSHDOWN_FILTER_ENABLED);
+
+        throw new IllegalStateException(errorMessage);
     }
 
     private static List<HiveColumnHandle> assignUniqueIndicesToPartitionColumns(List<HiveColumnHandle> columns)
