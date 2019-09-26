@@ -15,6 +15,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.block.ArrayAllocator;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -39,6 +40,8 @@ import static java.util.Objects.requireNonNull;
 class SimpleArrayAllocator
         implements ArrayAllocator
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SimpleArrayAllocator.class).instanceSize();
+
     private static final int DEFAULT_MAX_OUTSTANDING = 1000;
     private final int maxOutstandingArrays;
 
@@ -95,5 +98,11 @@ class SimpleArrayAllocator
     public long getEstimatedSizeInBytes()
     {
         return estimatedSizeInBytes;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + getEstimatedSizeInBytes();
     }
 }

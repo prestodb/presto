@@ -34,6 +34,7 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -59,6 +60,8 @@ public class BenchmarkBlockFlattener
     private static class ThrowawayArrayAllocator
             implements ArrayAllocator
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ThrowawayArrayAllocator.class).instanceSize();
+
         @Override
         public int[] borrowIntArray(int positionCount)
         {
@@ -81,6 +84,12 @@ public class BenchmarkBlockFlattener
         public long getEstimatedSizeInBytes()
         {
             return 0;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
         }
     }
 

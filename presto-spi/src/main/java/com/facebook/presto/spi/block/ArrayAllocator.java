@@ -26,6 +26,8 @@ import com.facebook.presto.spi.api.Experimental;
 @Experimental
 public interface ArrayAllocator
 {
+    public long getRetainedSizeInBytes();
+
     int[] borrowIntArray(int positionCount);
 
     void returnArray(int[] array);

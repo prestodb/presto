@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.block;
 
+import org.openjdk.jol.info.ClassLayout;
+
 /**
  * Test class which always allocates a new array but keeps track of the number
  * of borrowed arrays.
@@ -20,6 +22,8 @@ package com.facebook.presto.spi.block;
 class CountingArrayAllocator
         implements ArrayAllocator
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(CountingArrayAllocator.class).instanceSize();
+
     private int borrowedArrays;
 
     @Override
@@ -45,5 +49,11 @@ class CountingArrayAllocator
     public long getEstimatedSizeInBytes()
     {
         return 0;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
     }
 }
