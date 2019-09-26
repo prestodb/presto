@@ -27,8 +27,11 @@ import org.apache.hadoop.mapred.JobConf;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
+import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SortingFileWriterFactory
@@ -43,6 +46,8 @@ public class SortingFileWriterFactory
     private final int maxOpenSortFiles;
     private final PageSorter pageSorter;
     private final OrcFileWriterFactory orcFileWriterFactory;
+    private final boolean sortedWriteToTempPathEnabled;
+    private final int sortedWriteTempFileSubdirectoryCount;
 
     public SortingFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
@@ -54,7 +59,9 @@ public class SortingFileWriterFactory
             DataSize sortBufferSize,
             int maxOpenSortFiles,
             PageSorter pageSorter,
-            OrcFileWriterFactory orcFileWriterFactory)
+            OrcFileWriterFactory orcFileWriterFactory,
+            boolean sortedWriteToTempPathEnabled,
+            int sortedWriteTempFileSubdirectoryCount)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.session = requireNonNull(session, "session is null");
@@ -66,10 +73,14 @@ public class SortingFileWriterFactory
         this.maxOpenSortFiles = maxOpenSortFiles;
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
+        this.sortedWriteToTempPathEnabled = sortedWriteToTempPathEnabled;
+        this.sortedWriteTempFileSubdirectoryCount = sortedWriteTempFileSubdirectoryCount;
     }
 
-    public SortingFileWriter createSortingFileWriter(Path path, HiveFileWriter outputWriter)
+    public SortingFileWriter createSortingFileWriter(Path path, HiveFileWriter outputWriter, int bucketNumber, Optional<Path> tempPath)
     {
+        checkState(tempPath.isPresent() == sortedWriteToTempPathEnabled, "tempPath existence is not consistent with sortedWriteToTempPathEnabled config");
+
         FileSystem fileSystem;
         try {
             fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, conf);
@@ -78,9 +89,12 @@ public class SortingFileWriterFactory
             throw new PrestoException(HIVE_WRITER_OPEN_ERROR, e);
         }
 
+        Path prefix = sortedWriteToTempPathEnabled
+                ? new Path(tempPath.get(), format(".tmp-sort-%s/.tmp-sort-%s", bucketNumber % sortedWriteTempFileSubdirectoryCount, path.getName()))
+                : new Path(path.getParent(), ".tmp-sort." + path.getName());
         return new SortingFileWriter(
                 fileSystem,
-                new Path(path.getParent(), ".tmp-sort." + path.getName()),
+                prefix,
                 outputWriter,
                 sortBufferSize,
                 maxOpenSortFiles,
@@ -88,6 +102,7 @@ public class SortingFileWriterFactory
                 sortFields,
                 sortOrders,
                 pageSorter,
-                (fs, p) -> orcFileWriterFactory.createOrcDataSink(session, fs, p));
+                (fs, p) -> orcFileWriterFactory.createOrcDataSink(session, fs, p),
+                sortedWriteToTempPathEnabled);
     }
 }

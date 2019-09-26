@@ -26,6 +26,7 @@ import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.SortingColumn;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
@@ -154,6 +155,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStat
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
+import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.AVRO_SCHEMA_URL;
@@ -708,7 +710,7 @@ public class HiveMetadata
         }
         else {
             tableType = MANAGED_TABLE;
-            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
+            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty));
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
         }
 
@@ -1117,7 +1119,7 @@ public class HiveMetadata
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName);
+        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty));
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 schemaName,
                 tableName,
@@ -1134,7 +1136,14 @@ public class HiveMetadata
                 tableProperties);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), result.getFilePrefix(), schemaTableName, false);
+        metastore.declareIntentionToWrite(
+                session,
+                writeInfo.getWriteMode(),
+                writeInfo.getWritePath(),
+                writeInfo.getTempPath(),
+                result.getFilePrefix(),
+                schemaTableName,
+                false);
 
         return result;
     }
@@ -1347,11 +1356,12 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table.get());
         LocationHandle locationHandle;
         boolean isTemporaryTable = table.get().getTableType().equals(TEMPORARY_TABLE);
+        boolean tempPathRequired = isTempPathRequired(session, table.map(Table::getStorage).flatMap(Storage::getBucketProperty));
         if (isTemporaryTable) {
-            locationHandle = locationService.forTemporaryTable(metastore, session, table.get());
+            locationHandle = locationService.forTemporaryTable(metastore, session, table.get(), tempPathRequired);
         }
         else {
-            locationHandle = locationService.forExistingTable(metastore, session, table.get());
+            locationHandle = locationService.forExistingTable(metastore, session, table.get(), tempPathRequired);
         }
         HiveInsertTableHandle result = new HiveInsertTableHandle(
                 tableName.getSchemaName(),
@@ -1366,7 +1376,14 @@ public class HiveMetadata
                 isTemporaryTable ? getTemporaryTableCompressionCodec(session) : getCompressionCodec(session));
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), result.getFilePrefix(), tableName, isTemporaryTable);
+        metastore.declareIntentionToWrite(
+                session,
+                writeInfo.getWriteMode(),
+                writeInfo.getWritePath(),
+                writeInfo.getTempPath(),
+                result.getFilePrefix(),
+                tableName,
+                isTemporaryTable);
         return result;
     }
 
@@ -1472,6 +1489,11 @@ public class HiveMetadata
                         .map(PartitionUpdate::getName)
                         .map(name -> name.isEmpty() ? UNPARTITIONED_ID : name)
                         .collect(Collectors.toList())));
+    }
+
+    private static boolean isTempPathRequired(ConnectorSession session, Optional<HiveBucketProperty> bucketProperty)
+    {
+        return isSortedWriteToTempPathEnabled(session) && bucketProperty.map(property -> !property.getSortedBy().isEmpty()).orElse(false);
     }
 
     private List<String> getTargetFileNames(List<FileWriteInfo> fileWriteInfos)

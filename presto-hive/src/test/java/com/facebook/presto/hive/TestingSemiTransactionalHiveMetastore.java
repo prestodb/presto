@@ -319,7 +319,7 @@ public class TestingSemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized void declareIntentionToWrite(ConnectorSession session, LocationHandle.WriteMode writeMode, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName, boolean temporaryTable)
+    public synchronized void declareIntentionToWrite(ConnectorSession session, LocationHandle.WriteMode writeMode, Path stagingPathRoot, Optional<Path> tempPathRoot, String filePrefix, SchemaTableName schemaTableName, boolean temporaryTable)
     {
         throw new UnsupportedOperationException("method not implemented");
     }

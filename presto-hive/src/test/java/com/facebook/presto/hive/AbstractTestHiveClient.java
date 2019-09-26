@@ -164,6 +164,7 @@ import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
 import static com.facebook.presto.hive.HiveSessionProperties.OFFLINE_DATA_DEBUG_MODE_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TO_TEMP_PATH_ENABLED;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.JSON;
@@ -2486,7 +2487,7 @@ public abstract class AbstractTestHiveClient
         try {
             try (Transaction transaction = newTransaction()) {
                 LocationService locationService = getLocationService();
-                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName);
+                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName, false);
                 targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
                 transaction.getMetastore(schemaName)
@@ -2561,23 +2562,26 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         SchemaTableName table = temporaryTable("create_sorted");
+        SchemaTableName tableWithTempPath = temporaryTable("create_sorted_with_temp_path");
         try {
-            doTestBucketSortedTables(table);
+            doTestBucketSortedTables(table, false);
+            doTestBucketSortedTables(tableWithTempPath, true);
         }
         finally {
             dropTable(table);
+            dropTable(tableWithTempPath);
         }
     }
 
-    private void doTestBucketSortedTables(SchemaTableName table)
+    private void doTestBucketSortedTables(SchemaTableName table, boolean useTempPath)
             throws IOException
     {
         int bucketCount = 3;
         int expectedRowCount = 0;
 
         try (Transaction transaction = newTransaction()) {
-            ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession(ImmutableMap.of(SORTED_WRITE_TO_TEMP_PATH_ENABLED, useTempPath));
 
             // begin creating the table
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
@@ -2621,17 +2625,18 @@ public abstract class AbstractTestHiveClient
             }
 
             // verify we have enough temporary files per bucket to require multiple passes
-            Path stagingPathRoot = getStagingPathRoot(outputHandle);
+            Path path = useTempPath ? getTempFilePathRoot(outputHandle).get() : getStagingPathRoot(outputHandle);
             HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-            assertThat(listAllDataFiles(context, stagingPathRoot))
-                    .filteredOn(file -> file.contains(".tmp-sort."))
+            Set<String> files = listAllDataFiles(context, path);
+            assertThat(listAllDataFiles(context, path))
+                    .filteredOn(file -> file.contains(".tmp-sort"))
                     .size().isGreaterThan(bucketCount * getHiveClientConfig().getMaxOpenSortFiles() * 2);
 
             // finish the write
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // verify there are no temporary files
-            for (String file : listAllDataFiles(context, stagingPathRoot)) {
+            for (String file : listAllDataFiles(context, path)) {
                 assertThat(file).doesNotContain(".tmp-sort.");
             }
 
@@ -2644,7 +2649,7 @@ public abstract class AbstractTestHiveClient
         // verify that bucket files are sorted
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorSession session = newSession();
+            ConnectorSession session = newSession(ImmutableMap.of(SORTED_WRITE_TO_TEMP_PATH_ENABLED, useTempPath));
 
             ConnectorTableHandle hiveTableHandle = getTableHandle(metadata, table);
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, hiveTableHandle).values());
@@ -2652,8 +2657,6 @@ public abstract class AbstractTestHiveClient
             ConnectorTableLayoutHandle layoutHandle = getLayout(session, transaction, hiveTableHandle, TupleDomain.all());
             List<ConnectorSplit> splits = getAllSplits(session, transaction, layoutHandle);
             assertThat(splits).hasSize(bucketCount);
-
-            TableHandle tableHandle = toTableHandle(transaction, hiveTableHandle, layoutHandle);
 
             int actualRowCount = 0;
             for (ConnectorSplit split : splits) {
@@ -3126,7 +3129,7 @@ public abstract class AbstractTestHiveClient
             String tableOwner = session.getUser();
             String schemaName = schemaTableName.getSchemaName();
             String tableName = schemaTableName.getTableName();
-            LocationHandle locationHandle = getLocationService().forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName);
+            LocationHandle locationHandle = getLocationService().forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName, false);
             Path targetPath = getLocationService().getQueryWriteInfo(locationHandle).getTargetPath();
             //create table whose storage format is null
             Table.Builder tableBuilder = Table.builder()
@@ -3368,7 +3371,7 @@ public abstract class AbstractTestHiveClient
             SemiTransactionalHiveMetastore metastore = transaction.getMetastore(schemaTableName.getSchemaName());
             LocationService locationService = getLocationService();
             Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName()).get();
-            LocationHandle handle = locationService.forExistingTable(metastore, session, table);
+            LocationHandle handle = locationService.forExistingTable(metastore, session, table, false);
             return locationService.getPartitionWriteInfo(handle, Optional.empty(), partitionName).getTargetPath().toString();
         }
     }
@@ -3764,6 +3767,14 @@ public abstract class AbstractTestHiveClient
         return getLocationService()
                 .getQueryWriteInfo(hiveInsertTableHandle.getLocationHandle())
                 .getTargetPath();
+    }
+
+    protected Optional<Path> getTempFilePathRoot(ConnectorOutputTableHandle outputTableHandle)
+    {
+        HiveOutputTableHandle handle = (HiveOutputTableHandle) outputTableHandle;
+        return getLocationService()
+                .getQueryWriteInfo(handle.getLocationHandle())
+                .getTempPath();
     }
 
     protected Set<String> listAllDataFiles(Transaction transaction, String schemaName, String tableName)
@@ -4843,7 +4854,7 @@ public abstract class AbstractTestHiveClient
             String tableName = schemaTableName.getTableName();
 
             LocationService locationService = getLocationService();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName);
+            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName, false);
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
 
             Table.Builder tableBuilder = Table.builder()
