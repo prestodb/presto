@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
@@ -27,7 +29,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -183,7 +184,7 @@ public class TestHiveSplitSource
 
             // wait for thread to get the split
             ConnectorSplit split = splits.get(10, SECONDS);
-            assertEquals(((HiveSplit) split).getSchema().getProperty("id"), "33");
+            assertEquals(((HiveSplit) split).getPartitionDataColumnCount(), 33);
         }
         finally {
             // make sure the thread exits
@@ -301,7 +302,7 @@ public class TestHiveSplitSource
 
             connectorSplits = getSplits(hiveSplitSource, OptionalInt.of(0), 10);
             for (int i = 0; i < 10; i++) {
-                assertEquals(((HiveSplit) connectorSplits.get(i)).getSchema().getProperty("id"), Integer.toString(i));
+                assertEquals(((HiveSplit) connectorSplits.get(i)).getPartitionDataColumnCount(), i);
             }
             assertTrue(hiveSplitSource.isFinished());
         }
@@ -427,14 +428,19 @@ public class TestHiveSplitSource
                     true,
                     false,
                     false,
-                    new HiveSplitPartitionInfo(properties("id", String.valueOf(id)), new Path("path").toUri(), ImmutableList.of(), "partition-name", ImmutableMap.of(), Optional.empty()));
-        }
-
-        private static Properties properties(String key, String value)
-        {
-            Properties properties = new Properties();
-            properties.put(key, value);
-            return properties;
+                    new HiveSplitPartitionInfo(
+                            new Storage(
+                                    StorageFormat.create("serde", "input", "output"),
+                                    "location",
+                                    Optional.empty(),
+                                    false,
+                                    ImmutableMap.of()),
+                            new Path("path").toUri(),
+                            ImmutableList.of(),
+                            "partition-name",
+                            id,
+                            ImmutableMap.of(),
+                            Optional.empty()));
         }
     }
 }

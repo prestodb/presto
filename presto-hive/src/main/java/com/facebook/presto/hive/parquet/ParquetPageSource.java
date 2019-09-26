@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
@@ -72,12 +71,10 @@ public class ParquetPageSource
             MessageType fileSchema,
             MessageColumnIO messageColumnIO,
             TypeManager typeManager,
-            Properties splitSchema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             boolean useParquetColumnNames)
     {
-        requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
         requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");

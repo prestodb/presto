@@ -1765,7 +1765,10 @@ public class HiveMetadata
                         session,
                         new HiveTableLayoutHandle(
                                 tableName,
-                                ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
+                                hivePartitionResult.getPartitionColumns(),
+                                // remove comments to optimize serialization costs
+                                pruneColumnComments(hivePartitionResult.getDataColumns()),
+                                hivePartitionResult.getTableParameters(),
                                 hivePartitionResult.getPartitions(),
                                 domainPredicate,
                                 decomposedFilter.getRemainingExpression(),
@@ -1839,7 +1842,10 @@ public class HiveMetadata
                         session,
                         new HiveTableLayoutHandle(
                                 handle.getSchemaTableName(),
-                                ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
+                                hivePartitionResult.getPartitionColumns(),
+                                // remove comments to optimize serialization costs
+                                pruneColumnComments(hivePartitionResult.getDataColumns()),
+                                hivePartitionResult.getTableParameters(),
                                 hivePartitionResult.getPartitions(),
                                 domainPredicate,
                                 TRUE_CONSTANT,
@@ -1873,11 +1879,18 @@ public class HiveMetadata
         return false;
     }
 
+    private List<Column> pruneColumnComments(List<Column> columns)
+    {
+        return columns.stream()
+                .map(column -> new Column(column.getName(), column.getType(), Optional.empty()))
+                .collect(toImmutableList());
+    }
+
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
         HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
-        List<ColumnHandle> partitionColumns = hiveLayoutHandle.getPartitionColumns();
+        List<ColumnHandle> partitionColumns = ImmutableList.copyOf(hiveLayoutHandle.getPartitionColumns());
         List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
 
         TupleDomain<ColumnHandle> predicate = createPredicate(partitionColumns, partitions);
@@ -2013,6 +2026,8 @@ public class HiveMetadata
         return new HiveTableLayoutHandle(
                 hiveLayoutHandle.getSchemaTableName(),
                 hiveLayoutHandle.getPartitionColumns(),
+                hiveLayoutHandle.getDataColumns(),
+                hiveLayoutHandle.getTableParameters(),
                 hiveLayoutHandle.getPartitions().get(),
                 hiveLayoutHandle.getDomainPredicate(),
                 hiveLayoutHandle.getRemainingPredicate(),

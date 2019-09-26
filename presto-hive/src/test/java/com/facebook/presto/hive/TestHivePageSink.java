@@ -14,8 +14,11 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -34,7 +37,6 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -54,7 +56,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -83,6 +84,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -90,8 +92,6 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertTrue;
 
 public class TestHivePageSink
@@ -216,11 +216,6 @@ public class TestHivePageSink
 
     private static ConnectorPageSource createPageSource(HiveTransactionHandle transaction, HiveClientConfig config, File outputFile)
     {
-        Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, config.getHiveStorageFormat().getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, config.getHiveStorageFormat().getSerDe());
-        splitProperties.setProperty("columns", Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getName).collect(toList())));
-        splitProperties.setProperty("columns.types", Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getHiveType).map(hiveType -> hiveType.getHiveTypeName().toString()).collect(toList())));
         HiveSplit split = new HiveSplit(
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -229,12 +224,18 @@ public class TestHivePageSink
                 0,
                 outputFile.length(),
                 outputFile.length(),
-                splitProperties,
+                new Storage(
+                        StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
+                        "location",
+                        Optional.empty(),
+                        false,
+                        ImmutableMap.of()),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 false,
+                getColumnHandles().size(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 false);
@@ -245,6 +246,10 @@ public class TestHivePageSink
                 Optional.of(new HiveTableLayoutHandle(
                         new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
                         ImmutableList.of(),
+                        getColumnHandles().stream()
+                                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty()))
+                                .collect(toImmutableList()),
+                        ImmutableMap.of(),
                         TupleDomain.all(),
                         TRUE_CONSTANT,
                         ImmutableMap.of(),

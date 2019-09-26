@@ -212,7 +212,7 @@ public final class HiveUtil
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         setReadColumns(configuration, readHiveColumnIndexes);
 
-        InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
+        InputFormat<?, ?> inputFormat = getInputFormat(configuration, getInputFormatName(schema), true);
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
 
@@ -285,9 +285,8 @@ public final class HiveUtil
         return Optional.ofNullable(compressionCodecFactory.getCodec(file));
     }
 
-    static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
+    static InputFormat<?, ?> getInputFormat(Configuration configuration, String inputFormatName, boolean symlinkTarget)
     {
-        String inputFormatName = getInputFormatName(schema);
         try {
             JobConf jobConf = toJobConf(configuration);
 

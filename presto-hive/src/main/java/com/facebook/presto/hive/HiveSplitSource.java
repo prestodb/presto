@@ -61,7 +61,6 @@ import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NO
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
@@ -475,13 +474,14 @@ class HiveSplitSource
                         internalSplit.getStart(),
                         splitBytes,
                         internalSplit.getFileSize(),
-                        internalSplit.getSchema(),
+                        internalSplit.getPartitionInfo().getStorage(),
                         internalSplit.getPartitionKeys(),
                         block.getAddresses(),
                         internalSplit.getReadBucketNumber(),
                         internalSplit.getTableBucketNumber(),
                         internalSplit.isForceLocalScheduling(),
-                        transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType),
+                        internalSplit.getPartitionInfo().getPartitionDataColumnCount(),
+                        internalSplit.getPartitionSchemaDifference(),
                         internalSplit.getBucketConversion(),
                         internalSplit.isS3SelectPushdownEnabled()));
 

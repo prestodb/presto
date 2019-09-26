@@ -356,12 +356,18 @@ public class HiveSplitManager
                 if ((tableColumns == null) || (partitionColumns == null)) {
                     throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
                 }
-                ImmutableMap.Builder<Integer, HiveTypeName> columnCoercions = ImmutableMap.builder();
-                for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
+                ImmutableMap.Builder<Integer, Column> partitionSchemaDifference = ImmutableMap.builder();
+                for (int i = 0; i < partitionColumns.size(); i++) {
+                    Column partitionColumn = partitionColumns.get(i);
+
+                    if (i >= tableColumns.size()) {
+                        partitionSchemaDifference.put(i, partitionColumn);
+                        continue;
+                    }
+
                     HiveType tableType = tableColumns.get(i).getType();
-                    HiveType partitionType = partitionColumns.get(i).getType();
-                    if (!tableType.equals(partitionType)) {
-                        if (!coercionPolicy.canCoerce(partitionType, tableType)) {
+                    if (!tableType.equals(partitionColumn.getType())) {
+                        if (!coercionPolicy.canCoerce(partitionColumn.getType(), tableType)) {
                             throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
                                             "There is a mismatch between the table and partition schemas. " +
                                             "The types are incompatible and cannot be coerced. " +
@@ -372,9 +378,14 @@ public class HiveSplitManager
                                     tableType,
                                     partName,
                                     partitionColumns.get(i).getName(),
-                                    partitionType));
+                                    partitionColumn.getType()));
                         }
-                        columnCoercions.put(i, partitionType.getHiveTypeName());
+                        partitionSchemaDifference.put(i, partitionColumn);
+                        continue;
+                    }
+
+                    if (!tableColumns.get(i).getName().equals(partitionColumn.getName())) {
+                        partitionSchemaDifference.put(i, partitionColumn);
                     }
                 }
 
@@ -402,7 +413,7 @@ public class HiveSplitManager
                     }
                 }
 
-                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), columnCoercions.build()));
+                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), partitionSchemaDifference.build()));
             }
 
             return results.build();

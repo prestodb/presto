@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.SubfieldExtractor;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.FilterFunction;
 import com.facebook.presto.orc.OrcDataSource;
@@ -73,7 +74,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -89,7 +89,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferS
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
-import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -144,7 +143,7 @@ public class OrcSelectivePageSourceFactory
             long start,
             long length,
             long fileSize,
-            Properties schema,
+            Storage storage,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
             List<Integer> outputColumns,
@@ -152,7 +151,7 @@ public class OrcSelectivePageSourceFactory
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!isDeserializerClass(schema, OrcSerde.class)) {
+        if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
         }
 

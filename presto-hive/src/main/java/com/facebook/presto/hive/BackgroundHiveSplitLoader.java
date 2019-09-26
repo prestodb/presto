@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryNotAllowedException;
 import com.facebook.presto.hive.util.InternalHiveSplitFactory;
@@ -279,12 +280,15 @@ public class BackgroundHiveSplitLoader
             throws IOException
     {
         String partitionName = partition.getHivePartition().getPartitionId();
-        Properties schema = getPartitionSchema(table, partition.getPartition());
+        Storage storage = partition.getPartition().map(Partition::getStorage).orElse(table.getStorage());
+        int partitionDataColumnCount = partition.getPartition()
+                .map(p -> p.getColumns().size())
+                .orElse(table.getDataColumns().size());
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
 
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
-        InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
+        InputFormat<?, ?> inputFormat = getInputFormat(configuration, storage.getStorageFormat().getInputFormat(), false);
         FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
         boolean s3SelectPushdownEnabled = shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
 
@@ -313,7 +317,7 @@ public class BackgroundHiveSplitLoader
                         pathDomain,
                         isForceLocalScheduling(session),
                         s3SelectPushdownEnabled,
-                        new HiveSplitPartitionInfo(schema, path.toUri(), partitionKeys, partitionName, partition.getColumnCoercions(), Optional.empty()),
+                        new HiveSplitPartitionInfo(storage, path.toUri(), partitionKeys, partitionName, partitionDataColumnCount, partition.getPartitionSchemaDifference(), Optional.empty()),
                         schedulerUsesHostAddresses);
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
                 if (stopped) {
@@ -347,11 +351,12 @@ public class BackgroundHiveSplitLoader
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled,
                 new HiveSplitPartitionInfo(
-                        schema,
+                        storage,
                         path.toUri(),
                         partitionKeys,
                         partitionName,
-                        partition.getColumnCoercions(),
+                        partitionDataColumnCount,
+                        partition.getPartitionSchemaDifference(),
                         bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty()),
                 schedulerUsesHostAddresses);
 
@@ -370,6 +375,7 @@ public class BackgroundHiveSplitLoader
 
         // S3 Select pushdown works at the granularity of individual S3 objects,
         // therefore we must not split files when it is enabled.
+        Properties schema = getHiveSchema(storage.getSerdeParameters(), table.getParameters());
         boolean splittable = getHeaderCount(schema) == 0 && getFooterCount(schema) == 0 && !s3SelectPushdownEnabled;
 
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
@@ -558,14 +564,6 @@ public class BackgroundHiveSplitLoader
             partitionKeys.add(new HivePartitionKey(name, value));
         }
         return partitionKeys.build();
-    }
-
-    private static Properties getPartitionSchema(Table table, Optional<Partition> partition)
-    {
-        if (!partition.isPresent()) {
-            return getHiveSchema(table);
-        }
-        return getHiveSchema(partition.get(), table);
     }
 
     public static class BucketSplitInfo

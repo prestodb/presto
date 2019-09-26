@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
 
 import java.util.Map;
@@ -24,16 +25,16 @@ public class HivePartitionMetadata
 {
     private final Optional<Partition> partition;
     private final HivePartition hivePartition;
-    private final Map<Integer, HiveTypeName> columnCoercions;
+    private final Map<Integer, Column> partitionSchemaDifference;
 
     HivePartitionMetadata(
             HivePartition hivePartition,
             Optional<Partition> partition,
-            Map<Integer, HiveTypeName> columnCoercions)
+            Map<Integer, Column> partitionSchemaDifference)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
-        this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
+        this.partitionSchemaDifference = requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
     }
 
     public HivePartition getHivePartition()
@@ -49,8 +50,8 @@ public class HivePartitionMetadata
         return partition;
     }
 
-    public Map<Integer, HiveTypeName> getColumnCoercions()
+    public Map<Integer, Column> getPartitionSchemaDifference()
     {
-        return columnCoercions;
+        return partitionSchemaDifference;
     }
 }

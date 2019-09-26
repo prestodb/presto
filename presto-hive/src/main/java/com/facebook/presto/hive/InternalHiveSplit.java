@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
@@ -25,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -137,11 +137,6 @@ public class InternalHiveSplit
         return s3SelectPushdownEnabled;
     }
 
-    public Properties getSchema()
-    {
-        return partitionInfo.getSchema();
-    }
-
     public List<HivePartitionKey> getPartitionKeys()
     {
         return partitionInfo.getPartitionKeys();
@@ -172,9 +167,9 @@ public class InternalHiveSplit
         return forceLocalScheduling;
     }
 
-    public Map<Integer, HiveTypeName> getColumnCoercions()
+    public Map<Integer, Column> getPartitionSchemaDifference()
     {
-        return partitionInfo.getColumnCoercions();
+        return partitionInfo.getPartitionSchemaDifference();
     }
 
     public Optional<BucketConversion> getBucketConversion()

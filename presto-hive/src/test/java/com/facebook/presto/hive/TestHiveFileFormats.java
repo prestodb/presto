@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -23,11 +26,11 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,7 +58,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
@@ -83,15 +85,11 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -703,16 +701,16 @@ public class TestHiveFileFormats
             ConnectorSession session,
             int rowCount)
     {
-        Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
-        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
-        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
-
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
                 .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                 .collect(toList());
+
+        List<HiveColumnHandle> partitionKeyColumnHandles = getColumnHandles(testColumns.stream().filter(TestColumn::isPartitionKey).collect(toImmutableList()));
+        List<Column> tableDataColumns = testColumns.stream()
+                .filter(column -> !column.isPartitionKey())
+                .map(column -> new Column(column.getName(), HiveType.valueOf(column.getType()), Optional.empty()))
+                .collect(toImmutableList());
 
         Configuration configuration = new Configuration();
         configuration.set("io.compression.codecs", LzoCodec.class.getName() + "," + LzopCodec.class.getName());
@@ -726,12 +724,22 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 split.getLength(),
-                splitProperties,
+                new Storage(
+                        StorageFormat.create(storageFormat.getSerDe(), storageFormat.getInputFormat(), storageFormat.getOutputFormat()),
+                        "location",
+                        Optional.empty(),
+                        false,
+                        ImmutableMap.of()),
                 TupleDomain.all(),
                 getColumnHandles(testColumns),
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
+                new SchemaTableName("schema", "table"),
+                partitionKeyColumnHandles,
+                tableDataColumns,
+                ImmutableMap.of(),
+                tableDataColumns.size(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 false);
@@ -749,16 +757,16 @@ public class TestHiveFileFormats
             int rowCount)
             throws IOException
     {
-        Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
-        splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
-        splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
-
         List<HivePartitionKey> partitionKeys = testColumns.stream()
                 .filter(TestColumn::isPartitionKey)
                 .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                 .collect(toList());
+
+        List<HiveColumnHandle> partitionKeyColumnHandles = getColumnHandles(testColumns.stream().filter(TestColumn::isPartitionKey).collect(toImmutableList()));
+        List<Column> tableDataColumns = testColumns.stream()
+                .filter(column -> !column.isPartitionKey())
+                .map(column -> new Column(column.getName(), HiveType.valueOf(column.getType()), Optional.empty()))
+                .collect(toImmutableList());
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);
 
@@ -772,12 +780,22 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 split.getLength(),
-                splitProperties,
+                new Storage(
+                        StorageFormat.create(storageFormat.getSerDe(), storageFormat.getInputFormat(), storageFormat.getOutputFormat()),
+                        "location",
+                        Optional.empty(),
+                        false,
+                        ImmutableMap.of()),
                 TupleDomain.all(),
                 columnHandles,
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
+                new SchemaTableName("schema", "table"),
+                partitionKeyColumnHandles,
+                tableDataColumns,
+                ImmutableMap.of(),
+                tableDataColumns.size(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 false);

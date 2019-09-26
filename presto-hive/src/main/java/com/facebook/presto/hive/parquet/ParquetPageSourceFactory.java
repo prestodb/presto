@@ -17,6 +17,7 @@ import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
@@ -59,7 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -70,7 +70,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
-import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
@@ -127,12 +126,13 @@ public class ParquetPageSourceFactory
             long start,
             long length,
             long fileSize,
-            Properties schema,
+            Storage storage,
+            Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
-        if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
+        if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
         }
 
@@ -144,7 +144,6 @@ public class ParquetPageSourceFactory
                 start,
                 length,
                 fileSize,
-                schema,
                 columns,
                 isUseParquetColumnNames(session),
                 isFailOnCorruptedParquetStatistics(session),
@@ -162,7 +161,6 @@ public class ParquetPageSourceFactory
             long start,
             long length,
             long fileSize,
-            Properties schema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
             boolean failOnCorruptedParquetStatistics,
@@ -223,7 +221,6 @@ public class ParquetPageSourceFactory
                     fileSchema,
                     messageColumnIO,
                     typeManager,
-                    schema,
                     columns,
                     effectivePredicate,
                     useParquetColumnNames);

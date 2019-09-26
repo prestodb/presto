@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.hive.HiveType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -28,6 +29,8 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class Column
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Column.class).instanceSize();
+
     private final String name;
     private final HiveType type;
     private final Optional<String> comment;
@@ -90,5 +93,14 @@ public class Column
     public int hashCode()
     {
         return Objects.hash(name, type, comment);
+    }
+
+    public int getEstimatedSizeInBytes()
+    {
+        int result = INSTANCE_SIZE;
+        result += name.length() * Character.BYTES;
+        result += type.getEstimatedRetainedSizeInBytes();
+        result += comment.map(String::length).orElse(0);
+        return result;
     }
 }

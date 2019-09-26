@@ -169,7 +169,16 @@ public class HivePartitionManager
         }
 
         if (effectivePredicate.isNone()) {
-            return new HivePartitionResult(partitionColumns, partitions, TupleDomain.none(), TupleDomain.none(), TupleDomain.none(), hiveBucketHandle, Optional.empty());
+            return new HivePartitionResult(
+                    partitionColumns,
+                    table.getDataColumns(),
+                    table.getParameters(),
+                    partitions,
+                    TupleDomain.none(),
+                    TupleDomain.none(),
+                    TupleDomain.none(),
+                    hiveBucketHandle,
+                    Optional.empty());
         }
 
         TupleDomain<ColumnHandle> compactEffectivePredicate = effectivePredicate.compact(domainCompactionThreshold);
@@ -177,6 +186,8 @@ public class HivePartitionManager
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
                     partitionColumns,
+                    table.getDataColumns(),
+                    table.getParameters(),
                     partitions,
                     compactEffectivePredicate,
                     effectivePredicate,
@@ -188,7 +199,16 @@ public class HivePartitionManager
         // All partition key domains will be fully evaluated, so we don't need to include those
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
         TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
-        return new HivePartitionResult(partitionColumns, partitions, compactEffectivePredicate, remainingTupleDomain, enforcedTupleDomain, hiveBucketHandle, bucketFilter);
+        return new HivePartitionResult(
+                partitionColumns,
+                table.getDataColumns(),
+                table.getParameters(),
+                partitions,
+                compactEffectivePredicate,
+                remainingTupleDomain,
+                enforcedTupleDomain,
+                hiveBucketHandle,
+                bucketFilter);
     }
 
     private boolean queryUsesHiveBucketColumn(TupleDomain<ColumnHandle> effectivePredicate)
@@ -243,7 +263,16 @@ public class HivePartitionManager
                 .collect(toImmutableList());
 
         Optional<HiveBucketHandle> bucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(table);
-        return new HivePartitionResult(partitionColumns, partitionList, TupleDomain.all(), TupleDomain.all(), TupleDomain.none(), bucketHandle, Optional.empty());
+        return new HivePartitionResult(
+                partitionColumns,
+                table.getDataColumns(),
+                table.getParameters(),
+                partitionList,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                TupleDomain.none(),
+                bucketHandle,
+                Optional.empty());
     }
 
     private Optional<HivePartition> parseValuesAndFilterPartition(
