@@ -264,8 +264,12 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_CONTAINS;
+import static com.facebook.presto.util.SpatialJoinUtils.ST_CROSSES;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_DISTANCE;
+import static com.facebook.presto.util.SpatialJoinUtils.ST_EQUALS;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_INTERSECTS;
+import static com.facebook.presto.util.SpatialJoinUtils.ST_OVERLAPS;
+import static com.facebook.presto.util.SpatialJoinUtils.ST_TOUCHES;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_WITHIN;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
@@ -1714,8 +1718,20 @@ public class LocalExecutionPlanner
                     return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
                 }
             }
+            if (functionName.equals(ST_CROSSES)) {
+                return (buildGeometry, probeGeometry, radius) -> buildGeometry.crosses(probeGeometry);
+            }
+            if (functionName.equals(ST_EQUALS)) {
+                return (buildGeometry, probeGeometry, radius) -> buildGeometry.Equals(probeGeometry);
+            }
             if (functionName.equals(ST_INTERSECTS)) {
                 return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
+            }
+            if (functionName.equals(ST_OVERLAPS)) {
+                return (buildGeometry, probeGeometry, radius) -> buildGeometry.overlaps(probeGeometry);
+            }
+            if (functionName.equals(ST_TOUCHES)) {
+                return (buildGeometry, probeGeometry, radius) -> buildGeometry.touches(probeGeometry);
             }
             if (functionName.equals(ST_DISTANCE)) {
                 if (comparisonOperator.get() == OperatorType.LESS_THAN) {

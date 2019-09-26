@@ -25,18 +25,32 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Locale.ENGLISH;
 
 public class SpatialJoinUtils
 {
     public static final FullyQualifiedName ST_CONTAINS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_contains");
-    public static final FullyQualifiedName ST_WITHIN = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_within");
+    public static final FullyQualifiedName ST_CROSSES = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_crosses");
+    public static final FullyQualifiedName ST_EQUALS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_equals");
     public static final FullyQualifiedName ST_INTERSECTS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_intersects");
+    public static final FullyQualifiedName ST_OVERLAPS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_overlaps");
+    public static final FullyQualifiedName ST_TOUCHES = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_touches");
+    public static final FullyQualifiedName ST_WITHIN = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_within");
     public static final FullyQualifiedName ST_DISTANCE = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_distance");
+
+    private static final Set<String> ALLOWED_SPATIAL_JOIN_FUNCTIONS = Stream.of(
+            ST_CONTAINS, ST_CROSSES, ST_EQUALS, ST_INTERSECTS, ST_OVERLAPS, ST_TOUCHES, ST_WITHIN)
+            .map(FullyQualifiedName::getSuffix)
+            .map(String::toLowerCase)
+            .collect(Collectors.toSet());
 
     private SpatialJoinUtils() {}
 
@@ -68,16 +82,14 @@ public class SpatialJoinUtils
 
     private static boolean isSupportedSpatialFunction(FunctionCall functionCall)
     {
-        String functionName = functionCall.getName().getSuffix();
-        return functionName.equalsIgnoreCase(ST_CONTAINS.getSuffix()) || functionName.equalsIgnoreCase(ST_WITHIN.getSuffix())
-                || functionName.equalsIgnoreCase(ST_INTERSECTS.getSuffix());
+        String functionName = functionCall.getName().getSuffix().toLowerCase(ENGLISH);
+        return ALLOWED_SPATIAL_JOIN_FUNCTIONS.contains(functionName);
     }
 
     private static boolean isSupportedSpatialFunction(CallExpression call, FunctionManager functionManager)
     {
-        FullyQualifiedName functionName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
-        return functionName.equals(ST_CONTAINS) || functionName.equals(ST_WITHIN)
-                || functionName.equals(ST_INTERSECTS);
+        String functionName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName().getSuffix().toLowerCase(ENGLISH);
+        return ALLOWED_SPATIAL_JOIN_FUNCTIONS.contains(functionName);
     }
 
     /**
