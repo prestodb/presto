@@ -19,8 +19,6 @@ import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 
 import java.io.IOException;
 
-import static com.facebook.presto.orc.stream.LongDecode.readDwrfLong;
-
 public class LongInputStreamDwrf
         implements LongInputStream
 {
@@ -55,9 +53,11 @@ public class LongInputStreamDwrf
     public void skip(long items)
             throws IOException
     {
-        // there is no fast way to skip values
-        for (long i = 0; i < items; i++) {
-            next();
+        if (usesVInt) {
+            input.skipVarints(items);
+        }
+        else {
+            input.skipDwrfLong(orcTypeKind, items);
         }
     }
 
@@ -65,6 +65,9 @@ public class LongInputStreamDwrf
     public long next()
             throws IOException
     {
-        return readDwrfLong(input, orcTypeKind, signed, usesVInt);
+        if (usesVInt) {
+            return input.readVarint(signed);
+        }
+        return input.readDwrfLong(orcTypeKind);
     }
 }
