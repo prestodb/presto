@@ -53,7 +53,13 @@ public class JdbcPlanOptimizerProvider
     }
 
     @Override
-    public Set<ConnectorPlanOptimizer> getConnectorPlanOptimizers()
+    public Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers()
+    {
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers()
     {
         return ImmutableSet.of(new JdbcComputePushdown(
                 functionManager,

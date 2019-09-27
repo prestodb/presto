@@ -889,4 +889,9 @@ public class PlanBuilder
     {
         return TypeProvider.viewOf(variables);
     }
+
+    public PlanNodeIdAllocator getIdAllocator()
+    {
+        return idAllocator;
+    }
 }

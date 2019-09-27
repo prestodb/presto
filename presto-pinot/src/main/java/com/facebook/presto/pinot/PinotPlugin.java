@@ -11,26 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.rule;
+package com.facebook.presto.pinot;
 
-import com.facebook.presto.spi.ConnectorPlanOptimizer;
-import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
-import com.google.common.collect.ImmutableSet;
+import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Set;
-
-public class HivePlanOptimizerProvider
-        implements ConnectorPlanOptimizerProvider
+public class PinotPlugin
+        implements Plugin
 {
     @Override
-    public Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers()
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableSet.of();
-    }
-
-    @Override
-    public Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers()
-    {
-        return ImmutableSet.of();
+        return ImmutableList.of(new PinotConnectorFactory());
     }
 }

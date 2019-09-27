@@ -22,6 +22,7 @@ from different data sources.
     connector/memory
     connector/mongodb
     connector/mysql
+    connector/pinot
     connector/postgresql
     connector/redis
     connector/redshift

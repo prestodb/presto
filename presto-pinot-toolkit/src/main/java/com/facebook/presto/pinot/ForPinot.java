@@ -11,22 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.connector;
+package com.facebook.presto.pinot;
 
-import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import javax.inject.Qualifier;
 
-import java.util.Set;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-public interface ConnectorPlanOptimizerProvider
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForPinot
 {
-    /**
-     * The plan optimizers to be applied before having the notion of distribution.
-     */
-    Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers();
-
-    /**
-     * The plan optimizers to be applied after having the notion of distribution.
-     * The plan will be only executed on a single node.
-     */
-    Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers();
 }
