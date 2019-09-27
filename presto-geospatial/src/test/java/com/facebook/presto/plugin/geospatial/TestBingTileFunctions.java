@@ -90,14 +90,15 @@ public class TestBingTileFunctions
     @Test
     public void testBingTile()
     {
+        assertFunction("bing_tile_quadkey(bing_tile(''))", VARCHAR, "");
         assertFunction("bing_tile_quadkey(bing_tile('213'))", VARCHAR, "213");
         assertFunction("bing_tile_quadkey(bing_tile('123030123010121'))", VARCHAR, "123030123010121");
 
+        assertFunction("bing_tile_quadkey(bing_tile(0, 0, 0))", VARCHAR, "");
         assertFunction("bing_tile_quadkey(bing_tile(3, 5, 3))", VARCHAR, "213");
         assertFunction("bing_tile_quadkey(bing_tile(21845, 13506, 15))", VARCHAR, "123030123010121");
 
         // Invalid calls: corrupt quadkeys
-        assertInvalidFunction("bing_tile('')", "QuadKey must not be empty string");
         assertInvalidFunction("bing_tile('test')", "Invalid QuadKey digit sequence: test");
         assertInvalidFunction("bing_tile('12345')", "Invalid QuadKey digit sequence: 12345");
         assertInvalidFunction("bing_tile('101010101010101010101010101010100101010101001010')", "QuadKey must be 23 characters or less");
@@ -124,7 +125,7 @@ public class TestBingTileFunctions
         // Latitude out of range
         assertInvalidFunction("bing_tile_at(300.12, 60, 15)", "Latitude must be between -85.05112878 and 85.05112878");
         // Invalid zoom levels
-        assertInvalidFunction("bing_tile_at(30.12, 60, 0)", "Zoom level must be > 0");
+        assertInvalidFunction("bing_tile_at(30.12, 60, -1)", "Zoom level must be >= 0");
         assertInvalidFunction("bing_tile_at(30.12, 60, 40)", "Zoom level must be <= 23");
     }
 
@@ -430,6 +431,7 @@ public class TestBingTileFunctions
     public void testGeometryToBingTiles()
             throws Exception
     {
+        assertGeometryToBingTiles("POINT (60 30.12)", 0, ImmutableList.of(""));
         assertGeometryToBingTiles("POINT (60 30.12)", 10, ImmutableList.of("1230301230"));
         assertGeometryToBingTiles("POINT (60 30.12)", 15, ImmutableList.of("123030123010121"));
         assertGeometryToBingTiles("POINT (60 30.12)", 16, ImmutableList.of("1230301230101212"));
@@ -464,7 +466,7 @@ public class TestBingTileFunctions
         assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 300.12), 10)", "Latitude span for the geometry must be in [-85.05, 85.05] range");
         assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((10 1000, -10 10, -20 -15))'), 10)", "Latitude span for the geometry must be in [-85.05, 85.05] range");
         // Invalid zoom levels
-        assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 30.12), 0)", "Zoom level must be > 0");
+        assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 30.12), -1)", "Zoom level must be >= 0");
         assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 30.12), 40)", "Zoom level must be <= 23");
 
         // Input rectangle too large

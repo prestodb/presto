@@ -33,7 +33,9 @@ public final class BingTile
 
     private BingTile(int x, int y, int zoomLevel)
     {
-        checkArgument(zoomLevel <= MAX_ZOOM_LEVEL);
+        checkArgument(0 <= zoomLevel && zoomLevel <= MAX_ZOOM_LEVEL);
+        checkArgument(0 <= x && x < (1 << zoomLevel));
+        checkArgument(0 <= y && y < (1 << zoomLevel));
         this.x = x;
         this.y = y;
         this.zoomLevel = zoomLevel;
