@@ -40,6 +40,7 @@ import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -1307,7 +1308,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("'abc' LIKE bound_pattern", "false");
 
         assertOptimizedEquals("unbound_string LIKE bound_pattern", "unbound_string LIKE bound_pattern");
-        assertDoNotOptimize("unbound_string LIKE bound_pattern", SERIALIZABLE);
+        assertDoNotOptimize("unbound_string LIKE 'abc%'", SERIALIZABLE);
 
         assertOptimizedEquals("unbound_string LIKE unbound_pattern ESCAPE unbound_string", "unbound_string LIKE unbound_pattern ESCAPE unbound_string");
     }
@@ -1371,8 +1372,13 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testMassiveArrayConstructor()
+    public void testMassiveArray()
     {
+        assertRowExpressionOptimizedEquals(
+                OPTIMIZED,
+                "SEQUENCE(1, 999)",
+                format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(1, 1000).mapToObj(i -> "(BIGINT '" + i + "')").iterator())));
+        assertDoNotOptimize("SEQUENCE(1, 1000)", SERIALIZABLE);
         optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "(bound_long + " + i + ")").iterator())));
         optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "(bound_integer + " + i + ")").iterator())));
         optimize(format("ARRAY [%s]", Joiner.on(", ").join(IntStream.range(0, 10_000).mapToObj(i -> "'" + i + "'").iterator())));
@@ -1511,6 +1517,17 @@ public class TestExpressionInterpreter
         assertEquals(optimize(actual), optimize(expected));
     }
 
+    private static void assertRowExpressionOptimizedEquals(Level level, @Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        Object actualResult = optimize(toRowExpression(expression(actual)), level);
+        Object expectedResult = optimize(toRowExpression(expression(expected)), level);
+        if (actualResult instanceof Block && expectedResult instanceof Block) {
+            assertEquals(blockToSlice((Block) actualResult), blockToSlice((Block) expectedResult));
+            return;
+        }
+        assertEquals(actualResult, expectedResult);
+    }
+
     private static void assertOptimizedMatches(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         // replaces FunctionCalls to FailureFunction by fail()
@@ -1527,46 +1544,62 @@ public class TestExpressionInterpreter
     {
         assertRoundTrip(expression);
 
-        Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
+        Expression parsedExpression = expression(expression);
+        Object expressionResult = optimize(parsedExpression);
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, parsedExpression, emptyList(), WarningCollector.NOOP);
-        ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
+        RowExpression rowExpression = toRowExpression(parsedExpression);
+        Object rowExpressionResult = optimize(rowExpression, OPTIMIZED);
+        assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
+        return expressionResult;
+    }
 
-        Object expressionResult = interpreter.optimize(symbol -> {
+    private static Expression expression(String expression)
+    {
+        return FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
+    }
+
+    private static RowExpression toRowExpression(Expression expression)
+    {
+        return TRANSLATOR.translate(expression, SYMBOL_TYPES);
+    }
+
+    private static Object optimize(Expression expression)
+    {
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
+        ExpressionInterpreter interpreter = expressionOptimizer(expression, METADATA, TEST_SESSION, expressionTypes);
+        return interpreter.optimize(symbol -> {
             Object value = symbolConstant(symbol);
             if (value == null) {
                 return symbol.toSymbolReference();
             }
             return value;
         });
-        RowExpression rowExpression = TRANSLATOR.translate(parsedExpression, SYMBOL_TYPES);
-        Object rowExpressionResult = new RowExpressionInterpreter(rowExpression, METADATA, TEST_SESSION.toConnectorSession(), OPTIMIZED).optimize(symbol -> {
+    }
+
+    private static Object optimize(RowExpression expression, Level level)
+    {
+        return new RowExpressionInterpreter(expression, METADATA, TEST_SESSION.toConnectorSession(), level).optimize(symbol -> {
             Object value = symbolConstant(symbol);
             if (value == null) {
                 return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
             }
             return value;
         });
-
-        assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);
-        return expressionResult;
     }
 
     private static void assertDoNotOptimize(@Language("SQL") String expression, Level optimizationLevel)
     {
         assertRoundTrip(expression);
+        Expression translatedExpression = expression(expression);
+        RowExpression rowExpression = toRowExpression(translatedExpression);
 
-        Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
-
-        RowExpression rowExpression = TRANSLATOR.translate(parsedExpression, SYMBOL_TYPES);
-        Object rowExpressionResult = new RowExpressionInterpreter(rowExpression, METADATA, TEST_SESSION.toConnectorSession(), optimizationLevel).optimize(symbol -> {
-            Object value = symbolConstant(symbol);
-            if (value == null) {
-                return new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference()));
-            }
-            return value;
-        });
-        assertEquals(rowExpressionResult, rowExpression);
+        Object expressionResult = optimize(translatedExpression);
+        if (expressionResult instanceof Expression) {
+            expressionResult = toRowExpression((Expression) expressionResult);
+        }
+        Object rowExpressionResult = optimize(rowExpression, optimizationLevel);
+        assertRowExpressionEvaluationEquals(expressionResult, rowExpressionResult);
+        assertRowExpressionEvaluationEquals(rowExpressionResult, rowExpression);
     }
 
     private static Object symbolConstant(Symbol symbol)
@@ -1627,6 +1660,10 @@ public class TestExpressionInterpreter
             assertTrue(left instanceof RowExpression);
             // assertEquals(((RowExpression) left).getType(), ((RowExpression) right).getType());
             if (left instanceof ConstantExpression) {
+                if (isRemovableCast(right)) {
+                    assertRowExpressionEvaluationEquals(left, ((CallExpression) right).getArguments().get(0));
+                    return;
+                }
                 assertTrue(right instanceof ConstantExpression);
                 assertRowExpressionEvaluationEquals(((ConstantExpression) left).getValue(), ((ConstantExpression) left).getValue());
             }
@@ -1667,6 +1704,17 @@ public class TestExpressionInterpreter
                 assertEquals(left, right);
             }
         }
+    }
+
+    private static boolean isRemovableCast(Object value)
+    {
+        if (value instanceof CallExpression &&
+                new FunctionResolution(METADATA.getFunctionManager()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
+            Type targetType = ((CallExpression) value).getType();
+            Type sourceType = ((CallExpression) value).getArguments().get(0).getType();
+            return METADATA.getTypeManager().canCoerce(sourceType, targetType);
+        }
+        return false;
     }
 
     private static Slice blockToSlice(Block block)
