@@ -58,17 +58,20 @@ public class TestWeightedDoubleReservoirSample
 
         long streamLength = 1_000_000;
         for (int i = 0; i < streamLength; ++i) {
-            double value = i * 10 + i % 2;
-            reservoir.add(value, 1.0);
+            reservoir.add(i, 1.0);
         }
 
         double[] quantized = new double[4];
+        int count = 0;
         for (double sample : reservoir.getSamples()) {
-            int index = (int) (4.0 * sample / (10.0 * streamLength + 1));
+            ++count;
+            int index = (int) (4.0 * sample / (streamLength + 1));
             ++quantized[index];
         }
+        assertEquals(count, 200, format("Number of samples should be full: got=%s, expected=%s", count, 200));
+        int expectedMin = 25;
         for (int i = 0; i < 4; ++i) {
-            assertTrue(quantized[i] > 35, format("Expected quantized[i] > got: i=%s, quantized=%s, got=%s", i, quantized[i], 35));
+            assertTrue(quantized[i] > expectedMin, format("Expected quantized[i] > got: i=%s, quantized=%s, got=%s", i, quantized[i], 35));
         }
     }
 
@@ -82,17 +85,20 @@ public class TestWeightedDoubleReservoirSample
             reservoir.add(3, 0.00000001);
         }
         for (int i = 0; i < streamLength; ++i) {
-            double value = i * 10 + i % 2;
-            reservoir.add(value, 9999999999.0);
+            reservoir.add(i, 9999999999.0);
         }
 
         double[] quantized = new double[4];
+        int count = 0;
         for (double sample : reservoir.getSamples()) {
-            int index = (int) (4.0 * sample / (10.0 * streamLength + 1));
+            ++count;
+            int index = (int) (4.0 * sample / (streamLength + 1));
             ++quantized[index];
         }
+        assertEquals(count, 200, format("Number of samples should be full: got=%s, expected=%s", count, 200));
+        int expectedMin = 25;
         for (int i = 0; i < 4; ++i) {
-            assertTrue(quantized[i] > 35, format("Expected quantized[i] > got: i=%s, quantized=%s, got=%s", i, quantized[i], 35));
+            assertTrue(quantized[i] > expectedMin, format("Expected quantized[i] > got: i=%s, quantized=%s, got=%s", i, quantized[i], expectedMin));
         }
     }
 }
