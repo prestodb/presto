@@ -91,6 +91,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.Interpreters.interpretDereference;
 import static com.facebook.presto.sql.planner.Interpreters.interpretLikePredicate;
+import static com.facebook.presto.sql.planner.LiteralEncoder.estimatedSizeInBytes;
 import static com.facebook.presto.sql.planner.LiteralEncoder.isSupportedLiteralType;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.changed;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.notChanged;
@@ -113,6 +114,7 @@ import static java.util.stream.Collectors.toList;
 
 public class RowExpressionInterpreter
 {
+    private static final long MAX_SERIALIZABLE_OBJECT_SIZE = 1000;
     private final RowExpression expression;
     private final Metadata metadata;
     private final ConnectorSession session;
@@ -251,7 +253,13 @@ public class RowExpressionInterpreter
                     (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || resolution.isFailFunction(functionHandle))) {
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
             }
-            return functionInvoker.invoke(functionHandle, session, argumentValues);
+
+            Object value = functionInvoker.invoke(functionHandle, session, argumentValues);
+
+            if (optimizationLevel.ordinal() <= SERIALIZABLE.ordinal() && !isSerializable(value, node.getType())) {
+                return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
+            }
+            return value;
         }
 
         @Override
@@ -686,7 +694,7 @@ public class RowExpressionInterpreter
 
         private RowExpression toRowExpression(Object value, RowExpression originalRowExpression)
         {
-            if (optimizationLevel.ordinal() <= SERIALIZABLE.ordinal() && !isSupportedLiteralType(originalRowExpression.getType())) {
+            if (optimizationLevel.ordinal() <= SERIALIZABLE.ordinal() && !isSerializable(value, originalRowExpression.getType())) {
                 return originalRowExpression;
             }
             // handle lambda
@@ -694,6 +702,12 @@ public class RowExpressionInterpreter
                 return originalRowExpression;
             }
             return LiteralEncoder.toRowExpression(value, originalRowExpression.getType());
+        }
+
+        private boolean isSerializable(Object value, Type type)
+        {
+            // If value is already RowExpression, constant values contained inside should already have been made serializable. Otherwise, we make sure the object is small and serializable.
+            return value instanceof RowExpression || (isSupportedLiteralType(type) && estimatedSizeInBytes(value) <= MAX_SERIALIZABLE_OBJECT_SIZE);
         }
 
         private SpecialCallResult tryHandleArrayConstructor(CallExpression callExpression, List<Object> argumentValues)

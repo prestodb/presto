@@ -25,6 +25,7 @@ import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.FunctionType;
+import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -257,7 +258,36 @@ public final class LiteralEncoder
             return rowType.getTypeParameters().stream()
                     .allMatch(LiteralEncoder::isSupportedLiteralType);
         }
+        else if (type instanceof MapType) {
+            MapType mapType = (MapType) type;
+            return isSupportedLiteralType(mapType.getKeyType()) && isSupportedLiteralType(mapType.getValueType());
+        }
         return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
+    }
+
+    public static long estimatedSizeInBytes(Object object)
+    {
+        if (object == null) {
+            return 1;
+        }
+        Class<?> javaType = object.getClass();
+        if (javaType == Long.class) {
+            return Long.BYTES;
+        }
+        else if (javaType == Double.class) {
+            return Double.BYTES;
+        }
+        else if (javaType == Boolean.class) {
+            return 1;
+        }
+        else if (object instanceof Block) {
+            return ((Block) object).getSizeInBytes();
+        }
+        else if (object instanceof Slice) {
+            return ((Slice) object).length();
+        }
+        // unknown for rest of types
+        return Integer.MAX_VALUE;
     }
 
     public static Signature getMagicLiteralFunctionSignature(Type type)

@@ -99,6 +99,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -123,6 +124,7 @@ import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateV
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.Interpreters.interpretDereference;
 import static com.facebook.presto.sql.planner.Interpreters.interpretLikePredicate;
+import static com.facebook.presto.sql.planner.LiteralEncoder.estimatedSizeInBytes;
 import static com.facebook.presto.sql.planner.LiteralEncoder.isSupportedLiteralType;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
@@ -142,6 +144,7 @@ import static java.util.Objects.requireNonNull;
 @Deprecated
 public class ExpressionInterpreter
 {
+    private static final long MAX_SERIALIZABLE_OBJECT_SIZE = 1000;
     private final Expression expression;
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
@@ -273,6 +276,8 @@ public class ExpressionInterpreter
     private class Visitor
             extends AstVisitor<Object, Object>
     {
+        private final Map<NodeRef<Expression>, Type> generatedExpressionTypes = new HashMap<>();
+
         @Override
         public Object visitFieldReference(FieldReference node, Object context)
         {
@@ -489,8 +494,17 @@ public class ExpressionInterpreter
             return Boolean.TRUE.equals(invokeOperator(OperatorType.EQUAL, ImmutableList.of(type1, type2), ImmutableList.of(operand1, operand2)));
         }
 
+        private void addGeneratedExpressionType(Expression expression, Type type)
+        {
+            generatedExpressionTypes.put(NodeRef.of(expression), type);
+        }
+
         private Type type(Expression expression)
         {
+            Type type = generatedExpressionTypes.get(NodeRef.of(expression));
+            if (type != null) {
+                return type;
+            }
             return expressionTypes.get(NodeRef.of(expression));
         }
 
@@ -890,7 +904,11 @@ public class ExpressionInterpreter
             if (optimize && (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
-            return functionInvoker.invoke(functionHandle, connectorSession, argumentValues);
+            Object result = functionInvoker.invoke(functionHandle, connectorSession, argumentValues);
+            if (optimize && !isSerializable(result, type(node))) {
+                return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
+            }
+            return result;
         }
 
         @Override
@@ -1065,16 +1083,19 @@ public class ExpressionInterpreter
                 return value;
             }
 
-            // hack!!! don't optimize CASTs for types that cannot be represented in the SQL AST
-            // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
             if (optimize && !isSupportedLiteralType(type(node))) {
+                // do not invoke cast function if it can produce unserializable type
                 return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 
             FunctionHandle operator = metadata.getFunctionManager().lookupCast(CAST, sourceType.getTypeSignature(), targetType.getTypeSignature());
 
             try {
-                return functionInvoker.invoke(operator, connectorSession, ImmutableList.of(value));
+                Object castedValue = functionInvoker.invoke(operator, connectorSession, ImmutableList.of(value));
+                if (optimize && !isSerializable(castedValue, type(node))) {
+                    return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
+                }
+                return castedValue;
             }
             catch (RuntimeException e) {
                 if (node.isSafe()) {
@@ -1093,7 +1114,9 @@ public class ExpressionInterpreter
             for (Expression expression : node.getValues()) {
                 Object value = process(expression, context);
                 if (value instanceof Expression) {
-                    return visitFunctionCall(new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues()), context);
+                    FunctionCall functionCall = new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues());
+                    addGeneratedExpressionType(functionCall, type(node));
+                    return visitFunctionCall(functionCall, context);
                 }
                 writeNativeValue(elementType, arrayBlockBuilder, value);
             }
@@ -1104,7 +1127,9 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentUser.getCall(node), context);
+            FunctionCall functionCall = DesugarCurrentUser.getCall(node);
+            addGeneratedExpressionType(functionCall, type(node));
+            return visitFunctionCall(functionCall, context);
         }
 
         @Override
@@ -1215,6 +1240,13 @@ public class ExpressionInterpreter
         private Expression toExpression(Object base, Type type)
         {
             return literalEncoder.toExpression(base, type);
+        }
+
+        private boolean isSerializable(Object value, Type type)
+        {
+            requireNonNull(type, "type is null");
+            // If value is already Expression, literal values contained inside should already have been made serializable. Otherwise, we make sure the object is small and serializable.
+            return value instanceof Expression || (isSupportedLiteralType(type) && estimatedSizeInBytes(value) <= MAX_SERIALIZABLE_OBJECT_SIZE);
         }
 
         private List<Expression> toExpressions(List<Object> values, List<Type> types)
