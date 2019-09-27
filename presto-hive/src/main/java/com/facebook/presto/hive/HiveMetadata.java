@@ -2307,7 +2307,7 @@ public class HiveMetadata
         return roles.stream().anyMatch(principal -> principal.getName().equalsIgnoreCase(ADMIN_ROLE_NAME));
     }
 
-    private List<PartitionUpdate> getPartitionUpdates(Collection<Slice> fragments)
+    public List<PartitionUpdate> getPartitionUpdates(Collection<Slice> fragments)
     {
         return fragments.stream()
                 .map(Slice::getBytes)
