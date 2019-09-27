@@ -281,7 +281,7 @@ abstract class AbstractLongSelectiveStreamReader
         return new ShortArrayBlock(positionCount, Optional.ofNullable(nullsCopy), valuesCopy);
     }
 
-    protected void ensureValuesCapacity(int capacity, boolean recordNulls)
+    private void ensureValuesCapacity(int capacity, boolean recordNulls)
     {
         values = ensureCapacity(values, capacity);
 
