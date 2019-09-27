@@ -135,6 +135,9 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.LOGICAL;
+import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.PHYSICAL;
+
 public class PlanOptimizers
 {
     private final List<PlanOptimizer> optimizers;
@@ -463,6 +466,10 @@ public class PlanOptimizers
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
 
+        // TODO: move PushdownSubfields below this rule
+        // Pass a supplier so that we pickup connector optimizers that are installed later
+        builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)));
+
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
             builder.add((new IterativeOptimizer(
@@ -531,11 +538,8 @@ public class PlanOptimizers
                         new AddIntermediateAggregations(),
                         new RemoveRedundantIdentityProjections())));
 
-        // TODO: Do not move other PlanNode to SPI until ApplyConnectorOptimization is moved to the end of logical planning (i.e., where AddExchanges lives)
-        // TODO: Run PruneUnreferencedOutputs and UnaliasSymbolReferences once we have cleaned it up
-        // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(
-                new ApplyConnectorOptimization(planOptimizerManager::getOptimizers),
+                new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(PHYSICAL)),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

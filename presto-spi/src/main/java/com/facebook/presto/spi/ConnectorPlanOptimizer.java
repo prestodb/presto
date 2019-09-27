@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 
@@ -27,10 +26,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
  * There could be multiple PlanNodes satisfying the above conditions.
  * All of them will be processed with the given implementation of ConnectorPlanOptimizer.
  * Each optimization is processed exactly once at the end of logical planning (i.e. right before AddExchanges).
- * TODO: currently, optimization is processed at the end of physical planning given only filter and table scan nodes are supported.
- * TODO: the connector optimization will be moved to the end of logical planning after #12828
  */
-@Experimental
 public interface ConnectorPlanOptimizer
 {
     PlanNode optimize(

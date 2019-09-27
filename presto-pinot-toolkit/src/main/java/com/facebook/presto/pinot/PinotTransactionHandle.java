@@ -11,22 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.connector;
+package com.facebook.presto.pinot;
 
-import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
-import java.util.Set;
-
-public interface ConnectorPlanOptimizerProvider
+public enum PinotTransactionHandle
+        implements ConnectorTransactionHandle
 {
-    /**
-     * The plan optimizers to be applied before having the notion of distribution.
-     */
-    Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers();
-
-    /**
-     * The plan optimizers to be applied after having the notion of distribution.
-     * The plan will be only executed on a single node.
-     */
-    Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers();
+    INSTANCE
 }
