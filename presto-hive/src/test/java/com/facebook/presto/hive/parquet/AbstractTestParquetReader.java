@@ -27,6 +27,7 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
@@ -1492,6 +1493,43 @@ public abstract class AbstractTestParquetReader
         Logger.getLogger("parquet.hadoop.ColumnChunkPageWriteStore").setLevel(Level.WARNING);
     }
 
+    @Test
+    public void testStructMaxReadBytes()
+            throws Exception
+    {
+        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        List<List> structValues = createTestStructs(
+                Collections.nCopies(500, String.join("", Collections.nCopies(33, "test"))),
+                Collections.nCopies(500, String.join("", Collections.nCopies(1, "test"))));
+        List<String> structFieldNames = asList("a", "b");
+        Type structType = RowType.from(asList(field("a", VARCHAR), field("b", VARCHAR)));
+
+        tester.testMaxReadBytes(
+                getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector, javaStringObjectInspector)),
+                structValues,
+                structValues,
+                structType,
+                maxReadBlockSize);
+    }
+
+    @Test
+    public void testArrayMaxReadBytes()
+            throws Exception
+    {
+        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        Iterable<List<Integer>> values = createFixedTestArrays(limit(cycle(asList(1, null, 3, 5, null, null, null, 7, 11, null, 13, 17)), 30_000));
+        tester.testMaxReadBytes(getStandardListObjectInspector(javaIntObjectInspector), values, values, new ArrayType(INTEGER), maxReadBlockSize);
+    }
+
+    @Test
+    public void testMapMaxReadBytes()
+            throws Exception
+    {
+        DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
+        Iterable<Map<String, Long>> values = createFixedTestMaps(Collections.nCopies(5_000, String.join("", Collections.nCopies(33, "test"))), longsBetween(0, 5_000));
+        tester.testMaxReadBytes(getStandardMapObjectInspector(javaStringObjectInspector, javaLongObjectInspector), values, values, mapType(VARCHAR, BIGINT), maxReadBlockSize);
+    }
+
     private static <T> Iterable<T> repeatEach(int n, Iterable<T> iterable)
     {
         return () -> new AbstractIterator<T>()
@@ -1652,6 +1690,7 @@ public abstract class AbstractTestParquetReader
         return maps;
     }
 
+
     private <K, V> Iterable<Map<K, V>> createTestMaps(Iterable<K> keys, Iterable<V> values)
     {
         List<Map<K, V>> maps = new ArrayList<>();
@@ -1675,6 +1714,7 @@ public abstract class AbstractTestParquetReader
     {
         return insertNullEvery(ThreadLocalRandom.current().nextInt(2, 5), createTestMaps(keys, values));
     }
+
 
     private static Byte intToByte(Integer input)
     {

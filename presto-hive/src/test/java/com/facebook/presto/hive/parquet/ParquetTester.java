@@ -405,6 +405,9 @@ public class ParquetTester
     {
         Page page;
         while ((page = pageSource.getNextPage()) != null) {
+            if (maxReadBlockSize.isPresent()) {
+                assertTrue(page.getPositionCount() == 1 || page.getSizeInBytes() <= maxReadBlockSize.get());
+            }
             for (int field = 0; field < page.getChannelCount(); field++) {
                 Block block = page.getBlock(field);
                 for (int i = 0; i < block.getPositionCount(); i++) {
