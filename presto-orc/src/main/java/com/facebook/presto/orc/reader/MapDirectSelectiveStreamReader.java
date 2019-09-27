@@ -255,7 +255,10 @@ public class MapDirectSelectiveStreamReader
 
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
-        if (presentStream == null) {
+        if (lengthStream == null) {
+            readAllNulls(positions, positionCount);
+        }
+        else if (presentStream == null) {
             readNoNulls(offset, positions, positionCount);
         }
         else {
@@ -263,6 +266,21 @@ public class MapDirectSelectiveStreamReader
         }
 
         return outputPositionCount;
+    }
+
+    private int readAllNulls(int[] positions, int positionCount)
+    {
+        if (nullsAllowed) {
+            outputPositionCount = positionCount;
+            outputPositions = positions;
+            outputPositionsReadOnly = true;
+        }
+        else {
+            outputPositionCount = 0;
+        }
+
+        allNulls = true;
+        return positions[positionCount - 1] + 1;
     }
 
     private void readNoNulls(int offset, int[] positions, int positionCount)
