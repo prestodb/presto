@@ -244,6 +244,15 @@ public class TestSelectiveOrcReader
             throws Exception
     {
         testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), NUM_ROWS), BigintRange.of(4, 14, false));
+
+        Random random = new Random(0);
+
+        // read selected positions from all nulls column
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, INTEGER),
+                ImmutableList.of(
+                        createList(NUM_ROWS, i -> random.nextInt(10)),
+                        createList(NUM_ROWS, i -> null)),
+                toSubfieldFilters(ImmutableMap.of(0, BigintRange.of(0, 5, false))));
     }
 
     @Test
