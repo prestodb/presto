@@ -18,6 +18,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
+import io.airlift.slice.ByteArrays;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 
@@ -31,6 +32,8 @@ import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeCom
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -50,6 +53,9 @@ public final class OrcInputStream
     private int position;
     private int length;
     private int uncompressedOffset;
+
+    // Temporary memory for reading a float or double at buffer boundary.
+    private byte[] temporaryBuffer = new byte[SIZE_OF_DOUBLE];
 
     private final LocalMemoryContext bufferMemoryUsage;
 
@@ -238,6 +244,40 @@ public final class OrcInputStream
         result = Math.min(available(), n - 1);
         position += toIntExact(result);
         return 1 + result;
+    }
+
+    public double readDouble()
+            throws IOException
+    {
+        int readPosition = ensureContiguousBytesAndAdvance(SIZE_OF_DOUBLE);
+        if (readPosition < 0) {
+            return ByteArrays.getDouble(temporaryBuffer, 0);
+        }
+        return ByteArrays.getDouble(buffer, readPosition);
+    }
+
+    public float readFloat()
+            throws IOException
+    {
+        int readPosition = ensureContiguousBytesAndAdvance(SIZE_OF_FLOAT);
+        if (readPosition < 0) {
+            return ByteArrays.getFloat(temporaryBuffer, 0);
+        }
+        return ByteArrays.getFloat(buffer, readPosition);
+    }
+
+    private int ensureContiguousBytesAndAdvance(int bytes)
+            throws IOException
+    {
+        // If there are numBytes in the buffer, return the offset of the start and advance by numBytes. If not, copy numBytes
+        // into temporaryBuffer, advance by numBytes and return -1.
+        if (available() >= bytes) {
+            int startPosition = position;
+            position += bytes;
+            return startPosition;
+        }
+        readFully(temporaryBuffer, 0, bytes);
+        return -1;
     }
 
     // This comes from the Apache Hive ORC code
