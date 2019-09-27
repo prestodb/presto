@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Queue;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
@@ -56,6 +55,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 
 public class SortingFileWriter
         implements HiveFileWriter
@@ -74,7 +74,6 @@ public class SortingFileWriter
     private final SortBuffer sortBuffer;
     private final TempFileSinkFactory tempFileSinkFactory;
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::getSize));
-    private final AtomicLong nextFileId = new AtomicLong();
 
     public SortingFileWriter(
             FileSystem fileSystem,
@@ -267,7 +266,7 @@ public class SortingFileWriter
 
     private Path getTempFileName()
     {
-        return new Path(tempFilePrefix + "." + nextFileId.getAndIncrement());
+        return new Path(tempFilePrefix + "." + randomUUID().toString().replaceAll("-", "_"));
     }
 
     private static class TempFile
