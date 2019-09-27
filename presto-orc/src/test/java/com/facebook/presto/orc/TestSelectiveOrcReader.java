@@ -609,6 +609,13 @@ public class TestSelectiveOrcReader
                         createList(NUM_ROWS, i -> random.nextInt()),
                         Collections.nCopies(NUM_ROWS, ImmutableMap.of())),
                 ImmutableList.of());
+
+        // read selected positions from all nulls map column
+        tester.testRoundTripTypes(ImmutableList.of(INTEGER, mapType(INTEGER, INTEGER)),
+                ImmutableList.of(
+                        createList(NUM_ROWS, i -> random.nextInt(10)),
+                        createList(NUM_ROWS, i -> null)),
+                toSubfieldFilters(ImmutableMap.of(0, BigintRange.of(0, 5, false))));
     }
 
     @Test
