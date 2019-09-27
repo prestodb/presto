@@ -151,7 +151,7 @@ public class LongDictionarySelectiveStreamReader
                 if (filter == null || filter.testLong(value)) {
                     if (outputRequired) {
                         values[outputPositionCount] = value;
-                        if (nulls != null) {
+                        if (presentStream != null && nullsAllowed) {
                             nulls[outputPositionCount] = false;
                         }
                     }
