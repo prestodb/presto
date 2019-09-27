@@ -58,17 +58,17 @@ public class TestUnweightedDoubleReservoirSample
 
         long streamLength = 1_000_000;
         for (int i = 0; i < streamLength; ++i) {
-            double value = i * 10 + i % 2;
-            reservoir.add(value);
+            reservoir.add(i);
         }
 
         double[] quantized = new double[4];
         for (double sample : reservoir.getSamples()) {
-            int index = (int) (4.0 * sample / (10.0 * streamLength + 1));
+            int index = (int) (4.0 * sample / (streamLength + 1));
             ++quantized[index];
         }
+        int expectedMin = 25;
         for (int i = 0; i < 4; ++i) {
-            assertTrue(quantized[i] > 35, format("Expected quantized[i] > got: i=%s, quantized=%s, got=%s", i, quantized[i], 35));
+            assertTrue(quantized[i] > expectedMin, format("Expected quantized[i] > got: i=%s, quantized=%s, got=%s", i, quantized[i], expectedMin));
         }
     }
 }
