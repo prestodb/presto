@@ -265,6 +265,15 @@ public class TestSelectiveOrcReader
     }
 
     @Test
+    public void testLongDirectVarintScale()
+            throws Exception
+    {
+        List<Long> values = varintScaleSequence(NUM_ROWS);
+        Collections.shuffle(values, new Random(0));
+        testRoundTripNumeric(values, BigintRange.of(0, 1L << 60, false));
+    }
+
+    @Test
     public void testLongShortRepeat()
             throws Exception
     {
@@ -858,7 +867,7 @@ public class TestSelectiveOrcReader
                 .collect(toList());
 
         List<SqlTimestamp> timestamps = longValues.stream()
-                .map(timestamp -> sqlTimestampOf(timestamp, SESSION))
+                .map(timestamp -> sqlTimestampOf(timestamp & Integer.MAX_VALUE, SESSION))
                 .collect(toList());
 
         tester.testRoundTrip(BIGINT, longValues, toSubfieldFilters(filter));
@@ -1020,6 +1029,17 @@ public class TestSelectiveOrcReader
         for (int i = 0; i < items; i++) {
             values.add(new SqlDecimal(nextValue, precision, scale));
             nextValue = nextValue.add(decimalStep);
+        }
+        return values;
+    }
+
+    private static List<Long> varintScaleSequence(int rows)
+    {
+        List<Long> values = new ArrayList();
+        long[] numbers = new long[] {1L, 1L << 8, 1L << 13, 1L << 20, 1L << 27, 1L << 34, 1L << 40, 1L << 47, 1L << 53, 1L << 60, 1L << 63};
+        for (int i = 0; i < rows; i++) {
+            values.add(numbers[i % numbers.length] + i);
+            values.add(-numbers[i % numbers.length] + i);
         }
         return values;
     }

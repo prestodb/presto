@@ -380,7 +380,7 @@ public final class TestingOrcPredicate
                         .filter(Objects::nonNull)
                         .mapToLong(Long::longValue)
                         .sum();
-                if (columnStatistics.getIntegerStatistics().getSum() != sum) {
+                if (columnStatistics.getIntegerStatistics().getSum() != null && columnStatistics.getIntegerStatistics().getSum() != sum) {
                     return false;
                 }
                 HiveBloomFilter bloomFilter = columnStatistics.getBloomFilter();
