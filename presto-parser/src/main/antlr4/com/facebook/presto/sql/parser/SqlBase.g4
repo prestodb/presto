@@ -55,6 +55,9 @@ statement
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
+    | CREATE (OR REPLACE)? FUNCTION functionName=qualifiedName
+      '(' (sqlParameterDeclaration (',' sqlParameterDeclaration)*)? ')'
+      RETURNS returnType=type routineCharacteristics routineBody       #createFunction
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?                                          #createRole
@@ -138,6 +141,38 @@ properties
 property
     : identifier EQ expression
     ;
+
+sqlParameterDeclaration
+    : identifier type
+    ;
+
+routineCharacteristics
+    : routineCharacteristic*
+    ;
+
+routineCharacteristic
+    : LANGUAGE language
+    | determinism
+    | nullCallClause
+    ;
+
+routineBody
+    : RETURN expression
+    ;
+
+language
+    : SQL
+    ;
+
+determinism
+    : DETERMINISTIC
+    | NOT DETERMINISTIC;
+
+nullCallClause
+    : RETURNS NULL ON NULL INPUT
+    | CALLED ON NULL INPUT
+    ;
+
 
 queryNoWith:
       queryTerm
@@ -511,6 +546,7 @@ BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
 BY: 'BY';
 CALL: 'CALL';
+CALLED: 'CALLED';
 CASCADE: 'CASCADE';
 CASE: 'CASE';
 CAST: 'CAST';
@@ -537,6 +573,7 @@ DEALLOCATE: 'DEALLOCATE';
 DELETE: 'DELETE';
 DESC: 'DESC';
 DESCRIBE: 'DESCRIBE';
+DETERMINISTIC: 'DETERMINISTIC';
 DISTINCT: 'DISTINCT';
 DISTRIBUTED: 'DISTRIBUTED';
 DROP: 'DROP';
@@ -557,6 +594,7 @@ FOR: 'FOR';
 FORMAT: 'FORMAT';
 FROM: 'FROM';
 FULL: 'FULL';
+FUNCTION: 'FUNCTION';
 FUNCTIONS: 'FUNCTIONS';
 GRANT: 'GRANT';
 GRANTED: 'GRANTED';
@@ -580,6 +618,7 @@ IS: 'IS';
 ISOLATION: 'ISOLATION';
 JSON: 'JSON';
 JOIN: 'JOIN';
+LANGUAGE: 'LANGUAGE';
 LAST: 'LAST';
 LATERAL: 'LATERAL';
 LEFT: 'LEFT';
@@ -628,6 +667,8 @@ REPEATABLE: 'REPEATABLE';
 REPLACE: 'REPLACE';
 RESET: 'RESET';
 RESTRICT: 'RESTRICT';
+RETURN: 'RETURN';
+RETURNS: 'RETURNS';
 REVOKE: 'REVOKE';
 RIGHT: 'RIGHT';
 ROLE: 'ROLE';
@@ -646,6 +687,7 @@ SET: 'SET';
 SETS: 'SETS';
 SHOW: 'SHOW';
 SOME: 'SOME';
+SQL: 'SQL';
 START: 'START';
 STATS: 'STATS';
 SUBSTRING: 'SUBSTRING';
