@@ -31,6 +31,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -102,6 +103,7 @@ import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
+import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -119,6 +121,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.SqlParameterDeclaration;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -156,10 +159,16 @@ import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
+import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language.SQL;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
@@ -575,8 +584,8 @@ public class TestSqlParser
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
+        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(DIVIDE,
+                new ArithmeticBinaryExpression(DIVIDE,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
@@ -1411,6 +1420,59 @@ public class TestSqlParser
         assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(QualifiedName.of("bar", "foo"), query, false));
         assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome view"), query, false));
         assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome schema", "awesome view"), query, false));
+    }
+
+    @Test
+    public void testCreateFunction()
+    {
+        assertStatement(
+                "CREATE FUNCTION tan (x double)\n" +
+                        "RETURNS double\n" +
+                        "LANGUAGE SQL\n" +
+                        "DETERMINISTIC\n" +
+                        "RETURNS NULL ON NULL INPUT\n" +
+                        "RETURN sin(x) / cos(x)",
+                new CreateFunction(
+                        QualifiedName.of("tan"),
+                        false,
+                        ImmutableList.of(new SqlParameterDeclaration(identifier("x"), "double")),
+                        "double",
+                        new RoutineCharacteristics(SQL, DETERMINISTIC, RETURNS_NULL_ON_NULL_INPUT),
+                        new ArithmeticBinaryExpression(
+                                DIVIDE,
+                                new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(identifier("x"))),
+                                new FunctionCall(QualifiedName.of("cos"), ImmutableList.of(identifier("x"))))));
+
+        CreateFunction createFunctionRand = new CreateFunction(
+                QualifiedName.of("dev", "testing", "rand"),
+                true,
+                ImmutableList.of(),
+                "double",
+                new RoutineCharacteristics(SQL, NOT_DETERMINISTIC, CALLED_ON_NULL_INPUT),
+                new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()));
+        assertStatement(
+                "CREATE OR REPLACE FUNCTION dev.testing.rand ()\n" +
+                        "RETURNS double\n" +
+                        "LANGUAGE SQL\n" +
+                        "NOT DETERMINISTIC\n" +
+                        "CALLED ON NULL INPUT\n" +
+                        "RETURN rand()",
+                createFunctionRand);
+        assertStatement(
+                "CREATE OR REPLACE FUNCTION dev.testing.rand ()\n" +
+                        "RETURNS double\n" +
+                        "RETURN rand()",
+                createFunctionRand);
+
+        assertInvalidStatement(
+                "CREATE FUNCTION dev.testing.rand () RETURNS double LANGUAGE SQL LANGUAGE SQL RETURN rand()",
+                "Duplicate language clause: SQL");
+        assertInvalidStatement(
+                "CREATE FUNCTION dev.testing.rand () RETURNS double DETERMINISTIC DETERMINISTIC RETURN rand()",
+                "Duplicate determinism characteristics: DETERMINISTIC");
+        assertInvalidStatement(
+                "CREATE FUNCTION dev.testing.rand () RETURNS double CALLED ON NULL INPUT CALLED ON NULL INPUT RETURN rand()",
+                "Duplicate null-call clause: CALLEDONNULLINPUT");
     }
 
     @Test
@@ -2294,6 +2356,19 @@ public class TestSqlParser
                     indent(input),
                     indent(formatSql(expected, Optional.empty())),
                     indent(formatSql(parsed, Optional.empty()))));
+        }
+    }
+
+    private static void assertInvalidStatement(String expression, String expectedErrorMessageRegex)
+    {
+        try {
+            Statement result = SQL_PARSER.createStatement(expression, ParsingOptions.builder().build());
+            fail("Expected to throw ParsingException for input:[" + expression + "], but got: " + result);
+        }
+        catch (ParsingException e) {
+            if (!e.getErrorMessage().matches(expectedErrorMessageRegex)) {
+                fail(format("Expected error message to match '%s', but was: '%s'", expectedErrorMessageRegex, e.getErrorMessage()));
+            }
         }
     }
 
