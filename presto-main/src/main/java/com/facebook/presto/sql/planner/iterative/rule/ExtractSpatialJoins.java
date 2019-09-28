@@ -372,7 +372,6 @@ public class ExtractSpatialJoins
         Expression firstArgument;
         Expression secondArgument;
         QualifiedName spatialFunctionName;
-        Expression addAndExpression = null;
         Optional<Expression> distanceRadius = Optional.empty();
         if (spatialFunction.getName().getSuffix().equalsIgnoreCase(SpatialJoinUtils.GREAT_CIRCLE_DISTANCE.getSuffix())) {
             verify(arguments.size() == 4);
@@ -388,21 +387,12 @@ public class ExtractSpatialJoins
                 }
             }
 
-            firstArgument = new FunctionCall(QualifiedName.of("ST_Point"), ImmutableList.of(arguments.get(0), arguments.get(1)));
-            secondArgument = new FunctionCall(QualifiedName.of("ST_Point"), ImmutableList.of(arguments.get(2), arguments.get(3)));
+            firstArgument = new FunctionCall(QualifiedName.of("to_spherical_geography"),
+                    ImmutableList.of(new FunctionCall(QualifiedName.of("ST_Point"), ImmutableList.of(arguments.get(0), arguments.get(1)))));
+            secondArgument = new FunctionCall(QualifiedName.of("to_spherical_geography"),
+                    ImmutableList.of(new FunctionCall(QualifiedName.of("ST_Point"), ImmutableList.of(arguments.get(2), arguments.get(3)))));
 
             spatialFunctionName = QualifiedName.of(SpatialJoinUtils.ST_DISTANCE.getSuffix());
-            addAndExpression = replaceExpression(filter, ImmutableMap.of(spatialFunction, new FunctionCall(spatialFunction.getName(), arguments)));
-
-            if (radius.isPresent()) {
-                //distanceRadius <- radius / (111.321 * cos(radians(u.latitude)))
-                Expression latRadiansExpression = new FunctionCall(QualifiedName.of("radians"), ImmutableList.of(arguments.get(2)));
-                Expression cosExpression = new FunctionCall(QualifiedName.of("cos"), ImmutableList.of(latRadiansExpression));
-                distanceRadius = Optional.of(
-                    new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE, radius.get(),
-                        new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY,  new DoubleLiteral("111.321"), cosExpression)
-                    ));
-            }
         } else {
             verify(arguments.size() == 2);
 
@@ -410,12 +400,6 @@ public class ExtractSpatialJoins
             secondArgument = arguments.get(1);
 
             spatialFunctionName = spatialFunction.getName();
-        }
-
-        Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
-        if (getExpressionType(firstArgument, context, metadata, sqlParser).equals(sphericalGeographyType)
-                || getExpressionType(secondArgument, context, metadata, sqlParser).equals(sphericalGeographyType)) {
-            return Result.empty();
         }
 
         Set<VariableReferenceExpression> firstVariables = VariablesExtractor.extractUnique(firstArgument, context.getVariableAllocator().getTypes());
@@ -473,12 +457,6 @@ public class ExtractSpatialJoins
 
         Expression newSpatialFunction = new FunctionCall(spatialFunctionName, ImmutableList.of(newFirstArgument, newSecondArgument));
         Expression newFilter = replaceExpression(filter, ImmutableMap.of(spatialFunction, newSpatialFunction));
-        if (distanceRadius.isPresent() && radius.isPresent()) {
-            newFilter = replaceExpression(newFilter, ImmutableMap.of(radius.get(), distanceRadius.get()));
-        }
-        if (addAndExpression != null) {
-            newFilter = new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, addAndExpression, newFilter);
-        }
 
         return Result.ofPlanNode(new SpatialJoinNode(
                 nodeId,
