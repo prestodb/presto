@@ -219,7 +219,7 @@ public class PlanFragmenter
                  * We currently only support recoverable grouped execution if the following statements hold true:
                  *   - Current session enables recoverable grouped execution
                  *   - Parent sub plan contains TableFinishNode
-                 *   - Current sub plan's root is TableWriterNode
+                 *   - Current sub plan's root is TableWriterMergeNode
                  *   - Input connectors supports split source rewind
                  *   - Output connectors supports partition commit
                  *   - Bucket node map uses dynamic scheduling
@@ -227,7 +227,7 @@ public class PlanFragmenter
                  */
                 boolean recoverable = isRecoverableGroupedExecutionEnabled(session) &&
                         parentContainsTableFinish &&
-                        fragment.getRoot() instanceof TableWriterNode &&
+                        fragment.getRoot() instanceof TableWriterMergeNode &&
                         properties.isRecoveryEligible();
                 if (recoverable) {
                     fragment = fragment.withRecoverableGroupedExecution(properties.getCapableTableScanNodes(), properties.getTotalLifespans());

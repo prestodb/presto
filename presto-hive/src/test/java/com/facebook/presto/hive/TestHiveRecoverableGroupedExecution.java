@@ -64,7 +64,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true, enabled = false)
+@Test(singleThreaded = true)
 public class TestHiveRecoverableGroupedExecution
 {
     private static final Set<StageState> SPLIT_SCHEDULING_STARTED_STATES = ImmutableSet.of(StageState.SCHEDULING_SPLITS, StageState.SCHEDULED, StageState.RUNNING, StageState.FINISHED);
@@ -101,7 +101,7 @@ public class TestHiveRecoverableGroupedExecution
         executor.shutdownNow();
     }
 
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testCreateBucketedTable()
             throws Exception
     {
