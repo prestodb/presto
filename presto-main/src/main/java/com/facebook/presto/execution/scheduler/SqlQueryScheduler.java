@@ -421,6 +421,8 @@ public class SqlQueryScheduler
 
         Optional<int[]> bucketToPartition;
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
+        int maxTasksPerStage = getMaxTasksPerStage(session);
+
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             // TODO: defer opening split sources when stage scheduling starts
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session, tableWriteInfo);
@@ -432,7 +434,8 @@ public class SqlQueryScheduler
             if (isInternalSystemConnector(connectorId)) {
                 connectorId = null;
             }
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(connectorId);
+
+            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(connectorId, maxTasksPerStage);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
@@ -475,7 +478,7 @@ public class SqlQueryScheduler
                                 .collect(toImmutableList());
                     }
                     else {
-                        stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(connectorId).selectRandomNodes(getMaxTasksPerStage(session)));
+                        stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(connectorId).selectRandomNodes(maxTasksPerStage));
                     }
                     bucketToPartition = Optional.empty();
                 }
