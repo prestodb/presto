@@ -116,7 +116,7 @@ General Aggregate Functions
         SELECT id, reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b)
         FROM (
             VALUES
-                (1, 2)
+                (1, 2),
                 (1, 3),
                 (1, 4),
                 (2, 20),
