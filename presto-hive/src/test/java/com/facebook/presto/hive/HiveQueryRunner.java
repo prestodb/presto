@@ -89,6 +89,12 @@ public final class HiveQueryRunner
         return createQueryRunner(tables, extraProperties, "sql-standard", ImmutableMap.of(), baseDataDir);
     }
 
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, Map<String, String> extraHiveProperties, Optional<Path> baseDataDir)
+            throws Exception
+    {
+        return createQueryRunner(tables, extraProperties, "sql-standard", extraHiveProperties, baseDataDir);
+    }
+
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, String security, Map<String, String> extraHiveProperties, Optional<Path> baseDataDir)
             throws Exception
     {

@@ -37,10 +37,11 @@ public class TestHiveDistributedQueries
         return false;
     }
 
+    // Hive connector currently does not support row-by-row delete
     @Override
-    public void testDelete()
+    protected boolean supportsRowByRowDelete()
     {
-        // Hive connector currently does not support row-by-row delete
+        return false;
     }
 
     @Test

@@ -87,6 +87,8 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    protected boolean supportsRowByRowDelete() { return true; }
+
     @Test
     public void testSetSession()
     {
@@ -517,6 +519,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDelete()
     {
+        skipTestUnless(supportsRowByRowDelete());
         // delete half the table, then delete the rest
 
         assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
