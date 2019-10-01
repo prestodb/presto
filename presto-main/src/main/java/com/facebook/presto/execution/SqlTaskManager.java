@@ -423,7 +423,12 @@ public class SqlTaskManager
 
     public void removeOldTasks()
     {
-        DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
+        removeTasksGoingBack(infoCacheTime);
+    }
+
+    public void removeTasksGoingBack(Duration duration)
+    {
+        DateTime oldestAllowedTask = DateTime.now().minus(duration.toMillis());
         for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
             TaskId taskId = taskInfo.getTaskStatus().getTaskId();
             try {

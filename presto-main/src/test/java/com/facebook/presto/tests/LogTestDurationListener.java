@@ -148,16 +148,20 @@ public class LogTestDurationListener
     @Override
     public void beforeInvocation(IInvokedMethod method, ITestResult testResult)
     {
-        beginTest(getName(method));
+        if (method.isTestMethod()) {
+            beginTest(getName(method));
+        }
     }
 
     @Override
     public void afterInvocation(IInvokedMethod method, ITestResult testResult)
     {
-        String name = getName(method);
-        Duration duration = endTest(name);
-        if (duration.compareTo(SINGLE_TEST_LOGGING_THRESHOLD) > 0) {
-            LOG.info("Test %s took %s", name, duration);
+        if (method.isTestMethod()) {
+            String name = getName(method);
+            Duration duration = endTest(name);
+            if (duration.compareTo(SINGLE_TEST_LOGGING_THRESHOLD) > 0) {
+                LOG.info("Test %s took %s", name, duration);
+            }
         }
     }
 
