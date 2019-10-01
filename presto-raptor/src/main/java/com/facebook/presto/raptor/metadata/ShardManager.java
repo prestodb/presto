@@ -102,7 +102,7 @@ public interface ShardManager
     /**
      * Remove all old shard assignments and assign a shard to a node
      */
-    void replaceShardAssignment(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod);
+    void replaceShardAssignment(long tableId, UUID shardUuid, Optional<UUID> deltaUuid, String nodeIdentifier, boolean gracePeriod);
 
     /**
      * Get the number of bytes used by assigned shards per node.

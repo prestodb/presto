@@ -215,7 +215,7 @@ public class ShardEjector
         // only include nodes that are below threshold
         nodes = new HashMap<>(filterValues(nodes, size -> size <= averageSize));
 
-        // get non-bucketed node shards by size, largest to smallest
+        // get non-bucketed node shards(only) by size, largest to smallest
         List<ShardMetadata> shards = shardManager.getNodeShards(currentNode).stream()
                 .filter(shard -> !shard.getBucketNumber().isPresent())
                 .sorted(comparingLong(ShardMetadata::getCompressedSize).reversed())
@@ -227,6 +227,7 @@ public class ShardEjector
             ShardMetadata shard = queue.remove();
             long shardSize = shard.getCompressedSize();
             UUID shardUuid = shard.getShardUuid();
+            Optional<UUID> deltaUuid = shard.getDeltaUuid();
 
             // verify backup exists
             if (!backupStore.get().shardExists(shardUuid)) {
@@ -250,7 +251,7 @@ public class ShardEjector
             nodeSize -= shardSize;
 
             // move assignment
-            shardManager.replaceShardAssignment(shard.getTableId(), shardUuid, target, false);
+            shardManager.replaceShardAssignment(shard.getTableId(), shardUuid, deltaUuid, target, false);
 
             // delete local file
             Path file = storageService.getStorageFile(shardUuid);
