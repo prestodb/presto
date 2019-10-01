@@ -814,7 +814,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void replaceShardAssignment(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod)
+    public void replaceShardAssignment(long tableId, UUID shardUuid, Optional<UUID> deltaUuid, String nodeIdentifier, boolean gracePeriod)
     {
         if (gracePeriod && (nanosSince(startTime).compareTo(startupGracePeriod) < 0)) {
             throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign shards while server is starting");
@@ -826,10 +826,17 @@ public class DatabaseShardManager
             ShardDao dao = shardDaoSupplier.attach(handle);
 
             Set<Integer> oldAssignments = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
+
+            // 1. Update index table
             updateNodeIds(handle, tableId, shardUuid, ImmutableSet.of(nodeId));
 
+            // 2. Update shards table
             dao.deleteShardNodes(shardUuid, oldAssignments);
             dao.insertShardNode(shardUuid, nodeId);
+            if (deltaUuid.isPresent()) {
+                dao.deleteShardNodes(deltaUuid.get(), oldAssignments);
+                dao.insertShardNode(deltaUuid.get(), nodeId);
+            }
             return null;
         });
     }

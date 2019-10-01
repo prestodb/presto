@@ -227,6 +227,7 @@ public class ShardEjector
             ShardMetadata shard = queue.remove();
             long shardSize = shard.getCompressedSize();
             UUID shardUuid = shard.getShardUuid();
+            Optional<UUID> deltaUuid = shard.getDeltaUuid();
 
             // verify backup exists
             if (!backupStore.get().shardExists(shardUuid)) {
@@ -249,8 +250,10 @@ public class ShardEjector
             nodes.put(target, targetSize + shardSize);
             nodeSize -= shardSize;
 
-            // move assignment
-            shardManager.replaceShardAssignment(shard.getTableId(), shardUuid, target, false);
+            if (!shard.isDelta()) {
+                // move assignment
+                shardManager.replaceShardAssignment(shard.getTableId(), shardUuid, deltaUuid, target, false);
+            }
 
             // delete local file
             Path file = storageService.getStorageFile(shardUuid);
