@@ -247,7 +247,12 @@ public class RaptorSplitManager
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
                 Node node = selectRandom(availableNodes);
-                shardManager.replaceShardAssignment(tableId, shardUuid, node.getNodeIdentifier(), true);
+                shardManager.replaceShardAssignment(
+                        tableId,
+                        shardUuid,
+                        deltaShardUuid,
+                        node.getNodeIdentifier(),
+                        true);
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
