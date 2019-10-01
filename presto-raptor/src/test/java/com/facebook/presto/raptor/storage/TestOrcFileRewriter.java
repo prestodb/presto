@@ -677,7 +677,7 @@ public class TestOrcFileRewriter
                 ZSTD);
     }
 
-    private static FileRewriter createFileRewriter()
+    private static OrcPageFileRewriter createFileRewriter()
     {
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());

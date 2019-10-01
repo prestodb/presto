@@ -59,7 +59,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public final class OrcPageFileRewriter
-        implements FileRewriter
 {
     private static final Logger log = Logger.get(OrcPageFileRewriter.class);
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
@@ -87,7 +86,6 @@ public final class OrcPageFileRewriter
         this.compression = requireNonNull(compression, "compression is null");
     }
 
-    @Override
     public OrcFileInfo rewrite(Map<String, Type> allColumnTypes, Path input, Path output, BitSet rowsToDelete)
             throws IOException
     {

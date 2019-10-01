@@ -159,7 +159,7 @@ public class OrcStorageManager
     private final ExecutorService commitExecutor;
     private final OrcDataEnvironment orcDataEnvironment;
     private final FileSystem fileSystem;
-    private final FileRewriter fileRewriter;
+    private final OrcPageFileRewriter fileRewriter;
     private final OrcWriterStats stats = new OrcWriterStats();
 
     @Inject
