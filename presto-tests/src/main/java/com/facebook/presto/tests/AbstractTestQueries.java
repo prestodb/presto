@@ -446,6 +446,29 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testTryMapTransformValueFunction()
+    {
+        // MaterializedResult#Builder doesn't support null row. Coalesce null value to empty map for comparison.
+        MaterializedResult actual = computeActual("" +
+                "SELECT COALESCE( TRY( TRANSFORM_VALUES( id, (k, v) -> k / v ) ) , MAP() )" +
+                "FROM ( VALUES " +
+                "(MAP(ARRAY[1, 2], ARRAY[0, 0])), " +
+                "(MAP(ARRAY[1, 2], ARRAY[1, 2])), " +
+                "(MAP(ARRAY[28, 56], ARRAY[2, 4])), " +
+                "(MAP(ARRAY[4, 5], ARRAY[0, 0])), " +
+                "(MAP(ARRAY[12, 72], ARRAY[3, 6]))) AS t (id)");
+
+        MaterializedResult expected = resultBuilder(getSession(), mapType(INTEGER, INTEGER))
+                .row(ImmutableMap.of())
+                .row(ImmutableMap.of(1, 1, 2, 1))
+                .row(ImmutableMap.of(28, 14, 56, 14))
+                .row(ImmutableMap.of())
+                .row(ImmutableMap.of(12, 4, 72, 12))
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testRowFieldAccessorInWindowFunction()
     {
         assertQuery("SELECT a.col0, " +
