@@ -132,7 +132,7 @@ public class FunctionManager
         if (functionNamespaceFactories.putIfAbsent(factory.getName(), factory) != null) {
             throw new IllegalArgumentException(format("Resource group configuration manager '%s' is already registered", factory.getName()));
         }
-        handleResolver.addFunctionNamepsace(factory.getName(), factory.getHandleResolver());
+        handleResolver.addFunctionNamespace(factory.getName(), factory.getHandleResolver());
     }
 
     public void addFunctions(List<? extends SqlFunction> functions)
