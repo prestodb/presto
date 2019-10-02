@@ -198,7 +198,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HivePartitionObjectBuilder());
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
-                transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
+                transactionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),

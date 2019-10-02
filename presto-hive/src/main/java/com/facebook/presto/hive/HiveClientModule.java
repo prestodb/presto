@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.concurrent.ExecutorServiceAdapter;
 import com.facebook.airlift.event.client.EventClient;
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
@@ -52,7 +51,6 @@ import javax.inject.Singleton;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -210,12 +208,5 @@ public class HiveClientModule
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_OrcFileTail"), cacheStatsMBean);
         }
         return orcFileTailSource;
-    }
-
-    @Singleton
-    @Provides
-    public Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> createMetastoreGetter(HiveTransactionManager transactionManager)
-    {
-        return transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore();
     }
 }
