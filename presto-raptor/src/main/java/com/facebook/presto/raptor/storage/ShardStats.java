@@ -69,8 +69,15 @@ public final class ShardStats
     private static ColumnStats doComputeColumnStats(OrcReader orcReader, long columnId, Type type, TypeManager typeManager)
             throws IOException
     {
+        StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeManager);
+
         int columnIndex = columnIndex(orcReader.getColumnNames(), columnId);
-        OrcBatchRecordReader reader = orcReader.createBatchRecordReader(ImmutableMap.of(columnIndex, toOrcFileType(type, typeManager)), OrcPredicate.TRUE, UTC, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE);
+        OrcBatchRecordReader reader = orcReader.createBatchRecordReader(
+                storageTypeConverter.toStorageTypes(ImmutableMap.of(columnIndex, toOrcFileType(type, typeManager))),
+                OrcPredicate.TRUE,
+                UTC,
+                newSimpleAggregatedMemoryContext(),
+                INITIAL_BATCH_SIZE);
 
         if (type.equals(BOOLEAN)) {
             return indexBoolean(reader, columnIndex, columnId);

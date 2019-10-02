@@ -157,7 +157,10 @@ public final class OrcPageFileRewriter
                 }
                 userMetadata = ImmutableMap.of(OrcFileMetadata.KEY, METADATA_CODEC.toJson(new OrcFileMetadata(metadataBuilder.build())));
             }
-            try (Closer<OrcBatchRecordReader, IOException> recordReader = closer(reader.createBatchRecordReader(readerColumns, TRUE, DEFAULT_STORAGE_TIMEZONE, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE), OrcBatchRecordReader::close);
+
+            StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeManager);
+
+            try (Closer<OrcBatchRecordReader, IOException> recordReader = closer(reader.createBatchRecordReader(storageTypeConverter.toStorageTypes(readerColumns), TRUE, DEFAULT_STORAGE_TIMEZONE, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE), OrcBatchRecordReader::close);
                     Closer<OrcWriter, IOException> writer = closer(new OrcWriter(
                             orcDataEnvironment.createOrcDataSink(output),
                             writerColumnIds,
