@@ -51,7 +51,6 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.function.Function;
 
 import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
@@ -81,7 +80,7 @@ public class HiveSplitManager
     public static final String PRESTO_OFFLINE = "presto_offline";
     public static final String OBJECT_NOT_READABLE = "object_not_readable";
 
-    private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
+    private final HiveTransactionManager hiveTransactionManager;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
     private final DirectoryLister directoryLister;
@@ -99,7 +98,7 @@ public class HiveSplitManager
     @Inject
     public HiveSplitManager(
             HiveClientConfig hiveClientConfig,
-            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
+            HiveTransactionManager hiveTransactionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -107,7 +106,7 @@ public class HiveSplitManager
             CoercionPolicy coercionPolicy)
     {
         this(
-                metastoreProvider,
+                hiveTransactionManager,
                 namenodeStats,
                 hdfsEnvironment,
                 directoryLister,
@@ -124,7 +123,7 @@ public class HiveSplitManager
     }
 
     public HiveSplitManager(
-            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
+            HiveTransactionManager hiveTransactionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -139,7 +138,7 @@ public class HiveSplitManager
             int splitLoaderConcurrency,
             boolean recursiveDfsWalkerEnabled)
     {
-        this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
+        this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
@@ -167,7 +166,8 @@ public class HiveSplitManager
         SchemaTableName tableName = layout.getSchemaTableName();
 
         // get table metadata
-        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply((HiveTransactionHandle) transaction);
+        TransactionalMetadata metadata = hiveTransactionManager.get(transaction);
+        SemiTransactionalHiveMetastore metastore = metadata.getMetastore();
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 

@@ -843,7 +843,7 @@ public abstract class AbstractTestHiveClient
                 new HivePartitionObjectBuilder());
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
-                transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
+                transactionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
@@ -1013,7 +1013,7 @@ public abstract class AbstractTestHiveClient
 
         private SemiTransactionalHiveMetastore getMetastore()
         {
-            return ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore();
+            return transactionManager.get(transactionHandle).getMetastore();
         }
 
         @Override
@@ -1027,7 +1027,7 @@ public abstract class AbstractTestHiveClient
         {
             checkState(!closed);
             closed = true;
-            HiveMetadata metadata = (HiveMetadata) transactionManager.remove(transactionHandle);
+            TransactionalMetadata metadata = transactionManager.remove(transactionHandle);
             checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
             metadata.commit();
         }
@@ -1037,7 +1037,7 @@ public abstract class AbstractTestHiveClient
         {
             checkState(!closed);
             closed = true;
-            HiveMetadata metadata = (HiveMetadata) transactionManager.remove(transactionHandle);
+            TransactionalMetadata metadata = transactionManager.remove(transactionHandle);
             checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
             metadata.rollback();
         }
