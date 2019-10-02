@@ -68,6 +68,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.execution.BasicStageExecutionStats.EMPTY_STAGE_STATS;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -784,7 +785,7 @@ public class QueryStateMachine
                 @Override
                 public void onFailure(Throwable throwable)
                 {
-                    transitionToFailed(throwable);
+                    transitionToFailed(throwable, currentState -> !currentState.isDone());
                 }
             }, directExecutor());
         }
@@ -804,6 +805,11 @@ public class QueryStateMachine
 
     public boolean transitionToFailed(Throwable throwable)
     {
+        return transitionToFailed(throwable, currentState -> currentState != FINISHING && !currentState.isDone());
+    }
+
+    private boolean transitionToFailed(Throwable throwable, Predicate<QueryState> predicate)
+    {
         cleanupQueryQuietly();
         queryStateTimer.endQuery();
 
@@ -813,7 +819,7 @@ public class QueryStateMachine
         requireNonNull(throwable, "throwable is null");
         failureCause.compareAndSet(null, toFailure(throwable));
 
-        boolean failed = queryState.setIf(QueryState.FAILED, currentState -> !currentState.isDone());
+        boolean failed = queryState.setIf(QueryState.FAILED, predicate);
         if (failed) {
             QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
             // if the transaction is already gone, do nothing
