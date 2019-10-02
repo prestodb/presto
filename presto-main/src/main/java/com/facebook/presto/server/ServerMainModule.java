@@ -202,8 +202,6 @@ public class ServerMainModule
             install(new WorkerModule());
         }
 
-        InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
-
         install(new InternalCommunicationModule());
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
