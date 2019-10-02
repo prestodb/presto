@@ -154,9 +154,9 @@ public class TestGeometrySerialization
         assertDeserializeEnvelope("POLYGON ((0 0, 0 4, 4 0))", new Envelope(0, 0, 4, 4));
         assertDeserializeEnvelope("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))", new Envelope(0, 0, 4, 4));
         assertDeserializeEnvelope("GEOMETRYCOLLECTION (POINT (3 7), LINESTRING (4 6, 7 10))", new Envelope(3, 6, 7, 10));
-        assertDeserializeEnvelope("POLYGON EMPTY", null);
+        assertDeserializeEnvelope("POLYGON EMPTY", new Envelope());
         assertDeserializeEnvelope("POINT (1 2)", new Envelope(1, 2, 1, 2));
-        assertDeserializeEnvelope("POINT EMPTY", null);
+        assertDeserializeEnvelope("POINT EMPTY", new Envelope());
         assertDeserializeEnvelope("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 7), LINESTRING (4 6, 7 10)), POINT (3 7), LINESTRING (4 6, 7 10))", new Envelope(2, 6, 7, 10));
     }
 
