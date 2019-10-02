@@ -805,11 +805,19 @@ public class QueryStateMachine
 
     public boolean transitionToFailed(Throwable throwable)
     {
+        // When the state enters FINISHING, the only thing remaining is to commit
+        // the transaction. It should only be failed if the transaction commit fails.
         return transitionToFailed(throwable, currentState -> currentState != FINISHING && !currentState.isDone());
     }
 
     private boolean transitionToFailed(Throwable throwable, Predicate<QueryState> predicate)
     {
+        QueryState currentState = queryState.get();
+        if (!predicate.test(currentState)) {
+            QUERY_STATE_LOG.debug(throwable, "Failure is ignored as the query %s is the %s state, ", queryId, currentState);
+            return false;
+        }
+
         cleanupQueryQuietly();
         queryStateTimer.endQuery();
 
