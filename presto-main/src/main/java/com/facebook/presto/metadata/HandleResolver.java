@@ -69,7 +69,7 @@ public class HandleResolver
                 "Connector '%s' is already assigned to resolver: %s", name, existingResolver);
     }
 
-    public void addFunctionNamepsace(String name, FunctionHandleResolver resolver)
+    public void addFunctionNamespace(String name, FunctionHandleResolver resolver)
     {
         requireNonNull(name, "name is null");
         requireNonNull(resolver, "resolver is null");
