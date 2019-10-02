@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.CatalogMetadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
@@ -25,122 +27,140 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Used on workers.
- */
-public class NoOpTransactionManager
+import static java.util.Objects.requireNonNull;
+
+public class DelegatingTransactionManager
         implements TransactionManager
 {
+    private final TransactionManager delegate;
+
+    public TransactionManager getDelegate()
+    {
+        return delegate;
+    }
+
+    public DelegatingTransactionManager(TransactionManager delegate)
+    {
+        this.delegate = requireNonNull(delegate, "delegate is null");
+    }
+
     @Override
     public TransactionInfo getTransactionInfo(TransactionId transactionId)
     {
-        throw new UnsupportedOperationException();
+        return delegate.getTransactionInfo(transactionId);
     }
 
     @Override
     public Optional<TransactionInfo> getOptionalTransactionInfo(TransactionId transactionId)
     {
-        throw new UnsupportedOperationException();
+        return delegate.getOptionalTransactionInfo(transactionId);
     }
 
     @Override
     public List<TransactionInfo> getAllTransactionInfos()
     {
-        throw new UnsupportedOperationException();
+        return delegate.getAllTransactionInfos();
     }
 
     @Override
     public TransactionId beginTransaction(boolean autoCommitContext)
     {
-        throw new UnsupportedOperationException();
+        return delegate.beginTransaction(autoCommitContext);
     }
 
     @Override
     public TransactionId beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommitContext)
     {
-        throw new UnsupportedOperationException();
+        return delegate.beginTransaction(isolationLevel, readOnly, autoCommitContext);
     }
 
     @Override
     public Map<String, ConnectorId> getCatalogNames(TransactionId transactionId)
     {
-        throw new UnsupportedOperationException();
+        return delegate.getCatalogNames(transactionId);
     }
 
     @Override
     public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
     {
-        throw new UnsupportedOperationException();
+        return delegate.getOptionalCatalogMetadata(transactionId, catalogName);
     }
 
     @Override
     public CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId)
     {
-        throw new UnsupportedOperationException();
+        return delegate.getCatalogMetadata(transactionId, connectorId);
     }
 
     @Override
     public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, ConnectorId connectorId)
     {
-        throw new UnsupportedOperationException();
+        return delegate.getCatalogMetadataForWrite(transactionId, connectorId);
     }
 
     @Override
     public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, String catalogName)
     {
-        throw new UnsupportedOperationException();
+        return delegate.getCatalogMetadataForWrite(transactionId, catalogName);
     }
 
     @Override
     public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId)
     {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void registerFunctionNamespaceManager(String functionNamespaceManagerName, FunctionNamespaceManager<?> functionNamespaceManager)
-    {
-    }
-
-    @Override
-    public FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerName)
-    {
-        throw new UnsupportedOperationException();
+        return delegate.getConnectorTransaction(transactionId, connectorId);
     }
 
     @Override
     public void checkAndSetActive(TransactionId transactionId)
     {
-        throw new UnsupportedOperationException();
+        delegate.checkAndSetActive(transactionId);
     }
 
     @Override
     public void trySetActive(TransactionId transactionId)
     {
-        throw new UnsupportedOperationException();
+        delegate.trySetActive(transactionId);
     }
 
     @Override
     public void trySetInactive(TransactionId transactionId)
     {
-        throw new UnsupportedOperationException();
+        delegate.trySetInactive(transactionId);
     }
 
     @Override
     public ListenableFuture<?> asyncCommit(TransactionId transactionId)
     {
-        throw new UnsupportedOperationException();
+        return delegate.asyncCommit(transactionId);
     }
 
     @Override
     public ListenableFuture<?> asyncAbort(TransactionId transactionId)
     {
-        throw new UnsupportedOperationException();
+        return delegate.asyncAbort(transactionId);
     }
 
     @Override
     public void fail(TransactionId transactionId)
     {
-        throw new UnsupportedOperationException();
+        delegate.fail(transactionId);
+    }
+
+    @Override
+    public void activateTransaction(Session session, boolean transactionControl, AccessControl accessControl)
+    {
+        delegate.activateTransaction(session, transactionControl, accessControl);
+    }
+
+    @Override
+    public void registerFunctionNamespaceManager(String functionNamespaceManagerName, FunctionNamespaceManager<?> functionNamespaceManager)
+    {
+        delegate.registerFunctionNamespaceManager(functionNamespaceManagerName, functionNamespaceManager);
+    }
+
+    @Override
+    public FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerName)
+    {
+        return delegate.getFunctionNamespaceTransaction(transactionId, functionNamespaceManagerName);
     }
 }

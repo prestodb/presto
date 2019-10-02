@@ -36,6 +36,7 @@ import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.transaction.TransactionId;
+import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -768,9 +769,10 @@ public class QueryStateMachine
             return false;
         }
 
-        Optional<TransactionId> transactionId = session.getTransactionId();
-        if (transactionId.isPresent() && transactionManager.transactionExists(transactionId.get()) && transactionManager.isAutoCommit(transactionId.get())) {
-            ListenableFuture<?> commitFuture = transactionManager.asyncCommit(transactionId.get());
+        Optional<TransactionInfo> transaction = session.getTransactionId()
+                .flatMap(transactionManager::getOptionalTransactionInfo);
+        if (transaction.isPresent() && transaction.get().isAutoCommitContext()) {
+            ListenableFuture<?> commitFuture = transactionManager.asyncCommit(transaction.get().getTransactionId());
             Futures.addCallback(commitFuture, new FutureCallback<Object>()
             {
                 @Override
@@ -814,12 +816,13 @@ public class QueryStateMachine
         boolean failed = queryState.setIf(QueryState.FAILED, currentState -> !currentState.isDone());
         if (failed) {
             QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
-            session.getTransactionId().ifPresent(transactionId -> {
-                if (transactionManager.isAutoCommit(transactionId)) {
-                    transactionManager.asyncAbort(transactionId);
+            // if the transaction is already gone, do nothing
+            session.getTransactionId().flatMap(transactionManager::getOptionalTransactionInfo).ifPresent(transaction -> {
+                if (transaction.isAutoCommitContext()) {
+                    transactionManager.asyncAbort(transaction.getTransactionId());
                 }
                 else {
-                    transactionManager.fail(transactionId);
+                    transactionManager.fail(transaction.getTransactionId());
                 }
             });
         }
@@ -842,12 +845,13 @@ public class QueryStateMachine
 
         boolean canceled = queryState.setIf(QueryState.FAILED, currentState -> !currentState.isDone());
         if (canceled) {
-            session.getTransactionId().ifPresent(transactionId -> {
-                if (transactionManager.isAutoCommit(transactionId)) {
-                    transactionManager.asyncAbort(transactionId);
+            // if the transaction is already gone, do nothing
+            session.getTransactionId().flatMap(transactionManager::getOptionalTransactionInfo).ifPresent(transaction -> {
+                if (transaction.isAutoCommitContext()) {
+                    transactionManager.asyncAbort(transaction.getTransactionId());
                 }
                 else {
-                    transactionManager.fail(transactionId);
+                    transactionManager.fail(transaction.getTransactionId());
                 }
             });
         }
