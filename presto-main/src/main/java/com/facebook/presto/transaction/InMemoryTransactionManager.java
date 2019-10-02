@@ -150,15 +150,15 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public boolean transactionExists(TransactionId transactionId)
-    {
-        return tryGetTransactionMetadata(transactionId).isPresent();
-    }
-
-    @Override
     public TransactionInfo getTransactionInfo(TransactionId transactionId)
     {
         return getTransactionMetadata(transactionId).getTransactionInfo();
+    }
+
+    @Override
+    public Optional<TransactionInfo> getOptionalTransactionInfo(TransactionId transactionId)
+    {
+        return tryGetTransactionMetadata(transactionId).map(TransactionMetadata::getTransactionInfo);
     }
 
     @Override
