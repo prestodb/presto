@@ -290,7 +290,7 @@ public final class GeoFunctions
     {
         // "every point in input is in range" <=> "the envelope of input is in range"
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope != null) {
+        if (!envelope.isEmpty()) {
             checkLatitude(envelope.getYMin());
             checkLatitude(envelope.getYMax());
             checkLongitude(envelope.getXMin());
@@ -443,8 +443,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stIsEmpty(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        Envelope envelope = deserializeEnvelope(input);
-        return envelope == null || envelope.isEmpty();
+        return deserializeEnvelope(input).isEmpty();
     }
 
     @Description("Returns TRUE if this Geometry has no anomalous geometric points, such as self intersection or self tangency")
@@ -555,7 +554,7 @@ public final class GeoFunctions
     public static Double stXMax(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope == null) {
+        if (envelope.isEmpty()) {
             return null;
         }
         return envelope.getXMax();
@@ -568,7 +567,7 @@ public final class GeoFunctions
     public static Double stYMax(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope == null) {
+        if (envelope.isEmpty()) {
             return null;
         }
         return envelope.getYMax();
@@ -581,7 +580,7 @@ public final class GeoFunctions
     public static Double stXMin(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope == null) {
+        if (envelope.isEmpty()) {
             return null;
         }
         return envelope.getXMin();
@@ -594,7 +593,7 @@ public final class GeoFunctions
     public static Double stYMin(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope == null) {
+        if (envelope.isEmpty()) {
             return null;
         }
         return envelope.getYMin();
@@ -931,7 +930,7 @@ public final class GeoFunctions
     public static Slice stEnvelope(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope == null) {
+        if (envelope.isEmpty()) {
             return EMPTY_POLYGON;
         }
         return serialize(envelope);
@@ -944,7 +943,7 @@ public final class GeoFunctions
     public static Block stEnvelopeAsPts(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope == null) {
+        if (envelope.isEmpty()) {
             return null;
         }
         BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, 2);
@@ -1182,7 +1181,7 @@ public final class GeoFunctions
     public static Block spatialPartitions(@SqlType(KdbTreeType.NAME) Object kdbTree, @SqlType(GEOMETRY_TYPE_NAME) Slice geometry)
     {
         Envelope envelope = deserializeEnvelope(geometry);
-        if (envelope == null) {
+        if (envelope.isEmpty()) {
             // Empty geometry
             return null;
         }
@@ -1209,7 +1208,7 @@ public final class GeoFunctions
         }
 
         Envelope envelope = deserializeEnvelope(geometry);
-        if (envelope == null) {
+        if (envelope.isEmpty()) {
             return null;
         }
 
@@ -1337,7 +1336,7 @@ public final class GeoFunctions
     {
         Envelope leftEnvelope = deserializeEnvelope(left);
         Envelope rightEnvelope = deserializeEnvelope(right);
-        if (leftEnvelope == null || rightEnvelope == null) {
+        if (leftEnvelope.isEmpty() || rightEnvelope.isEmpty()) {
             return false;
         }
         return predicate.apply(leftEnvelope, rightEnvelope);

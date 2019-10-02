@@ -50,7 +50,7 @@ public class SpatialPartitioningInternalAggregateFunction
     public static void input(SpatialPartitioningState state, @SqlType(GEOMETRY_TYPE_NAME) Slice slice, @SqlType(INTEGER) long partitionCount)
     {
         Envelope envelope = deserializeEnvelope(slice);
-        if (envelope == null) {
+        if (envelope.isEmpty()) {
             return;
         }
 
