@@ -22,6 +22,7 @@
         <!-- Launcher properties -->
         <main-class>com.facebook.presto.server.PrestoServer</main-class>
         <process-name>${project.artifactId}</process-name>
+        <netty.version>3.9.8.Final</netty.version>
     </properties>
 
     <dependencies>
@@ -282,6 +283,12 @@
             <version>${project.version}</version>
             <type>zip</type>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty</artifactId>
+            <version>${netty.version}</version>
         </dependency>
     </dependencies>
 
