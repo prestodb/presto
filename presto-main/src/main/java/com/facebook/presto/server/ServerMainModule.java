@@ -143,6 +143,7 @@ import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
+import com.facebook.presto.util.GcStatusMonitor;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
@@ -289,6 +290,7 @@ public class ServerMainModule
         // Add monitoring for JVM pauses
         binder.bind(PauseMeter.class).in(Scopes.SINGLETON);
         newExporter(binder).export(PauseMeter.class).withGeneratedName();
+        binder.bind(GcStatusMonitor.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
