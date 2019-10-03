@@ -132,14 +132,14 @@ public class LogTestDurationListener
     @Override
     public void onBeforeClass(ITestClass testClass)
     {
-        beginTest(getName(testClass));
+        beginExecution(getName(testClass));
     }
 
     @Override
     public void onAfterClass(ITestClass testClass)
     {
         String name = getName(testClass);
-        Duration duration = endTest(name);
+        Duration duration = endExecution(name);
         if (duration.compareTo(CLASS_LOGGING_THRESHOLD) > 0) {
             LOG.warn("Tests from %s took %s", name, duration);
         }
@@ -148,20 +148,20 @@ public class LogTestDurationListener
     @Override
     public void beforeInvocation(IInvokedMethod method, ITestResult testResult)
     {
-        beginTest(getName(method));
+        beginExecution(getName(method));
     }
 
     @Override
     public void afterInvocation(IInvokedMethod method, ITestResult testResult)
     {
         String name = getName(method);
-        Duration duration = endTest(name);
+        Duration duration = endExecution(name);
         if (duration.compareTo(SINGLE_TEST_LOGGING_THRESHOLD) > 0) {
             LOG.info("Test %s took %s", name, duration);
         }
     }
 
-    private void beginTest(String name)
+    private void beginExecution(String name)
     {
         resetHangMonitor();
         Long existingEntry = started.putIfAbsent(name, System.nanoTime());
@@ -170,7 +170,7 @@ public class LogTestDurationListener
         checkState(existingEntry == null, "There already is a start record for test: %s", name);
     }
 
-    private Duration endTest(String name)
+    private Duration endExecution(String name)
     {
         resetHangMonitor();
         Long startTime = started.remove(name);
