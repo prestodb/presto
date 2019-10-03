@@ -677,11 +677,11 @@ public class TestOrcFileRewriter
                 ZSTD);
     }
 
-    private static OrcPageFileRewriter createFileRewriter()
+    private static OrcFileRewriter createFileRewriter()
     {
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        return new OrcPageFileRewriter(READER_ATTRIBUTES, true, new OrcWriterStats(), typeManager, new LocalOrcDataEnvironment(), ZSTD);
+        return new OrcFileRewriter(READER_ATTRIBUTES, true, new OrcWriterStats(), typeManager, new LocalOrcDataEnvironment(), ZSTD);
     }
 
     private static Map<String, Type> getColumnTypes(List<Long> columnIds, List<Type> columnTypes)
