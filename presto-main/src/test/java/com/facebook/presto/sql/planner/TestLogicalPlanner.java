@@ -83,6 +83,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topN;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
@@ -992,5 +993,58 @@ public class TestLogicalPlanner
                                         filter(
                                                 "p_comment = '42'",
                                                 tableScan("partsupp", ImmutableMap.of("p_suppkey", "suppkey", "p_partkey", "partkey", "p_comment", "comment")))))));
+    }
+
+    @Test
+    public void testLimitZero()
+    {
+        assertPlan(
+                "SELECT orderkey FROM orders LIMIT 0",
+                output(
+                        values("orderkey_0")));
+
+        assertPlan(
+                "SELECT orderkey FROM orders ORDER BY orderkey ASC LIMIT 0",
+                output(
+                        values("orderkey_0")));
+
+        assertPlan(
+                "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 0",
+                output(
+                        values("orderkey_0")));
+
+        assertPlan(
+                "SELECT DISTINCT orderkey FROM orders LIMIT 0",
+                output(
+                        values("orderkey_0")));
+
+        assertPlan(
+                "SELECT * FROM (SELECT regionkey FROM region GROUP BY regionkey) r1, region r2 WHERE r2.regionkey > r1.regionkey LIMIT 0",
+                output(
+                        values("expr_8", "expr_9", "expr_10", "expr_11")));
+    }
+
+    @Test
+    public void testTopN()
+    {
+        ImmutableList<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", DESCENDING, LAST));
+        assertDistributedPlan(
+                "SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 1",
+                output(
+                        topN(1, orderBy,
+                                anyTree(
+                                        topN(1, orderBy,
+                                                tableScan("orders", ImmutableMap.of(
+                                                        "ORDERKEY", "orderkey")))))));
+
+        assertDistributedPlan(
+                "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 1",
+                output(
+                        topN(1, orderBy,
+                                anyTree(
+                                        topN(1, orderBy,
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "ORDERKEY", "orderkey"))))))));
     }
 }

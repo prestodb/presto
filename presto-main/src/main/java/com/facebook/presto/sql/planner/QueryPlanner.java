@@ -29,7 +29,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -147,8 +146,8 @@ class QueryPlanner
         builder = project(builder, Iterables.concat(orderBy, outputs));
 
         builder = sort(builder, query);
-        builder = project(builder, analysis.getOutputExpressions(query));
         builder = limit(builder, query);
+        builder = project(builder, analysis.getOutputExpressions(query));
 
         return new RelationPlan(builder.getRoot(), analysis.getScope(query), computeOutputs(builder, analysis.getOutputExpressions(query)));
     }
@@ -194,8 +193,8 @@ class QueryPlanner
 
         builder = distinct(builder, node);
         builder = sort(builder, node);
-        builder = project(builder, outputs);
         builder = limit(builder, node);
+        builder = project(builder, outputs);
 
         return new RelationPlan(builder.getRoot(), analysis.getScope(node), computeOutputs(builder, outputs));
     }
@@ -886,15 +885,15 @@ class QueryPlanner
 
     private PlanBuilder sort(PlanBuilder subPlan, Query node)
     {
-        return sort(subPlan, node.getOrderBy(), node.getLimit(), analysis.getOrderByExpressions(node));
+        return sort(subPlan, node.getOrderBy(), analysis.getOrderByExpressions(node));
     }
 
     private PlanBuilder sort(PlanBuilder subPlan, QuerySpecification node)
     {
-        return sort(subPlan, node.getOrderBy(), node.getLimit(), analysis.getOrderByExpressions(node));
+        return sort(subPlan, node.getOrderBy(), analysis.getOrderByExpressions(node));
     }
 
-    private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderBy> orderBy, Optional<String> limit, List<Expression> orderByExpressions)
+    private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderBy> orderBy, List<Expression> orderByExpressions)
     {
         if (!orderBy.isPresent()) {
             return subPlan;
@@ -904,33 +903,30 @@ class QueryPlanner
         OrderingScheme orderingScheme = toOrderingScheme(
                 orderByExpressions.stream().map(subPlan::translate).collect(toImmutableList()),
                 orderBy.get().getSortItems().stream().map(PlannerUtils::toSortOrder).collect(toImmutableList()));
-        if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderingScheme, TopNNode.Step.SINGLE);
-        }
-        else {
-            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
-        }
+        planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
 
         return subPlan.withNewRoot(planNode);
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, Query node)
     {
-        return limit(subPlan, node.getOrderBy(), node.getLimit());
+        return limit(subPlan, node.getLimit());
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, QuerySpecification node)
     {
-        return limit(subPlan, node.getOrderBy(), node.getLimit());
+        return limit(subPlan, node.getLimit());
     }
 
-    private PlanBuilder limit(PlanBuilder subPlan, Optional<OrderBy> orderBy, Optional<String> limit)
+    private PlanBuilder limit(PlanBuilder subPlan, Optional<String> limit)
     {
-        if (!orderBy.isPresent() && limit.isPresent()) {
-            if (!limit.get().equalsIgnoreCase("all")) {
-                long limitValue = Long.parseLong(limit.get());
-                subPlan = subPlan.withNewRoot(new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue, FINAL));
-            }
+        if (!limit.isPresent()) {
+            return subPlan;
+        }
+
+        if (!limit.get().equalsIgnoreCase("all")) {
+            long limitValue = Long.parseLong(limit.get());
+            subPlan = subPlan.withNewRoot(new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue, FINAL));
         }
 
         return subPlan;
