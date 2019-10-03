@@ -279,13 +279,17 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new EvaluateZeroLimit())),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(predicatePushDownRules)
                                 .addAll(columnPruningRules)
                                 .addAll(ImmutableSet.of(
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
-                                        new EvaluateZeroLimit(),
                                         new EvaluateZeroSample(),
                                         new PushLimitThroughProject(),
                                         new MergeLimits(),
