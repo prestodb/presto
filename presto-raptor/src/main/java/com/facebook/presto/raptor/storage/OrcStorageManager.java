@@ -159,7 +159,7 @@ public class OrcStorageManager
     private final ExecutorService commitExecutor;
     private final OrcDataEnvironment orcDataEnvironment;
     private final FileSystem fileSystem;
-    private final OrcPageFileRewriter fileRewriter;
+    private final OrcFileRewriter fileRewriter;
     private final OrcWriterStats stats = new OrcWriterStats();
 
     @Inject
@@ -235,7 +235,7 @@ public class OrcStorageManager
         this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
         this.orcDataEnvironment = requireNonNull(orcDataEnvironment, "orcDataEnvironment is null");
         this.fileSystem = requireNonNull(orcDataEnvironment.getFileSystem(), "fileSystem is null");
-        this.fileRewriter = new OrcPageFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, orcDataEnvironment, compression);
+        this.fileRewriter = new OrcFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, orcDataEnvironment, compression);
     }
 
     @PreDestroy

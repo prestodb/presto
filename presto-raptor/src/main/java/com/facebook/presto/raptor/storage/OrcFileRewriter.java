@@ -58,9 +58,9 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
-public final class OrcPageFileRewriter
+public final class OrcFileRewriter
 {
-    private static final Logger log = Logger.get(OrcPageFileRewriter.class);
+    private static final Logger log = Logger.get(OrcFileRewriter.class);
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     private final ReaderAttributes readerAttributes;
@@ -70,7 +70,7 @@ public final class OrcPageFileRewriter
     private final CompressionKind compression;
     private final OrcDataEnvironment orcDataEnvironment;
 
-    OrcPageFileRewriter(
+    OrcFileRewriter(
             ReaderAttributes readerAttributes,
             boolean validate,
             OrcWriterStats stats,
