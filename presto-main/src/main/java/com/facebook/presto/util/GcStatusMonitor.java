@@ -110,29 +110,34 @@ public class GcStatusMonitor
                 "Input Positions",
                 "Output Positions"));
 
-        for (SqlTask task : sqlTaskManager.getAllTasks()) {
-            TaskInfo taskInfo = task.getTaskInfo();
-            SqlTaskIoStats taskIOStats = task.getIoStats();
-            TaskStatus taskStatus = taskInfo.getTaskStatus();
-            TaskStats taskStats = taskInfo.getStats();
-            // We only really care about inflight tasks
-            if (!taskStatus.getState().isDone()) {
-                // In general the formatting follows the following:
-                // - longs: %20.20
-                // - doubles: %20.1f
-                // - strings: discretionary based on the object
-                log.info(String.format(
-                        "%-40.40s %20.20s %15.15s %20.20s %20.1f %20.20s %20.20s %20.20s %20.20s",
-                        task.getTaskId().toString(),
-                        applicationRuntime,
-                        taskStatus.getState().toString(),
-                        taskStats.getCreateTime().millisOfSecond().get(),
-                        taskStats.getCumulativeUserMemory(),
-                        taskIOStats.getInputDataSize().getTotalCount(),
-                        taskIOStats.getOutputDataSize().getTotalCount(),
-                        taskIOStats.getInputPositions().getTotalCount(),
-                        taskIOStats.getOutputPositions().getTotalCount()));
+        try {
+            for (SqlTask task : sqlTaskManager.getAllTasks()) {
+                TaskInfo taskInfo = task.getTaskInfo();
+                SqlTaskIoStats taskIOStats = task.getIoStats();
+                TaskStatus taskStatus = taskInfo.getTaskStatus();
+                TaskStats taskStats = taskInfo.getStats();
+                // We only really care about inflight tasks
+                if (!taskStatus.getState().isDone()) {
+                    // In general the formatting follows the following:
+                    // - longs: %20.20
+                    // - doubles: %20.1f
+                    // - strings: discretionary based on the object
+                    log.info(String.format(
+                            "%-40.40s %20.20s %15.15s %20.20s %20.1f %20.20s %20.20s %20.20s %20.20s",
+                            task.getTaskId().toString(),
+                            applicationRuntime,
+                            taskStatus.getState().toString(),
+                            taskStats.getCreateTime().millisOfSecond().get(),
+                            taskStats.getCumulativeUserMemory(),
+                            taskIOStats.getInputDataSize().getTotalCount(),
+                            taskIOStats.getOutputDataSize().getTotalCount(),
+                            taskIOStats.getInputPositions().getTotalCount(),
+                            taskIOStats.getOutputPositions().getTotalCount()));
+                }
             }
+        }
+        catch (Throwable throwable) {
+            log.error(throwable);
         }
     }
 }
