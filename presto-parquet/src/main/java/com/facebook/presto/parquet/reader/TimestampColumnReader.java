@@ -14,6 +14,7 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import org.apache.parquet.io.api.Binary;
@@ -23,9 +24,9 @@ import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMill
 public class TimestampColumnReader
         extends PrimitiveColumnReader
 {
-    public TimestampColumnReader(RichColumnDescriptor descriptor)
+    public TimestampColumnReader(RichColumnDescriptor descriptor, Predicate predicate)
     {
-        super(descriptor);
+        super(descriptor, predicate);
     }
 
     @Override

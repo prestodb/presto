@@ -14,6 +14,7 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
@@ -29,9 +30,9 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 public class BinaryColumnReader
         extends PrimitiveColumnReader
 {
-    public BinaryColumnReader(RichColumnDescriptor descriptor)
+    public BinaryColumnReader(RichColumnDescriptor descriptor, Predicate predicate)
     {
-        super(descriptor);
+        super(descriptor, predicate);
     }
 
     @Override

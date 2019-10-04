@@ -22,17 +22,20 @@ import com.facebook.presto.parquet.ParquetEncoding;
 import com.facebook.presto.parquet.ParquetTypeUtils;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.dictionary.Dictionary;
+import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
@@ -40,6 +43,7 @@ import org.apache.parquet.io.ParquetDecodingException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -56,6 +60,7 @@ public abstract class PrimitiveColumnReader
 {
     private static final int EMPTY_LEVEL_VALUE = -1;
     protected final RichColumnDescriptor columnDescriptor;
+    protected final Predicate predicate;
 
     protected int definitionLevel = EMPTY_LEVEL_VALUE;
     protected int repetitionLevel = EMPTY_LEVEL_VALUE;
@@ -81,44 +86,45 @@ public abstract class PrimitiveColumnReader
         return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
     }
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor)
+    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, Predicate predicate)
     {
         switch (descriptor.getType()) {
             case BOOLEAN:
-                return new BooleanColumnReader(descriptor);
+                return new BooleanColumnReader(descriptor, predicate);
             case INT32:
-                return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
+                return createDecimalColumnReader(descriptor, predicate).orElse(new IntColumnReader(descriptor, predicate));
             case INT64:
-                return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
+                return createDecimalColumnReader(descriptor, predicate).orElse(new LongColumnReader(descriptor, predicate));
             case INT96:
-                return new TimestampColumnReader(descriptor);
+                return new TimestampColumnReader(descriptor, predicate);
             case FLOAT:
-                return new FloatColumnReader(descriptor);
+                return new FloatColumnReader(descriptor, predicate);
             case DOUBLE:
-                return new DoubleColumnReader(descriptor);
+                return new DoubleColumnReader(descriptor, predicate);
             case BINARY:
-                return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
+                return createDecimalColumnReader(descriptor, predicate).orElse(new BinaryColumnReader(descriptor, predicate));
             case FIXED_LEN_BYTE_ARRAY:
-                return createDecimalColumnReader(descriptor)
+                return createDecimalColumnReader(descriptor, predicate)
                         .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
             default:
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getType());
         }
     }
 
-    private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
+    private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor, Predicate predicate)
     {
         Optional<Type> type = createDecimalType(descriptor);
         if (type.isPresent()) {
             DecimalType decimalType = (DecimalType) type.get();
-            return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, decimalType.getPrecision(), decimalType.getScale()));
+            return Optional.of(DecimalColumnReaderFactory.createReader(descriptor, decimalType.getPrecision(), decimalType.getScale(), predicate));
         }
         return Optional.empty();
     }
 
-    public PrimitiveColumnReader(RichColumnDescriptor columnDescriptor)
+    public PrimitiveColumnReader(RichColumnDescriptor columnDescriptor, Predicate predicate)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
+        this.predicate = requireNonNull(predicate, "predicate");
         pageReader = null;
     }
 
@@ -182,6 +188,7 @@ public abstract class PrimitiveColumnReader
     }
 
     private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
+            throws IOException
     {
         processValues(valuesToRead, ignored -> {
             readValue(blockBuilder, type);
@@ -191,11 +198,13 @@ public abstract class PrimitiveColumnReader
     }
 
     private void skipValues(int valuesToRead)
+            throws IOException
     {
         processValues(valuesToRead, ignored -> skipValue());
     }
 
     private void processValues(int valuesToRead, Consumer<Void> valueConsumer)
+            throws IOException
     {
         if (definitionLevel == EMPTY_LEVEL_VALUE && repetitionLevel == EMPTY_LEVEL_VALUE) {
             definitionLevel = definitionReader.readLevel();
@@ -222,6 +231,7 @@ public abstract class PrimitiveColumnReader
     }
 
     private void seek()
+            throws IOException
     {
         checkArgument(currentValueCount <= totalValueCount, "Already read all values in column chunk");
         if (readOffset == 0) {
@@ -240,13 +250,26 @@ public abstract class PrimitiveColumnReader
     }
 
     private boolean readNextPage()
+            throws IOException
     {
         verify(page == null, "readNextPage has to be called when page is null");
-        page = pageReader.readPage();
-        if (page == null) {
-            // we have read all pages
-            return false;
-        }
+        Map<ColumnDescriptor, Statistics<?>> columnStatistics = null;
+        do {
+            page = pageReader.readPage();
+            if (page == null) {
+                // we have read all pages
+                return false;
+            }
+            if (page instanceof DataPageV1) {
+                DataPageV1 pageV1 = (DataPageV1) page;
+                columnStatistics = ImmutableMap.of(columnDescriptor, pageV1.getStatistics());
+            }
+            else {
+                DataPageV2 pageV2 = (DataPageV2) page;
+                columnStatistics = ImmutableMap.of(columnDescriptor, pageV2.getStatistics());
+            }
+        } while (!predicate.matches(page.getValueCount(), columnStatistics));
+
         remainingValueCountInPage = page.getValueCount();
         if (page instanceof DataPageV1) {
             valuesReader = readPageV1((DataPageV1) page);

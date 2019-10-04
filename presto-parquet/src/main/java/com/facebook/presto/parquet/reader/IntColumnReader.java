@@ -14,15 +14,16 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
 public class IntColumnReader
         extends PrimitiveColumnReader
 {
-    public IntColumnReader(RichColumnDescriptor descriptor)
+    public IntColumnReader(RichColumnDescriptor descriptor, Predicate predicate)
     {
-        super(descriptor);
+        super(descriptor, predicate);
     }
 
     @Override

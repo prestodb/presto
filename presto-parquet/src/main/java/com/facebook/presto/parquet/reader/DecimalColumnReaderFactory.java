@@ -14,20 +14,21 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.spi.type.DecimalType;
 
 public final class DecimalColumnReaderFactory
 {
     private DecimalColumnReaderFactory() {}
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, int precision, int scale)
+    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, int precision, int scale, Predicate predicate)
     {
         DecimalType decimalType = DecimalType.createDecimalType(precision, scale);
         if (decimalType.isShort()) {
-            return new ShortDecimalColumnReader(descriptor);
+            return new ShortDecimalColumnReader(descriptor, predicate);
         }
         else {
-            return new LongDecimalColumnReader(descriptor);
+            return new LongDecimalColumnReader(descriptor, predicate);
         }
     }
 }

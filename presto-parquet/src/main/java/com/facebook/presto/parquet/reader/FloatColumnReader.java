@@ -14,6 +14,7 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 
@@ -22,9 +23,9 @@ import static java.lang.Float.floatToRawIntBits;
 public class FloatColumnReader
         extends PrimitiveColumnReader
 {
-    public FloatColumnReader(RichColumnDescriptor descriptor)
+    public FloatColumnReader(RichColumnDescriptor descriptor, Predicate predicate)
     {
-        super(descriptor);
+        super(descriptor, predicate);
     }
 
     @Override

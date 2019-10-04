@@ -14,6 +14,7 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
@@ -24,9 +25,9 @@ import java.math.BigInteger;
 public class LongDecimalColumnReader
         extends PrimitiveColumnReader
 {
-    LongDecimalColumnReader(RichColumnDescriptor descriptor)
+    LongDecimalColumnReader(RichColumnDescriptor descriptor, Predicate predicate)
     {
-        super(descriptor);
+        super(descriptor, predicate);
     }
 
     @Override
