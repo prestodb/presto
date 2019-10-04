@@ -487,7 +487,7 @@ public class LocalExecutionPlanner
             TableWriteInfo tableWriteInfo)
     {
         Session session = taskContext.getSession();
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, types, taskExchangeClientManager, tableWriteInfo);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, taskExchangeClientManager, tableWriteInfo);
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor), context);
 
@@ -558,7 +558,6 @@ public class LocalExecutionPlanner
     private static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
-        private final TypeProvider types;
         private final TaskExchangeClientManager taskExchangeClientManager;
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
@@ -573,16 +572,14 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext(
                 TaskContext taskContext,
-                TypeProvider types,
                 TaskExchangeClientManager taskExchangeClientManager,
                 TableWriteInfo tableWriteInfo)
         {
-            this(taskContext, types, taskExchangeClientManager, new ArrayList<>(), Optional.empty(), new AtomicInteger(0), tableWriteInfo);
+            this(taskContext, taskExchangeClientManager, new ArrayList<>(), Optional.empty(), new AtomicInteger(0), tableWriteInfo);
         }
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
-                TypeProvider types,
                 TaskExchangeClientManager taskExchangeClientManager,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
@@ -590,7 +587,6 @@ public class LocalExecutionPlanner
                 TableWriteInfo tableWriteInfo)
         {
             this.taskContext = taskContext;
-            this.types = types;
             this.taskExchangeClientManager = taskExchangeClientManager;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
@@ -625,11 +621,6 @@ public class LocalExecutionPlanner
         public StageExecutionId getStageExecutionId()
         {
             return taskContext.getTaskId().getStageExecutionId();
-        }
-
-        public TypeProvider getTypes()
-        {
-            return types;
         }
 
         public TaskExchangeClientManager getTaskExchangeClientManager()
@@ -670,12 +661,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, types, taskExchangeClientManager, driverFactories, indexSourceContext, nextPipelineId, tableWriteInfo);
+            return new LocalExecutionPlanContext(taskContext, taskExchangeClientManager, driverFactories, indexSourceContext, nextPipelineId, tableWriteInfo);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, types, taskExchangeClientManager, driverFactories, Optional.of(indexSourceContext), nextPipelineId, tableWriteInfo);
+            return new LocalExecutionPlanContext(taskContext, taskExchangeClientManager, driverFactories, Optional.of(indexSourceContext), nextPipelineId, tableWriteInfo);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -771,7 +762,7 @@ public class LocalExecutionPlanner
             List<Integer> sortChannels = getChannelsForVariables(orderingScheme.getOrderByVariables(), layout);
             List<SortOrder> sortOrder = getOrderingList(orderingScheme);
 
-            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            List<Type> types = getSourceOperatorTypes(node);
             ImmutableList<Integer> outputChannels = IntStream.range(0, types.size())
                     .boxed()
                     .collect(toImmutableList());
@@ -2494,7 +2485,7 @@ public class LocalExecutionPlanner
             PhysicalOperation source = sourceNode.accept(this, subContext);
 
             int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
-            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            List<Type> types = getSourceOperatorTypes(node);
             LocalExchangeFactory exchangeFactory = new LocalExchangeFactory(
                     partitioningProviderManager,
                     session,
@@ -2549,7 +2540,7 @@ public class LocalExecutionPlanner
                 context.setDriverInstanceCount(driverInstanceCount);
             }
 
-            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            List<Type> types = getSourceOperatorTypes(node);
             List<Integer> channels = node.getPartitioningScheme().getPartitioning().getArguments().stream()
                     .map(argument -> {
                         checkArgument(argument instanceof VariableReferenceExpression, format("Expect VariableReferenceExpression but get %s", argument));
@@ -2622,7 +2613,7 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("not yet implemented");
         }
 
-        private List<Type> getSourceOperatorTypes(PlanNode node, TypeProvider types)
+        private List<Type> getSourceOperatorTypes(PlanNode node)
         {
             return getVariableTypes(node.getOutputVariables());
         }
@@ -2636,8 +2627,7 @@ public class LocalExecutionPlanner
 
         private AccumulatorFactory buildAccumulatorFactory(
                 PhysicalOperation source,
-                Aggregation aggregation,
-                TypeProvider types)
+                Aggregation aggregation)
         {
             FunctionManager functionManager = metadata.getFunctionManager();
             InternalAggregationFunction internalAggregationFunction = functionManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle());
@@ -2718,7 +2708,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, context.getTypes()));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
                 outputMappings.put(variable, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
@@ -2781,7 +2771,7 @@ public class LocalExecutionPlanner
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, context.getTypes()));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
                 aggregationOutputVariables.add(variable);
             }
 
