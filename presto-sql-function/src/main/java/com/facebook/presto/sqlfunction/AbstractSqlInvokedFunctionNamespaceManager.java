@@ -19,6 +19,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -157,7 +158,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     protected static ScalarFunctionImplementation sqlInvokedFunctionToImplementation(SqlInvokedRegularFunction function)
     {
         checkArgument(function.getFunctionImplementationType().equals(SQL));
-        return new SqlInvokedRegularSqlFunctionImplementation(function.getBody());
+        return new SqlInvokedScalarFunctionImplementation(function.getBody());
     }
 
     private Collection<SqlInvokedRegularFunction> fetchFunctions(FullyQualifiedName functionName)

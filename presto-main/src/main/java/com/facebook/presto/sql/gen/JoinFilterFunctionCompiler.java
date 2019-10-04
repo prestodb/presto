@@ -79,7 +79,7 @@ public class JoinFilterFunctionCompiler
     private final LoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = CacheBuilder.newBuilder()
             .recordStats()
             .maximumSize(1000)
-            .build(CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize())));
+            .build(CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getSqlFunctionProperties(), key.getFilter(), key.getLeftBlocksSize())));
 
     @Managed
     @Nested
@@ -93,13 +93,13 @@ public class JoinFilterFunctionCompiler
         return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(sqlFunctionProperties, filter, leftBlocksSize));
     }
 
-    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(RowExpression filterExpression, int leftBlocksSize)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(SqlFunctionProperties sqlFunctionProperties, RowExpression filterExpression, int leftBlocksSize)
     {
-        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, leftBlocksSize);
+        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(sqlFunctionProperties, filterExpression, leftBlocksSize);
         return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
     }
 
-    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(RowExpression filterExpression, int leftBlocksSize)
+    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(SqlFunctionProperties sqlFunctionProperties, RowExpression filterExpression, int leftBlocksSize)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -109,7 +109,7 @@ public class JoinFilterFunctionCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        new JoinFilterFunctionCompiler(metadata).generateMethods(classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
+        new JoinFilterFunctionCompiler(metadata).generateMethods(sqlFunctionProperties, classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
 
         //
         // toString method
@@ -125,14 +125,14 @@ public class JoinFilterFunctionCompiler
         return defineClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
-    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize)
+    private void generateMethods(SqlFunctionProperties sqlFunctionProperties, ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata.getFunctionManager());
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, sessionField);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata, sqlFunctionProperties);
+        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, sessionField);
 
         generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
@@ -158,6 +158,7 @@ public class JoinFilterFunctionCompiler
     }
 
     private void generateFilterMethod(
+            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
@@ -191,10 +192,12 @@ public class JoinFilterFunctionCompiler
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
         RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
-                metadata.getFunctionManager(),
+                metadata,
+                sqlFunctionProperties,
                 compiledLambdaMap);
 
         BytecodeNode visitorBody = compiler.compile(filter, scope, Optional.empty());

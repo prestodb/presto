@@ -132,7 +132,7 @@ public class ExpressionCompiler
     {
         // create filter and project page iterator class
         try {
-            return compileProcessor(filter.orElse(constant(true, BOOLEAN)), projections, bodyCompiler, superType);
+            return compileProcessor(sqlFunctionProperties, filter.orElse(constant(true, BOOLEAN)), projections, bodyCompiler, superType);
         }
         catch (CompilationException e) {
             throw new PrestoException(COMPILER_ERROR, e.getCause());
@@ -140,6 +140,7 @@ public class ExpressionCompiler
     }
 
     private <T> Class<? extends T> compileProcessor(
+            SqlFunctionProperties sqlFunctionProperties,
             RowExpression filter,
             List<RowExpression> projections,
             BodyCompiler bodyCompiler,
@@ -152,7 +153,7 @@ public class ExpressionCompiler
                 type(superType));
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        bodyCompiler.generateMethods(classDefinition, callSiteBinder, filter, projections);
+        bodyCompiler.generateMethods(sqlFunctionProperties, classDefinition, callSiteBinder, filter, projections);
 
         //
         // toString method

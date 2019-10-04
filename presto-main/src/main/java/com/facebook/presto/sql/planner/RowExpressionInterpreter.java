@@ -23,6 +23,7 @@ import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -95,6 +96,7 @@ import static com.facebook.presto.sql.planner.LiteralEncoder.isSupportedLiteralT
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.changed;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.notChanged;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionRowExpression;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
@@ -106,6 +108,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -257,7 +260,25 @@ public class RowExpressionInterpreter
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
             }
 
-            Object value = functionInvoker.invoke(functionHandle, session, argumentValues);
+            Object value;
+            switch (functionMetadata.getImplementationType()) {
+                case BUILTIN:
+                    value = functionInvoker.invoke(functionHandle, session, argumentValues);
+                    break;
+                case SQL:
+                    SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionManager.getScalarFunctionImplementation(functionHandle);
+                    RowExpression function = getSqlFunctionRowExpression(functionMetadata, functionImplementation, metadata, session.getSqlFunctionProperties(), node.getArguments());
+                    RowExpressionInterpreter rowExpressionInterpreter = new RowExpressionInterpreter(function, metadata, session, optimizationLevel);
+                    if (optimizationLevel.ordinal() >= EVALUATED.ordinal()) {
+                        value = rowExpressionInterpreter.evaluate();
+                    }
+                    else {
+                        value = rowExpressionInterpreter.optimize();
+                    }
+                    break;
+                default:
+                    throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
+            }
 
             if (optimizationLevel.ordinal() <= SERIALIZABLE.ordinal() && !isSerializable(value, node.getType())) {
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));

@@ -1652,14 +1652,37 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             boolean isDescribe)
     {
+        return createWithoutSubqueries(
+                functionManager,
+                typeManager,
+                session.getTransactionId(),
+                session.getSqlFunctionProperties(),
+                symbolTypes,
+                parameters,
+                statementAnalyzerRejection,
+                warningCollector,
+                isDescribe);
+    }
+
+    public static ExpressionAnalyzer createWithoutSubqueries(
+            FunctionManager functionManager,
+            TypeManager typeManager,
+            Optional<TransactionId> transactionId,
+            SqlFunctionProperties sqlFunctionProperties,
+            TypeProvider symbolTypes,
+            List<Expression> parameters,
+            Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
+            WarningCollector warningCollector,
+            boolean isDescribe)
+    {
         return new ExpressionAnalyzer(
                 functionManager,
                 typeManager,
                 node -> {
                     throw statementAnalyzerRejection.apply(node);
                 },
-                session.getTransactionId(),
-                session.getSqlFunctionProperties(),
+                transactionId,
+                sqlFunctionProperties,
                 symbolTypes,
                 parameters,
                 warningCollector,

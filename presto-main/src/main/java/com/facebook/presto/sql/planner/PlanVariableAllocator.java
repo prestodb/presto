@@ -157,7 +157,7 @@ public class PlanVariableAllocator
     {
         checkArgument(expression instanceof SymbolReference, "Unexpected expression: %s", expression);
         String name = ((SymbolReference) expression).getName();
-        checkArgument(variables.containsKey(name), "variable map does not contain name");
+        checkArgument(variables.containsKey(name), "variable map does not contain name %s", name);
         return new VariableReferenceExpression(name, variables.get(name));
     }
 

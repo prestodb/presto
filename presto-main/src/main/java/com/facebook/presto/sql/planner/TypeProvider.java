@@ -72,4 +72,9 @@ public class TypeProvider
                 .map(entry -> new VariableReferenceExpression(entry.getKey(), entry.getValue()))
                 .collect(toImmutableSet());
     }
+
+    public Map<String, Type> allTypes()
+    {
+        return types;
+    }
 }

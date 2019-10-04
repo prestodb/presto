@@ -20,7 +20,6 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter;
 import com.facebook.presto.spi.ConnectorSession;
@@ -69,19 +68,19 @@ import static java.util.Objects.requireNonNull;
 public class RowExpressionPredicateCompiler
         implements PredicateCompiler
 {
-    private final FunctionManager functionManager;
+    private final Metadata metadata;
 
     private final LoadingCache<CacheKey, Supplier<Predicate>> predicateCache;
 
     @Inject
     public RowExpressionPredicateCompiler(Metadata metadata)
     {
-        this(requireNonNull(metadata, "metadata is null").getFunctionManager(), 10_000);
+        this(requireNonNull(metadata, "metadata is null"), 10_000);
     }
 
-    public RowExpressionPredicateCompiler(FunctionManager functionManager, int predicateCacheSize)
+    public RowExpressionPredicateCompiler(Metadata metadata, int predicateCacheSize)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
 
         if (predicateCacheSize > 0) {
             predicateCache = CacheBuilder.newBuilder()
@@ -113,7 +112,7 @@ public class RowExpressionPredicateCompiler
                 .toArray();
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition classDefinition = definePredicateClass(result.getRewrittenExpression(), inputChannels, callSiteBinder);
+        ClassDefinition classDefinition = definePredicateClass(sqlFunctionProperties, result.getRewrittenExpression(), inputChannels, callSiteBinder);
 
         Class<? extends Predicate> predicateClass;
         try {
@@ -133,7 +132,7 @@ public class RowExpressionPredicateCompiler
         };
     }
 
-    private ClassDefinition definePredicateClass(RowExpression predicate, int[] inputChannels, CallSiteBinder callSiteBinder)
+    private ClassDefinition definePredicateClass(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate, int[] inputChannels, CallSiteBinder callSiteBinder)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -143,7 +142,7 @@ public class RowExpressionPredicateCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        generatePredicateMethod(classDefinition, callSiteBinder, cachedInstanceBinder, predicate);
+        generatePredicateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, predicate);
 
         // getInputChannels
         classDefinition.declareMethod(a(PUBLIC), "getInputChannels", type(int[].class))
@@ -158,12 +157,13 @@ public class RowExpressionPredicateCompiler
     }
 
     private MethodDefinition generatePredicateMethod(
+            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression predicate)
     {
-        Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, predicate, functionManager);
+        Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, predicate, metadata, sqlFunctionProperties);
 
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
@@ -188,10 +188,12 @@ public class RowExpressionPredicateCompiler
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                functionManager,
+                metadata,
+                sqlFunctionProperties,
                 compiledLambdaMap);
 
         Variable result = scope.declareVariable(boolean.class, "result");
