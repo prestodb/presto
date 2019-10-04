@@ -27,14 +27,10 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
-import io.airlift.stats.GcMonitor;
-import io.airlift.stats.JmxGcMonitor;
 import io.airlift.testing.Closeables;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import javax.management.NotificationListener;
 
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;

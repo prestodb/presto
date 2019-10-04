@@ -18,13 +18,15 @@ import com.facebook.presto.execution.SqlTaskIoStats;
 import com.facebook.presto.execution.SqlTaskManager;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import io.airlift.log.Logger;
 import io.airlift.stats.GarbageCollectionNotificationInfo;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 import javax.management.JMException;
 import javax.management.Notification;
@@ -34,17 +36,17 @@ import javax.management.openmbean.CompositeData;
 
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
-
-import static java.lang.Math.max;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 
 public class GcStatusMonitor
 {
     private final Logger log = Logger.get(GcStatusMonitor.class);
     private final NotificationListener notificationListener = (notification, ignored) -> onNotification(notification);
     private final SqlTaskManager sqlTaskManager;
-
-    @GuardedBy("this")
-    private long lastGcEndTime = System.currentTimeMillis();
 
     @Inject
     public GcStatusMonitor(
@@ -89,55 +91,110 @@ public class GcStatusMonitor
         if ("com.sun.management.gc.notification".equals(notification.getType())) {
             GarbageCollectionNotificationInfo info = new GarbageCollectionNotificationInfo((CompositeData) notification.getUserData());
             if (info.isMajorGc()) {
-                onMajorGc(info);
+                onMajorGc();
             }
         }
     }
 
-    private void onMajorGc(GarbageCollectionNotificationInfo info)
+    private void onMajorGc()
     {
-        long applicationRuntime = max(0, info.getStartTime() - lastGcEndTime);
-        lastGcEndTime = info.getEndTime();
-        log.info(String.format(
-                "%-40s %20s %15s %20s %20s %20s %20s %20s %20s",
-                "Task ID",
-                "App Agg Runtime",
-                "State",
-                "Created Ts",
-                "Cumulative Mem",
-                "Input Size",
-                "Output Size",
-                "Input Positions",
-                "Output Positions"));
-
         try {
-            for (SqlTask task : sqlTaskManager.getAllTasks()) {
-                TaskInfo taskInfo = task.getTaskInfo();
-                SqlTaskIoStats taskIOStats = task.getIoStats();
-                TaskStatus taskStatus = taskInfo.getTaskStatus();
-                TaskStats taskStats = taskInfo.getStats();
-                // We only really care about inflight tasks
-                if (!taskStatus.getState().isDone()) {
-                    // In general the formatting follows the following:
-                    // - longs: %20.20
-                    // - doubles: %20.1f
-                    // - strings: discretionary based on the object
-                    log.info(String.format(
-                            "%-40.40s %20.20s %15.15s %20.20s %20.1f %20.20s %20.20s %20.20s %20.20s",
-                            task.getTaskId().toString(),
-                            applicationRuntime,
-                            taskStatus.getState().toString(),
-                            taskStats.getCreateTime().millisOfSecond().get(),
-                            taskStats.getCumulativeUserMemory(),
-                            taskIOStats.getInputDataSize().getTotalCount(),
-                            taskIOStats.getOutputDataSize().getTotalCount(),
-                            taskIOStats.getInputPositions().getTotalCount(),
-                            taskIOStats.getOutputPositions().getTotalCount()));
-                }
-            }
+            onMajorGcLogic();
         }
         catch (Throwable throwable) {
             log.error(throwable);
+        }
+    }
+
+    private void onMajorGcLogic()
+    {
+        // We only care about active tasks
+        List<SqlTask> activeSqlTasks = getActiveSqlTasks();
+        logQueryInfos(getQueriesWithActiveTasks(activeSqlTasks));
+        logTaskInfos(activeSqlTasks);
+    }
+
+    private Collection<QueryContext> getQueriesWithActiveTasks(List<SqlTask> activeSqlTasks)
+    {
+        HashMap<QueryId, QueryContext> queriesWithActiveTasks = new HashMap<QueryId, QueryContext>();
+        for (SqlTask task : activeSqlTasks) {
+            QueryContext queryContext = task.getQueryContext();
+            queriesWithActiveTasks.put(queryContext.getQueryId(), queryContext);
+        }
+
+        return queriesWithActiveTasks.values();
+    }
+
+    private List<SqlTask> getActiveSqlTasks()
+    {
+        ArrayList<SqlTask> sqlTasks = new ArrayList<SqlTask>();
+        for (SqlTask task : sqlTaskManager.getAllTasks()) {
+            if (!task.getTaskInfo().getTaskStatus().getState().isDone()) {
+                sqlTasks.add(task);
+            }
+        }
+
+        return sqlTasks;
+    }
+
+    private void logQueryInfos(Collection<QueryContext> queryContexts)
+    {
+        ArrayList<List<String>> queryLogList = new ArrayList<List<String>>();
+        queryLogList.add(Arrays.asList(
+                "Query ID",
+                "Memory Pool ID",
+                "Max Bytes",
+                "Free Bytes",
+                "Reserved Bytes"));
+
+        for (QueryContext ctx : queryContexts) {
+            MemoryPoolInfo memoryPoolInfo = ctx.getMemoryPool().getInfo();
+            queryLogList.add(Arrays.asList(
+                    ctx.getQueryId().toString(),
+                    ctx.getMemoryPool().getId().toString(),
+                    Long.toString(memoryPoolInfo.getMaxBytes()),
+                    Long.toString(memoryPoolInfo.getFreeBytes()),
+                    Long.toString(memoryPoolInfo.getReservedBytes())));
+        }
+
+        for (String row : StringTableUtils.getTableStrings(queryLogList)) {
+            log.info(row);
+        }
+    }
+
+    private void logTaskInfos(List<SqlTask> sqlTasks)
+    {
+        ArrayList<List<String>> taskLogInfoList = new ArrayList<List<String>>();
+        taskLogInfoList.add(Arrays.asList(
+                "Task ID",
+                "Query ID",
+                "State",
+                "Created Ts",
+                "Cumulative Mem",
+                "Input Bytes",
+                "Output Bytes",
+                "Input Row Count",
+                "Output Row Count"));
+
+        for (SqlTask task : sqlTasks) {
+            TaskInfo taskInfo = task.getTaskInfo();
+            SqlTaskIoStats taskIOStats = task.getIoStats();
+            TaskStatus taskStatus = taskInfo.getTaskStatus();
+            TaskStats taskStats = taskInfo.getStats();
+            taskLogInfoList.add(Arrays.asList(
+                    task.getTaskId().toString(),
+                    task.getQueryContext().getQueryId().toString(),
+                    taskStatus.getState().toString(),
+                    taskStats.getCreateTime().toString(),
+                    String.format("%.2f", taskStats.getCumulativeUserMemory()),
+                    Long.toString(taskIOStats.getInputDataSize().getTotalCount()),
+                    Long.toString(taskIOStats.getOutputDataSize().getTotalCount()),
+                    Long.toString(taskIOStats.getInputPositions().getTotalCount()),
+                    Long.toString(taskIOStats.getOutputPositions().getTotalCount())));
+        }
+
+        for (String row : StringTableUtils.getTableStrings(taskLogInfoList)) {
+            log.info(row);
         }
     }
 }

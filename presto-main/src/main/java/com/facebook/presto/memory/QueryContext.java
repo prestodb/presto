@@ -290,6 +290,11 @@ public class QueryContext
         return taskContext;
     }
 
+    public QueryId getQueryId()
+    {
+        return queryId;
+    }
+
     private static class QueryMemoryReservationHandler
             implements MemoryReservationHandler
     {
