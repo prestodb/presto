@@ -2653,7 +2653,7 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             for (int i = 0; i < lambdas.size(); i++) {
                 List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
-                Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(lambdas.get(i), metadata.getFunctionManager(), lambdaInterfaces.get(i));
+                Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(lambdas.get(i), metadata, session.getSqlFunctionProperties(), lambdaInterfaces.get(i));
                 try {
                     lambdaProviders.add((LambdaProvider) constructorMethodHandle(lambdaProviderClass, ConnectorSession.class).invoke(session.toConnectorSession()));
                 }

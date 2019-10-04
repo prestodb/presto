@@ -15,9 +15,14 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunctionProperties;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -29,6 +34,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Optional;
@@ -43,28 +49,37 @@ import static com.facebook.presto.bytecode.instruction.Constant.loadString;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateLambda;
+import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
+import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionRowExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 
 public class RowExpressionCompiler
 {
+    private final ClassDefinition classDefinition;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
-    private final FunctionManager functionManager;
+    private final Metadata metadata;
+    private final SqlFunctionProperties sqlFunctionProperties;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
 
     RowExpressionCompiler(
+            ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
-            FunctionManager functionManager,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
     {
+        this.classDefinition = classDefinition;
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
-        this.functionManager = functionManager;
+        this.metadata = metadata;
+        this.sqlFunctionProperties = sqlFunctionProperties;
         this.compiledLambdaMap = compiledLambdaMap;
     }
 
@@ -86,14 +101,36 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitCall(CallExpression call, Context context)
         {
-            BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
-                    RowExpressionCompiler.this,
-                    context.getScope(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    functionManager);
+            FunctionManager functionManager = metadata.getFunctionManager();
+            FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(call.getFunctionHandle());
+            switch (functionMetadata.getImplementationType()) {
+                case BUILTIN:
+                    BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
+                            RowExpressionCompiler.this,
+                            context.getScope(),
+                            callSiteBinder,
+                            cachedInstanceBinder,
+                            functionManager);
+                    return (new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
+                case SQL:
+                    SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionManager.getScalarFunctionImplementation(call.getFunctionHandle());
+                    RowExpression function = getSqlFunctionRowExpression(functionMetadata, functionImplementation, metadata, sqlFunctionProperties, call.getArguments());
 
-            return (new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
+                    // Pre-compile lambda bytecode
+                    ImmutableMap.Builder<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> newCompiledLambdaMap = ImmutableMap.builder();
+                    newCompiledLambdaMap.putAll(compiledLambdaMap);
+                    newCompiledLambdaMap.putAll(generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, function, metadata, sqlFunctionProperties, "sql"));
+
+                    // generate bytecode for SQL function
+                    return new RowExpressionCompiler(classDefinition, callSiteBinder, cachedInstanceBinder, fieldReferenceCompiler, metadata, sqlFunctionProperties, newCompiledLambdaMap.build()).compile(
+                            function,
+                            context.getScope(),
+                            context.getOutputBlockVariable(),
+                            context.getLambdaInterface());
+
+                default:
+                    throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
+            }
         }
 
         @Override
@@ -185,7 +222,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    functionManager);
+                    metadata.getFunctionManager());
 
             return generateLambda(
                     generatorContext,
@@ -237,7 +274,7 @@ public class RowExpressionCompiler
                     break;
                 // functions that require varargs and/or complex types (e.g., lists)
                 case IN:
-                    generator = new InCodeGenerator(functionManager);
+                    generator = new InCodeGenerator(metadata.getFunctionManager());
                     break;
                 // optimized implementations (shortcircuiting behavior)
                 case AND:
@@ -263,7 +300,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    functionManager);
+                    metadata.getFunctionManager());
 
             return generator.generateExpression(generatorContext, specialForm.getType(), specialForm.getArguments(), context.getOutputBlockVariable());
         }

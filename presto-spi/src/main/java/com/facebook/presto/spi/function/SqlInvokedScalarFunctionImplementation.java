@@ -11,18 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sqlfunction;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.function.ScalarFunctionImplementation;
+import com.facebook.presto.spi.api.Experimental;
 
 import static java.util.Objects.requireNonNull;
 
-public class SqlInvokedRegularSqlFunctionImplementation
+@Experimental
+public class SqlInvokedScalarFunctionImplementation
         implements ScalarFunctionImplementation
 {
     private final String implementation;
 
-    public SqlInvokedRegularSqlFunctionImplementation(String implementation)
+    public SqlInvokedScalarFunctionImplementation(String implementation)
     {
         this.implementation = requireNonNull(implementation, "implementation is null");
     }

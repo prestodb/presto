@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -45,8 +45,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestRowExpressionPredicateCompiler
 {
-    private FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-    private FunctionResolution functionResolution = new FunctionResolution(functionManager);
+    private Metadata metadata = createTestMetadataManager();
+    private FunctionResolution functionResolution = new FunctionResolution(metadata.getFunctionManager());
 
     @Test
     public void test()
@@ -65,7 +65,7 @@ public class TestRowExpressionPredicateCompiler
                 call("b - a", functionResolution.arithmeticFunction(SUBTRACT, BIGINT, BIGINT), BIGINT, b, a),
                 constant(0L, BIGINT));
 
-        PredicateCompiler compiler = new RowExpressionPredicateCompiler(functionManager, 10_000);
+        PredicateCompiler compiler = new RowExpressionPredicateCompiler(metadata, 10_000);
         Predicate compiledSum = compiler.compilePredicate(SESSION.getSqlFunctionProperties(), sum).get();
 
         assertEquals(Arrays.asList(1, 0), Ints.asList(compiledSum.getInputChannels()));
@@ -107,10 +107,10 @@ public class TestRowExpressionPredicateCompiler
                 call("a * 2", functionResolution.arithmeticFunction(MULTIPLY, BIGINT, BIGINT), BIGINT, new InputReferenceExpression(1, BIGINT), constant(2L, BIGINT)),
                 constant(10L, BIGINT));
 
-        PredicateCompiler compiler = new RowExpressionPredicateCompiler(functionManager, 10_000);
+        PredicateCompiler compiler = new RowExpressionPredicateCompiler(metadata, 10_000);
         assertSame(compiler.compilePredicate(SESSION.getSqlFunctionProperties(), predicate), compiler.compilePredicate(SESSION.getSqlFunctionProperties(), predicate));
 
-        PredicateCompiler noCacheCompiler = new RowExpressionPredicateCompiler(functionManager, 0);
+        PredicateCompiler noCacheCompiler = new RowExpressionPredicateCompiler(metadata, 0);
         assertNotSame(noCacheCompiler.compilePredicate(SESSION.getSqlFunctionProperties(), predicate), noCacheCompiler.compilePredicate(SESSION.getSqlFunctionProperties(), predicate));
     }
 
