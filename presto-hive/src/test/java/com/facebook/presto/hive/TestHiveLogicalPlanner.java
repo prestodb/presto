@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -43,7 +42,6 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -57,13 +55,11 @@ import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteExchangesCount;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -626,10 +622,7 @@ public class TestHiveLogicalPlanner
 
     private RowExpression constant(long value)
     {
-        return new CallExpression(CAST.name(),
-                getQueryRunner().getMetadata().getFunctionManager().lookupCast(CastType.CAST, VARCHAR.getTypeSignature(), BIGINT.getTypeSignature()),
-                BIGINT,
-                ImmutableList.of(new ConstantExpression(Slices.utf8Slice(String.valueOf(value)), VARCHAR)));
+        return new ConstantExpression(value, BIGINT);
     }
 
     private static Map<String, String> identityMap(String...values)
