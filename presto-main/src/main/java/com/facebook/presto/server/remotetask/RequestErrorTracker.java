@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.airlift.event.client.ServiceUnavailableException;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
@@ -20,8 +22,6 @@ import com.google.common.collect.ObjectArrays;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
-import io.airlift.event.client.ServiceUnavailableException;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;

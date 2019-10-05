@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.example;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestExampleSplit

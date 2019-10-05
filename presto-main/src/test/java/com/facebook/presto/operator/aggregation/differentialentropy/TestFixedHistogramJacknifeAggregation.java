@@ -29,7 +29,7 @@ public class TestFixedHistogramJacknifeAggregation
 {
     public TestFixedHistogramJacknifeAggregation()
     {
-        super(DifferentialEntropyAggregation.FIXED_HISTOGRAM_JACKNIFE_METHOD_NAME);
+        super(DifferentialEntropyStateStrategy.FIXED_HISTOGRAM_JACKNIFE_METHOD_NAME);
     }
 
     @Test(

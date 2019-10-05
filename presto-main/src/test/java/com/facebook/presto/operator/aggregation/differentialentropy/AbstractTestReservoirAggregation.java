@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.operator.aggregation.AbstractTestAggregationFunction;
 
-import static com.facebook.presto.operator.aggregation.differentialentropy.EntropyCalculations.calculateFromSamples;
+import static com.facebook.presto.operator.aggregation.differentialentropy.EntropyCalculations.calculateFromSamplesUsingVasicek;
 import static org.testng.Assert.assertTrue;
 
 abstract class AbstractTestReservoirAggregation
@@ -32,12 +32,12 @@ abstract class AbstractTestReservoirAggregation
     @Override
     public Double getExpectedValue(int start, int length)
     {
-        assertTrue(length < MAX_SAMPLES);
+        assertTrue(2 * length < MAX_SAMPLES);
         double[] samples = new double[2 * length];
         for (int i = 0; i < length; i++) {
             samples[i] = (double) (start + i);
             samples[i + length] = (double) (start + i);
         }
-        return calculateFromSamples(samples);
+        return calculateFromSamplesUsingVasicek(samples);
     }
 }

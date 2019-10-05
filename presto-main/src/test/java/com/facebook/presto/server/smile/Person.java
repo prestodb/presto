@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.server.smile;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.JsonCodec;
 
 import java.util.List;
 import java.util.Map;

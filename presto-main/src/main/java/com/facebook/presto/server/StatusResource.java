@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.sun.management.OperatingSystemMXBean;
-import io.airlift.node.NodeInfo;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;

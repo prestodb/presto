@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
-import io.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.raptor.backup.BackupModule;
 import com.facebook.presto.raptor.security.RaptorSecurityModule;
 import com.facebook.presto.raptor.storage.StorageModule;
@@ -27,8 +29,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.json.JsonModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;

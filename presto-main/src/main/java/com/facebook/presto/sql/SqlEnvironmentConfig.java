@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;

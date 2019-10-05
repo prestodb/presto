@@ -18,7 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import static com.facebook.presto.operator.aggregation.differentialentropy.EntropyCalculations.calculateFromSamples;
+import static com.facebook.presto.operator.aggregation.differentialentropy.EntropyCalculations.calculateFromSamplesUsingVasicek;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -87,20 +87,21 @@ public class UnweightedReservoirSampleStateStrategy
     }
 
     @Override
-    public void add(double value, double weight)
+    public void add(double value)
     {
-        if (weight != 1.0) {
-            throw new PrestoException(
-                    INVALID_FUNCTION_ARGUMENT,
-                    format("In differential_entropy UDF, weight should be 1.0: %s", weight));
-        }
         reservoir.add(value);
+    }
+
+    @Override
+    public double getTotalPopulationWeight()
+    {
+        return (double) reservoir.getTotalPopulationCount();
     }
 
     @Override
     public double calculateEntropy()
     {
-        return calculateFromSamples(reservoir.getSamples());
+        return calculateFromSamplesUsingVasicek(reservoir.getSamples());
     }
 
     @Override
@@ -110,7 +111,7 @@ public class UnweightedReservoirSampleStateStrategy
     }
 
     @Override
-    public int getRequiredBytesForSerialization()
+    public int getRequiredBytesForSpecificSerialization()
     {
         return reservoir.getRequiredBytesForSerialization();
     }
@@ -130,5 +131,11 @@ public class UnweightedReservoirSampleStateStrategy
     public DifferentialEntropyStateStrategy clone()
     {
         return new UnweightedReservoirSampleStateStrategy(this);
+    }
+
+    @Override
+    public DifferentialEntropyStateStrategy cloneEmpty()
+    {
+        return new UnweightedReservoirSampleStateStrategy(reservoir.getMaxSamples());
     }
 }

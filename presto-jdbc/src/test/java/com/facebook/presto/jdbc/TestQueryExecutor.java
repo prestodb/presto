@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.ServerInfo;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
@@ -26,9 +26,9 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Optional;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.NodeVersion.UNKNOWN;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

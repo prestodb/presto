@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.log.Logger;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;

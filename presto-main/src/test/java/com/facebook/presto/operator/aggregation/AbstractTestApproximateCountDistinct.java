@@ -35,8 +35,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static io.airlift.testing.Assertions.assertLessThan;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestApproximateCountDistinct

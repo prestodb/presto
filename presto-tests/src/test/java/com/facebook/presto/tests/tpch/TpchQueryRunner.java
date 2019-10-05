@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests.tpch;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 
 public final class TpchQueryRunner
 {

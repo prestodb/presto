@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import io.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.CounterStat;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;

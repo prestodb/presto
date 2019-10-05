@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import io.airlift.log.Logger;
+import com.facebook.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;

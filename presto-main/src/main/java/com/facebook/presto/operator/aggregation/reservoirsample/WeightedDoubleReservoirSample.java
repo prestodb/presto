@@ -35,6 +35,7 @@ public class WeightedDoubleReservoirSample
     private int count;
     private double[] samples;
     private double[] weights;
+    private double totalPopulationWeight;
 
     public WeightedDoubleReservoirSample(int maxSamples)
     {
@@ -52,13 +53,15 @@ public class WeightedDoubleReservoirSample
         this.count = other.count;
         this.samples = Arrays.copyOf(other.samples, other.samples.length);
         this.weights = Arrays.copyOf(other.weights, other.weights.length);
+        this.totalPopulationWeight = other.totalPopulationWeight;
     }
 
-    private WeightedDoubleReservoirSample(int count, double[] samples, double[] weights)
+    private WeightedDoubleReservoirSample(int count, double[] samples, double[] weights, double totalPopulationWeight)
     {
         this.count = count;
         this.samples = requireNonNull(samples, "samples is null");
         this.weights = requireNonNull(weights, "weights is null");
+        this.totalPopulationWeight = totalPopulationWeight;
     }
 
     public long getMaxSamples()
@@ -69,6 +72,7 @@ public class WeightedDoubleReservoirSample
     public void add(double sample, double weight)
     {
         checkArgument(weight >= 0, format("Weight %s cannot be negative", weight));
+        totalPopulationWeight += weight;
         double adjustedWeight = Math.pow(
                 ThreadLocalRandom.current().nextDouble(),
                 1.0 / weight);
@@ -79,7 +83,6 @@ public class WeightedDoubleReservoirSample
     {
         if (count < samples.length) {
             samples[count] = sample;
-            weights[count] = adjustedWeight;
             count++;
             bubbleUp();
             return;
@@ -96,6 +99,7 @@ public class WeightedDoubleReservoirSample
 
     public void mergeWith(WeightedDoubleReservoirSample other)
     {
+        totalPopulationWeight += other.totalPopulationWeight;
         for (int i = 0; i < other.count; i++) {
             addWithAdjustedWeight(other.samples[i], other.weights[i]);
         }
@@ -110,12 +114,6 @@ public class WeightedDoubleReservoirSample
     public double[] getSamples()
     {
         return Arrays.copyOf(samples, count);
-    }
-
-    private void checkArguments()
-    {
-        checkArgument(samples.length > 0, "Number of reservoir samples must be strictly positive");
-        checkArgument(count <= samples.length, "Size must be at most number of samples");
     }
 
     private void swap(int i, int j)
@@ -182,7 +180,8 @@ public class WeightedDoubleReservoirSample
         input.readBytes(Slices.wrappedDoubleArray(samples), count * SizeOf.SIZE_OF_DOUBLE);
         double[] weights = new double[maxSamples];
         input.readBytes(Slices.wrappedDoubleArray(weights), count * SizeOf.SIZE_OF_DOUBLE);
-        return new WeightedDoubleReservoirSample(count, samples, weights);
+        double totalPopulationWeight = input.readDouble();
+        return new WeightedDoubleReservoirSample(count, samples, weights, totalPopulationWeight);
     }
 
     public void serialize(SliceOutput output)
@@ -195,12 +194,14 @@ public class WeightedDoubleReservoirSample
         for (int i = 0; i < count; i++) {
             output.appendDouble(weights[i]);
         }
+        output.appendDouble(totalPopulationWeight);
     }
 
     public int getRequiredBytesForSerialization()
     {
         return SizeOf.SIZE_OF_INT + // count
-                SizeOf.SIZE_OF_INT + 2 * SizeOf.SIZE_OF_DOUBLE * Math.min(count, samples.length); // samples, weights
+                SizeOf.SIZE_OF_INT + 2 * SizeOf.SIZE_OF_DOUBLE * Math.min(count, samples.length) + // samples, weights
+                SizeOf.SIZE_OF_DOUBLE; // totalPopulationWeight;
     }
 
     public long estimatedInMemorySize()
@@ -208,5 +209,10 @@ public class WeightedDoubleReservoirSample
         return INSTANCE_SIZE +
                 SizeOf.sizeOf(samples) +
                 SizeOf.sizeOf(weights);
+    }
+
+    public double getTotalPopulationWeight()
+    {
+        return totalPopulationWeight;
     }
 }

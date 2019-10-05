@@ -18,6 +18,6 @@ public class TestFixedHistogramJacknifeStateStrategy
 {
     public TestFixedHistogramJacknifeStateStrategy()
     {
-        super(size -> new FixedHistogramJacknifeStateStrategy(size, AbstractTestStateStrategy.MIN, AbstractTestStateStrategy.MAX));
+        super(size -> new FixedHistogramJacknifeStateStrategy(size, AbstractTestStateStrategy.MIN, AbstractTestStateStrategy.MAX), true);
     }
 }

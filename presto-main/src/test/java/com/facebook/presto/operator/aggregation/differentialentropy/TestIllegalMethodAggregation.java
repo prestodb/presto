@@ -59,7 +59,6 @@ public class TestIllegalMethodAggregation
                         "differential_entropy",
                         fromTypes(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE, DOUBLE)));
         createStringsBlock((String) null);
-        System.out.println("foo");
         aggregation(
                 function,
                 createLongsBlock(200),

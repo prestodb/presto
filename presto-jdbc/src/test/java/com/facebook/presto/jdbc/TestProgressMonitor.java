@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;
@@ -35,10 +35,10 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

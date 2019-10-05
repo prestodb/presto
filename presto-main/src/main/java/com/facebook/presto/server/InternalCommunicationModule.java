@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.http.client.HttpClientConfig;
+import com.facebook.airlift.http.client.spnego.KerberosConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.spnego.KerberosConfig;
 
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Locale;
 
+import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.server.InternalCommunicationConfig.INTERNAL_COMMUNICATION_KERBEROS_ENABLED;
 import static com.facebook.presto.server.security.KerberosConfig.HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class InternalCommunicationModule
         extends AbstractConfigurationAwareModule

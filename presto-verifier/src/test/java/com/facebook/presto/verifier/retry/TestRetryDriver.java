@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.verifier.retry;
 
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.retry.RetryDriver.RetryOperation;
-import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -25,9 +25,9 @@ import org.testng.annotations.Test;
 import java.net.SocketTimeoutException;
 import java.util.Optional;
 
+import static com.facebook.airlift.log.Level.DEBUG;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
-import static io.airlift.log.Level.DEBUG;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;

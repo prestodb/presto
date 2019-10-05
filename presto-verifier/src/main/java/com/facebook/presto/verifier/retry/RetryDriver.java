@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.verifier.retry;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.verifier.framework.QueryException;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import java.util.concurrent.ThreadLocalRandom;

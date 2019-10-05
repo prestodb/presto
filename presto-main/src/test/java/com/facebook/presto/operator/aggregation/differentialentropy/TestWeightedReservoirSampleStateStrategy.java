@@ -18,6 +18,6 @@ public class TestWeightedReservoirSampleStateStrategy
 {
     public TestWeightedReservoirSampleStateStrategy()
     {
-        super(size -> new WeightedReservoirSampleStateStrategy(size));
+        super(size -> new WeightedReservoirSampleStateStrategy(size), true);
     }
 }

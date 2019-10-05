@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import io.airlift.log.Logger;
 import kafka.javaapi.consumer.SimpleConsumer;
 
 import javax.annotation.PreDestroy;

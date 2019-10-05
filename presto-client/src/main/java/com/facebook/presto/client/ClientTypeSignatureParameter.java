@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.ParameterKind;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
@@ -24,7 +25,6 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import io.airlift.json.ObjectMapperProvider;
 
 import javax.annotation.concurrent.Immutable;
 

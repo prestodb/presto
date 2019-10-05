@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.server.smile;
 
+import com.facebook.airlift.http.client.HeaderName;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.Response;
+import com.facebook.airlift.http.client.ResponseHandler;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.net.MediaType;
-import io.airlift.http.client.HeaderName;
-import io.airlift.http.client.Request;
-import io.airlift.http.client.Response;
-import io.airlift.http.client.ResponseHandler;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 
+import static com.facebook.airlift.http.client.ResponseHandlerUtils.propagate;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static java.util.Objects.requireNonNull;
 
 public class FullSmileResponseHandler<T>

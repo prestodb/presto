@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.airlift.log.Logger;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;

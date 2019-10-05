@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
-import io.airlift.configuration.Config;
+import com.facebook.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;

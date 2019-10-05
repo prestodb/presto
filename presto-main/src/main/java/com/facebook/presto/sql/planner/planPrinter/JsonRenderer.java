@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.json.JsonCodec;
 
 import java.util.List;
 import java.util.Optional;

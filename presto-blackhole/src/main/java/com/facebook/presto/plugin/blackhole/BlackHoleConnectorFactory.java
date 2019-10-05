@@ -21,8 +21,8 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 
 import java.util.Map;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class BlackHoleConnectorFactory
