@@ -22,7 +22,9 @@
         <!-- Launcher properties -->
         <main-class>com.facebook.presto.server.PrestoServer</main-class>
         <process-name>${project.artifactId}</process-name>
+
         <netty.version>3.9.8.Final</netty.version>
+        <plexus.version>3.0.24</plexus.version>
     </properties>
 
     <dependencies>
@@ -289,6 +291,12 @@
             <groupId>io.netty</groupId>
             <artifactId>netty</artifactId>
             <version>${netty.version}</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.codehaus.plexus</groupId>
+            <artifactId>plexus-utils</artifactId>
+            <version>${plexus.version}</version>
         </dependency>
     </dependencies>
 
