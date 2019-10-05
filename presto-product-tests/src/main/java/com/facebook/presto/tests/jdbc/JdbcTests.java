@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests.jdbc;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import io.airlift.log.Logger;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.Requirement;
 import io.prestodb.tempto.RequirementsProvider;

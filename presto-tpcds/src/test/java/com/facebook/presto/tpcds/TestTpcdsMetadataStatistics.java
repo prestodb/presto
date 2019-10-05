@@ -14,6 +14,7 @@
 
 package com.facebook.presto.tpcds;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -26,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.CallCenterColumn;
 import com.teradata.tpcds.column.WebSiteColumn;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.List;

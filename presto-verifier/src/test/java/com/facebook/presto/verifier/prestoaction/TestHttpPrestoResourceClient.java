@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.failureDetector.HeartbeatFailureDetector;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.verifier.retry.RetryConfig;
-import io.airlift.http.client.jetty.JettyHttpClient;
 import org.testng.annotations.Test;
 
-import static io.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 
 public class TestHttpPrestoResourceClient
 {

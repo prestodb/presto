@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.PostScript;
 import com.google.common.base.Joiner;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 

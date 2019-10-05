@@ -20,10 +20,10 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.OVERRIDE;
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.SUBSTITUTE;
-import static io.airlift.json.JsonCodec.mapJsonCodec;
 
 public class TestQueryConfiguration
 {

@@ -36,6 +36,7 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.HashBuilderOperator.State.CONSUMING_INPUT;
@@ -43,7 +44,6 @@ import static com.facebook.presto.operator.HashBuilderOperator.State.LOOKUP_SOUR
 import static com.facebook.presto.operator.TestHashJoinOperator.DummySpillerFactory;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;

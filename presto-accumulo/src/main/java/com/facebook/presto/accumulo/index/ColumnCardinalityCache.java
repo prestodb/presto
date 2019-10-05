@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.accumulo.index;
 
+import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.spi.PrestoException;
@@ -25,8 +27,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
-import io.airlift.concurrent.BoundedExecutor;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
@@ -56,6 +56,7 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.accumulo.index.Indexer.CARDINALITY_CQ_AS_TEXT;
 import static com.facebook.presto.accumulo.index.Indexer.getIndexColumnFamily;
@@ -63,7 +64,6 @@ import static com.facebook.presto.accumulo.index.Indexer.getMetricsTableName;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Streams.stream;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Long.parseLong;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;

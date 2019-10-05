@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
@@ -28,7 +29,6 @@ import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;

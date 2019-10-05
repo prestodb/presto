@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.cli;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
 import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 

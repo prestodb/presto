@@ -38,12 +38,12 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Queue;
 
+import static com.facebook.airlift.concurrent.MoreFutures.checkSuccess;
+import static com.facebook.airlift.concurrent.MoreFutures.getDone;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.concurrent.MoreFutures.checkSuccess;
-import static io.airlift.concurrent.MoreFutures.getDone;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
@@ -45,7 +46,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
-import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;

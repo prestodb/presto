@@ -19,8 +19,8 @@ import com.google.inject.TypeLiteral;
 
 import java.util.List;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.inject.Scopes.SINGLETON;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class FailureResolverModule

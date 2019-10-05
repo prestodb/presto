@@ -13,26 +13,26 @@
  */
 package com.facebook.presto.server.security;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.http.server.TheServlet;
 
 import javax.servlet.Filter;
 
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.JWT;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class ServerSecurityModule
         extends AbstractConfigurationAwareModule

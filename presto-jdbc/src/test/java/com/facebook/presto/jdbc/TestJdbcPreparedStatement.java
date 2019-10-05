@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import io.airlift.log.Logging;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

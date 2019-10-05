@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.airlift.configuration.Config;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.MetadataManager;
@@ -31,7 +32,6 @@ import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
@@ -45,6 +45,7 @@ import java.util.OptionalInt;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
@@ -64,7 +65,6 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;

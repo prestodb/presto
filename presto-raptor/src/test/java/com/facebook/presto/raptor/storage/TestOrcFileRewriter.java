@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.OrcBatchRecordReader;
@@ -38,7 +39,6 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 import org.skife.jdbi.v2.DBI;
@@ -59,6 +59,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
@@ -79,9 +81,7 @@ import static com.facebook.presto.tests.StructuralTestUtil.mapBlocksEqual;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;

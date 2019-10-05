@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.util.Failures;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;

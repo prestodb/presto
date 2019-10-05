@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.localfile;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestLocalFileSplit

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
-import io.airlift.log.Logger;
 
 import java.io.File;
 import java.io.FileOutputStream;

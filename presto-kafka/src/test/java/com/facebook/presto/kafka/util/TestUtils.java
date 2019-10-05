@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.kafka.util;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.kafka.KafkaPlugin;
 import com.facebook.presto.kafka.KafkaTopicDescription;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -22,7 +23,6 @@ import com.facebook.presto.tests.TestingPrestoClient;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
-import io.airlift.json.JsonCodec;
 
 import java.io.IOException;
 import java.net.ServerSocket;

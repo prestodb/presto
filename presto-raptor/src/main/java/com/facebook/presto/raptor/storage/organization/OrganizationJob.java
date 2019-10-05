@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.TableMetadata;
-import io.airlift.log.Logger;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

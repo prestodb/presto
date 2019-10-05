@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import io.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodec;
 
 public interface PrestoResourceClient
 {

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.testing.Closeables;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.AllNodes;
@@ -34,7 +35,6 @@ import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.Closeables;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.airlift.event.client.EventClient;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.verifier.annotation.ForControl;
@@ -23,8 +25,6 @@ import com.facebook.presto.verifier.source.SourceQuerySupplier;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.event.client.EventClient;
-import io.airlift.log.Logger;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;

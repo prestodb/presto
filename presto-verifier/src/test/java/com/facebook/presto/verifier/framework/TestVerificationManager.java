@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -32,7 +33,6 @@ import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.List;

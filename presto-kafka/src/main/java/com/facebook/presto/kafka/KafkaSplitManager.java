@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -26,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
-import io.airlift.log.Logger;
 import kafka.api.PartitionOffsetRequestInfo;
 import kafka.cluster.BrokerEndPoint;
 import kafka.common.TopicAndPartition;

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.stats.cardinality.HyperLogLog;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
-import io.airlift.stats.cardinality.HyperLogLog;
 
 import static com.facebook.presto.operator.aggregation.ApproximateSetAggregation.DEFAULT_STANDARD_ERROR;
 import static com.facebook.presto.operator.aggregation.HyperLogLogUtils.standardErrorToBuckets;

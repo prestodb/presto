@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.log.Logger;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.testng.IClassListener;
 import org.testng.IExecutionListener;
@@ -36,8 +36,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;

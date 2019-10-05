@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.server.protocol;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentMap;

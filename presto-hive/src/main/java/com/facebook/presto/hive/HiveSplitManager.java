@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
@@ -36,8 +38,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import io.airlift.concurrent.BoundedExecutor;
-import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
