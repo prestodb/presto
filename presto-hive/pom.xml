@@ -374,6 +374,18 @@
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <!-- TODO: Remove this once fixed -->
+                    <ignoredDependencies>
+                        <ignoredDependency>org.glassfish.jersey.core:jersey-common:jar</ignoredDependency>
+                        <ignoredDependency>org.eclipse.jetty:jetty-server:jar</ignoredDependency>
+                    </ignoredDependencies>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
