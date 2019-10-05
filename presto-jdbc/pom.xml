@@ -33,7 +33,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>security</artifactId>
         </dependency>
 
@@ -43,7 +43,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
             <exclusions>
                 <exclusion>
@@ -119,19 +119,19 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>concurrent</artifactId>
             <scope>test</scope>
         </dependency>

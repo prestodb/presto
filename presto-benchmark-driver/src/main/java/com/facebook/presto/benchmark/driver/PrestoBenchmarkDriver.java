@@ -26,7 +26,6 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -160,9 +159,6 @@ public class PrestoBenchmarkDriver
                 logging.configure(new LoggingConfiguration());
                 logging.disableConsole();
             }
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
         finally {
             System.setOut(out);

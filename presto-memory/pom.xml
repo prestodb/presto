@@ -23,17 +23,17 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
@@ -85,13 +85,13 @@
 
         <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>log</artifactId>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -134,7 +134,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>

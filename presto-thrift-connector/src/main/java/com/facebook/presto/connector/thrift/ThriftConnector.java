@@ -101,10 +101,6 @@ public class ThriftConnector
         try {
             lifeCycleManager.stop();
         }
-        catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            log.error(ie, "Interrupted while shutting down connector");
-        }
         catch (Exception e) {
             log.error(e, "Error shutting down connector");
         }

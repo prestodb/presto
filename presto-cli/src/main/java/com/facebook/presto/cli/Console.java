@@ -36,7 +36,6 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -427,9 +426,6 @@ public class Console
 
             Logging logging = Logging.initialize();
             logging.configure(config);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
         finally {
             System.setOut(out);

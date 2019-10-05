@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.airlift</groupId>
+        <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>88</version>
+        <version>95</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -45,7 +45,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.178</dep.airlift.version>
+        <dep.airlift.version>0.185</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.36</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.4</dep.testing-mysql-server-5.version>
@@ -501,25 +501,25 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>log</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>log-manager</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>json</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>security</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
@@ -531,97 +531,97 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>concurrent</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>configuration</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>discovery</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>testing</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>node</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>bootstrap</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>event</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>http-server</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>jaxrs</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>jaxrs-testing</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>jmx</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>trace-token</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>dbpool</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>jmx-http</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>http-client</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>stats</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
@@ -677,7 +677,7 @@
             <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
-                <version>0.9</version>
+                <version>0.10</version>
             </dependency>
 
             <dependency>
