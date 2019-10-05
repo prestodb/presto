@@ -582,6 +582,19 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testPushdownComposition()
+    {
+        // Tests composing two pushdowns each with a range filter and filter function.
+        assertQuery(
+                "WITH data AS (" +
+                "    SELECT l.suppkey, l.linenumber, l.shipmode, MAX(o.orderdate)" +
+                "    FROM lineitem l,  orders o WHERE" +
+                "        o.orderkey = l.orderkey AND linenumber IN (2, 3, 4, 6) AND shipmode LIKE '%AIR%'" +
+                "        GROUP BY l.suppkey, l.linenumber, l.shipmode)" +
+                "SELECT COUNT(*) FROM data WHERE suppkey BETWEEN 10 AND 30 AND shipmode LIKE '%REG%'");
+    }
+
+    @Test
     public void testPartitionColumns()
     {
         assertUpdate("CREATE TABLE test_partition_columns WITH (partitioned_by = ARRAY['p', 'q']) AS\n" +

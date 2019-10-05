@@ -126,6 +126,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.hive.HiveAnalyzeProperties.getPartitionList;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
@@ -1739,24 +1740,26 @@ public class HiveMetadata
             return new ConnectorPushdownFilterResult(getTableLayout(session, currentLayoutHandle.get()), TRUE_CONSTANT);
         }
 
-        if (currentLayoutHandle.isPresent()) {
-            throw new UnsupportedOperationException("Partial filter pushdown is not supported");
-        }
-
         // Split the filter into 3 groups of conjuncts:
         //  - range filters that apply to entire columns,
         //  - range filters that apply to subfields,
-        //  - the rest
-        ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator().fromPredicate(
-                session,
-                filter,
-                new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session).toColumnExtractor());
+        //  - the rest. Intersect these with possibly pre-existing filters.
+        ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
+                .fromPredicate(session, filter, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session).toColumnExtractor());
+        if (currentLayoutHandle.isPresent()) {
+            HiveTableLayoutHandle currentHiveLayout = (HiveTableLayoutHandle) currentLayoutHandle.get();
+            decomposedFilter = intersectExtractionResult(decomposedFilter, new ExtractionResult(currentHiveLayout.getDomainPredicate(), currentHiveLayout.getRemainingPredicate()));
+        }
 
         Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tableHandle);
         TupleDomain<ColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
                 .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
                 .transform(columnHandles::get);
-        // TODO Extract deterministic conjuncts that apply to partition columns and specify these as Contraint#predicate
+        if (currentLayoutHandle.isPresent()) {
+            entireColumnDomain = entireColumnDomain.intersect(((HiveTableLayoutHandle) (currentLayoutHandle.get())).getPartitionColumnPredicate());
+        }
+
+        // TODO Extract deterministic conjuncts that apply to partition columns and specify these as Constraint#predicate
         HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint<>(entireColumnDomain), session);
 
         TupleDomain<Subfield> domainPredicate = withColumnDomains(ImmutableMap.<Subfield, Domain>builder()
@@ -1802,6 +1805,21 @@ public class HiveMetadata
                                 hivePartitionResult.getBucketFilter(),
                                 createTableLayoutString(session, tableName, hivePartitionResult.getBucketHandle(), decomposedFilter.getRemainingExpression(), domainPredicate))),
                 TRUE_CONSTANT);
+    }
+
+    private static ExtractionResult intersectExtractionResult(ExtractionResult left, ExtractionResult right)
+    {
+        RowExpression newRemainingExpression;
+        if (right.getRemainingExpression().equals(TRUE_CONSTANT)) {
+            newRemainingExpression = left.getRemainingExpression();
+        }
+        else if (left.getRemainingExpression().equals(TRUE_CONSTANT)) {
+            newRemainingExpression = right.getRemainingExpression();
+        }
+        else {
+            newRemainingExpression = and(left.getRemainingExpression(), right.getRemainingExpression());
+        }
+        return new ExtractionResult(left.getTupleDomain().intersect(right.getTupleDomain()), newRemainingExpression);
     }
 
     private String createTableLayoutString(
