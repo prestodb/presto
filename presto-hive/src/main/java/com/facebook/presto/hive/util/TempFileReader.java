@@ -17,6 +17,7 @@ import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.StorageOrcFileTailSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -55,7 +56,8 @@ public class TempFileReader
                     ORC,
                     new DataSize(1, MEGABYTE),
                     new DataSize(8, MEGABYTE),
-                    new DataSize(16, MEGABYTE));
+                    new DataSize(16, MEGABYTE),
+                    new StorageOrcFileTailSource());
 
             Map<Integer, Type> includedColumns = new HashMap<>();
             for (int i = 0; i < types.size(); i++) {

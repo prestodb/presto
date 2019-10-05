@@ -397,7 +397,8 @@ public class TestMapFlatBatchStreamReader
                 OrcEncoding.DWRF,
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),
-                new DataSize(1, DataSize.Unit.MEGABYTE));
+                new DataSize(1, DataSize.Unit.MEGABYTE),
+                new StorageOrcFileTailSource());
         Type mapType = TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(

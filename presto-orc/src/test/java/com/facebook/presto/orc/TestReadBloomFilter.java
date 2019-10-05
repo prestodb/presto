@@ -112,7 +112,7 @@ public class TestReadBloomFilter
         OrcPredicate predicate = filterValue.map(value -> makeOrcPredicate(type, value, bloomFilterEnabled)).map(OrcPredicate.class::cast).orElse(TRUE);
 
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-        OrcReader orcReader = new OrcReader(orcDataSource, OrcEncoding.ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+        OrcReader orcReader = new OrcReader(orcDataSource, OrcEncoding.ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new StorageOrcFileTailSource());
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);

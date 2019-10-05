@@ -13,30 +13,51 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.google.common.base.Strings;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Range;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
+import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
+import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.Serializer;
+import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.StructField;
+import org.apache.hadoop.io.Writable;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.orc.OrcEncoding.ORC;
+import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReader;
+import static com.facebook.presto.orc.OrcTester.createOrcRecordWriter;
+import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspector;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -154,6 +175,51 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         testRoundTripNumeric(concat(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123)));
+    }
+
+    @Test
+    public void testCaching()
+            throws Exception
+    {
+        Cache<OrcDataSourceId, OrcFileTail> cache = CacheBuilder.newBuilder()
+                .maximumWeight(new DataSize(1, DataSize.Unit.MEGABYTE).toBytes())
+                .weigher((id, tail) -> ((OrcFileTail) tail).getFooterSize() + ((OrcFileTail) tail).getMetadataSize())
+                .expireAfterAccess(new Duration(10, TimeUnit.MINUTES).toMillis(), TimeUnit.MILLISECONDS)
+                .recordStats()
+                .build();
+        OrcFileTailSource orcFileTailSource = new CachingOrcFileTailSource(new StorageOrcFileTailSource(), cache);
+        try (TempFile tempFile = createTempFile()) {
+            OrcBatchRecordReader storageReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource);
+            assertEquals(cache.stats().missCount(), 1);
+            assertEquals(cache.stats().hitCount(), 0);
+
+            OrcBatchRecordReader cacheReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource);
+            assertEquals(cache.stats().missCount(), 1);
+            assertEquals(cache.stats().hitCount(), 1);
+
+            assertEquals(storageReader.getRetainedSizeInBytes(), cacheReader.getRetainedSizeInBytes());
+            assertEquals(storageReader.getFileRowCount(), cacheReader.getFileRowCount());
+            assertEquals(storageReader.getSplitLength(), cacheReader.getSplitLength());
+        }
+    }
+
+    private static TempFile createTempFile()
+            throws IOException, SerDeException
+    {
+        TempFile file = new TempFile();
+        RecordWriter writer = createOrcRecordWriter(file.getFile(), ORC_12, CompressionKind.NONE, BIGINT);
+
+        @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
+        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", BIGINT);
+        Object row = objectInspector.create();
+        StructField field = objectInspector.getAllStructFieldRefs().get(0);
+
+        objectInspector.setStructFieldData(row, field, 1L);
+        Writable record = serde.serialize(row, objectInspector);
+        writer.write(record);
+
+        writer.close(false);
+        return file;
     }
 
     private void testRoundTripNumeric(Iterable<? extends Number> values)

@@ -25,6 +25,7 @@ import com.facebook.presto.orc.FilterFunction;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
+import com.facebook.presto.orc.OrcFileTailSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcSelectiveRecordReader;
@@ -117,14 +118,38 @@ public class OrcSelectivePageSourceFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
+    private final OrcFileTailSource orcFileTailSource;
 
     @Inject
-    public OrcSelectivePageSourceFactory(TypeManager typeManager, StandardFunctionResolution functionResolution, RowExpressionService rowExpressionService, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public OrcSelectivePageSourceFactory(
+            TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
+            HiveClientConfig config,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            OrcFileTailSource orcFileTailSource)
     {
-        this(typeManager, functionResolution, rowExpressionService, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, stats, config.getDomainCompactionThreshold());
+        this(
+                typeManager,
+                functionResolution,
+                rowExpressionService,
+                requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(),
+                hdfsEnvironment,
+                stats,
+                config.getDomainCompactionThreshold(),
+                orcFileTailSource);
     }
 
-    public OrcSelectivePageSourceFactory(TypeManager typeManager, StandardFunctionResolution functionResolution, RowExpressionService rowExpressionService, boolean useOrcColumnNames, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, int domainCompactionThreshold)
+    public OrcSelectivePageSourceFactory(
+            TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
+            boolean useOrcColumnNames,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            int domainCompactionThreshold,
+            OrcFileTailSource orcFileTailSource)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
@@ -133,6 +158,7 @@ public class OrcSelectivePageSourceFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
+        this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailCache is null");
     }
 
     @Override
@@ -181,7 +207,8 @@ public class OrcSelectivePageSourceFactory
                 rowExpressionService,
                 isOrcBloomFiltersEnabled(session),
                 stats,
-                domainCompactionThreshold));
+                domainCompactionThreshold,
+                orcFileTailSource));
     }
 
     public static OrcSelectivePageSource createOrcPageSource(
@@ -205,7 +232,8 @@ public class OrcSelectivePageSourceFactory
             RowExpressionService rowExpressionService,
             boolean orcBloomFiltersEnabled,
             FileFormatDataSourceStats stats,
-            int domainCompactionThreshold)
+            int domainCompactionThreshold,
+            OrcFileTailSource orcFileTailSource)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
@@ -240,7 +268,7 @@ public class OrcSelectivePageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, tinyStripeThreshold, maxReadBlockSize);
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, tinyStripeThreshold, maxReadBlockSize, orcFileTailSource);
 
             checkArgument(!domainPredicate.isNone(), "Unexpected NONE domain");
 

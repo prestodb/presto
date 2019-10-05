@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.orc.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -53,9 +54,17 @@ public class DwrfSelectivePageSourceFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
+    private final OrcFileTailSource orcFileTailSource;
 
     @Inject
-    public DwrfSelectivePageSourceFactory(TypeManager typeManager, StandardFunctionResolution functionResolution, RowExpressionService rowExpressionService, HiveClientConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public DwrfSelectivePageSourceFactory(
+            TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
+            RowExpressionService rowExpressionService,
+            HiveClientConfig config,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            OrcFileTailSource orcFileTailSource)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
@@ -63,6 +72,7 @@ public class DwrfSelectivePageSourceFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = requireNonNull(config, "config is null").getDomainCompactionThreshold();
+        this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
     }
 
     @Override
@@ -110,6 +120,7 @@ public class DwrfSelectivePageSourceFactory
                 rowExpressionService,
                 false,
                 stats,
-                domainCompactionThreshold));
+                domainCompactionThreshold,
+                orcFileTailSource));
     }
 }
