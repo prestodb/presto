@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.discovery.server.testing.TestingDiscoveryServer;
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.testing.Assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.cost.StatsCalculator;
@@ -43,9 +46,6 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
-import io.airlift.discovery.server.testing.TestingDiscoveryServer;
-import io.airlift.log.Logger;
-import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
@@ -33,7 +34,6 @@ import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.facebook.presto.sql.relational.Expressions.subExpressions;
 import static com.facebook.presto.sql.relational.Expressions.uniqueSubExpressions;
 import static com.facebook.presto.sql.relational.Expressions.variable;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 
 public class TestSubExpressions

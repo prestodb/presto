@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.event;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.DriverStats;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.eventlistener.SplitFailureInfo;
 import com.facebook.presto.spi.eventlistener.SplitStatistics;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.log.Logger;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;

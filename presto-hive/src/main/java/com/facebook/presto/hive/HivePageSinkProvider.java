@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.event.client.EventClient;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.SortingColumn;
@@ -30,8 +32,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.event.client.EventClient;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
@@ -40,9 +40,9 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 

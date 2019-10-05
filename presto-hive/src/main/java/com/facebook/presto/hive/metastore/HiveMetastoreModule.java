@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.metastore.file.FileMetastoreModule;
 import com.facebook.presto.hive.metastore.glue.GlueMetastoreModule;
 import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import java.util.Optional;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 
 public class HiveMetastoreModule
         extends AbstractConfigurationAwareModule

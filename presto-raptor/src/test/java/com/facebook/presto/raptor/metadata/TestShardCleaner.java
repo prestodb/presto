@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.storage.FileStorageService;
@@ -21,7 +22,6 @@ import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
@@ -45,12 +45,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.util.Arrays.asList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;

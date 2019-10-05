@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.atop;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.HostAddress;
-import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;

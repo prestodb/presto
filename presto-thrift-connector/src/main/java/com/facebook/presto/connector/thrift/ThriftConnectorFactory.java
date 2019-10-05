@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
 import com.facebook.presto.connector.thrift.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import io.airlift.bootstrap.Bootstrap;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -78,10 +78,6 @@ public class ThriftConnectorFactory
                     .initialize();
 
             return injector.getInstance(ThriftConnector.class);
-        }
-        catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while creating connector", ie);
         }
         catch (Exception e) {
             throwIfUnchecked(e);

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
-import io.airlift.stats.TimeStat;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;

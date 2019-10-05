@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -26,7 +27,6 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
-import io.airlift.log.Logger;
 import io.airlift.tpch.TpchTable;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;

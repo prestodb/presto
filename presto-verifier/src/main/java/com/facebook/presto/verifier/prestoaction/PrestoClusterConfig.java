@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.airlift.configuration.Config;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 

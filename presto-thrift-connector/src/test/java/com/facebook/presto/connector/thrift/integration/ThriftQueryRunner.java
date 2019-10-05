@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.connector.thrift.integration;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.log.Logging;
 import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.server.DriftService;
@@ -41,16 +43,14 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
 
+import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static io.airlift.testing.Closeables.closeQuietly;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 

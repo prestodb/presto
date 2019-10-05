@@ -76,6 +76,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.SystemSessionProperties.getSpatialPartitioningTableName;
 import static com.facebook.presto.SystemSessionProperties.isSpatialJoinEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -101,7 +102,6 @@ import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialC
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;

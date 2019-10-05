@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.NotNull;
 

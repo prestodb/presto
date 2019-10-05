@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.tests.querystats;
 
+import com.facebook.airlift.http.client.HttpClientConfig;
+import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Exposed;
 import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.PrivateModule;
 import com.google.inject.Provides;
-import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.jetty.JettyHttpClient;
-import io.airlift.json.ObjectMapperProvider;
 import io.prestodb.tempto.configuration.Configuration;
 import io.prestodb.tempto.initialization.AutoModuleProvider;
 import io.prestodb.tempto.initialization.SuiteModuleProvider;

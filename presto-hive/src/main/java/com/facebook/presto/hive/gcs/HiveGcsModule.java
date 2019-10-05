@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive.gcs;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.DynamicConfigurationProvider;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class HiveGcsModule
         extends AbstractConfigurationAwareModule

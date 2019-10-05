@@ -38,12 +38,12 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.execution.executor.Histogram.fromContinuous;
 import static com.facebook.presto.execution.executor.Histogram.fromDiscrete;
 import static com.facebook.presto.execution.executor.SimulationController.TaskSpecification.Type.INTERMEDIATE;
 import static com.facebook.presto.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.util.concurrent.Executors.newCachedThreadPool;

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;

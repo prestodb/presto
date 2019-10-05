@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
@@ -57,7 +58,6 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 
 import java.util.List;
 import java.util.Map;

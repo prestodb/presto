@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.airlift.discovery.client.ServiceDescriptor;
+import com.facebook.airlift.discovery.client.ServiceSelector;
+import com.facebook.airlift.discovery.client.ServiceType;
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
@@ -26,12 +32,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.discovery.client.ServiceType;
-import io.airlift.http.client.HttpClient;
-import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
@@ -52,14 +52,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
-import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.json.JsonCodec;
 
 import java.io.IOException;
 import java.io.OutputStream;

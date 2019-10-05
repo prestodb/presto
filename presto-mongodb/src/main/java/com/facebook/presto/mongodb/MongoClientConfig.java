@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.DefunctConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.Tag;
 import com.mongodb.TagSet;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;

@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.IntPredicate;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -47,7 +48,6 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;

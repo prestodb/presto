@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
@@ -46,7 +47,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.joni.Regex;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -28,8 +30,6 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
@@ -39,6 +39,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.airlift.log.Level.ERROR;
+import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
@@ -48,8 +50,6 @@ import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.log.Level.ERROR;
-import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -188,7 +188,7 @@ public final class HiveQueryRunner
         logging.setLevel("com.facebook.presto.event", WARN);
         logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
         logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
-        logging.setLevel("io.airlift.bootstrap.LifeCycleManager", WARN);
+        logging.setLevel("com.facebook.airlift.bootstrap.LifeCycleManager", WARN);
         logging.setLevel("org.apache.parquet.hadoop", WARN);
         logging.setLevel("org.eclipse.jetty.server.handler.ContextHandler", WARN);
         logging.setLevel("org.eclipse.jetty.server.AbstractConnector", WARN);

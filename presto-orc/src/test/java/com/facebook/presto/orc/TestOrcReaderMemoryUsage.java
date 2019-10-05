@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 
+import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
@@ -49,7 +50,6 @@ import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
 import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderMemoryUsage

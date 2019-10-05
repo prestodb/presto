@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.verifier.event;
 
-import io.airlift.event.client.EventField;
-import io.airlift.event.client.EventType;
+import com.facebook.airlift.event.client.EventField;
+import com.facebook.airlift.event.client.EventType;
 
 import javax.annotation.concurrent.Immutable;
 

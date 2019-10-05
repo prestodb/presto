@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.airlift.configuration.Config;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 

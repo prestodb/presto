@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.FunctionManager;
@@ -52,7 +53,6 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import javax.inject.Provider;
 import javax.inject.Singleton;
@@ -62,10 +62,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Predicate;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;

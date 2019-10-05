@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.resourceGroups.SelectorResourceEstimate;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static java.util.Objects.requireNonNull;
 
 public class SelectorRecord

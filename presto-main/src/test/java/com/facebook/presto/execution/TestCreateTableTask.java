@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
@@ -56,7 +57,6 @@ import static com.facebook.presto.testing.TestingSession.createBogusTestingCatal
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.collect.Sets.immutableEnumSet;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Locale.ENGLISH;

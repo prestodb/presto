@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.event.client.EventModule;
+import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -46,10 +50,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
-import io.airlift.bootstrap.Bootstrap;
-import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.event.client.EventModule;
-import io.airlift.json.JsonModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;

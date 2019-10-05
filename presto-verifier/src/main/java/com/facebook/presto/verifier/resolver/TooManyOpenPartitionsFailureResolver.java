@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.resolver;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.failureDetector.HeartbeatFailureDetector;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
@@ -24,12 +25,12 @@ import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import io.airlift.log.Logger;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
@@ -39,7 +40,6 @@ import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.json.JsonCodec.listJsonCodec;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

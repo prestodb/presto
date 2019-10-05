@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
+import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.base.Splitter;
-import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 

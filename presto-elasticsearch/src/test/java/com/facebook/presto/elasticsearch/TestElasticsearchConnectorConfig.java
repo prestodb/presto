@@ -20,11 +20,11 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Map;
 
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static com.facebook.presto.elasticsearch.SearchGuardCertificateFormat.NONE;
 import static com.facebook.presto.elasticsearch.SearchGuardCertificateFormat.PEM;
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

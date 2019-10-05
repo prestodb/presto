@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive.authentication;
 
+import com.facebook.airlift.log.Logger;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosPrincipal;

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.DelegatingSystemTablesProvider;
 import com.facebook.presto.connector.system.MetadataBasedSystemTablesProvider;
@@ -61,8 +63,6 @@ import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
-import io.airlift.node.NodeInfo;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;

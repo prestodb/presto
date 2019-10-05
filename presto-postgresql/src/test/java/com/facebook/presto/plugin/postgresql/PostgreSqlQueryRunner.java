@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
+import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.airlift.tpch.TpchTable;
 
 import java.sql.Connection;
@@ -29,10 +29,10 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 
 public final class PostgreSqlQueryRunner
 {

@@ -27,11 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 
 final class TestingDatabase
         implements AutoCloseable

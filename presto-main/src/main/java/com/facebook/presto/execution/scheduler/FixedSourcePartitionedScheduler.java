@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
@@ -31,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.log.Logger;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -42,13 +42,13 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsSourceScheduler;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

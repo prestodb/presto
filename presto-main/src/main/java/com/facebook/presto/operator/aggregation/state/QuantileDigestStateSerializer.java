@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
+import com.facebook.airlift.stats.QuantileDigest;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.stats.QuantileDigest;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 

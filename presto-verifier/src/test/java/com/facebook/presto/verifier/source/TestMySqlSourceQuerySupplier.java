@@ -20,13 +20,13 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.verifier.VerifierTestUtil.VERIFIER_QUERIES_TABLE;
 import static com.facebook.presto.verifier.VerifierTestUtil.XDB;
 import static com.facebook.presto.verifier.VerifierTestUtil.getHandle;
 import static com.facebook.presto.verifier.VerifierTestUtil.insertSourceQuery;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupMySql;
 import static com.facebook.presto.verifier.VerifierTestUtil.truncateVerifierQueries;
-import static io.airlift.testing.Closeables.closeQuietly;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

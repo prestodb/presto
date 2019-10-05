@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartition;
@@ -43,7 +44,6 @@ import com.google.common.hash.HashFunction;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;

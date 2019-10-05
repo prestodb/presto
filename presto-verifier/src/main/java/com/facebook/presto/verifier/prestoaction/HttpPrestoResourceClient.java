@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.retry.RetryDriver;
 import com.google.inject.Inject;
-import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.Request;
-import io.airlift.json.JsonCodec;
 
+import static com.facebook.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
-import static io.airlift.http.client.Request.Builder.prepareGet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
