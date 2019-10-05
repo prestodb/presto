@@ -651,14 +651,22 @@ public class OrcTester
         private final List<FilterFunction> filterFunctions;
         private final Map<Integer, Integer> filterFunctionInputMapping;
         private final Map<Integer, List<Subfield>> requiredSubfields;
+        private final OrcFileTailSource orcFileTailSource;
 
-        private OrcReaderSettings(Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters, List<Integer> expectedFilterOrder, List<FilterFunction> filterFunctions, Map<Integer, Integer> filterFunctionInputMapping, Map<Integer, List<Subfield>> requiredSubfields)
+        private OrcReaderSettings(
+                Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters,
+                List<Integer> expectedFilterOrder,
+                List<FilterFunction> filterFunctions,
+                Map<Integer, Integer> filterFunctionInputMapping,
+                Map<Integer, List<Subfield>> requiredSubfields,
+                OrcFileTailSource orcFileTailSource)
         {
             this.columnFilters = requireNonNull(columnFilters, "columnFilters is null");
             this.expectedFilterOrder = requireNonNull(expectedFilterOrder, "expectedFilterOrder is null");
             this.filterFunctions = requireNonNull(filterFunctions, "filterFunctions is null");
             this.filterFunctionInputMapping = requireNonNull(filterFunctionInputMapping, "filterFunctionInputMapping is null");
             this.requiredSubfields = requireNonNull(requiredSubfields, "requiredSubfields is null");
+            this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
         }
 
         public Map<Integer, Map<Subfield, TupleDomainFilter>> getColumnFilters()
@@ -686,6 +694,11 @@ public class OrcTester
             return requiredSubfields;
         }
 
+        public OrcFileTailSource getOrcFileTailSource()
+        {
+            return orcFileTailSource;
+        }
+
         public static Builder builder()
         {
             return new Builder();
@@ -698,6 +711,7 @@ public class OrcTester
             private List<FilterFunction> filterFunctions = ImmutableList.of();
             private Map<Integer, Integer> filterFunctionInputMapping = ImmutableMap.of();
             private Map<Integer, List<Subfield>> requiredSubfields = new HashMap<>();
+            private OrcFileTailSource orcFileTailSource = new StorageOrcFileTailSource();
 
             public Builder setColumnFilters(Map<Integer, Map<Subfield, TupleDomainFilter>> columnFilters)
             {
@@ -737,9 +751,15 @@ public class OrcTester
                 return this;
             }
 
+            public Builder setOrcFileTailSource(OrcFileTailSource orcFileTailSource)
+            {
+                this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
+                return this;
+            }
+
             public OrcReaderSettings build()
             {
-                return new OrcReaderSettings(columnFilters, expectedFilterOrder, filterFunctions, filterFunctionInputMapping, requiredSubfields);
+                return new OrcReaderSettings(columnFilters, expectedFilterOrder, filterFunctions, filterFunctionInputMapping, requiredSubfields, orcFileTailSource);
             }
         }
     }
@@ -852,7 +872,7 @@ public class OrcTester
             return;
         }
 
-        try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE)) {
+        try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, new StorageOrcFileTailSource())) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1256,14 +1276,14 @@ public class OrcTester
     static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type, int initialBatchSize)
             throws IOException
     {
-        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, ImmutableList.of(type), initialBatchSize);
+        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, ImmutableList.of(type), initialBatchSize, new StorageOrcFileTailSource());
     }
 
-    private static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, List<Type> types, int initialBatchSize)
+    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, List<Type> types, int initialBatchSize, OrcFileTailSource orcFileTailSource)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-        OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE);
+        OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE, orcFileTailSource);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
@@ -1325,7 +1345,7 @@ public class OrcTester
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-        OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE);
+        OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE, new StorageOrcFileTailSource());
 
         assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);

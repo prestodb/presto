@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.orc.CacheStatsMBean;
+import com.facebook.presto.orc.CachingOrcFileTailSource;
+import com.facebook.presto.orc.OrcCacheConfig;
+import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcFileTailSource;
+import com.facebook.presto.orc.StorageOrcFileTailSource;
+import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.metadata.AssignmentLimiter;
 import com.facebook.presto.raptor.metadata.DatabaseShardManager;
@@ -30,9 +37,17 @@ import com.facebook.presto.raptor.storage.organization.ShardOrganizationManager;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizer;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.google.common.base.Ticker;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import org.weakref.jmx.MBeanExporter;
+
+import javax.inject.Singleton;
+
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
@@ -56,6 +71,7 @@ public class StorageModule
         configBinder(binder).bindConfig(BucketBalancerConfig.class);
         configBinder(binder).bindConfig(ShardCleanerConfig.class);
         configBinder(binder).bindConfig(MetadataConfig.class);
+        configBinder(binder).bindConfig(OrcCacheConfig.class, connectorId);
 
         binder.bind(Ticker.class).toInstance(Ticker.systemTicker());
 
@@ -90,5 +106,24 @@ public class StorageModule
         newExporter(binder).export(ShardCleaner.class).as(generatedNameOf(ShardCleaner.class, connectorId));
         newExporter(binder).export(BucketBalancer.class).as(generatedNameOf(BucketBalancer.class, connectorId));
         newExporter(binder).export(JobFactory.class).withGeneratedName();
+    }
+
+    @Singleton
+    @Provides
+    public OrcFileTailSource createOrcFileTailSource(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
+    {
+        OrcFileTailSource orcFileTailSource = new StorageOrcFileTailSource();
+        if (orcCacheConfig.isFileTailCacheEnabled()) {
+            Cache<OrcDataSourceId, OrcFileTail> cache = CacheBuilder.newBuilder()
+                    .maximumWeight(orcCacheConfig.getFileTailCacheSize().toBytes())
+                    .weigher((id, tail) -> ((OrcFileTail) tail).getFooterSize() + ((OrcFileTail) tail).getMetadataSize())
+                    .expireAfterAccess(orcCacheConfig.getFileTailCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
+                    .recordStats()
+                    .build();
+            CacheStatsMBean cacheStatsMBean = new CacheStatsMBean(cache);
+            orcFileTailSource = new CachingOrcFileTailSource(orcFileTailSource, cache);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_OrcFileTail"), cacheStatsMBean);
+        }
+        return orcFileTailSource;
     }
 }

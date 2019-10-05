@@ -17,6 +17,7 @@ import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcFileTailSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
@@ -161,6 +162,7 @@ public class OrcStorageManager
     private final FileSystem fileSystem;
     private final OrcFileRewriter fileRewriter;
     private final OrcWriterStats stats = new OrcWriterStats();
+    private final OrcFileTailSource orcFileTailSource;
 
     @Inject
     public OrcStorageManager(
@@ -174,7 +176,8 @@ public class OrcStorageManager
             ShardRecoveryManager recoveryManager,
             ShardRecorder shardRecorder,
             TypeManager typeManager,
-            OrcDataEnvironment orcDataEnvironment)
+            OrcDataEnvironment orcDataEnvironment,
+            OrcFileTailSource orcFileTailSource)
     {
         this(nodeManager.getCurrentNode().getNodeIdentifier(),
                 storageService,
@@ -192,7 +195,8 @@ public class OrcStorageManager
                 config.getMaxShardSize(),
                 config.getMinAvailableSpace(),
                 config.getOrcCompressionKind(),
-                config.getOrcOptimizedWriterStage());
+                config.getOrcOptimizedWriterStage(),
+                orcFileTailSource);
     }
 
     public OrcStorageManager(
@@ -212,7 +216,8 @@ public class OrcStorageManager
             DataSize maxShardSize,
             DataSize minAvailableSpace,
             CompressionKind compression,
-            OrcOptimizedWriterStage orcOptimizedWriterStage)
+            OrcOptimizedWriterStage orcOptimizedWriterStage,
+            OrcFileTailSource orcFileTailSource)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
@@ -235,7 +240,8 @@ public class OrcStorageManager
         this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
         this.orcDataEnvironment = requireNonNull(orcDataEnvironment, "orcDataEnvironment is null");
         this.fileSystem = requireNonNull(orcDataEnvironment.getFileSystem(), "fileSystem is null");
-        this.fileRewriter = new OrcFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, orcDataEnvironment, compression);
+        this.fileRewriter = new OrcFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, orcDataEnvironment, compression, orcFileTailSource);
+        this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
     }
 
     @PreDestroy
@@ -261,7 +267,7 @@ public class OrcStorageManager
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
 
         try {
-            OrcReader reader = new OrcReader(dataSource, ORC, readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE);
+            OrcReader reader = new OrcReader(dataSource, ORC, readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, orcFileTailSource);
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -411,7 +417,7 @@ public class OrcStorageManager
     private List<ColumnStats> computeShardStats(Path file)
     {
         try (OrcDataSource dataSource = orcDataEnvironment.createOrcDataSource(file, defaultReaderAttributes)) {
-            OrcReader reader = new OrcReader(dataSource, ORC, defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE);
+            OrcReader reader = new OrcReader(dataSource, ORC, defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, orcFileTailSource);
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {

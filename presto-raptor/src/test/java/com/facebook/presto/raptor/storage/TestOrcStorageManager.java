@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
@@ -644,7 +645,8 @@ public class TestOrcStorageManager
                 maxFileSize,
                 new DataSize(0, BYTE),
                 SNAPPY,
-                ENABLED_AND_VALIDATED);
+                ENABLED_AND_VALIDATED,
+                new StorageOrcFileTailSource());
     }
 
     private static void assertFileEquals(File actual, File expected)

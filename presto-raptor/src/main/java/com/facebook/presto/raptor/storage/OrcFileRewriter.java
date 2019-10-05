@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcFileTailSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterStats;
@@ -69,6 +70,7 @@ public final class OrcFileRewriter
     private final TypeManager typeManager;
     private final CompressionKind compression;
     private final OrcDataEnvironment orcDataEnvironment;
+    private final OrcFileTailSource orcFileTailSource;
 
     OrcFileRewriter(
             ReaderAttributes readerAttributes,
@@ -76,7 +78,8 @@ public final class OrcFileRewriter
             OrcWriterStats stats,
             TypeManager typeManager,
             OrcDataEnvironment orcDataEnvironment,
-            CompressionKind compression)
+            CompressionKind compression,
+            OrcFileTailSource orcFileTailSource)
     {
         this.readerAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
         this.validate = validate;
@@ -84,6 +87,7 @@ public final class OrcFileRewriter
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.orcDataEnvironment = requireNonNull(orcDataEnvironment, "orcDataEnvironment is null");
         this.compression = requireNonNull(compression, "compression is null");
+        this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
     }
 
     public OrcFileInfo rewrite(Map<String, Type> allColumnTypes, Path input, Path output, BitSet rowsToDelete)
@@ -96,7 +100,8 @@ public final class OrcFileRewriter
                     ORC,
                     readerAttributes.getMaxMergeDistance(),
                     readerAttributes.getTinyStripeThreshold(),
-                    HUGE_MAX_READ_BLOCK_SIZE);
+                    HUGE_MAX_READ_BLOCK_SIZE,
+                    orcFileTailSource);
 
             if (reader.getFooter().getNumberOfRows() < rowsToDelete.length()) {
                 throw new IOException("File has fewer rows than deletion vector");

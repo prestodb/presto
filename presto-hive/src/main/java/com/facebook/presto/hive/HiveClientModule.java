@@ -22,11 +22,20 @@ import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.rule.HivePlanOptimizerProvider;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
+import com.facebook.presto.orc.CacheStatsMBean;
+import com.facebook.presto.orc.CachingOrcFileTailSource;
+import com.facebook.presto.orc.OrcCacheConfig;
+import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcFileTailSource;
+import com.facebook.presto.orc.StorageOrcFileTailSource;
+import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -37,10 +46,12 @@ import com.google.inject.multibindings.Multibinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ExecutorServiceAdapter;
 import io.airlift.event.client.EventClient;
+import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -121,6 +132,8 @@ public class HiveClientModule
         pageSourceFactoryBinder.addBinding().to(ParquetPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
 
+        configBinder(binder).bindConfig(OrcCacheConfig.class, connectorId);
+
         Multibinder<HiveSelectivePageSourceFactory> selectivePageSourceFactoryBinder = newSetBinder(binder, HiveSelectivePageSourceFactory.class);
         selectivePageSourceFactoryBinder.addBinding().to(OrcSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
         selectivePageSourceFactoryBinder.addBinding().to(DwrfSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
@@ -175,6 +188,25 @@ public class HiveClientModule
                         new BoundedExecutor(
                                 newCachedThreadPool(daemonThreadsNamed("hive-create-zero-row-file-" + hiveClientId + "-%s")),
                                 hiveClientConfig.getMaxConcurrentZeroRowFileCreations())));
+    }
+
+    @Singleton
+    @Provides
+    public OrcFileTailSource createOrcFileTailSource(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
+    {
+        OrcFileTailSource orcFileTailSource = new StorageOrcFileTailSource();
+        if (orcCacheConfig.isFileTailCacheEnabled()) {
+            Cache<OrcDataSourceId, OrcFileTail> cache = CacheBuilder.newBuilder()
+                    .maximumWeight(orcCacheConfig.getFileTailCacheSize().toBytes())
+                    .weigher((id, tail) -> ((OrcFileTail) tail).getFooterSize() + ((OrcFileTail) tail).getMetadataSize())
+                    .expireAfterAccess(orcCacheConfig.getFileTailCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
+                    .recordStats()
+                    .build();
+            CacheStatsMBean cacheStatsMBean = new CacheStatsMBean(cache);
+            orcFileTailSource = new CachingOrcFileTailSource(orcFileTailSource, cache);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_OrcFileTail"), cacheStatsMBean);
+        }
+        return orcFileTailSource;
     }
 
     @Singleton

@@ -20,6 +20,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -482,7 +483,7 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 4);
 
         // Optimized writer will keep the only column
-        OrcReader orcReader = new OrcReader(fileOrcDataSource(newFile2), ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
+        OrcReader orcReader = new OrcReader(fileOrcDataSource(newFile2), ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new StorageOrcFileTailSource());
         orcReader.getColumnNames().equals(ImmutableList.of("7"));
 
         // Add a column with the different ID with different type
@@ -632,7 +633,7 @@ public class TestOrcFileRewriter
                 OptionalInt.empty(),
                 ImmutableList.of(3L, 7L, 8L),
                 ImmutableList.of(createVarcharType(5), createVarcharType(20), INTEGER),
-                 TupleDomain.all(),
+                TupleDomain.all(),
                 READER_ATTRIBUTES);
 
         Page page = null;
@@ -681,7 +682,7 @@ public class TestOrcFileRewriter
     {
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        return new OrcFileRewriter(READER_ATTRIBUTES, true, new OrcWriterStats(), typeManager, new LocalOrcDataEnvironment(), ZSTD);
+        return new OrcFileRewriter(READER_ATTRIBUTES, true, new OrcWriterStats(), typeManager, new LocalOrcDataEnvironment(), ZSTD, new StorageOrcFileTailSource());
     }
 
     private static Map<String, Type> getColumnTypes(List<Long> columnIds, List<Type> columnTypes)
