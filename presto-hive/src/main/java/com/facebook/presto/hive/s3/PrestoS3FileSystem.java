@@ -136,6 +136,9 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
 import static java.util.Objects.requireNonNull;
@@ -143,10 +146,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.fs.FSExceptionMessages.CANNOT_SEEK_PAST_EOF;
 import static org.apache.hadoop.fs.FSExceptionMessages.NEGATIVE_SEEK;
 import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
-import static org.apache.http.HttpStatus.SC_BAD_REQUEST;
-import static org.apache.http.HttpStatus.SC_FORBIDDEN;
-import static org.apache.http.HttpStatus.SC_NOT_FOUND;
-import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
 
 public class PrestoS3FileSystem
         extends FileSystem
@@ -161,6 +160,7 @@ public class PrestoS3FileSystem
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
     private static final String PATH_SEPARATOR = "/";
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
+    private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
 
     private URI uri;
     private Path workingDirectory;
@@ -595,10 +595,10 @@ public class PrestoS3FileSystem
                             STATS.newGetMetadataError();
                             if (e instanceof AmazonS3Exception) {
                                 switch (((AmazonS3Exception) e).getStatusCode()) {
-                                    case SC_NOT_FOUND:
+                                    case HTTP_NOT_FOUND:
                                         return null;
-                                    case SC_FORBIDDEN:
-                                    case SC_BAD_REQUEST:
+                                    case HTTP_FORBIDDEN:
+                                    case HTTP_BAD_REQUEST:
                                         throw new UnrecoverableS3OperationException(path, e);
                                 }
                             }
@@ -859,11 +859,11 @@ public class PrestoS3FileSystem
                                 STATS.newGetObjectError();
                                 if (e instanceof AmazonS3Exception) {
                                     switch (((AmazonS3Exception) e).getStatusCode()) {
-                                        case SC_REQUESTED_RANGE_NOT_SATISFIABLE:
+                                        case HTTP_RANGE_NOT_SATISFIABLE:
                                             throw new EOFException(CANNOT_SEEK_PAST_EOF);
-                                        case SC_FORBIDDEN:
-                                        case SC_NOT_FOUND:
-                                        case SC_BAD_REQUEST:
+                                        case HTTP_FORBIDDEN:
+                                        case HTTP_NOT_FOUND:
+                                        case HTTP_BAD_REQUEST:
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
@@ -1026,12 +1026,12 @@ public class PrestoS3FileSystem
                                 STATS.newGetObjectError();
                                 if (e instanceof AmazonS3Exception) {
                                     switch (((AmazonS3Exception) e).getStatusCode()) {
-                                        case SC_REQUESTED_RANGE_NOT_SATISFIABLE:
+                                        case HTTP_RANGE_NOT_SATISFIABLE:
                                             // ignore request for start past end of object
                                             return new ByteArrayInputStream(new byte[0]);
-                                        case SC_FORBIDDEN:
-                                        case SC_NOT_FOUND:
-                                        case SC_BAD_REQUEST:
+                                        case HTTP_FORBIDDEN:
+                                        case HTTP_NOT_FOUND:
+                                        case HTTP_BAD_REQUEST:
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
