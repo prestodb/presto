@@ -521,15 +521,7 @@ public class ListSelectiveStreamReader
         boolean mayHaveNulls = nullsAllowed && presentStream != null;
 
         if (positionCount == outputPositionCount) {
-            Block elementBlock;
-            if (elementOutputPositionCount == 0) {
-                elementBlock = outputType.getElementType().createBlockBuilder(null, 0).build();
-            }
-            else {
-                elementBlock = elementStreamReader.getBlock(elementOutputPositions, elementOutputPositionCount);
-            }
-
-            Block block = ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(mayHaveNulls ? nulls : null), offsets, elementBlock);
+            Block block = ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(mayHaveNulls ? nulls : null), offsets, makeElementBlock());
             nulls = null;
             offsets = null;
             return block;
@@ -571,8 +563,15 @@ public class ListSelectiveStreamReader
 
             nextPosition = positions[positionIndex];
         }
+        return ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(nullsCopy), offsetsCopy, makeElementBlock());
+    }
 
-        return ArrayBlock.fromElementBlock(positionCount, Optional.ofNullable(nullsCopy), offsetsCopy, elementStreamReader.getBlock(elementOutputPositions, elementOutputPositionCount));
+    private Block makeElementBlock()
+    {
+        if (elementOutputPositionCount == 0) {
+            return outputType.getElementType().createBlockBuilder(null, 0).build();
+        }
+        return elementStreamReader.getBlock(elementOutputPositions, elementOutputPositionCount);
     }
 
     @Override
