@@ -328,22 +328,26 @@ public class OrcWriter
             outputData.add(createDataOutput(MAGIC));
             stripeStartOffset += MAGIC.length();
         }
-        // add stripe data
-        outputData.addAll(bufferStripeData(stripeStartOffset, flushReason));
-        // if the file is being closed, add the file footer
-        if (flushReason == CLOSED) {
-            outputData.addAll(bufferFileFooter());
+
+        try {
+            // add stripe data
+            outputData.addAll(bufferStripeData(stripeStartOffset, flushReason));
+            // if the file is being closed, add the file footer
+            if (flushReason == CLOSED) {
+                outputData.addAll(bufferFileFooter());
+            }
+
+            // write all data
+            orcDataSink.write(outputData);
         }
-
-        // write all data
-        orcDataSink.write(outputData);
-
-        // open next stripe
-        columnWriters.forEach(ColumnWriter::reset);
-        dictionaryCompressionOptimizer.reset();
-        rowGroupRowCount = 0;
-        stripeRowCount = 0;
-        bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+        finally {
+            // open next stripe
+            columnWriters.forEach(ColumnWriter::reset);
+            dictionaryCompressionOptimizer.reset();
+            rowGroupRowCount = 0;
+            stripeRowCount = 0;
+            bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+        }
     }
 
     /**
