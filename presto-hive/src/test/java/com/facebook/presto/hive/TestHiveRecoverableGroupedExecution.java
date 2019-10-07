@@ -100,7 +100,7 @@ public class TestHiveRecoverableGroupedExecution
         executor.shutdownNow();
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 60_000, enabled = false)
     public void testCreateBucketedTable()
             throws Exception
     {
