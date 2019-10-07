@@ -123,9 +123,8 @@ public class TestOrcWriter
         }
     }
 
-    // TODO: the exception will be removed once the bug is fixed
-    @Test(expectedExceptions = IllegalStateException.class)
-    public void testVerifyIllegalStateException()
+    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = "Dummy exception from mocked instance")
+    public void testVerifyNoIllegalStateException()
             throws IOException
     {
         OrcWriter writer = new OrcWriter(
