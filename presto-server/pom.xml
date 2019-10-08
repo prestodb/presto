@@ -23,6 +23,7 @@
         <main-class>com.facebook.presto.server.PrestoServer</main-class>
         <process-name>${project.artifactId}</process-name>
 
+        <beanutils.version>1.9.4</beanutils.version>
         <netty.version>3.9.8.Final</netty.version>
         <plexus.version>3.0.24</plexus.version>
     </properties>
@@ -263,6 +264,7 @@
             <scope>provided</scope>
         </dependency>
 
+        <!--
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-accumulo</artifactId>
@@ -270,6 +272,7 @@
             <type>zip</type>
             <scope>provided</scope>
         </dependency>
+        -->
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -292,11 +295,17 @@
             <artifactId>netty</artifactId>
             <version>${netty.version}</version>
         </dependency>
-        
+
         <dependency>
             <groupId>org.codehaus.plexus</groupId>
             <artifactId>plexus-utils</artifactId>
             <version>${plexus.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
+            <version>${beanutils.version}</version>
         </dependency>
     </dependencies>
 
