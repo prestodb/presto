@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.net.HostAndPort;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -89,6 +90,12 @@ public class MockHiveMetastoreClient
     public Client getHMSClient()
     {
         return null;
+    }
+
+    @Override
+    public HostAndPort getAddress()
+    {
+        return HostAndPort.fromHost("localhost");
     }
 
     @Override

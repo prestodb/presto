@@ -22,7 +22,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -54,6 +53,12 @@ public class StaticHiveCluster
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
     }
 
+    @Override
+    public List<HostAndPort> getAddresses()
+    {
+        return addresses;
+    }
+
     /**
      * Create a metastore client connected to the Hive metastore.
      * <p>
@@ -63,20 +68,7 @@ public class StaticHiveCluster
      * connection succeeds or there are no more fallback metastores.
      */
     @Override
-    public HiveMetastoreClient createMetastoreClient()
-            throws TException
-    {
-        return createMetastoreClient(Optional.empty());
-    }
-
-    @Override
-    public HiveMetastoreClient createMetastoreClientWithToken(String token)
-            throws TException
-    {
-        return createMetastoreClient(Optional.of(token));
-    }
-
-    private HiveMetastoreClient createMetastoreClient(Optional<String> token)
+    public HiveMetastoreClient createMetastoreClient(String token)
             throws TException
     {
         List<HostAndPort> metastores = new ArrayList<>(addresses);
@@ -86,12 +78,7 @@ public class StaticHiveCluster
         for (HostAndPort metastore : metastores) {
             try {
                 HiveMetastoreClient client;
-                if (token.isPresent()) {
-                    client = clientFactory.create(metastore, token.get());
-                }
-                else {
-                    client = clientFactory.create(metastore);
-                }
+                client = clientFactory.create(metastore, token);
 
                 if (!isNullOrEmpty(metastoreUsername)) {
                     client.setUGI(metastoreUsername);

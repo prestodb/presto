@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.google.common.net.HostAndPort;
 import org.apache.thrift.TException;
+
+import java.util.List;
 
 /**
  * A Hive cluster is a single logical installation of Hive. It might
@@ -29,9 +32,8 @@ public interface HiveCluster
     /**
      * Create a connected {@link HiveMetastoreClient} to this HiveCluster
      */
-    HiveMetastoreClient createMetastoreClient()
+    HiveMetastoreClient createMetastoreClient(String token)
             throws TException;
 
-    HiveMetastoreClient createMetastoreClientWithToken(String token)
-            throws TException;
+    List<HostAndPort> getAddresses();
 }

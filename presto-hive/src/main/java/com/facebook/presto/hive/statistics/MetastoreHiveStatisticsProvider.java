@@ -30,6 +30,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -96,10 +97,11 @@ public class MetastoreHiveStatisticsProvider
 
     private final PartitionsStatisticsProvider statisticsProvider;
 
-    public MetastoreHiveStatisticsProvider(SemiTransactionalHiveMetastore metastore)
+    public MetastoreHiveStatisticsProvider(SemiTransactionalHiveMetastore metastore, String hmsImpersonationDefaultUser)
     {
         requireNonNull(metastore, "metastore is null");
-        this.statisticsProvider = (table, hivePartitions) -> getPartitionsStatistics(metastore, table, hivePartitions);
+        requireNonNull(hmsImpersonationDefaultUser, "hmsImpersonationDefaultUser is null");
+        this.statisticsProvider = (table, hivePartitions) -> getPartitionsStatistics(hmsImpersonationDefaultUser, metastore, table, hivePartitions);
     }
 
     @VisibleForTesting
@@ -108,20 +110,21 @@ public class MetastoreHiveStatisticsProvider
         this.statisticsProvider = requireNonNull(statisticsProvider, "statisticsProvider is null");
     }
 
-    private static Map<String, PartitionStatistics> getPartitionsStatistics(SemiTransactionalHiveMetastore metastore, SchemaTableName table, List<HivePartition> hivePartitions)
+    private static Map<String, PartitionStatistics> getPartitionsStatistics(String hmsImpersonationDefaultUser, SemiTransactionalHiveMetastore metastore, SchemaTableName table, List<HivePartition> hivePartitions)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableMap.of();
         }
         boolean unpartitioned = hivePartitions.stream().anyMatch(partition -> partition.getPartitionId().equals(UNPARTITIONED_ID));
+        ConnectorIdentity identity = new ConnectorIdentity(hmsImpersonationDefaultUser, Optional.empty(), Optional.empty());
         if (unpartitioned) {
             checkArgument(hivePartitions.size() == 1, "expected only one hive partition");
-            return ImmutableMap.of(UNPARTITIONED_ID, metastore.getTableStatistics(table.getSchemaName(), table.getTableName()));
+            return ImmutableMap.of(UNPARTITIONED_ID, metastore.getTableStatistics(identity, table.getSchemaName(), table.getTableName()));
         }
         Set<String> partitionNames = hivePartitions.stream()
                 .map(HivePartition::getPartitionId)
                 .collect(toImmutableSet());
-        return metastore.getPartitionStatistics(table.getSchemaName(), table.getTableName(), partitionNames);
+        return metastore.getPartitionStatistics(identity, table.getSchemaName(), table.getTableName(), partitionNames);
     }
 
     @Override
