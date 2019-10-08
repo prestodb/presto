@@ -94,7 +94,7 @@ Array Functions
 
 .. function:: arrays_overlap(x, y) -> boolean
 
-    Tests if arrays ``x`` and ``y`` have any any non-null elements in common.
+    Tests if arrays ``x`` and ``y`` have any non-null elements in common.
     Returns null if there are no non-null elements in common but either array contains null.
 
 .. function:: cardinality(x) -> bigint
