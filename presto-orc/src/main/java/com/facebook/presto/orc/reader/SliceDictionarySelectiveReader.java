@@ -343,7 +343,9 @@ public class SliceDictionarySelectiveReader
             if (inDictionaryStream != null) {
                 inDictionaryStream.skip(dataToSkip);
             }
-            dataStream.skip(dataToSkip);
+            if (dataStream != null) {
+                dataStream.skip(dataToSkip);
+            }
         }
         else {
             if (inDictionaryStream != null) {
