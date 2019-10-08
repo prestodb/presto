@@ -171,7 +171,7 @@ public class HiveSplitManager
             throw new PrestoException(HIVE_TRANSACTION_NOT_FOUND, format("Transaction not found: %s", transaction));
         }
         SemiTransactionalHiveMetastore metastore = metadata.getMetastore();
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(session.getIdentity(), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         if (!isOfflineDataDebugModeEnabled(session)) {
@@ -315,6 +315,7 @@ public class HiveSplitManager
         Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
             Map<String, Optional<Partition>> batch = metastore.getPartitionsByNames(
+                    session.getIdentity(),
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     Lists.transform(partitionBatch, HivePartition::getPartitionId));

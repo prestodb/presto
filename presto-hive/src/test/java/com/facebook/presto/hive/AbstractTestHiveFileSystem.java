@@ -70,6 +70,8 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -177,7 +179,7 @@ public abstract class AbstractTestHiveFileSystem
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         metastoreClient = new TestingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, new MetastoreClientConfig(), new MBeanExporter(new TestingMBeanServer()))),
                 executor,
                 metastoreClientConfig,
                 getBasePath(),
