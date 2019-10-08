@@ -65,6 +65,7 @@ public class TestHivePushdownFilterQueries
             "   CASE WHEN orderkey % 37 = 0 THEN null ELSE (CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)) END AS timestamps, \n" +
             "   CASE WHEN orderkey % 43 = 0 THEN null ELSE comment END AS comment, \n" +
             "   CASE WHEN orderkey % 43 = 0 THEN null ELSE upper(comment) END AS uppercase_comment, \n" +
+            "   CAST('' as VARBINARY) AS empty_comment, \n" +
             "   CASE WHEN orderkey % 47 = 0 THEN null ELSE CAST(comment AS CHAR(5)) END AS fixed_comment, \n" +
             "   CASE WHEN orderkey % 49 = 0 THEN null ELSE (CAST(comment AS CHAR(4)), CAST(comment AS CHAR(3)), CAST(SUBSTR(comment,length(comment) - 4) AS CHAR(4))) END AS char_array, \n" +
             "   CASE WHEN orderkey % 49 = 0 THEN null ELSE (comment, comment) END AS varchar_array \n" +
@@ -86,7 +87,7 @@ public class TestHivePushdownFilterQueries
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
-                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, shipinstruct, shipmode, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, discount, tax_real, ship_day_month, discount_long_decimal, tax_short_decimal, long_decimals, keys, doubles, nested_keys, flags, reals, info, dates, timestamps, comment, uppercase_comment, fixed_comment, char_array, varchar_array) AS " +
+                "CREATE TABLE lineitem_ex (linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, shipinstruct, shipmode, ship_by_air, is_returned, ship_day, ship_month, ship_timestamp, commit_timestamp, discount_real, discount, tax_real, ship_day_month, discount_long_decimal, tax_short_decimal, long_decimals, keys, doubles, nested_keys, flags, reals, info, dates, timestamps, comment, uppercase_comment, empty_comment, fixed_comment, char_array, varchar_array) AS " +
                         "SELECT linenumber, orderkey, partkey, suppkey, quantity, extendedprice, tax, shipinstruct, shipmode, " +
                         "   IF (linenumber % 5 = 0, null, shipmode = 'AIR') AS ship_by_air, " +
                         "   IF (linenumber % 7 = 0, null, returnflag = 'R') AS is_returned, " +
@@ -114,6 +115,7 @@ public class TestHivePushdownFilterQueries
                         "   IF (orderkey % 37 = 0, NULL, ARRAY[CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)]) AS timestamps, " +
                         "   IF (orderkey % 43 = 0, NULL, comment) AS comment, " +
                         "   IF (orderkey % 43 = 0, NULL, upper(comment)) AS uppercase_comment, " +
+                        "   CAST('' as VARBINARY) AS empty_comment, \n" +
                         "   IF (orderkey % 47 = 0, NULL, CAST(comment AS CHAR(5))) AS fixed_comment, " +
                         "   IF (orderkey % 49 = 0, NULL, ARRAY[CAST(comment AS CHAR(4)), CAST(comment AS CHAR(3)), CAST(SUBSTR(comment,length(comment) - 4) AS CHAR(4))]) AS char_array, " +
                         "   IF (orderkey % 49 = 0, NULL, ARRAY[comment, comment]) AS varchar_array " +
@@ -341,7 +343,7 @@ public class TestHivePushdownFilterQueries
     @Test
     public void testStrings()
     {
-        assertFilterProject("comment < 'a' OR comment BETWEEN 'c' AND 'd'", "char_array");
+        assertFilterProject("comment < 'a' OR comment BETWEEN 'c' AND 'd'", "empty_comment");
         //char
         assertFilterProject("orderkey = 8480", "char_array");
         assertFilterProject("orderkey < 1000", "fixed_comment");

@@ -306,7 +306,8 @@ public class SliceDirectSelectiveStreamReader
     private void skip(int items)
             throws IOException
     {
-        if (dataStream == null) {
+        // in case of an empty varbinary both the presentStream and dataStream are null and only lengthStream is present.
+        if (dataStream == null && presentStream != null) {
             presentStream.skip(items);
         }
         else if (presentStream != null) {
@@ -314,7 +315,10 @@ public class SliceDirectSelectiveStreamReader
             dataStream.skip(lengthStream.sum(lengthToSkip));
         }
         else {
-            dataStream.skip(lengthStream.sum(items));
+            long sum = lengthStream.sum(items);
+            if (dataStream != null) {
+                dataStream.skip(sum);
+            }
         }
     }
 
@@ -328,7 +332,10 @@ public class SliceDirectSelectiveStreamReader
                 lengthIndex++;
             }
         }
-        dataStream.skip(dataToSkip);
+        // in case of an empty varbinary both the presentStream and dataStream are null and only lengthStream is present.
+        if (dataStream != null) {
+            dataStream.skip(dataToSkip);
+        }
     }
 
     @Override

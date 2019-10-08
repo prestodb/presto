@@ -72,6 +72,7 @@ import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_Z
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
@@ -291,6 +292,15 @@ public class H2QueryRunner
                         }
                         else {
                             row.add(padEnd(stringValue, ((CharType) type).getLength(), ' '));
+                        }
+                    }
+                    else if (VARBINARY.equals(type)) {
+                        byte[] binary = resultSet.getBytes(i);
+                        if (resultSet.wasNull()) {
+                            row.add(null);
+                        }
+                        else {
+                            row.add(binary);
                         }
                     }
                     else if (DATE.equals(type)) {
