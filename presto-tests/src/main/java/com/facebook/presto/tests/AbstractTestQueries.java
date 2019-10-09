@@ -15,9 +15,9 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
@@ -103,7 +103,7 @@ public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
     // We can just use the default type registry, since we don't use any parametric types
-    protected static final List<SqlFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
+    protected static final List<BuiltInFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
             .aggregates(CustomSum.class)
             .window(CustomRank.class)
             .scalars(CustomAdd.class)
@@ -4107,7 +4107,7 @@ public abstract class AbstractTestQueries
     public void testInvalidWindowFunction()
     {
         assertQueryFails("SELECT abs(x) OVER ()\n" +
-                "FROM (VALUES (1), (2), (3)) t(x)",
+                        "FROM (VALUES (1), (2), (3)) t(x)",
                 "line 1:1: Not a window function: abs");
     }
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.type.DecimalParseResult;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.SqlDecimal;
@@ -192,7 +192,7 @@ public abstract class AbstractTestFunctions
     protected void registerScalar(Class<?> clazz)
     {
         Metadata metadata = functionAssertions.getMetadata();
-        List<SqlFunction> functions = new FunctionListBuilder()
+        List<BuiltInFunction> functions = new FunctionListBuilder()
                 .scalars(clazz)
                 .getFunctions();
         metadata.getFunctionManager().registerBuiltInFunctions(functions);
@@ -201,7 +201,7 @@ public abstract class AbstractTestFunctions
     protected void registerParametricScalar(Class<?> clazz)
     {
         Metadata metadata = functionAssertions.getMetadata();
-        List<SqlFunction> functions = new FunctionListBuilder()
+        List<BuiltInFunction> functions = new FunctionListBuilder()
                 .scalar(clazz)
                 .getFunctions();
         metadata.getFunctionManager().registerBuiltInFunctions(functions);

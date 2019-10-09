@@ -117,7 +117,7 @@ public class TestFunctionManager
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: presto.default.custom_add(bigint,bigint):bigint\\E")
     public void testDuplicateFunctions()
     {
-        List<SqlFunction> functions = new FunctionListBuilder()
+        List<BuiltInFunction> functions = new FunctionListBuilder()
                 .scalars(CustomFunctions.class)
                 .getFunctions()
                 .stream()
@@ -133,7 +133,7 @@ public class TestFunctionManager
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'presto.default.sum' is both an aggregation and a scalar function")
     public void testConflictingScalarAggregation()
     {
-        List<SqlFunction> functions = new FunctionListBuilder()
+        List<BuiltInFunction> functions = new FunctionListBuilder()
                 .scalars(ScalarSum.class)
                 .getFunctions();
 
@@ -403,9 +403,9 @@ public class TestFunctionManager
             return functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("presto", "default", TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
         }
 
-        private List<SqlFunction> createFunctionsFromSignatures()
+        private List<BuiltInFunction> createFunctionsFromSignatures()
         {
-            ImmutableList.Builder<SqlFunction> functions = ImmutableList.builder();
+            ImmutableList.Builder<BuiltInFunction> functions = ImmutableList.builder();
             for (SignatureBuilder functionSignature : functionSignatures) {
                 Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
                 functions.add(new SqlScalarFunction(signature)
