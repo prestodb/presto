@@ -155,7 +155,7 @@ public class MetadataManager
                 columnPropertyManager,
                 analyzePropertyManager,
                 transactionManager,
-                new FunctionManager(typeManager, blockEncodingSerde, featuresConfig));
+                new FunctionManager(typeManager, transactionManager, blockEncodingSerde, featuresConfig, new HandleResolver()));
     }
 
     @Inject

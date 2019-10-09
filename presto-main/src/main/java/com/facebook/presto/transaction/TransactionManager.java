@@ -18,6 +18,8 @@ import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -56,6 +58,10 @@ public interface TransactionManager
     CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, String catalogName);
 
     ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId);
+
+    void registerFunctionNamespaceManager(String functionNamespaceManagerName, FunctionNamespaceManager<?> functionNamespaceManager);
+
+    FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerName);
 
     void checkAndSetActive(TransactionId transactionId);
 

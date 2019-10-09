@@ -14,12 +14,10 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.FunctionNamespaceManager;
-import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
+import com.facebook.presto.sqlfunction.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.sqlfunction.SqlFunctionId;
 import com.facebook.presto.sqlfunction.SqlInvokedRegularFunction;
 
@@ -36,9 +34,16 @@ import static java.lang.String.format;
 
 @ThreadSafe
 public class InMemoryFunctionNamespaceManager
-        implements FunctionNamespaceManager<SqlInvokedRegularFunction>
+        extends AbstractSqlInvokedFunctionNamespaceManager
 {
+    private static final String NAME = "_in_memory";
     private final Map<SqlFunctionId, SqlInvokedRegularFunction> latestFunctions = new ConcurrentHashMap<>();
+
+    @Override
+    public String getName()
+    {
+        return NAME;
+    }
 
     @Override
     public synchronized void createFunction(SqlInvokedRegularFunction function, boolean replace)
@@ -65,17 +70,11 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
-    public Collection<SqlInvokedRegularFunction> getFunctions(QueryId queryId, FullyQualifiedName name)
+    public Collection<SqlInvokedRegularFunction> fetchFunctions(FullyQualifiedName name)
     {
         return latestFunctions.values().stream()
                 .filter(function -> function.getSignature().getName().equals(name))
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public FunctionHandle getFunctionHandle(QueryId queryId, Signature signature)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

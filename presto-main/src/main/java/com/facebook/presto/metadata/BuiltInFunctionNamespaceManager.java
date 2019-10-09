@@ -151,12 +151,12 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -352,6 +352,7 @@ public class BuiltInFunctionNamespaceManager
         implements FunctionNamespaceManager<BuiltInFunction>
 {
     public static final FullyQualifiedName.Prefix DEFAULT_NAMESPACE = FullyQualifiedName.of("presto.default.foo").getPrefix();
+    public static final String NAME = "_builtin";
 
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
@@ -683,6 +684,27 @@ public class BuiltInFunctionNamespaceManager
         throw new UnsupportedOperationException("createFunction cannot be called on BuiltInFunctionNamespaceManager");
     }
 
+    public String getName()
+    {
+        return NAME;
+    }
+
+    @Override
+    public FunctionNamespaceTransactionHandle beginTransaction()
+    {
+        return new EmptyTransactionHandle();
+    }
+
+    @Override
+    public void commit(FunctionNamespaceTransactionHandle transactionHandle)
+    {
+    }
+
+    @Override
+    public void rollback(FunctionNamespaceTransactionHandle transactionHandle)
+    {
+    }
+
     @Override
     public Collection<BuiltInFunction> listFunctions()
     {
@@ -690,13 +712,13 @@ public class BuiltInFunctionNamespaceManager
     }
 
     @Override
-    public Collection<BuiltInFunction> getFunctions(QueryId queryId, FullyQualifiedName functionName)
+    public Collection<BuiltInFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, FullyQualifiedName functionName)
     {
         return functions.get(functionName);
     }
 
     @Override
-    public FunctionHandle getFunctionHandle(QueryId queryId, Signature signature)
+    public FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
         return new BuiltInFunctionHandle(signature);
     }
@@ -866,6 +888,11 @@ public class BuiltInFunctionNamespaceManager
         }
 
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
+    }
+
+    private static class EmptyTransactionHandle
+            implements FunctionNamespaceTransactionHandle
+    {
     }
 
     private static class FunctionMap
