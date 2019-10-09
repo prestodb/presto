@@ -171,7 +171,7 @@ public class FunctionManager
         }
 
         QueryId queryId = session == null ? null : session.getQueryId();
-        Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getCandidates(queryId, functionName);
+        Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getFunctions(queryId, functionName);
 
         try {
             return lookupFunction(functionNamespaceManager.get(), queryId, functionName, parameterTypes, candidates);
@@ -264,7 +264,7 @@ public class FunctionManager
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
         FullyQualifiedName functionName = FullyQualifiedName.of(DEFAULT_NAMESPACE, name);
-        Collection<? extends SqlFunction> candidates = builtInFunctionNamespaceManager.getCandidates(null, functionName);
+        Collection<? extends SqlFunction> candidates = builtInFunctionNamespaceManager.getFunctions(null, functionName);
         return lookupFunction(builtInFunctionNamespaceManager, null, functionName, parameterTypes, candidates);
     }
 
