@@ -18,14 +18,13 @@ import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
 
 import java.util.Collection;
-import java.util.List;
 
 @Experimental
 public interface FunctionNamespaceManager<F extends SqlFunction>
 {
     void createFunction(F function, boolean replace);
 
-    List<F> listFunctions();
+    Collection<F> listFunctions();
 
     /**
      * Ideally function namespaces should support transactions like connectors do, and getCandidates should be transaction-aware.

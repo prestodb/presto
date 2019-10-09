@@ -684,7 +684,7 @@ public class BuiltInFunctionNamespaceManager
     }
 
     @Override
-    public List<BuiltInFunction> listFunctions()
+    public Collection<BuiltInFunction> listFunctions()
     {
         return functions.list();
     }
