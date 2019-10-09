@@ -404,6 +404,11 @@ class AstBuilder
     @Override
     public Node visitCreateFunction(SqlBaseParser.CreateFunctionContext context)
     {
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
         return new CreateFunction(
                 getQualifiedName(context.functionName),
                 context.REPLACE() != null,
@@ -411,6 +416,7 @@ class AstBuilder
                         .map(this::getParameterDeclarations)
                         .collect(toImmutableList()),
                 getType(context.returnType),
+                comment,
                 getRoutineCharacteristics(context.routineCharacteristics()),
                 (Expression) visit(context.routineBody()));
     }

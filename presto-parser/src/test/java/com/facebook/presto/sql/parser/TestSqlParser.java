@@ -1428,6 +1428,7 @@ public class TestSqlParser
         assertStatement(
                 "CREATE FUNCTION tan (x double)\n" +
                         "RETURNS double\n" +
+                        "COMMENT 'tangent trigonometric function'\n" +
                         "LANGUAGE SQL\n" +
                         "DETERMINISTIC\n" +
                         "RETURNS NULL ON NULL INPUT\n" +
@@ -1437,6 +1438,7 @@ public class TestSqlParser
                         false,
                         ImmutableList.of(new SqlParameterDeclaration(identifier("x"), "double")),
                         "double",
+                        Optional.of("tangent trigonometric function"),
                         new RoutineCharacteristics(SQL, DETERMINISTIC, RETURNS_NULL_ON_NULL_INPUT),
                         new ArithmeticBinaryExpression(
                                 DIVIDE,
@@ -1448,6 +1450,7 @@ public class TestSqlParser
                 true,
                 ImmutableList.of(),
                 "double",
+                Optional.empty(),
                 new RoutineCharacteristics(SQL, NOT_DETERMINISTIC, CALLED_ON_NULL_INPUT),
                 new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()));
         assertStatement(

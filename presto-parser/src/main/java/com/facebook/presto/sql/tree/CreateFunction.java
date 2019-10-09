@@ -29,26 +29,28 @@ public class CreateFunction
     private final boolean replace;
     private final List<SqlParameterDeclaration> parameters;
     private final String returnType;
+    private final Optional<String> comment;
     private final RoutineCharacteristics characteristics;
     private final Expression body;
 
-    public CreateFunction(QualifiedName functionName, boolean replace, List<SqlParameterDeclaration> parameters, String returnType, RoutineCharacteristics characteristics, Expression body)
+    public CreateFunction(QualifiedName functionName, boolean replace, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, Expression body)
     {
-        this(Optional.empty(), replace, functionName, parameters, returnType, characteristics, body);
+        this(Optional.empty(), replace, functionName, parameters, returnType, comment, characteristics, body);
     }
 
-    public CreateFunction(NodeLocation location, boolean replace, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, RoutineCharacteristics characteristics, Expression body)
+    public CreateFunction(NodeLocation location, boolean replace, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, Expression body)
     {
-        this(Optional.of(location), replace, functionName, parameters, returnType, characteristics, body);
+        this(Optional.of(location), replace, functionName, parameters, returnType, comment, characteristics, body);
     }
 
-    private CreateFunction(Optional<NodeLocation> location, boolean replace, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, RoutineCharacteristics characteristics, Expression body)
+    private CreateFunction(Optional<NodeLocation> location, boolean replace, QualifiedName functionName, List<SqlParameterDeclaration> parameters, String returnType, Optional<String> comment, RoutineCharacteristics characteristics, Expression body)
     {
         super(location);
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.replace = replace;
         this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
         this.returnType = requireNonNull(returnType, "returnType is null");
+        this.comment = requireNonNull(comment, "comment is null");
         this.characteristics = requireNonNull(characteristics, "routineCharacteristics is null");
         this.body = requireNonNull(body, "body is null");
     }
@@ -71,6 +73,11 @@ public class CreateFunction
     public String getReturnType()
     {
         return returnType;
+    }
+
+    public Optional<String> getComment()
+    {
+        return comment;
     }
 
     public RoutineCharacteristics getCharacteristics()
@@ -100,7 +107,7 @@ public class CreateFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(functionName, parameters, returnType, characteristics, body);
+        return Objects.hash(functionName, parameters, returnType, comment, characteristics, body);
     }
 
     @Override
@@ -116,6 +123,7 @@ public class CreateFunction
         return Objects.equals(functionName, o.functionName) &&
                 Objects.equals(parameters, o.parameters) &&
                 Objects.equals(returnType, o.returnType) &&
+                Objects.equals(comment, o.comment) &&
                 Objects.equals(characteristics, o.characteristics) &&
                 Objects.equals(body, o.body);
     }
@@ -127,6 +135,7 @@ public class CreateFunction
                 .add("functionName", functionName)
                 .add("parameters", parameters)
                 .add("returnType", returnType)
+                .add("comment", comment)
                 .add("characteristics", characteristics)
                 .add("body", body)
                 .toString();
