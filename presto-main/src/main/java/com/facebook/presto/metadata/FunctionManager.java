@@ -157,6 +157,11 @@ public class FunctionManager
      */
     public FunctionHandle resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
+        return resolveFunction(Optional.of(session), name, parameterTypes);
+    }
+
+    private FunctionHandle resolveFunction(Optional<Session> session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
         FullyQualifiedName functionName;
         if (!name.getPrefix().isPresent()) {
             functionName = FullyQualifiedName.of(DEFAULT_NAMESPACE, name.getSuffix());
@@ -170,7 +175,7 @@ public class FunctionManager
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Cannot find function namespace for function %s", name));
         }
 
-        QueryId queryId = session == null ? null : session.getQueryId();
+        QueryId queryId = session.map(Session::getQueryId).orElse(null);
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getFunctions(queryId, functionName);
 
         try {
@@ -239,7 +244,7 @@ public class FunctionManager
     public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         try {
-            return resolveFunction(null, QualifiedName.of(operatorType.getFunctionName().getParts()), argumentTypes);
+            return resolveFunction(Optional.empty(), QualifiedName.of(operatorType.getFunctionName().getParts()), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
