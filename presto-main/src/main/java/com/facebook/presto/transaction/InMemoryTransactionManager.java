@@ -21,6 +21,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.FunctionNamespaceManager;
+import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -85,6 +87,8 @@ public class InMemoryTransactionManager
     private final ConcurrentMap<TransactionId, TransactionMetadata> transactions = new ConcurrentHashMap<>();
     private final CatalogManager catalogManager;
     private final Executor finishingExecutor;
+
+    private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers = new HashMap<>();
 
     private InMemoryTransactionManager(Duration idleTimeout, int maxFinishingConcurrency, CatalogManager catalogManager, Executor finishingExecutor)
     {
@@ -176,7 +180,7 @@ public class InMemoryTransactionManager
     {
         TransactionId transactionId = TransactionId.create();
         BoundedExecutor executor = new BoundedExecutor(finishingExecutor, maxFinishingConcurrency);
-        TransactionMetadata transactionMetadata = new TransactionMetadata(transactionId, isolationLevel, readOnly, autoCommitContext, catalogManager, executor);
+        TransactionMetadata transactionMetadata = new TransactionMetadata(transactionId, isolationLevel, readOnly, autoCommitContext, catalogManager, executor, functionNamespaceManagers);
         checkState(transactions.put(transactionId, transactionMetadata) == null, "Duplicate transaction ID: %s", transactionId);
         return transactionId;
     }
@@ -225,6 +229,19 @@ public class InMemoryTransactionManager
     public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId)
     {
         return getCatalogMetadata(transactionId, connectorId).getTransactionHandleFor(connectorId);
+    }
+
+    @Override
+    public synchronized void registerFunctionNamespaceManager(String functionNamespaceManagerName, FunctionNamespaceManager<?> functionNamespaceManager)
+    {
+        checkArgument(!functionNamespaceManagers.containsKey(functionNamespaceManagerName), "FunctionNamespaceManager %s is already registered", functionNamespaceManagerName);
+        functionNamespaceManagers.put(functionNamespaceManagerName, functionNamespaceManager);
+    }
+
+    @Override
+    public FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerName)
+    {
+        return getTransactionMetadata(transactionId).getFunctionNamespaceTransaction(functionNamespaceManagerName);
     }
 
     private void checkConnectorWrite(TransactionId transactionId, ConnectorId connectorId)
@@ -323,13 +340,18 @@ public class InMemoryTransactionManager
         @GuardedBy("this")
         private final Map<ConnectorId, CatalogMetadata> catalogMetadata = new ConcurrentHashMap<>();
 
+        private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers;
+        @GuardedBy("this")
+        private final Map<String, FunctionNamespaceTransactionHandle> functionNamespaceTransactions = new ConcurrentHashMap<>();
+
         public TransactionMetadata(
                 TransactionId transactionId,
                 IsolationLevel isolationLevel,
                 boolean readOnly,
                 boolean autoCommitContext,
                 CatalogManager catalogManager,
-                Executor finishingExecutor)
+                Executor finishingExecutor,
+                Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers)
         {
             this.transactionId = requireNonNull(transactionId, "transactionId is null");
             this.isolationLevel = requireNonNull(isolationLevel, "isolationLevel is null");
@@ -337,6 +359,7 @@ public class InMemoryTransactionManager
             this.autoCommitContext = autoCommitContext;
             this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
             this.finishingExecutor = listeningDecorator(ExecutorServiceAdapter.from(requireNonNull(finishingExecutor, "finishingExecutor is null")));
+            this.functionNamespaceManagers = requireNonNull(functionNamespaceManagers, "functionNamespaceManagers is null");
         }
 
         public void setActive()
@@ -435,6 +458,13 @@ public class InMemoryTransactionManager
                 this.catalogMetadata.put(catalog.getSystemTablesId(), catalogMetadata);
             }
             return catalogMetadata;
+        }
+
+        private synchronized FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(String functionNamespaceManagerName)
+        {
+            checkOpenTransaction();
+
+            return functionNamespaceTransactions.computeIfAbsent(functionNamespaceManagerName, name -> functionNamespaceManagers.get(name).beginTransaction());
         }
 
         public synchronized ConnectorTransactionMetadata createConnectorTransactionMetadata(ConnectorId connectorId, Catalog catalog)
