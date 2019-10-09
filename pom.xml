@@ -139,6 +139,7 @@
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
         <module>presto-sql-function</module>
+        <module>presto-expressions</module>
     </modules>
 
     <dependencyManagement>
@@ -374,6 +375,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-elasticsearch</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-expressions</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
