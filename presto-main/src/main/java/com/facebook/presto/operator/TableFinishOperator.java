@@ -317,16 +317,19 @@ public class TableFinishOperator
         {
             LifespanAndStage lifespanAndStage = LifespanAndStage.fromTableCommitContext(tableCommitContext);
             if (committedRecoverableLifespanAndStages.containsKey(lifespanAndStage)) {
+                checkState(
+                        !committedRecoverableLifespanAndStages.get(lifespanAndStage).getTaskId().equals(tableCommitContext.getTaskId()),
+                        "Received page from same task of committed lifespan and stage");
                 return;
             }
 
             if (!tableCommitContext.isLifespanCommitRequired()) {
-                unrecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new LifespanAndStageState()).update(page);
+                unrecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new LifespanAndStageState(tableCommitContext.getTaskId())).update(page);
                 return;
             }
 
             Map<TaskId, LifespanAndStageState> lifespanStageStatesPerTask = uncommittedRecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new HashMap<>());
-            lifespanStageStatesPerTask.computeIfAbsent(tableCommitContext.getTaskId(), ignored -> new LifespanAndStageState()).update(page);
+            lifespanStageStatesPerTask.computeIfAbsent(tableCommitContext.getTaskId(), ignored -> new LifespanAndStageState(tableCommitContext.getTaskId())).update(page);
 
             if (tableCommitContext.isLastPage()) {
                 checkState(!committedRecoverableLifespanAndStages.containsKey(lifespanAndStage), "LifespanAndStage already finished");
@@ -429,6 +432,13 @@ public class TableFinishOperator
             private ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
             private ImmutableList.Builder<Page> statisticsPages = ImmutableList.builder();
 
+            private TaskId taskId;
+
+            public LifespanAndStageState(TaskId taskId)
+            {
+                this.taskId = requireNonNull(taskId, "taskId is null");
+            }
+
             public void update(Page page)
             {
                 Block rowCountBlock = page.getBlock(ROW_COUNT_CHANNEL);
@@ -457,6 +467,11 @@ public class TableFinishOperator
             public List<Page> getStatisticsPages()
             {
                 return statisticsPages.build();
+            }
+
+            public TaskId getTaskId()
+            {
+                return taskId;
             }
         }
     }
