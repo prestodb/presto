@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -52,6 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class DataVerification
         extends AbstractVerification
 {
+    private final TypeManager typeManager;
     private final ChecksumValidator checksumValidator;
     private final LimitQueryDeterminismAnalyzer limitQueryDeterminismAnalyzer;
 
@@ -63,10 +65,12 @@ public class DataVerification
             FailureResolverManager failureResolverManager,
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
+            TypeManager typeManager,
             ChecksumValidator checksumValidator,
             LimitQueryDeterminismAnalyzer limitQueryDeterminismAnalyzer)
     {
         super(verificationResubmitter, prestoAction, sourceQuery, queryRewriter, failureResolverManager, verificationContext, verifierConfig);
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.limitQueryDeterminismAnalyzer = requireNonNull(limitQueryDeterminismAnalyzer, "limitQueryDeterminismAnalyzer is null");
     }
@@ -192,7 +196,7 @@ public class DataVerification
     private List<Column> getColumns(QualifiedName tableName)
     {
         return getPrestoAction()
-                .execute(new ShowColumns(tableName), DESCRIBE, Column::fromResultSet)
+                .execute(new ShowColumns(tableName), DESCRIBE, resultSet -> Column.fromResultSet(typeManager, resultSet))
                 .getResults();
     }
 

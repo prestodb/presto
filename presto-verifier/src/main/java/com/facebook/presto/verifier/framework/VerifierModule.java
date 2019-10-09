@@ -13,9 +13,23 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.spi.block.BlockEncoding;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.Property;
+import com.facebook.presto.transaction.ForTransactionManager;
+import com.facebook.presto.transaction.InMemoryTransactionManager;
+import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.transaction.TransactionManagerConfig;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
@@ -35,17 +49,26 @@ import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import javax.inject.Provider;
+import javax.inject.Singleton;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Predicate;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class VerifierModule
         extends AbstractConfigurationAwareModule
@@ -85,12 +108,35 @@ public class VerifierModule
             binder.bind(customQueryFilterClass).in(SINGLETON);
         }
 
+        // block encoding
+        binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, BlockEncoding.class);
+
+        // catalog
+        binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
+
+        // function
+        binder.bind(FunctionManager.class).in(SINGLETON);
+
+        // handle resolver
+        binder.install(new HandleJsonModule());
+
+        // parser
+        binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
+        binder.bind(SqlParser.class).in(SINGLETON);
+
+        // transaction
+        configBinder(binder).bindConfig(TransactionManagerConfig.class);
+
+        // type
+        configBinder(binder).bindConfig(FeaturesConfig.class);
+        binder.bind(TypeManager.class).to(TypeRegistry.class).in(SINGLETON);
+        newSetBinder(binder, Type.class);
+
+        // verifier
         install(new VerificationPrestoActionModule(exceptionClassifier));
         install(new VerificationQueryRewriterModule());
         install(new FailureResolverModule(failureResolverFactories));
-
-        binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
-        binder.bind(SqlParser.class).in(SINGLETON);
         binder.bind(VerificationManager.class).in(SINGLETON);
         binder.bind(VerificationFactory.class).in(SINGLETON);
         binder.bind(ChecksumValidator.class).in(SINGLETON);
@@ -127,5 +173,32 @@ public class VerifierModule
             }
             return customVerificationFilters.build();
         }
+    }
+
+    @Provides
+    @Singleton
+    @ForTransactionManager
+    public static ScheduledExecutorService createTransactionIdleCheckExecutor()
+    {
+        return newSingleThreadScheduledExecutor(daemonThreadsNamed("transaction-idle-check"));
+    }
+
+    @Provides
+    @Singleton
+    @ForTransactionManager
+    public static ExecutorService createTransactionFinishingExecutor()
+    {
+        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s"));
+    }
+
+    @Provides
+    @Singleton
+    public static TransactionManager createTransactionManager(
+            TransactionManagerConfig config,
+            CatalogManager catalogManager,
+            @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
+            @ForTransactionManager ExecutorService finishingExecutor)
+    {
+        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
     }
 }
