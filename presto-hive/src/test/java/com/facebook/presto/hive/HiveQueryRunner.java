@@ -185,6 +185,7 @@ public final class HiveQueryRunner
     private static void setupLogging()
     {
         Logging logging = Logging.initialize();
+        logging.setLevel("com.facebook.presto.event", WARN);
         logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
         logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
         logging.setLevel("io.airlift.bootstrap.LifeCycleManager", WARN);
