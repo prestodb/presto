@@ -561,8 +561,12 @@ public final class SqlFormatter
                     .append(formatSqlParameterDeclarations(node.getParameters()))
                     .append("\nRETURNS ")
                     .append(node.getReturnType())
-                    .append("\n")
-                    .append(formatRoutineCharacteristics(node.getCharacteristics()))
+                    .append("\n");
+            if (node.getComment().isPresent()) {
+                builder.append("\nCOMMENT ")
+                        .append(formatStringLiteral(node.getComment().get()));
+            }
+            builder.append(formatRoutineCharacteristics(node.getCharacteristics()))
                     .append("\nRETURN ")
                     .append(formatExpression(node.getBody(), parameters));
 

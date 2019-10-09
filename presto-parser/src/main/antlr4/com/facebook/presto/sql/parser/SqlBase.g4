@@ -56,8 +56,10 @@ statement
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | CREATE (OR REPLACE)? FUNCTION functionName=qualifiedName
-      '(' (sqlParameterDeclaration (',' sqlParameterDeclaration)*)? ')'
-      RETURNS returnType=type routineCharacteristics routineBody       #createFunction
+        '(' (sqlParameterDeclaration (',' sqlParameterDeclaration)*)? ')'
+        RETURNS returnType=type
+        (COMMENT string)?
+        routineCharacteristics routineBody                             #createFunction
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?                                          #createRole
