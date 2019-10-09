@@ -165,7 +165,6 @@ public class GcStatusMonitor
         ArrayList<List<String>> taskLogInfoList = new ArrayList<>();
         taskLogInfoList.add(Arrays.asList(
                 "Task ID",
-                "Query ID",
                 "State",
                 "Created Ts",
                 "User Memory",
@@ -182,7 +181,6 @@ public class GcStatusMonitor
             TaskStats taskStats = taskInfo.getStats();
             taskLogInfoList.add(Arrays.asList(
                     task.getTaskId().toString(),
-                    task.getQueryContext().getQueryId().toString(),
                     taskStatus.getState().toString(),
                     taskStats.getCreateTime().toString(),
                     taskStats.getUserMemoryReservation().toString(),
