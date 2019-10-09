@@ -454,9 +454,9 @@ public class TestSelectiveOrcReader
                 createList(NUM_ROWS, i -> ImmutableList.of(random.nextInt(10), random.nextInt(10), 3, 4)),
                 ImmutableList.of(
                         OrcReaderSettings.builder()
-                            .addRequiredSubfields(0, "c[1]", "c[3]")
-                            .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[1]"), BigintRange.of(0, 4, false))))
-                            .build(),
+                                .addRequiredSubfields(0, "c[1]", "c[3]")
+                                .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[1]"), BigintRange.of(0, 4, false))))
+                                .build(),
                         OrcReaderSettings.builder()
                                 .addRequiredSubfields(0, "c[2]", "c[3]")
                                 .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[2]"), BigintRange.of(0, 4, false))))
