@@ -83,7 +83,6 @@ public class TestGeometrySerialization
         testSerialization("POLYGON ((30 10, 40 40, 20 40, 30 10))");
         testSerialization("POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))");
         testSerialization("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))");
-        testSerialization("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))");
         testSerialization("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))");
         testSerialization("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0.75 0.25, 0.75 0.75, 0.25 0.75, 0.25 0.25, 0.75 0.25))");
         testSerialization("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0.25 0.25, 0.25 0.75, 0.75 0.75, 0.75 0.25, 0.25 0.25))");
@@ -185,6 +184,7 @@ public class TestGeometrySerialization
     {
         testEsriSerialization(wkt);
         testJtsSerialization(wkt);
+        testCrossSerialization(wkt);
     }
 
     private static void testEsriSerialization(String wkt)
@@ -196,18 +196,23 @@ public class TestGeometrySerialization
 
     private static void testJtsSerialization(String wkt)
     {
+        Geometry expected = createJtsGeometry(wkt);
+        Geometry actual = JtsGeometrySerde.deserialize(JtsGeometrySerde.serialize(expected));
+        assertGeometryEquals(actual, expected);
+    }
+
+    private static void testCrossSerialization(String wkt)
+    {
         Geometry jtsGeometry = createJtsGeometry(wkt);
         OGCGeometry esriGeometry = OGCGeometry.fromText(wkt);
 
         Slice jtsSerialized = JtsGeometrySerde.serialize(jtsGeometry);
         Slice esriSerialized = GeometrySerde.serialize(esriGeometry);
-        assertEquals(jtsSerialized, esriSerialized);
 
-        Geometry jtsDeserialized = JtsGeometrySerde.deserialize(jtsSerialized);
-        assertGeometryEquals(jtsDeserialized, jtsGeometry);
-
-        OGCGeometry esriDeserialized = GeometrySerde.deserialize(esriSerialized);
-        assertGeometryEquals(esriDeserialized, esriGeometry);
+        OGCGeometry esriFromJts = GeometrySerde.deserialize(jtsSerialized);
+        Geometry jtsFromEsri = JtsGeometrySerde.deserialize(esriSerialized);
+        assertGeometryEquals(esriFromJts, esriGeometry);
+        assertGeometryEquals(jtsFromEsri, jtsGeometry);
     }
 
     private static Slice geometryFromText(String wkt)
