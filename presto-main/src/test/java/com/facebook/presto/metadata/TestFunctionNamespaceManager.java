@@ -15,10 +15,13 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.sqlfunction.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.sqlfunction.SqlInvokedRegularFunction;
 import com.facebook.presto.testing.InMemoryFunctionNamespaceManager;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
@@ -33,6 +36,9 @@ import static com.facebook.presto.sqlfunction.SqlInvokedRegularFunction.versione
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -72,7 +78,10 @@ public class TestFunctionNamespaceManager
     @Test
     public void testTransactionalGetFunction()
     {
-        InMemoryFunctionNamespaceManager functionNamespaceManager = createFunctionNamespaceManager();
+        InMemoryFunctionNamespaceManager functionNamespaceManager = new InMemoryFunctionNamespaceManager(
+                new SqlInvokedFunctionNamespaceManagerConfig()
+                        .setFunctionCacheExpiration(new Duration(0, MILLISECONDS))
+                        .setMetadataCacheExpiration(new Duration(0, MILLISECONDS)));
 
         // begin first transaction
         FunctionNamespaceTransactionHandle transaction1 = functionNamespaceManager.beginTransaction();
@@ -105,9 +114,42 @@ public class TestFunctionNamespaceManager
         functionNamespaceManager.commit(transaction3);
     }
 
+    @Test
+    public void testCaching()
+    {
+        InMemoryFunctionNamespaceManager functionNamespaceManager = createFunctionNamespaceManager();
+        functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
+
+        // fetchFunctionsDirect does not produce the same function reference
+        SqlInvokedRegularFunction function1 = getOnlyElement(functionNamespaceManager.fetchFunctionsDirect(POWER_TOWER));
+        SqlInvokedRegularFunction function2 = getOnlyElement(functionNamespaceManager.fetchFunctionsDirect(POWER_TOWER));
+        assertEquals(function1, function2);
+        assertNotSame(function1, function2);
+
+        // fetchFunctionMetadataDirect does not produce the same metdata reference
+        FunctionMetadata metadata1 = functionNamespaceManager.fetchFunctionMetadataDirect(function1.getRequiredFunctionHandle());
+        FunctionMetadata metadata2 = functionNamespaceManager.fetchFunctionMetadataDirect(function2.getRequiredFunctionHandle());
+        assertEquals(metadata1, metadata2);
+        assertNotSame(metadata1, metadata2);
+
+        // getFunctionMetadata produces the same metadata reference
+        metadata1 = functionNamespaceManager.getFunctionMetadata(function1.getRequiredFunctionHandle());
+        metadata2 = functionNamespaceManager.getFunctionMetadata(function2.getRequiredFunctionHandle());
+        assertSame(metadata1, metadata2);
+
+        // getFunctions produces the same function collection reference
+        functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_INT, false);
+        FunctionNamespaceTransactionHandle transaction1 = functionNamespaceManager.beginTransaction();
+        FunctionNamespaceTransactionHandle transaction2 = functionNamespaceManager.beginTransaction();
+        Collection<SqlInvokedRegularFunction> functions1 = functionNamespaceManager.getFunctions(Optional.of(transaction1), POWER_TOWER);
+        Collection<SqlInvokedRegularFunction> functions2 = functionNamespaceManager.getFunctions(Optional.of(transaction2), POWER_TOWER);
+        assertEquals(functions1.size(), 2);
+        assertSame(functions1, functions2);
+    }
+
     private static InMemoryFunctionNamespaceManager createFunctionNamespaceManager()
     {
-        return new InMemoryFunctionNamespaceManager();
+        return new InMemoryFunctionNamespaceManager(new SqlInvokedFunctionNamespaceManagerConfig());
     }
 
     private static void assertPrestoException(Runnable runnable, ErrorCodeSupplier expectedErrorCode, String expectedMessageRegex)

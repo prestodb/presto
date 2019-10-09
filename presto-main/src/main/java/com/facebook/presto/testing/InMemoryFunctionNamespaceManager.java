@@ -14,12 +14,13 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.sqlfunction.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.sqlfunction.SqlFunctionId;
+import com.facebook.presto.sqlfunction.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.sqlfunction.SqlInvokedRegularFunction;
+import com.facebook.presto.sqlfunction.SqlInvokedRegularFunctionHandle;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -30,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 
 @ThreadSafe
@@ -38,6 +40,11 @@ public class InMemoryFunctionNamespaceManager
 {
     private static final String NAME = "_in_memory";
     private final Map<SqlFunctionId, SqlInvokedRegularFunction> latestFunctions = new ConcurrentHashMap<>();
+
+    public InMemoryFunctionNamespaceManager(SqlInvokedFunctionNamespaceManagerConfig config)
+    {
+        super(config);
+    }
 
     @Override
     public String getName()
@@ -70,16 +77,32 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
-    public Collection<SqlInvokedRegularFunction> fetchFunctions(FullyQualifiedName name)
+    public Collection<SqlInvokedRegularFunction> fetchFunctionsDirect(FullyQualifiedName name)
     {
         return latestFunctions.values().stream()
                 .filter(function -> function.getSignature().getName().equals(name))
+                .map(InMemoryFunctionNamespaceManager::copyFunction)
                 .collect(toImmutableList());
     }
 
     @Override
-    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+    public FunctionMetadata fetchFunctionMetadataDirect(SqlInvokedRegularFunctionHandle functionHandle)
     {
-        throw new UnsupportedOperationException();
+        return fetchFunctionsDirect(functionHandle.getName()).stream()
+                .filter(function -> function.getRequiredFunctionHandle().equals(functionHandle))
+                .map(AbstractSqlInvokedFunctionNamespaceManager::sqlInvokedFunctionToMetadata)
+                .collect(onlyElement());
+    }
+
+    private static SqlInvokedRegularFunction copyFunction(SqlInvokedRegularFunction function)
+    {
+        return new SqlInvokedRegularFunction(
+                function.getSignature().getName(),
+                function.getParameters(),
+                function.getSignature().getReturnType(),
+                function.getComment(),
+                function.getRoutineCharacteristics(),
+                function.getBody(),
+                function.getVersion());
     }
 }
