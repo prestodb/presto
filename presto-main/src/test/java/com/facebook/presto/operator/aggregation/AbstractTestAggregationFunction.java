@@ -64,7 +64,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected void registerFunctions(Plugin plugin)
     {
-        functionManager.addFunctions(extractFunctions(plugin.getFunctions()));
+        functionManager.registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
     }
 
     protected void registerTypes(Plugin plugin)

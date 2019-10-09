@@ -144,7 +144,7 @@ public class TestExpressionInterpreter
     @BeforeClass
     public void setup()
     {
-        METADATA.getFunctionManager().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        METADATA.getFunctionManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
     }
 
     @Test

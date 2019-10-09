@@ -50,7 +50,7 @@ public class TestLambdaExpression
     @BeforeClass
     public void setUp()
     {
-        functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION, INVOKE_FUNCTION));
+        functionAssertions.getMetadata().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION, INVOKE_FUNCTION));
     }
 
     @Test

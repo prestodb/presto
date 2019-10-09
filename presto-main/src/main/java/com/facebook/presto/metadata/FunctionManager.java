@@ -135,9 +135,9 @@ public class FunctionManager
         handleResolver.addFunctionNamespace(factory.getName(), factory.getHandleResolver());
     }
 
-    public void addFunctions(List<? extends SqlFunction> functions)
+    public void registerBuiltInFunctions(List<? extends BuiltInFunction> functions)
     {
-        builtInFunctionNamespaceManager.addFunctions(functions);
+        builtInFunctionNamespaceManager.registerBuiltInFunctions(functions);
     }
 
     public List<SqlFunction> listFunctions()

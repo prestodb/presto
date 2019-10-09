@@ -75,7 +75,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void addFunctions(List<? extends SqlFunction> functions)
+    public void registerBuiltInFunctions(List<? extends BuiltInFunction> functions)
     {
         throw new UnsupportedOperationException();
     }

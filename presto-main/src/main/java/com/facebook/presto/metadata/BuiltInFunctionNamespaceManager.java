@@ -664,11 +664,10 @@ public class BuiltInFunctionNamespaceManager
             builder.scalar(LegacyLogFunction.class);
         }
 
-        addFunctions(builder.getFunctions());
+        registerBuiltInFunctions(builder.getFunctions());
     }
 
-    @Override
-    public final synchronized void addFunctions(List<? extends SqlFunction> functions)
+    public synchronized void registerBuiltInFunctions(List<? extends SqlFunction> functions)
     {
         for (SqlFunction function : functions) {
             for (SqlFunction existingFunction : this.functions.list()) {
