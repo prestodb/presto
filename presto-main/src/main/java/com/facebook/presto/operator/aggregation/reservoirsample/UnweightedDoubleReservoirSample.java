@@ -115,6 +115,11 @@ public class UnweightedDoubleReservoirSample
         samples = merged;
     }
 
+    public int getTotalPopulationCount()
+    {
+        return seenCount;
+    }
+
     @Override
     public UnweightedDoubleReservoirSample clone()
     {

@@ -17,14 +17,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.SizeOf;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.google.common.base.Verify.verify;
-import static java.lang.String.format;
 
 public class DifferentialEntropyStateSerializer
         implements AccumulatorStateSerializer<DifferentialEntropyState>
@@ -39,36 +36,9 @@ public class DifferentialEntropyStateSerializer
     public void serialize(DifferentialEntropyState state, BlockBuilder output)
     {
         DifferentialEntropyStateStrategy strategy = state.getStrategy();
-
-        if (strategy == null) {
-            SliceOutput sliceOut = Slices.allocate(SizeOf.SIZE_OF_INT).getOutput();
-            sliceOut.appendInt(0);
-            VARBINARY.writeSlice(output, sliceOut.getUnderlyingSlice());
-            return;
-        }
-
-        int requiredBytes = SizeOf.SIZE_OF_INT + // Method
-                strategy.getRequiredBytesForSerialization(); // stateStrategy;
-
+        int requiredBytes = DifferentialEntropyStateStrategy.getRequiredBytesForSerialization(strategy);
         SliceOutput sliceOut = Slices.allocate(requiredBytes).getOutput();
-
-        if (strategy instanceof UnweightedReservoirSampleStateStrategy) {
-            sliceOut.appendInt(1);
-        }
-        else if (strategy instanceof WeightedReservoirSampleStateStrategy) {
-            sliceOut.appendInt(2);
-        }
-        else if (strategy instanceof FixedHistogramMleStateStrategy) {
-            sliceOut.appendInt(3);
-        }
-        else if (strategy instanceof FixedHistogramJacknifeStateStrategy) {
-            sliceOut.appendInt(4);
-        }
-        else {
-            verify(false, format("Strategy cannot be serialized: %s", strategy.getClass().getSimpleName()));
-        }
-
-        strategy.serialize(sliceOut);
+        DifferentialEntropyStateStrategy.serialize(strategy, sliceOut);
         VARBINARY.writeSlice(output, sliceOut.getUnderlyingSlice());
     }
 
@@ -79,25 +49,9 @@ public class DifferentialEntropyStateSerializer
             DifferentialEntropyState state)
     {
         SliceInput input = VARBINARY.getSlice(block, index).getInput();
-        int method = input.readInt();
-        switch (method) {
-            case 0:
-                verify(state.getStrategy() == null, "strategy is not null for null method");
-                return;
-            case 1:
-                state.setStrategy(UnweightedReservoirSampleStateStrategy.deserialize(input));
-                return;
-            case 2:
-                state.setStrategy(WeightedReservoirSampleStateStrategy.deserialize(input));
-                return;
-            case 3:
-                state.setStrategy(FixedHistogramMleStateStrategy.deserialize(input));
-                return;
-            case 4:
-                state.setStrategy(FixedHistogramJacknifeStateStrategy.deserialize(input));
-                return;
-            default:
-                verify(false, format("Unknown method code when deserializing: %s", method));
+        DifferentialEntropyStateStrategy strategy = DifferentialEntropyStateStrategy.deserialize(input);
+        if (strategy != null) {
+            state.setStrategy(strategy);
         }
     }
 }

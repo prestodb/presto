@@ -71,6 +71,7 @@ import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.COOKIE;
 import static com.google.common.net.HttpHeaders.SET_COOKIE;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -189,6 +190,7 @@ public class ProxyResource
             Request.Builder requestBuilder,
             Function<ProxyResponse, Response> responseBuilder)
     {
+        setupXForwardedFor(servletRequest, requestBuilder);
         setupBearerToken(servletRequest, requestBuilder);
 
         for (String name : list(servletRequest.getHeaderNames())) {
@@ -260,6 +262,16 @@ public class ProxyResource
 
         String accessToken = jwtHandler.getBearerToken(principal);
         requestBuilder.addHeader(AUTHORIZATION, "Bearer " + accessToken);
+    }
+
+    private void setupXForwardedFor(HttpServletRequest servletRequest, Request.Builder requestBuilder)
+    {
+        StringBuilder xForwardedFor = new StringBuilder();
+        if (servletRequest.getHeader(X_FORWARDED_FOR) != null) {
+            xForwardedFor.append(servletRequest.getHeader(X_FORWARDED_FOR) + ",");
+        }
+        xForwardedFor.append(servletRequest.getRemoteAddr());
+        requestBuilder.addHeader(X_FORWARDED_FOR, xForwardedFor.toString());
     }
 
     private static <T> T handleProxyException(Request request, ProxyException e)

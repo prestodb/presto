@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.util.Random;
 
-import static com.facebook.presto.operator.aggregation.differentialentropy.EntropyCalculations.calculateFromSamples;
+import static com.facebook.presto.operator.aggregation.differentialentropy.EntropyCalculations.calculateFromSamplesUsingVasicek;
 import static org.testng.Assert.assertEquals;
 
 public class TestEntropyCalculations
@@ -30,7 +30,7 @@ public class TestEntropyCalculations
         for (int i = 0; i < samples.length; i++) {
             samples[i] = random.nextDouble();
         }
-        assertEquals(calculateFromSamples(samples), 0, 0.02);
+        assertEquals(calculateFromSamplesUsingVasicek(samples), 0, 0.02);
     }
 
     @Test
@@ -43,6 +43,6 @@ public class TestEntropyCalculations
             samples[i] = 5 + sigma * random.nextGaussian();
         }
         double expected = 0.5 * Math.log(2 * Math.PI * Math.E * sigma * sigma) / Math.log(2);
-        assertEquals(calculateFromSamples(samples), expected, 0.02);
+        assertEquals(calculateFromSamplesUsingVasicek(samples), expected, 0.02);
     }
 }

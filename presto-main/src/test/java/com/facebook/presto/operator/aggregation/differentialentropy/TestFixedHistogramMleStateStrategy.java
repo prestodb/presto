@@ -18,6 +18,6 @@ public class TestFixedHistogramMleStateStrategy
 {
     public TestFixedHistogramMleStateStrategy()
     {
-        super(bucketCount -> new FixedHistogramMleStateStrategy(bucketCount, MIN, MAX));
+        super(bucketCount -> new FixedHistogramMleStateStrategy(bucketCount, MIN, MAX), true);
     }
 }
