@@ -138,6 +138,7 @@
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
+        <module>presto-sql-function</module>
     </modules>
 
     <dependencyManagement>
