@@ -107,7 +107,7 @@ public class BenchmarkArrayDistinct
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
             FunctionManager functionManager = metadata.getFunctionManager();
-            metadata.addFunctions(extractFunctions(BenchmarkArrayDistinct.class));
+            metadata.registerBuiltInFunctions(extractFunctions(BenchmarkArrayDistinct.class));
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];

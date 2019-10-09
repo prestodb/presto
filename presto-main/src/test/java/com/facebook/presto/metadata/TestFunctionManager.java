@@ -126,8 +126,8 @@ public class TestFunctionManager
 
         TypeRegistry typeManager = new TypeRegistry();
         FunctionManager functionManager = createFunctionManager(typeManager);
-        functionManager.addFunctions(functions);
-        functionManager.addFunctions(functions);
+        functionManager.registerBuiltInFunctions(functions);
+        functionManager.registerBuiltInFunctions(functions);
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'presto.default.sum' is both an aggregation and a scalar function")
@@ -139,7 +139,7 @@ public class TestFunctionManager
 
         TypeRegistry typeManager = new TypeRegistry();
         FunctionManager functionManager = createFunctionManager(typeManager);
-        functionManager.addFunctions(functions);
+        functionManager.registerBuiltInFunctions(functions);
     }
 
     @Test
@@ -399,7 +399,7 @@ public class TestFunctionManager
         {
             FeaturesConfig featuresConfig = new FeaturesConfig();
             FunctionManager functionManager = new FunctionManager(typeRegistry, blockEncoding, featuresConfig);
-            functionManager.addFunctions(createFunctionsFromSignatures());
+            functionManager.registerBuiltInFunctions(createFunctionsFromSignatures());
             return functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("presto", "default", TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
         }
 

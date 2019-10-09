@@ -60,8 +60,8 @@ public class TestBingTileFunctions
         for (Type type : plugin.getTypes()) {
             functionAssertions.getTypeRegistry().addType(type);
         }
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
-        functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
+        functionAssertions.getMetadata().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
         approxDistinct = functionManager.getAggregateFunctionImplementation(
                 functionManager.lookupFunction("approx_distinct", fromTypes(BING_TILE)));

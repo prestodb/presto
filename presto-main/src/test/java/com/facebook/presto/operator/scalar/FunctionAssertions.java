@@ -221,13 +221,13 @@ public final class FunctionAssertions
 
     public FunctionAssertions addFunctions(List<? extends SqlFunction> functionInfos)
     {
-        metadata.addFunctions(functionInfos);
+        metadata.registerBuiltInFunctions(functionInfos);
         return this;
     }
 
     public FunctionAssertions addScalarFunctions(Class<?> clazz)
     {
-        metadata.addFunctions(new FunctionListBuilder().scalars(clazz).getFunctions());
+        metadata.registerBuiltInFunctions(new FunctionListBuilder().scalars(clazz).getFunctions());
         return this;
     }
 

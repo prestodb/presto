@@ -48,7 +48,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         for (Type type : plugin.getTypes()) {
             functionAssertions.getTypeRegistry().addType(type);
         }
-        functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
+        functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
         function = functionManager.getAggregateFunctionImplementation(
                 functionManager.lookupFunction(getFunctionName(), fromTypes(GEOMETRY)));

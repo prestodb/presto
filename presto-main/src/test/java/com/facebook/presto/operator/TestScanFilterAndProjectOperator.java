@@ -274,7 +274,7 @@ public class TestScanFilterAndProjectOperator
         }
         Metadata metadata = functionAssertions.getMetadata();
         FunctionManager functionManager = metadata.getFunctionManager();
-        functionManager.addFunctions(functions.build());
+        functionManager.registerBuiltInFunctions(functions.build());
 
         // match each column with a projection
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
@@ -338,7 +338,7 @@ public class TestScanFilterAndProjectOperator
         // set up generic long function with a callback to force yield
         Metadata metadata = functionAssertions.getMetadata();
         FunctionManager functionManager = metadata.getFunctionManager();
-        functionManager.addFunctions(ImmutableList.of(new GenericLongFunction("record_cursor", value -> {
+        functionManager.registerBuiltInFunctions(ImmutableList.of(new GenericLongFunction("record_cursor", value -> {
             driverContext.getYieldSignal().forceYieldForTesting();
             return value;
         })));

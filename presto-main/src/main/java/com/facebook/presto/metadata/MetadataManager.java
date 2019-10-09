@@ -271,10 +271,9 @@ public class MetadataManager
     }
 
     @Override
-    public void addFunctions(List<? extends SqlFunction> functionInfos)
+    public void registerBuiltInFunctions(List<? extends BuiltInFunction> functionInfos)
     {
-        // TODO: transactional when FunctionManager is made transactional
-        functions.addFunctions(functionInfos);
+        functions.registerBuiltInFunctions(functionInfos);
     }
 
     @Override

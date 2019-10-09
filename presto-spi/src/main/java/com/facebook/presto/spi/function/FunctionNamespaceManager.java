@@ -23,8 +23,6 @@ import java.util.List;
 @Experimental
 public interface FunctionNamespaceManager
 {
-    void addFunctions(List<? extends SqlFunction> functions);
-
     List<SqlFunction> listFunctions();
 
     /**
