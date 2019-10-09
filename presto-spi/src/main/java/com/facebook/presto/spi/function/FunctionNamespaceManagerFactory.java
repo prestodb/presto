@@ -21,5 +21,5 @@ public interface FunctionNamespaceManagerFactory
 
     FunctionHandleResolver getHandleResolver();
 
-    FunctionNamespaceManager create(Map<String, String> config);
+    FunctionNamespaceManager<?> create(Map<String, String> config);
 }

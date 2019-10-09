@@ -87,7 +87,7 @@ public class FunctionManager
     private final FunctionInvokerProvider functionInvokerProvider;
     private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
     private final HandleResolver handleResolver;
-    private final Map<FullyQualifiedName.Prefix, FunctionNamespaceManager> functionNamespaces = new ConcurrentHashMap<>();
+    private final Map<FullyQualifiedName.Prefix, FunctionNamespaceManager<?>> functionNamespaces = new ConcurrentHashMap<>();
 
     @Inject
     public FunctionManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig, HandleResolver handleResolver)
@@ -113,7 +113,7 @@ public class FunctionManager
         requireNonNull(functionNamespaceManagerName, "connectorName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No function namespace manager for %s", functionNamespaceManagerName);
-        FunctionNamespaceManager manager = factory.create(properties);
+        FunctionNamespaceManager<?> manager = factory.create(properties);
 
         for (String functionNamespacePrefix : functionNamespacePrefixes) {
             if (functionNamespaces.putIfAbsent(FullyQualifiedName.Prefix.of(functionNamespacePrefix), manager) != null) {
@@ -165,13 +165,13 @@ public class FunctionManager
             functionName = FullyQualifiedName.of(name.getOriginalParts());
         }
 
-        Optional<FunctionNamespaceManager> functionNamespaceManager = getServingFunctionNamespaceManager(functionName);
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName);
         if (!functionNamespaceManager.isPresent()) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Cannot find function namespace for function %s", name));
         }
 
         QueryId queryId = session == null ? null : session.getQueryId();
-        Collection<SqlFunction> candidates = functionNamespaceManager.get().getCandidates(queryId, functionName);
+        Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getCandidates(queryId, functionName);
 
         try {
             return lookupFunction(functionNamespaceManager.get(), queryId, functionName, parameterTypes, candidates);
@@ -264,7 +264,7 @@ public class FunctionManager
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
         FullyQualifiedName functionName = FullyQualifiedName.of(DEFAULT_NAMESPACE, name);
-        Collection<SqlFunction> candidates = builtInFunctionNamespaceManager.getCandidates(null, functionName);
+        Collection<? extends SqlFunction> candidates = builtInFunctionNamespaceManager.getCandidates(null, functionName);
         return lookupFunction(builtInFunctionNamespaceManager, null, functionName, parameterTypes, candidates);
     }
 
@@ -285,11 +285,11 @@ public class FunctionManager
     }
 
     private FunctionHandle lookupFunction(
-            FunctionNamespaceManager functionNamespaceManager,
+            FunctionNamespaceManager<?> functionNamespaceManager,
             QueryId queryId,
             FullyQualifiedName functionName,
             List<TypeSignatureProvider> parameterTypes,
-            Collection<SqlFunction> candidates)
+            Collection<? extends SqlFunction> candidates)
     {
         List<SqlFunction> exactCandidates = candidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
@@ -312,7 +312,7 @@ public class FunctionManager
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName.toString(), parameterTypes, candidates));
     }
 
-    private Optional<FunctionNamespaceManager> getServingFunctionNamespaceManager(FullyQualifiedName functionName)
+    private Optional<FunctionNamespaceManager<?>> getServingFunctionNamespaceManager(FullyQualifiedName functionName)
     {
         FullyQualifiedName.Prefix functionPrefix = functionName.getPrefix();
         if (functionPrefix.equals(DEFAULT_NAMESPACE)) {
@@ -320,9 +320,9 @@ public class FunctionManager
         }
 
         FullyQualifiedName.Prefix bestMatchNamespace = null;
-        FunctionNamespaceManager servingFunctionNamespaceManager = null;
+        FunctionNamespaceManager<?> servingFunctionNamespaceManager = null;
 
-        for (Map.Entry<FullyQualifiedName.Prefix, FunctionNamespaceManager> functionNamespace : functionNamespaces.entrySet()) {
+        for (Map.Entry<FullyQualifiedName.Prefix, FunctionNamespaceManager<?>> functionNamespace : functionNamespaces.entrySet()) {
             if (functionNamespace.getKey().contains(functionPrefix) && (bestMatchNamespace == null || bestMatchNamespace.contains(functionNamespace.getKey()))) {
                 bestMatchNamespace = functionNamespace.getKey();
                 servingFunctionNamespaceManager = functionNamespace.getValue();
@@ -331,7 +331,7 @@ public class FunctionManager
         return Optional.ofNullable(servingFunctionNamespaceManager);
     }
 
-    private String constructFunctionNotFoundErrorMessage(String name, List<TypeSignatureProvider> parameterTypes, Collection<SqlFunction> candidates)
+    private String constructFunctionNotFoundErrorMessage(String name, List<TypeSignatureProvider> parameterTypes, Collection<? extends SqlFunction> candidates)
     {
         List<String> expectedParameters = new ArrayList<>();
         for (SqlFunction function : candidates) {
@@ -354,12 +354,12 @@ public class FunctionManager
         return matchFunction(candidates, actualParameters, false);
     }
 
-    private Optional<Signature> matchFunctionWithCoercion(Collection<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<Signature> matchFunctionWithCoercion(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, true);
     }
 
-    private Optional<Signature> matchFunction(Collection<SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
+    private Optional<Signature> matchFunction(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
     {
         List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
         if (applicableFunctions.isEmpty()) {
@@ -386,7 +386,7 @@ public class FunctionManager
         throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
     }
 
-    private List<ApplicableFunction> identifyApplicableFunctions(Collection<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)
+    private List<ApplicableFunction> identifyApplicableFunctions(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)
     {
         ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
         for (SqlFunction function : candidates) {

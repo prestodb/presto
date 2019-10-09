@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import com.facebook.presto.operator.window.WindowAnnotationsParser;
-import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.google.common.collect.ImmutableList;
 
@@ -26,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 public class FunctionListBuilder
 {
-    private final List<SqlFunction> functions = new ArrayList<>();
+    private final List<BuiltInFunction> functions = new ArrayList<>();
 
     public FunctionListBuilder window(Class<? extends WindowFunction> clazz)
     {
@@ -58,22 +57,22 @@ public class FunctionListBuilder
         return this;
     }
 
-    public FunctionListBuilder functions(SqlFunction... sqlFunctions)
+    public FunctionListBuilder functions(BuiltInFunction... sqlFunctions)
     {
-        for (SqlFunction sqlFunction : sqlFunctions) {
+        for (BuiltInFunction sqlFunction : sqlFunctions) {
             function(sqlFunction);
         }
         return this;
     }
 
-    public FunctionListBuilder function(SqlFunction sqlFunction)
+    public FunctionListBuilder function(BuiltInFunction sqlFunction)
     {
         requireNonNull(sqlFunction, "parametricFunction is null");
         functions.add(sqlFunction);
         return this;
     }
 
-    public List<SqlFunction> getFunctions()
+    public List<BuiltInFunction> getFunctions()
     {
         return ImmutableList.copyOf(functions);
     }

@@ -21,16 +21,18 @@ import java.util.Collection;
 import java.util.List;
 
 @Experimental
-public interface FunctionNamespaceManager
+public interface FunctionNamespaceManager<F extends SqlFunction>
 {
-    List<SqlFunction> listFunctions();
+    void createFunction(F function, boolean replace);
+
+    List<F> listFunctions();
 
     /**
      * Ideally function namespaces should support transactions like connectors do, and getCandidates should be transaction-aware.
      * queryId serves as a transaction ID before proper support for transaction is introduced.
      * TODO Support transaction in function namespaces
      */
-    Collection<SqlFunction> getCandidates(QueryId queryId, FullyQualifiedName name);
+    Collection<F> getCandidates(QueryId queryId, FullyQualifiedName name);
 
     /**
      * If a SqlFunction for a given signature is returned from {@link #getCandidates(QueryId, FullyQualifiedName)}
