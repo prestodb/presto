@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
@@ -41,6 +42,7 @@ public class VerificationFactory
     private final PrestoResourceClient testResourceClient;
     private final ChecksumValidator checksumValidator;
     private final VerifierConfig verifierConfig;
+    private final TypeManager typeManager;
     private final FailureResolverConfig failureResolverConfig;
 
     @Inject
@@ -52,6 +54,7 @@ public class VerificationFactory
             @ForTest PrestoResourceClient testResourceClient,
             ChecksumValidator checksumValidator,
             VerifierConfig verifierConfig,
+            TypeManager typeManager,
             FailureResolverConfig failureResolverConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -61,6 +64,7 @@ public class VerificationFactory
         this.testResourceClient = requireNonNull(testResourceClient, "testResourceClient is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.verifierConfig = requireNonNull(verifierConfig, "config is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.failureResolverConfig = requireNonNull(failureResolverConfig, "failureResolverConfig is null");
     }
 
@@ -86,6 +90,7 @@ public class VerificationFactory
                         failureResolverManager,
                         verificationContext,
                         verifierConfig,
+                        typeManager,
                         checksumValidator,
                         limitQueryDeterminismAnalyzer);
             default:

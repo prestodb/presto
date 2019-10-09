@@ -19,6 +19,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
 import com.facebook.presto.verifier.checksum.OrderableArrayColumnValidator;
@@ -137,6 +138,7 @@ public class TestVerificationManager
                         new MockPrestoResourceClient(),
                         new ChecksumValidator(new SimpleColumnValidator(), new FloatingPointColumnValidator(verifierConfig), new OrderableArrayColumnValidator()),
                         verifierConfig,
+                        new TypeRegistry(),
                         new FailureResolverConfig().setEnabled(false)),
                 SQL_PARSER,
                 ImmutableSet.of(),
