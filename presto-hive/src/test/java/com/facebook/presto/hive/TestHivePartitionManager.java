@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
@@ -119,7 +120,7 @@ public class TestHivePartitionManager
                                         PARTITION_COLUMN.getName(),
                                         PARTITION_COLUMN.getType(),
                                         parseTypeSignature(StandardTypes.VARCHAR),
-                                        -1,
+                                        MAX_PARTITION_KEY_COLUMN_INDEX,
                                         PARTITION_KEY,
                                         Optional.empty()),
                                 Domain.singleValue(VARCHAR, utf8Slice("2019-07-23"))))),
