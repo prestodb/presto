@@ -690,9 +690,9 @@ public class BuiltInFunctionNamespaceManager
     }
 
     @Override
-    public Collection<BuiltInFunction> getCandidates(QueryId queryId, FullyQualifiedName name)
+    public Collection<BuiltInFunction> getFunctions(QueryId queryId, FullyQualifiedName functionName)
     {
-        return functions.get(name);
+        return functions.get(functionName);
     }
 
     @Override
@@ -801,7 +801,7 @@ public class BuiltInFunctionNamespaceManager
 
     private SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature)
     {
-        Iterable<BuiltInFunction> candidates = getCandidates(null, signature.getName());
+        Iterable<BuiltInFunction> candidates = getFunctions(null, signature.getName());
         // search for exact match
         Type returnType = typeManager.getType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());

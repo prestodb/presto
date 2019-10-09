@@ -32,10 +32,10 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
      * queryId serves as a transaction ID before proper support for transaction is introduced.
      * TODO Support transaction in function namespaces
      */
-    Collection<F> getCandidates(QueryId queryId, FullyQualifiedName name);
+    Collection<F> getFunctions(QueryId queryId, FullyQualifiedName functionName);
 
     /**
-     * If a SqlFunction for a given signature is returned from {@link #getCandidates(QueryId, FullyQualifiedName)}
+     * If a SqlFunction for a given signature is returned from {@link #getFunctions(QueryId, FullyQualifiedName)}
      * for a given queryId, getFunctionHandle with the same queryId should return a valid FunctionHandle, even if the function
      * is deleted. Multiple calls of this function with the same parameters should return the same FunctionHandle.
      * queryId serves as a transaction ID before proper support for transaction is introduced.
