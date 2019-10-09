@@ -32,8 +32,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.lang.management.GarbageCollectorMXBean;
-import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.List;
 
@@ -122,37 +120,6 @@ public class TestServer
                 createStatusResponseHandler());
 
         assertEquals(response.getStatusCode(), OK.getStatusCode());
-    }
-
-    @Test(timeOut = 10000)
-    public void testServerStartsWithGC()
-            throws Exception
-    {
-        // force a GC
-        long gcCount = getNumGcs();
-        System.gc();
-        while (gcCount >= getNumGcs()) {
-            Thread.sleep(1000);
-            System.gc();
-        }
-
-        // Make sure that running a GC does not break the main server module thread
-        StatusResponseHandler.StatusResponse response = client.execute(
-                prepareGet().setUri(server.resolve("/v1/query")).build(),
-                createStatusResponseHandler());
-
-        assertEquals(response.getStatusCode(), OK.getStatusCode());
-    }
-
-    private long getNumGcs()
-    {
-        List<GarbageCollectorMXBean> gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
-        long numGcs = 0;
-        for (GarbageCollectorMXBean gcBean : gcBeans) {
-            numGcs += gcBean.getCollectionCount();
-        }
-
-        return numGcs;
     }
 
     @Test

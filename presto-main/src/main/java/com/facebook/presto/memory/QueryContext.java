@@ -246,6 +246,16 @@ public class QueryContext
         return memoryPool;
     }
 
+    public long getMaxUserMemory()
+    {
+        return this.maxUserMemory;
+    }
+
+    public long getMaxTotalMemory()
+    {
+        return this.maxTotalMemory;
+    }
+
     public TaskContext addTaskContext(
             TaskStateMachine taskStateMachine,
             Session session,

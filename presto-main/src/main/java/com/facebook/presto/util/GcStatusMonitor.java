@@ -21,7 +21,6 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import io.airlift.log.Logger;
 import io.airlift.stats.GarbageCollectionNotificationInfo;
 
@@ -41,6 +40,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class GcStatusMonitor
 {
@@ -99,35 +99,39 @@ public class GcStatusMonitor
     private void onMajorGc()
     {
         try {
-            onMajorGcLogic();
+            onMajorGcLogging();
         }
         catch (Throwable throwable) {
             log.error(throwable);
         }
     }
 
-    private void onMajorGcLogic()
+    private void onMajorGcLogging()
     {
         // We only care about active tasks
         List<SqlTask> activeSqlTasks = getActiveSqlTasks();
-        logQueryInfos(getQueriesWithActiveTasks(activeSqlTasks));
-        logTaskInfos(activeSqlTasks);
+        Map<QueryId, List<SqlTask>> activeQueriesToTasksMap = getQueriesToTaskMap(activeSqlTasks);
+        logTaskInfosByQueryID(activeQueriesToTasksMap);
     }
 
-    private Collection<QueryContext> getQueriesWithActiveTasks(List<SqlTask> activeSqlTasks)
+    private Map<QueryId, List<SqlTask>> getQueriesToTaskMap(List<SqlTask> sqlTasks)
     {
-        HashMap<QueryId, QueryContext> queriesWithActiveTasks = new HashMap<QueryId, QueryContext>();
-        for (SqlTask task : activeSqlTasks) {
+        Map<QueryId, List<SqlTask>> queriesToActiveTasks = new HashMap<>();
+        for (SqlTask task : sqlTasks) {
             QueryContext queryContext = task.getQueryContext();
-            queriesWithActiveTasks.put(queryContext.getQueryId(), queryContext);
+            if (!queriesToActiveTasks.containsKey(queryContext.getQueryId())) {
+                queriesToActiveTasks.put(queryContext.getQueryId(), new ArrayList<>());
+            }
+
+            queriesToActiveTasks.get(queryContext.getQueryId()).add(task);
         }
 
-        return queriesWithActiveTasks.values();
+        return queriesToActiveTasks;
     }
 
     private List<SqlTask> getActiveSqlTasks()
     {
-        ArrayList<SqlTask> sqlTasks = new ArrayList<SqlTask>();
+        ArrayList<SqlTask> sqlTasks = new ArrayList<>();
         for (SqlTask task : sqlTaskManager.getAllTasks()) {
             if (!task.getTaskInfo().getTaskStatus().getState().isDone()) {
                 sqlTasks.add(task);
@@ -137,34 +141,29 @@ public class GcStatusMonitor
         return sqlTasks;
     }
 
-    private void logQueryInfos(Collection<QueryContext> queryContexts)
+    private void logInfoTable(List<List<String>> table)
     {
-        ArrayList<List<String>> queryLogList = new ArrayList<List<String>>();
-        queryLogList.add(Arrays.asList(
-                "Query ID",
-                "Memory Pool ID",
-                "Max Bytes",
-                "Free Bytes",
-                "Reserved Bytes"));
-
-        for (QueryContext ctx : queryContexts) {
-            MemoryPoolInfo memoryPoolInfo = ctx.getMemoryPool().getInfo();
-            queryLogList.add(Arrays.asList(
-                    ctx.getQueryId().toString(),
-                    ctx.getMemoryPool().getId().toString(),
-                    Long.toString(memoryPoolInfo.getMaxBytes()),
-                    Long.toString(memoryPoolInfo.getFreeBytes()),
-                    Long.toString(memoryPoolInfo.getReservedBytes())));
-        }
-
-        for (String row : StringTableUtils.getTableStrings(queryLogList)) {
+        for (String row : StringTableUtils.getTableStrings(table)) {
             log.info(row);
         }
     }
 
+    private void logQueryInfo(QueryContext ctx)
+    {
+        logInfoTable(Arrays.asList(
+                Arrays.asList(
+                        "Query ID",
+                        "Max User Bytes",
+                        "Max Total Bytes"),
+                Arrays.asList(
+                        ctx.getQueryId().toString(),
+                        Long.toString(ctx.getMaxUserMemory()),
+                        Long.toString(ctx.getMaxTotalMemory()))));
+    }
+
     private void logTaskInfos(List<SqlTask> sqlTasks)
     {
-        ArrayList<List<String>> taskLogInfoList = new ArrayList<List<String>>();
+        ArrayList<List<String>> taskLogInfoList = new ArrayList<>();
         taskLogInfoList.add(Arrays.asList(
                 "Task ID",
                 "Query ID",
@@ -195,8 +194,16 @@ public class GcStatusMonitor
                     Long.toString(taskIOStats.getOutputPositions().getTotalCount())));
         }
 
-        for (String row : StringTableUtils.getTableStrings(taskLogInfoList)) {
-            log.info(row);
+        logInfoTable(taskLogInfoList);
+    }
+
+    private void logTaskInfosByQueryID(Map<QueryId, List<SqlTask>> queryIDToSqlTaskMap)
+    {
+        for (Map.Entry<QueryId, List<SqlTask>> mapEntry : queryIDToSqlTaskMap.entrySet()) {
+            // Log the Query
+            logQueryInfo(sqlTaskManager.getQueryContext(mapEntry.getKey()));
+            // Log the Tasks Associated with the Query
+            logTaskInfos(mapEntry.getValue());
         }
     }
 }
