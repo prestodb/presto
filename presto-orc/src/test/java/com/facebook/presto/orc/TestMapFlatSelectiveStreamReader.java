@@ -14,11 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.relation.Predicate;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.SqlTimestamp;
@@ -42,6 +38,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.orc.OrcTester.TestingFlatMapFilterFunction;
 import static com.facebook.presto.orc.OrcTester.arrayType;
 import static com.facebook.presto.orc.OrcTester.assertFileContentsPresto;
 import static com.facebook.presto.orc.OrcTester.filterRows;
@@ -597,47 +594,6 @@ public class TestMapFlatSelectiveStreamReader
                 default:
                     throw new IllegalArgumentException("Got unexpected Frequency: " + frequency);
             }
-        }
-    }
-
-    private static class TestingFlatMapFilterFunction
-            extends FilterFunction
-            implements TestingFilterFunction
-    {
-        public TestingFlatMapFilterFunction(final Type mapType)
-        {
-            super(TEST_SESSION.toConnectorSession(), true, new Predicate()
-            {
-                @Override
-                public int[] getInputChannels()
-                {
-                    return new int[] {0};
-                }
-
-                @Override
-                public boolean evaluate(ConnectorSession session, Page page, int position)
-                {
-                    Block mapBlock = page.getBlock(0);
-                    if (mapBlock.isNull(position)) {
-                        return false;
-                    }
-                    Map map = (Map) mapType.getObjectValue(session, mapBlock, position);
-                    return map.containsKey(1);
-                }
-            });
-        }
-
-        @Override
-        public List<List<?>> filterRows(List<List<?>> values)
-        {
-            List<Integer> passingRows = IntStream.range(0, values.get(0).size())
-                    .filter(row -> values.get(0).get(row) != null)
-                    .filter(row -> ((Map) values.get(0).get(row)).containsKey(1))
-                    .boxed()
-                    .collect(toList());
-            return values.stream()
-                    .map(column -> passingRows.stream().map(column::get).collect(toList()))
-                    .collect(toList());
         }
     }
 }

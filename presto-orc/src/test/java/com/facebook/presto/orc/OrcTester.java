@@ -24,10 +24,12 @@ import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.relation.Predicate;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
@@ -2143,5 +2145,133 @@ public class OrcTester
             typeSignatureParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName(filedName, false)), fieldType.getTypeSignature())));
         }
         return TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+    }
+
+    public static class TestingFlatMapFilterFunction
+            extends FilterFunction
+            implements TestingFilterFunction
+    {
+        public TestingFlatMapFilterFunction(final Type mapType)
+        {
+            super(TEST_SESSION.toConnectorSession(), true, new Predicate()
+            {
+                @Override
+                public int[] getInputChannels()
+                {
+                    return new int[] {0};
+                }
+
+                @Override
+                public boolean evaluate(ConnectorSession session, Page page, int position)
+                {
+                    Block mapBlock = page.getBlock(0);
+                    if (mapBlock.isNull(position)) {
+                        return false;
+                    }
+                    Map map = (Map) mapType.getObjectValue(session, mapBlock, position);
+                    return map.containsKey(1);
+                }
+            });
+        }
+
+        @Override
+        public List<List<?>> filterRows(List<List<?>> values)
+        {
+            List<Integer> passingRows = IntStream.range(0, values.get(0).size())
+                    .filter(row -> values.get(0).get(row) != null)
+                    .filter(row -> ((Map) values.get(0).get(row)).containsKey(1))
+                    .boxed()
+                    .collect(toList());
+            return values.stream()
+                    .map(column -> passingRows.stream().map(column::get).collect(toList()))
+                    .collect(toList());
+        }
+    }
+
+    public static class TestingNoInputFilterFunction
+            extends FilterFunction
+            implements TestingFilterFunction
+    {
+        private java.util.function.Predicate<Integer> predicate;
+
+        TestingNoInputFilterFunction(java.util.function.Predicate<Integer> predicate)
+        {
+            super(TEST_SESSION.toConnectorSession(), false, new Predicate()
+            {
+                @Override
+                public int[] getInputChannels()
+                {
+                    return new int[] {};
+                }
+
+                @Override
+                public boolean evaluate(ConnectorSession session, Page page, int position)
+                {
+                    return predicate.test(position);
+                }
+            });
+            this.predicate = predicate;
+        }
+
+        @Override
+        public List<List<?>> filterRows(List<List<?>> values)
+        {
+            List<Integer> passingRows = IntStream.range(0, values.get(0).size())
+                    .filter(row -> {
+                        try {
+                            return predicate.test(row);
+                        }
+                        catch (RuntimeException e) {
+                            return false;
+                        }
+                    })
+                    .boxed()
+                    .collect(toList());
+            return values.stream()
+                    .map(column -> passingRows.stream().map(column::get).collect(toList()))
+                    .collect(toList());
+        }
+    }
+
+    public static class TestingWithInputIntegerFilterFunction
+            extends FilterFunction
+            implements TestingFilterFunction
+    {
+        private java.util.function.Predicate<Integer> predicate;
+        private final int channel;
+
+        TestingWithInputIntegerFilterFunction(java.util.function.Predicate<Integer> predicate, int channel)
+        {
+            super(TEST_SESSION.toConnectorSession(), false, new Predicate()
+            {
+                @Override
+                public int[] getInputChannels()
+                {
+                    return new int[] {channel};
+                }
+
+                @Override
+                public boolean evaluate(ConnectorSession session, Page page, int position)
+                {
+                    int value = page.getBlock(channel).getInt(position);
+                    return predicate.test(value);
+                }
+            });
+            this.predicate = predicate;
+            this.channel = channel;
+        }
+
+        // Assume that the values are of type Integer
+        @Override
+        public List<List<?>> filterRows(List<List<?>> values)
+        {
+            List<Integer> passingRows = IntStream.range(0, values.get(channel).size())
+                    .filter(row -> predicate.test(((List<Integer>) values.get(channel)).get(row)))
+                    .boxed()
+                    .collect(toList());
+            return values.stream()
+                    .map(column -> passingRows.stream().map(column::get).collect(toList()))
+                    .collect(toList());
+        }
     }
 }
