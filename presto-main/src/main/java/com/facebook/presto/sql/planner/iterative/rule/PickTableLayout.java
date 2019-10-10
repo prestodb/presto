@@ -295,11 +295,13 @@ public class PickTableLayout
             SqlParser parser,
             ExpressionDomainTranslator domainTranslator)
     {
+        DomainTranslator translator = new RowExpressionDomainTranslator(metadata);
+
         if (!metadata.isPushdownFilterSupported(session, node.getTable())) {
             if (isExpression(predicate)) {
                 return pushPredicateIntoTableScan(node, castToExpression(predicate), pruneWithPredicateExpression, session, types, idAllocator, metadata, parser, domainTranslator);
             }
-            return pushPredicateIntoTableScan(node, predicate, pruneWithPredicateExpression, session, idAllocator, metadata, new RowExpressionDomainTranslator(metadata));
+            return pushPredicateIntoTableScan(node, predicate, pruneWithPredicateExpression, session, idAllocator, metadata, translator);
         }
 
         // filter pushdown; to be replaced by ConnectorPlanOptimizer
@@ -319,6 +321,12 @@ public class PickTableLayout
         }
         else {
             expression = predicate;
+        }
+
+        // optimize rowExpression and return ValuesNode if false. e.g. 0=1 => false, 1>2 => false, (a = 1 and a = 2) => false
+        DomainTranslator.ExtractionResult<VariableReferenceExpression> translatedExpression = translator.fromPredicate(session.toConnectorSession(), expression, BASIC_COLUMN_EXTRACTOR);
+        if (translatedExpression.getTupleDomain().isNone()) {
+            return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
         }
 
         BiMap<VariableReferenceExpression, VariableReferenceExpression> symbolToColumnMapping = node.getAssignments().entrySet().stream()
@@ -451,7 +459,7 @@ public class PickTableLayout
             Session session,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
-            RowExpressionDomainTranslator domainTranslator)
+            DomainTranslator domainTranslator)
     {
         // don't include non-deterministic predicates
         LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
