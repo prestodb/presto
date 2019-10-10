@@ -124,6 +124,14 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testPushdownWithDisjointFilters()
+    {
+        assertQueryUsingH2Cte("SELECT * FROM lineitem_ex where orderkey = 1 and orderkey = 2");
+
+        assertQueryUsingH2Cte("SELECT count(*) FROM orders WHERE orderkey = 100 and orderkey = 101");
+    }
+
+    @Test
     public void testBooleans()
     {
         // Single boolean column
@@ -616,6 +624,8 @@ public class TestHivePushdownFilterQueries
         assertQuery("SELECT * FROM test_partition_columns WHERE substr(p, x, 1) = 'a' and substr(q, 1, 1) = 'c'", "SELECT 1, 'abc', 'cba'");
 
         assertQueryReturnsEmptyResult("SELECT * FROM test_partition_columns WHERE p = 'xxx'");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM test_partition_columns WHERE p = 'abc' and p='def'");
 
         assertUpdate("DROP TABLE test_partition_columns");
     }
