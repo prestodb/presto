@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
@@ -68,7 +67,9 @@ class OrganizationJob
     {
         long transactionId = shardManager.beginTransaction();
         try {
-            runJob(transactionId, bucketNumber, tableId, shardUuids);
+            // todo add logic in organization for delta or it may corrupt data
+            return;
+            //runJob(transactionId, bucketNumber, tableId, shardUuids);
         }
         catch (Throwable e) {
             shardManager.rollbackTransaction(transactionId);
@@ -79,10 +80,10 @@ class OrganizationJob
     private void runJob(long transactionId, OptionalInt bucketNumber, long tableId, Set<UUID> shardUuids)
             throws IOException
     {
+        // todo add logic in organization for delta or it may corrupt data
         TableMetadata metadata = getTableMetadata(tableId);
         List<ShardInfo> newShards = performCompaction(transactionId, bucketNumber, shardUuids, metadata);
         log.info("Compacted shards %s into %s", shardUuids, newShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
-        shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards, OptionalLong.empty());
     }
 
     private TableMetadata getTableMetadata(long tableId)
