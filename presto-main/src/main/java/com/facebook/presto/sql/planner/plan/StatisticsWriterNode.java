@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,7 +37,7 @@ public class StatisticsWriterNode
 {
     private final PlanNode source;
     private final VariableReferenceExpression rowCountVariable;
-    private final WriteStatisticsTarget target;
+    private final Optional<WriteStatisticsTarget> target;
     private final boolean rowCountEnabled;
     private final StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor;
 
@@ -44,7 +45,7 @@ public class StatisticsWriterNode
     public StatisticsWriterNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("target") WriteStatisticsTarget target,
+            @JsonProperty("target") Optional<WriteStatisticsTarget> target,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("rowCountEnabled") boolean rowCountEnabled,
             @JsonProperty("descriptor") StatisticAggregationsDescriptor<VariableReferenceExpression> descriptor)
@@ -64,7 +65,7 @@ public class StatisticsWriterNode
     }
 
     @JsonProperty
-    public WriteStatisticsTarget getTarget()
+    public Optional<WriteStatisticsTarget> getTarget()
     {
         return target;
     }

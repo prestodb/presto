@@ -66,9 +66,11 @@ import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -735,7 +737,7 @@ public class PlanFragmenter
             TableWriterNode tableWriter = new TableWriterNode(
                     idAllocator.getNextId(),
                     writerSource,
-                    insertHandle,
+                    Optional.of(insertHandle),
                     variableAllocator.newVariable("partialrows", BIGINT),
                     variableAllocator.newVariable("partialfragments", VARBINARY),
                     variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
@@ -767,7 +769,7 @@ public class PlanFragmenter
                                     idAllocator.getNextId(),
                                     REMOTE_STREAMING,
                                     tableWriterMerge)),
-                    insertHandle,
+                    Optional.of(insertHandle),
                     variableAllocator.newVariable("rows", BIGINT),
                     Optional.empty(),
                     Optional.empty());
@@ -1062,11 +1064,12 @@ public class PlanFragmenter
         {
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
             boolean recoveryEligible = properties.isRecoveryEligible();
-            if (node.getTarget() instanceof CreateHandle) {
-                recoveryEligible &= metadata.getConnectorCapabilities(session, ((CreateHandle) node.getTarget()).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
+            WriterTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            if (target instanceof CreateHandle) {
+                recoveryEligible &= metadata.getConnectorCapabilities(session, ((CreateHandle) target).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
             }
-            else if (node.getTarget() instanceof InsertHandle) {
-                recoveryEligible &= metadata.getConnectorCapabilities(session, ((InsertHandle) node.getTarget()).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
+            else if (target instanceof InsertHandle) {
+                recoveryEligible &= metadata.getConnectorCapabilities(session, ((InsertHandle) target).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
             }
             else {
                 recoveryEligible = false;

@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.IOPlanBuilder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
@@ -486,7 +487,7 @@ public class IOPlanPrinter
         @Override
         public Void visitTableFinish(TableFinishNode node, IOPlanBuilder context)
         {
-            WriterTarget writerTarget = node.getTarget();
+            WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
             if (writerTarget instanceof CreateHandle) {
                 CreateHandle createHandle = (CreateHandle) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(

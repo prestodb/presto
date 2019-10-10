@@ -510,7 +510,7 @@ public class PlanBuilder
                                 ImmutableList.of(deleteRowId)))
                         .addInputsSet(deleteRowId)
                         .singleDistributionPartitioningScheme(deleteRowId)),
-                deleteHandle,
+                Optional.of(deleteHandle),
                 deleteRowId,
                 Optional.empty(),
                 Optional.empty());
@@ -758,7 +758,7 @@ public class PlanBuilder
         return new TableWriterNode(
                 idAllocator.getNextId(),
                 source,
-                new TestingWriterTarget(),
+                Optional.of(new TestingWriterTarget()),
                 variable("partialrows", BIGINT),
                 variable("fragment", VARBINARY),
                 variable("tablecommitcontext", VARBINARY),

@@ -38,6 +38,7 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -90,11 +91,12 @@ public class BeginTableWrite
             // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
             // callback can create the table and abort the table creation if the query fails.
 
-            TableWriterNode.WriterTarget writerTarget = context.get().getMaterializedHandle(node.getTarget()).get();
+            TableWriterNode.WriterTarget originalTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            TableWriterNode.WriterTarget writerTarget = context.get().getMaterializedHandle(originalTarget).get();
             return new TableWriterNode(
                     node.getId(),
                     node.getSource().accept(this, context),
-                    writerTarget,
+                    Optional.of(writerTarget),
                     node.getRowCountVariable(),
                     node.getFragmentVariable(),
                     node.getTableCommitContextVariable(),
@@ -122,13 +124,14 @@ public class BeginTableWrite
             PlanNode child = node.getSource();
             child = child.accept(this, context);
 
+            StatisticsWriterNode.WriteStatisticsTarget originalTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
             StatisticsWriterNode.WriteStatisticsHandle analyzeHandle =
-                    new StatisticsWriterNode.WriteStatisticsHandle(metadata.beginStatisticsCollection(session, ((StatisticsWriterNode.WriteStatisticsReference) node.getTarget()).getHandle()));
+                    new StatisticsWriterNode.WriteStatisticsHandle(metadata.beginStatisticsCollection(session, ((StatisticsWriterNode.WriteStatisticsReference) originalTarget).getHandle()));
 
             return new StatisticsWriterNode(
                     node.getId(),
                     child,
-                    analyzeHandle,
+                    Optional.of(analyzeHandle),
                     node.getRowCountVariable(),
                     node.isRowCountEnabled(),
                     node.getDescriptor());
@@ -148,7 +151,7 @@ public class BeginTableWrite
             return new TableFinishNode(
                     node.getId(),
                     child,
-                    newTarget,
+                    Optional.of(newTarget),
                     node.getRowCountVariable(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
@@ -157,7 +160,7 @@ public class BeginTableWrite
         public TableWriterNode.WriterTarget getTarget(PlanNode node)
         {
             if (node instanceof TableWriterNode) {
-                return ((TableWriterNode) node).getTarget();
+                return ((TableWriterNode) node).getTarget().orElseThrow(() -> new VerifyException("target is absent"));
             }
             if (node instanceof DeleteNode) {
                 return ((DeleteNode) node).getTarget();

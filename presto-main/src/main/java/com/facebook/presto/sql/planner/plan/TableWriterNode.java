@@ -43,7 +43,7 @@ public class TableWriterNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final WriterTarget target;
+    private final Optional<WriterTarget> target;
     private final VariableReferenceExpression rowCountVariable;
     private final VariableReferenceExpression fragmentVariable;
     private final VariableReferenceExpression tableCommitContextVariable;
@@ -57,7 +57,7 @@ public class TableWriterNode
     public TableWriterNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("target") WriterTarget target,
+            @JsonProperty("target") Optional<WriterTarget> target,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("fragmentVariable") VariableReferenceExpression fragmentVariable,
             @JsonProperty("tableCommitContextVariable") VariableReferenceExpression tableCommitContextVariable,
@@ -100,7 +100,7 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public WriterTarget getTarget()
+    public Optional<WriterTarget> getTarget()
     {
         return target;
     }
