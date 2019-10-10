@@ -505,7 +505,6 @@ public class PlanBuilder
                         .addSource(new DeleteNode(
                                 idAllocator.getNextId(),
                                 deleteSource,
-                                deleteHandle,
                                 deleteRowId,
                                 ImmutableList.of(deleteRowId)))
                         .addInputsSet(deleteRowId)

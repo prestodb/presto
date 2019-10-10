@@ -991,7 +991,7 @@ public class PlanPrinter
         @Override
         public Void visitDelete(DeleteNode node, Void context)
         {
-            addNode(node, "Delete", format("[%s]", node.getTarget()));
+            addNode(node, "Delete");
 
             return processChildren(node, context);
         }

@@ -75,7 +75,6 @@ public class ReplicateSemiJoinInDelete
             return new DeleteNode(
                     node.getId(),
                     rewrittenSource,
-                    node.getTarget(),
                     node.getRowId(),
                     node.getOutputVariables());
         }

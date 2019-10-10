@@ -62,6 +62,7 @@ import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Cast;
@@ -496,10 +497,12 @@ public class LogicalPlanner
         DeleteNode deleteNode = new QueryPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session)
                 .plan(node);
 
+        TableHandle handle = analysis.getTableHandle(node.getTable());
+        DeleteHandle deleteHandle = new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable());
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 deleteNode,
-                Optional.of(deleteNode.getTarget()),
+                Optional.of(deleteHandle),
                 variableAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());

@@ -737,7 +737,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             PlanNode source = context.rewrite(node.getSource(), ImmutableSet.of(node.getRowId()));
-            return new DeleteNode(node.getId(), source, node.getTarget(), node.getRowId(), node.getOutputVariables());
+            return new DeleteNode(node.getId(), source, node.getRowId(), node.getOutputVariables());
         }
 
         @Override
