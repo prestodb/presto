@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -31,25 +31,25 @@ import static java.util.Objects.requireNonNull;
 public class MetadataDeleteNode
         extends InternalPlanNode
 {
-    private final DeleteHandle target;
+    private final TableHandle tableHandle;
     private final VariableReferenceExpression output;
 
     @JsonCreator
     public MetadataDeleteNode(
             @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("target") DeleteHandle target,
+            @JsonProperty("target") TableHandle tableHandle,
             @JsonProperty("output") VariableReferenceExpression output)
     {
         super(id);
 
-        this.target = requireNonNull(target, "target is null");
+        this.tableHandle = requireNonNull(tableHandle, "target is null");
         this.output = requireNonNull(output, "output is null");
     }
 
     @JsonProperty
-    public DeleteHandle getTarget()
+    public TableHandle getTableHandle()
     {
-        return target;
+        return tableHandle;
     }
 
     @JsonProperty
@@ -79,6 +79,6 @@ public class MetadataDeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MetadataDeleteNode(getId(), target, output);
+        return new MetadataDeleteNode(getId(), tableHandle, output);
     }
 }
