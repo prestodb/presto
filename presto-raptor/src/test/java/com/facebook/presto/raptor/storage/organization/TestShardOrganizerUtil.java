@@ -161,7 +161,7 @@ public class TestShardOrganizerUtil
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableInfo.getTableId(), COLUMNS, shards, Optional.empty(), 0);
-        Set<ShardMetadata> shardMetadatas = shardManager.getNodeShards("node1");
+        Set<ShardMetadata> shardMetadatas = shardManager.getNodeShardsAndDeltas("node1");
 
         Long temporalColumnId = metadataDao.getTemporalColumnId(tableInfo.getTableId());
         TableColumn temporalColumn = metadataDao.getTableColumn(tableInfo.getTableId(), temporalColumnId);
@@ -227,6 +227,8 @@ public class TestShardOrganizerUtil
                     tableId,
                     OptionalInt.empty(),
                     shard.getShardUuid(),
+                    false,
+                    Optional.empty(),
                     shard.getRowCount(),
                     shard.getUncompressedSize(),
                     sortRange,

@@ -188,8 +188,8 @@ public class TestShardDao
         assertEquals(dao.getShards(plainTableId), ImmutableSet.of(shardUuid1, shardUuid2));
         assertEquals(dao.getShards(bucketedTableId), ImmutableSet.of(shardUuid3, shardUuid4, shardUuid5));
 
-        assertEquals(dao.getNodeShards(nodeName1, null), ImmutableSet.of(shard3));
-        assertEquals(dao.getNodeShards(nodeName2, null), ImmutableSet.of(shard4, shard5));
+        assertEquals(dao.getNodeShardsAndDeltas(nodeName1, null), ImmutableSet.of(shard3));
+        assertEquals(dao.getNodeShardsAndDeltas(nodeName2, null), ImmutableSet.of(shard4, shard5));
         assertEquals(dao.getNodeSizes(), ImmutableSet.of(
                 new NodeSize(nodeName1, 33),
                 new NodeSize(nodeName2, 44 + 55)));
@@ -198,16 +198,16 @@ public class TestShardDao
         dao.insertShardNode(shardId2, nodeId1);
         dao.insertShardNode(shardId1, nodeId2);
 
-        assertEquals(dao.getNodeShards(nodeName1, null), ImmutableSet.of(shard1, shard2, shard3));
-        assertEquals(dao.getNodeShards(nodeName2, null), ImmutableSet.of(shard1, shard4, shard5));
+        assertEquals(dao.getNodeShardsAndDeltas(nodeName1, null), ImmutableSet.of(shard1, shard2, shard3));
+        assertEquals(dao.getNodeShardsAndDeltas(nodeName2, null), ImmutableSet.of(shard1, shard4, shard5));
         assertEquals(dao.getNodeSizes(), ImmutableSet.of(
                 new NodeSize(nodeName1, 11 + 22 + 33),
                 new NodeSize(nodeName2, 11 + 44 + 55)));
 
         dao.dropShardNodes(plainTableId);
 
-        assertEquals(dao.getNodeShards(nodeName1, null), ImmutableSet.of(shard3));
-        assertEquals(dao.getNodeShards(nodeName2, null), ImmutableSet.of(shard4, shard5));
+        assertEquals(dao.getNodeShardsAndDeltas(nodeName1, null), ImmutableSet.of(shard3));
+        assertEquals(dao.getNodeShardsAndDeltas(nodeName2, null), ImmutableSet.of(shard4, shard5));
         assertEquals(dao.getNodeSizes(), ImmutableSet.of(
                 new NodeSize(nodeName1, 33),
                 new NodeSize(nodeName2, 44 + 55)));

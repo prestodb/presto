@@ -296,7 +296,7 @@ public class TestDatabaseShardManager
         shardManager.commitShards(transactionId, tableId, columns, inputShards.build(), Optional.empty(), 0);
 
         for (String node : nodes) {
-            Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(node);
+            Set<ShardMetadata> shardMetadata = shardManager.getNodeShardsAndDeltas(node);
             Set<UUID> expectedUuids = ImmutableSet.copyOf(nodeShardMap.get(node));
             Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
             assertEquals(actualUuids, expectedUuids);
@@ -352,7 +352,7 @@ public class TestDatabaseShardManager
         ShardInfo newShardInfo4 = new ShardInfo(newUuid5, OptionalInt.empty(), ImmutableSet.of("node1"), ImmutableList.of(), 5, 5, 5, 5);
 
         // toReplace
-        Set<ShardMetadata> shardMetadata = shardManager.getNodeShards("node1");
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShardsAndDeltas("node1");
         Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
         Map<UUID, Optional<UUID>> replaceUuidMap = replacedUuids.stream().collect(Collectors.toMap(uuid -> uuid, uuid -> Optional.empty()));
 
@@ -360,7 +360,7 @@ public class TestDatabaseShardManager
         shardManager.replaceShardUuids(transactionId, tableId, columns, replaceUuidMap, ImmutableList.of(newShardInfo4), OptionalLong.of(0), true);
 
         // check shards on this node1 are correct
-        shardMetadata = shardManager.getNodeShards("node1");
+        shardMetadata = shardManager.getNodeShardsAndDeltas("node1");
         assertEquals(shardMetadata.size(), 1);
         for (ShardMetadata actual : shardMetadata) {
             assertEquals(actual.getShardUuid(), newUuid5);
@@ -422,7 +422,7 @@ public class TestDatabaseShardManager
                 .build();
 
         // toReplace
-        Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(nodes.get(0));
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(0));
         Set<UUID> replacedUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
         Map<UUID, Optional<UUID>> replaceUuidMap = replacedUuids.stream().collect(Collectors.toMap(uuid -> uuid, uuid -> Optional.empty()));
 
@@ -430,7 +430,7 @@ public class TestDatabaseShardManager
         shardManager.replaceShardUuids(transactionId, tableId, columns, replaceUuidMap, newShards, OptionalLong.of(0), true);
 
         // check that shards are replaced in shards table for node1
-        shardMetadata = shardManager.getNodeShards(nodes.get(0));
+        shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(0));
         Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
         assertEquals(actualUuids, ImmutableSet.copyOf(expectedUuids));
 
@@ -518,7 +518,7 @@ public class TestDatabaseShardManager
         shardManager.replaceDeltaUuids(transactionId, tableId, columns, shardMap, OptionalLong.of(0));
 
         // check shards on this node1 are correct
-        Set<ShardMetadata> shardMetadata = shardManager.getNodeShards("node1");
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShardsAndDeltas("node1");
         assertEquals(shardMetadata.size(), 3);
 
         // check index table as well
@@ -576,13 +576,13 @@ public class TestDatabaseShardManager
         shardManager.replaceDeltaUuids(transactionId, tableId, columns, shardMap, OptionalLong.of(0));
 
         // check that delta shard are added in shards table for node1
-        Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(nodes.get(0));
+        Set<ShardMetadata> shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(0));
         Map<UUID, Optional<UUID>> actualUuidsMap = shardMetadata.stream().collect(toImmutableMap(ShardMetadata::getShardUuid, ShardMetadata::getDeltaUuid));
         Map<UUID, Optional<UUID>> expectedUuidsMap = ImmutableMap.of(originalUuids.get(0), Optional.of(newDeltaUuid1), newDeltaUuid1, Optional.empty());
         assertEquals(actualUuidsMap, expectedUuidsMap);
 
         // check that shard are deleted in shards table for node2
-        shardMetadata = shardManager.getNodeShards(nodes.get(1));
+        shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(1));
         actualUuidsMap = shardMetadata.stream().collect(toImmutableMap(ShardMetadata::getShardUuid, ShardMetadata::getDeltaUuid));
         expectedUuidsMap = ImmutableMap.of();
         assertEquals(actualUuidsMap, expectedUuidsMap);
@@ -628,7 +628,7 @@ public class TestDatabaseShardManager
         shardManager.replaceDeltaUuids(transactionId, tableId, columns, shardMap, OptionalLong.of(0));
 
         // check that delta shard are added in shards table for node1
-        shardMetadata = shardManager.getNodeShards(nodes.get(0));
+        shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(0));
         actualUuidsMap = shardMetadata.stream().collect(toImmutableMap(ShardMetadata::getShardUuid, ShardMetadata::getDeltaUuid));
         expectedUuidsMap = ImmutableMap.of(originalUuids.get(0), Optional.of(anotherNewDeltaUuid1), anotherNewDeltaUuid1, Optional.empty());
         assertEquals(actualUuidsMap, expectedUuidsMap);
@@ -648,7 +648,7 @@ public class TestDatabaseShardManager
         shardManager.replaceShardUuids(transactionId, tableId, columns, replaceUuidMap, ImmutableSet.of(shardInfo(uuid4, nodes.get(0))), OptionalLong.of(0), true);
 
         // check that new shard are added, old shard and delta are deleted in shards table for node1
-        shardMetadata = shardManager.getNodeShards(nodes.get(0));
+        shardMetadata = shardManager.getNodeShardsAndDeltas(nodes.get(0));
         actualUuidsMap = shardMetadata.stream().collect(toImmutableMap(ShardMetadata::getShardUuid, ShardMetadata::getDeltaUuid));
         expectedUuidsMap = ImmutableMap.of(uuid4, Optional.empty());
         assertEquals(actualUuidsMap, expectedUuidsMap);

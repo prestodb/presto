@@ -26,6 +26,8 @@ public class ShardIndexInfo
     private final long tableId;
     private final OptionalInt bucketNumber;
     private final UUID shardUuid;
+    private final boolean isDelta;
+    private final Optional<UUID> deltaUuid;
     private final long rowCount;
     private final long uncompressedSize;
     private final Optional<ShardRange> sortRange;
@@ -35,6 +37,8 @@ public class ShardIndexInfo
             long tableId,
             OptionalInt bucketNumber,
             UUID shardUuid,
+            boolean isDelta,
+            Optional<UUID> deltaUuid,
             long rowCount,
             long uncompressedSize,
             Optional<ShardRange> sortRange,
@@ -43,6 +47,8 @@ public class ShardIndexInfo
         this.tableId = tableId;
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.isDelta = isDelta;
+        this.deltaUuid = requireNonNull(deltaUuid, "Optional<deltaUuid> is null");
         this.rowCount = rowCount;
         this.uncompressedSize = uncompressedSize;
         this.sortRange = requireNonNull(sortRange, "sortRange is null");
@@ -62,6 +68,16 @@ public class ShardIndexInfo
     public UUID getShardUuid()
     {
         return shardUuid;
+    }
+
+    public boolean isDelta()
+    {
+        return isDelta;
+    }
+
+    public Optional<UUID> getDeltaUuid()
+    {
+        return deltaUuid;
     }
 
     public long getRowCount()
@@ -97,6 +113,8 @@ public class ShardIndexInfo
         return tableId == that.tableId &&
                 rowCount == that.rowCount &&
                 uncompressedSize == that.uncompressedSize &&
+                isDelta == that.isDelta &&
+                Objects.equals(deltaUuid, that.deltaUuid) &&
                 Objects.equals(bucketNumber, that.bucketNumber) &&
                 Objects.equals(shardUuid, that.shardUuid) &&
                 Objects.equals(sortRange, that.sortRange) &&
@@ -106,7 +124,7 @@ public class ShardIndexInfo
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableId, bucketNumber, shardUuid, rowCount, uncompressedSize, sortRange, temporalRange);
+        return Objects.hash(tableId, bucketNumber, shardUuid, rowCount, isDelta, deltaUuid, uncompressedSize, sortRange, temporalRange);
     }
 
     @Override
@@ -116,6 +134,8 @@ public class ShardIndexInfo
                 .add("tableId", tableId)
                 .add("bucketNumber", bucketNumber.isPresent() ? bucketNumber.getAsInt() : null)
                 .add("shardUuid", shardUuid)
+                .add("isDelta", isDelta)
+                .add("deltaUuid", deltaUuid.orElse(null))
                 .add("rowCount", rowCount)
                 .add("uncompressedSize", uncompressedSize)
                 .add("sortRange", sortRange.orElse(null))

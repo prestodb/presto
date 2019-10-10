@@ -23,16 +23,17 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.util.Set;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -47,7 +48,7 @@ public class ShardOrganizer
     private final AtomicBoolean shutdown = new AtomicBoolean();
 
     // Tracks shards that are scheduled for compaction so that we do not schedule them more than once
-    private final Set<UUID> shardsInProgress = newConcurrentHashSet();
+    private final Map<UUID, Optional<UUID>> shardsInProgress = new ConcurrentHashMap<>();
     private final JobFactory jobFactory;
     private final CounterStat successCount = new CounterStat();
     private final CounterStat failureCount = new CounterStat();
@@ -76,10 +77,12 @@ public class ShardOrganizer
 
     public CompletableFuture<?> enqueue(OrganizationSet organizationSet)
     {
-        shardsInProgress.addAll(organizationSet.getShards());
+        shardsInProgress.putAll(organizationSet.getShardsMap());
         return runAsync(jobFactory.create(organizationSet), executorService)
                 .whenComplete((none, throwable) -> {
-                    shardsInProgress.removeAll(organizationSet.getShards());
+                    for (UUID uuid : organizationSet.getShardsMap().keySet()) {
+                        shardsInProgress.remove(uuid);
+                    }
                     if (throwable == null) {
                         successCount.update(1);
                     }
@@ -92,7 +95,7 @@ public class ShardOrganizer
 
     public boolean inProgress(UUID shardUuid)
     {
-        return shardsInProgress.contains(shardUuid);
+        return shardsInProgress.keySet().contains(shardUuid);
     }
 
     @Managed

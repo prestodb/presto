@@ -73,12 +73,19 @@ public interface ShardManager
     ShardMetadata getShard(UUID shardUuid);
 
     /**
-     * Get shard metadata for shards on a given node.
+     * Get shard and delta metadata for shards on a given node.
+     */
+    Set<ShardMetadata> getNodeShardsAndDeltas(String nodeIdentifier);
+
+    /**
+     * Get only shard metadata for shards on a given node.
+     * Note: shard metadata will contain its delta
      */
     Set<ShardMetadata> getNodeShards(String nodeIdentifier);
 
     /**
-     * Get shard metadata for shards on a given node.
+     * Get only shard metadata for shards on a given node.
+     * Note: shard metadata will contain its delta
      */
     Set<ShardMetadata> getNodeShards(String nodeIdentifier, long tableId);
 
