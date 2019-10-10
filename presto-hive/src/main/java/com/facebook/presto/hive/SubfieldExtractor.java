@@ -55,7 +55,7 @@ public final class SubfieldExtractor
         this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
     }
 
-    public DomainTranslator.ColumnExtractor toColumnExtractor()
+    public DomainTranslator.ColumnExtractor<Subfield> toColumnExtractor()
     {
         return (expression, domain) -> {
             // Only allow null checks on complex types
