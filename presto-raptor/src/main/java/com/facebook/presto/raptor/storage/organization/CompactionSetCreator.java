@@ -75,10 +75,7 @@ public class CompactionSetCreator
                     (consumedRows + shard.getRowCount() > maxShardRows)) {
                 // Finalize this compaction set, and start a new one for the rest of the shards
                 Set<ShardIndexInfo> shardsToCompact = builder.build();
-
-                if (shardsToCompact.size() > 1) {
-                    compactionSets.add(createOrganizationSet(tableId, shardsToCompact));
-                }
+                addToCompactionSets(compactionSets, shardsToCompact, tableId, tableInfo);
 
                 builder = ImmutableSet.builder();
                 consumedBytes = 0;
@@ -91,10 +88,16 @@ public class CompactionSetCreator
 
         // create compaction set for the remaining shards of this day
         Set<ShardIndexInfo> shardsToCompact = builder.build();
-        if (shardsToCompact.size() > 1) {
-            compactionSets.add(createOrganizationSet(tableId, shardsToCompact));
-        }
+        addToCompactionSets(compactionSets, shardsToCompact, tableId, tableInfo);
         return compactionSets.build();
+    }
+
+    private void addToCompactionSets(ImmutableSet.Builder<OrganizationSet> compactionSets, Set<ShardIndexInfo> shardsToCompact, long tableId, Table tableInfo)
+    {
+        // Add special rule for shard which is too big to compact with other shards but have delta to compact
+        if (shardsToCompact.size() > 1 || shardsToCompact.stream().anyMatch(shard -> shard.getDeltaUuid().isPresent())) {
+            compactionSets.add(createOrganizationSet(tableId, tableInfo.isTableSupportsDeltaDelete(), shardsToCompact));
+        }
     }
 
     private static Comparator<ShardIndexInfo> getShardIndexInfoComparator(Table tableInfo)

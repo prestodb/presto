@@ -188,7 +188,7 @@ public class ShardRecoveryManager
 
     private Set<ShardMetadata> getMissingShards()
     {
-        return shardManager.getNodeShards(nodeIdentifier).stream()
+        return shardManager.getNodeShardsAndDeltas(nodeIdentifier).stream()
                 .filter(shard -> shardNeedsRecovery(shard.getShardUuid(), shard.getCompressedSize()))
                 .collect(toSet());
     }

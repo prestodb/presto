@@ -87,6 +87,32 @@ public interface ShardDao
             "      AND (s.table_id = :tableId OR :tableId IS NULL)\n" +
             ") x")
     @Mapper(ShardMetadata.Mapper.class)
+    Set<ShardMetadata> getNodeShardsAndDeltas(@Bind("nodeIdentifier") String nodeIdentifier, @Bind("tableId") Long tableId);
+
+    @SqlQuery("SELECT " + SHARD_METADATA_COLUMNS + "\n" +
+            "FROM (\n" +
+            "    SELECT s.*\n" +
+            "    FROM shards s\n" +
+            "    JOIN shard_nodes sn ON (s.shard_id = sn.shard_id)\n" +
+            "    JOIN nodes n ON (sn.node_id = n.node_id)\n" +
+            "    WHERE n.node_identifier = :nodeIdentifier\n" +
+            "      AND s.bucket_number IS NULL\n" +
+            "      AND s.is_delta = false\n" +
+            "      AND (s.table_id = :tableId OR :tableId IS NULL)\n" +
+            "  UNION ALL\n" +
+            "    SELECT s.*\n" +
+            "    FROM shards s\n" +
+            "    JOIN tables t ON (s.table_id = t.table_id)\n" +
+            "    JOIN distributions d ON (t.distribution_id = d.distribution_id)\n" +
+            "    JOIN buckets b ON (\n" +
+            "      d.distribution_id = b.distribution_id AND\n" +
+            "      s.bucket_number = b.bucket_number)\n" +
+            "    JOIN nodes n ON (b.node_id = n.node_id)\n" +
+            "    WHERE n.node_identifier = :nodeIdentifier\n" +
+            "      AND s.is_delta  = false\n" +
+            "      AND (s.table_id = :tableId OR :tableId IS NULL)\n" +
+            ") x")
+    @Mapper(ShardMetadata.Mapper.class)
     Set<ShardMetadata> getNodeShards(@Bind("nodeIdentifier") String nodeIdentifier, @Bind("tableId") Long tableId);
 
     @SqlQuery("SELECT n.node_identifier, x.bytes\n" +

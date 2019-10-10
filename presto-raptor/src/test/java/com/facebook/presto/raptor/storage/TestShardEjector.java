@@ -152,7 +152,7 @@ public class TestShardEjector
                 .map(ShardInfo::getShardUuid)
                 .collect(toSet());
 
-        Set<UUID> remaining = uuids(shardManager.getNodeShards("node1"));
+        Set<UUID> remaining = uuids(shardManager.getNodeShardsAndDeltas("node1"));
 
         for (UUID uuid : ejectedShards) {
             assertFalse(remaining.contains(uuid));
@@ -165,10 +165,10 @@ public class TestShardEjector
         }
 
         Set<UUID> others = ImmutableSet.<UUID>builder()
-                .addAll(uuids(shardManager.getNodeShards("node2")))
-                .addAll(uuids(shardManager.getNodeShards("node3")))
-                .addAll(uuids(shardManager.getNodeShards("node4")))
-                .addAll(uuids(shardManager.getNodeShards("node5")))
+                .addAll(uuids(shardManager.getNodeShardsAndDeltas("node2")))
+                .addAll(uuids(shardManager.getNodeShardsAndDeltas("node3")))
+                .addAll(uuids(shardManager.getNodeShardsAndDeltas("node4")))
+                .addAll(uuids(shardManager.getNodeShardsAndDeltas("node5")))
                 .build();
 
         assertTrue(others.containsAll(ejectedShards));
