@@ -23,6 +23,7 @@ import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.PipelineContext;
@@ -372,7 +373,13 @@ public class SqlTask
         return Futures.transform(futureTaskState, input -> getTaskInfo(), directExecutor());
     }
 
-    public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)
+    public TaskInfo updateTask(
+            Session session,
+            Optional<PlanFragment> fragment,
+            List<TaskSource> sources,
+            OutputBuffers outputBuffers,
+            OptionalInt totalPartitions,
+            Optional<TableWriteInfo> tableWriteInfo)
     {
         try {
             // The LazyOutput buffer does not support write methods, so the actual
@@ -391,6 +398,7 @@ public class SqlTask
                 taskExecution = taskHolder.getTaskExecution();
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
+                    checkState(tableWriteInfo.isPresent(), "tableWriteInfo must be present");
                     taskExecution = sqlTaskExecutionFactory.create(
                             session,
                             queryContext,
@@ -399,7 +407,8 @@ public class SqlTask
                             taskExchangeClientManager,
                             fragment.get(),
                             sources,
-                            totalPartitions);
+                            totalPartitions,
+                            tableWriteInfo.get());
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }

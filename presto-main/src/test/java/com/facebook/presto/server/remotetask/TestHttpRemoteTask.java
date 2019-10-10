@@ -33,6 +33,7 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.TaskTestUtils;
 import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
@@ -81,6 +82,7 @@ import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -219,7 +221,8 @@ public class TestHttpRemoteTask
                 OptionalInt.empty(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
-                true);
+                true,
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)

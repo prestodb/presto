@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.NewTableLayout;
-import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -25,9 +23,8 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -100,7 +97,7 @@ public class TableWriterNode
         return source;
     }
 
-    @JsonProperty
+    @JsonIgnore
     public Optional<WriterTarget> getTarget()
     {
         return target;
@@ -172,11 +169,7 @@ public class TableWriterNode
         return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, partitioningScheme, statisticsAggregation);
     }
 
-    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
-    @JsonSubTypes({
-            @JsonSubTypes.Type(value = CreateHandle.class, name = "CreateHandle"),
-            @JsonSubTypes.Type(value = InsertHandle.class, name = "InsertHandle"),
-            @JsonSubTypes.Type(value = DeleteHandle.class, name = "DeleteHandle")})
+    // only used during planning -- will not be serialized
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
     {
@@ -188,7 +181,6 @@ public class TableWriterNode
         public abstract String toString();
     }
 
-    // only used during planning -- will not be serialized
     public static class CreateName
             extends WriterTarget
     {
@@ -233,47 +225,6 @@ public class TableWriterNode
         }
     }
 
-    public static class CreateHandle
-            extends WriterTarget
-    {
-        private final OutputTableHandle handle;
-        private final SchemaTableName schemaTableName;
-
-        @JsonCreator
-        public CreateHandle(
-                @JsonProperty("handle") OutputTableHandle handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
-        {
-            this.handle = requireNonNull(handle, "handle is null");
-            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        }
-
-        @JsonProperty
-        public OutputTableHandle getHandle()
-        {
-            return handle;
-        }
-
-        @Override
-        public ConnectorId getConnectorId()
-        {
-            return handle.getConnectorId();
-        }
-
-        @JsonProperty
-        public SchemaTableName getSchemaTableName()
-        {
-            return schemaTableName;
-        }
-
-        @Override
-        public String toString()
-        {
-            return handle.toString();
-        }
-    }
-
-    // only used during planning -- will not be serialized
     public static class InsertReference
             extends WriterTarget
     {
@@ -298,46 +249,6 @@ public class TableWriterNode
         }
 
         @Override
-        public SchemaTableName getSchemaTableName()
-        {
-            return schemaTableName;
-        }
-
-        @Override
-        public String toString()
-        {
-            return handle.toString();
-        }
-    }
-
-    public static class InsertHandle
-            extends WriterTarget
-    {
-        private final InsertTableHandle handle;
-        private final SchemaTableName schemaTableName;
-
-        @JsonCreator
-        public InsertHandle(
-                @JsonProperty("handle") InsertTableHandle handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
-        {
-            this.handle = requireNonNull(handle, "handle is null");
-            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        }
-
-        @JsonProperty
-        public InsertTableHandle getHandle()
-        {
-            return handle;
-        }
-
-        @Override
-        public ConnectorId getConnectorId()
-        {
-            return handle.getConnectorId();
-        }
-
-        @JsonProperty
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
@@ -384,7 +295,6 @@ public class TableWriterNode
             return schemaTableName;
         }
 
-        @Override
         public String toString()
         {
             return handle.toString();

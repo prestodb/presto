@@ -21,7 +21,14 @@ import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.DeleteHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
@@ -174,7 +181,6 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -259,9 +265,6 @@ import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssig
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_CONTAINS;
@@ -372,7 +375,8 @@ public class LocalExecutionPlanner
             StageExecutionDescriptor stageExecutionDescriptor,
             List<PlanNodeId> partitionedSourceOrder,
             OutputBuffer outputBuffer,
-            TaskExchangeClientManager taskExchangeClientManager)
+            TaskExchangeClientManager taskExchangeClientManager,
+            TableWriteInfo tableWriteInfo)
     {
         List<VariableReferenceExpression> outputLayout = partitioningScheme.getOutputLayout();
 
@@ -389,7 +393,8 @@ public class LocalExecutionPlanner
                     types,
                     partitionedSourceOrder,
                     new TaskOutputFactory(outputBuffer),
-                    taskExchangeClientManager);
+                    taskExchangeClientManager,
+                    tableWriteInfo);
         }
 
         // We can convert the variables directly into channels, because the root must be a sink and therefore the layout is fixed
@@ -466,7 +471,8 @@ public class LocalExecutionPlanner
                 types,
                 partitionedSourceOrder,
                 outputFactory,
-                taskExchangeClientManager);
+                taskExchangeClientManager,
+                tableWriteInfo);
     }
 
     public LocalExecutionPlan plan(
@@ -477,10 +483,11 @@ public class LocalExecutionPlanner
             TypeProvider types,
             List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory,
-            TaskExchangeClientManager taskExchangeClientManager)
+            TaskExchangeClientManager taskExchangeClientManager,
+            TableWriteInfo tableWriteInfo)
     {
         Session session = taskContext.getSession();
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, types, taskExchangeClientManager);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, types, taskExchangeClientManager, tableWriteInfo);
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor), context);
 
@@ -558,14 +565,19 @@ public class LocalExecutionPlanner
 
         // this is shared with all subContexts
         private final AtomicInteger nextPipelineId;
+        private final TableWriteInfo tableWriteInfo;
 
         private int nextOperatorId;
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
-        public LocalExecutionPlanContext(TaskContext taskContext, TypeProvider types, TaskExchangeClientManager taskExchangeClientManager)
+        public LocalExecutionPlanContext(
+                TaskContext taskContext,
+                TypeProvider types,
+                TaskExchangeClientManager taskExchangeClientManager,
+                TableWriteInfo tableWriteInfo)
         {
-            this(taskContext, types, taskExchangeClientManager, new ArrayList<>(), Optional.empty(), new AtomicInteger(0));
+            this(taskContext, types, taskExchangeClientManager, new ArrayList<>(), Optional.empty(), new AtomicInteger(0), tableWriteInfo);
         }
 
         private LocalExecutionPlanContext(
@@ -574,7 +586,8 @@ public class LocalExecutionPlanner
                 TaskExchangeClientManager taskExchangeClientManager,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
-                AtomicInteger nextPipelineId)
+                AtomicInteger nextPipelineId,
+                TableWriteInfo tableWriteInfo)
         {
             this.taskContext = taskContext;
             this.types = types;
@@ -582,6 +595,7 @@ public class LocalExecutionPlanner
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
             this.nextPipelineId = nextPipelineId;
+            this.tableWriteInfo = tableWriteInfo;
         }
 
         public void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
@@ -648,15 +662,20 @@ public class LocalExecutionPlanner
             this.inputDriver = inputDriver;
         }
 
+        public TableWriteInfo getTableWriteInfo()
+        {
+            return tableWriteInfo;
+        }
+
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, types, taskExchangeClientManager, driverFactories, indexSourceContext, nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, types, taskExchangeClientManager, driverFactories, indexSourceContext, nextPipelineId, tableWriteInfo);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, types, taskExchangeClientManager, driverFactories, Optional.of(indexSourceContext), nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, types, taskExchangeClientManager, driverFactories, Optional.of(indexSourceContext), nextPipelineId, tableWriteInfo);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -1198,7 +1217,13 @@ public class LocalExecutionPlanner
             PhysicalOperation source = null;
             if (sourceNode instanceof TableScanNode) {
                 TableScanNode tableScanNode = (TableScanNode) sourceNode;
-                table = tableScanNode.getTable();
+                Optional<DeleteScanInfo> deleteScanInfo = context.getTableWriteInfo().getDeleteScanInfo();
+                if (deleteScanInfo.isPresent() && deleteScanInfo.get().getId() == tableScanNode.getId()) {
+                    table = deleteScanInfo.get().getTableHandle();
+                }
+                else {
+                    table = tableScanNode.getTable();
+                }
 
                 // extract the column handles and channel to type mapping
                 sourceLayout = new LinkedHashMap<>();
@@ -1304,7 +1329,15 @@ public class LocalExecutionPlanner
                 columns.add(node.getAssignments().get(variable));
             }
 
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, node.getTable(), columns);
+            TableHandle tableHandle;
+            Optional<DeleteScanInfo> deleteScanInfo = context.getTableWriteInfo().getDeleteScanInfo();
+            if (deleteScanInfo.isPresent() && deleteScanInfo.get().getId() == node.getId()) {
+                tableHandle = deleteScanInfo.get().getTableHandle();
+            }
+            else {
+                tableHandle = node.getTable();
+            }
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), node.getId(), pageSourceProvider, tableHandle, columns);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
         }
 
@@ -2241,7 +2274,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     pageSinkManager,
-                    node.getTarget(),
+                    context.getTableWriteInfo().getWriterTarget().orElseThrow(() -> new VerifyException("writerTarget is absent")),
                     inputChannels,
                     session,
                     statisticsAggregation,
@@ -2259,10 +2292,11 @@ public class LocalExecutionPlanner
 
             StatisticAggregationsDescriptor<Integer> descriptor = node.getDescriptor().map(source.getLayout()::get);
 
+            AnalyzeTableHandle analyzeTableHandle = context.getTableWriteInfo().getAnalyzeTableHandle().orElseThrow(() -> new VerifyException("analyzeTableHandle is absent"));
             OperatorFactory operatorFactory = new StatisticsWriterOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
-                    computedStatistics -> metadata.finishStatisticsCollection(session, ((StatisticsWriterNode.WriteStatisticsHandle) node.getTarget()).getHandle(), computedStatistics),
+                    computedStatistics -> metadata.finishStatisticsCollection(session, analyzeTableHandle, computedStatistics),
                     node.isRowCountEnabled(),
                     descriptor);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
@@ -2370,11 +2404,13 @@ public class LocalExecutionPlanner
                     .map(desc -> desc.map(aggregationOutput::get))
                     .orElse(StatisticAggregationsDescriptor.empty());
 
+            ExecutionWriterTarget writerTarget = context.getTableWriteInfo().getWriterTarget().orElseThrow(() -> new VerifyException("writerTarget is absent"));
+
             OperatorFactory operatorFactory = new TableFinishOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
-                    createTableFinisher(session, node, metadata),
-                    createLifespanCommitter(session, node, metadata),
+                    createTableFinisher(session, metadata, writerTarget),
+                    createLifespanCommitter(session, metadata, writerTarget),
                     statisticsAggregation,
                     descriptor,
                     session,
@@ -2811,9 +2847,8 @@ public class LocalExecutionPlanner
         }
     }
 
-    private static TableFinisher createTableFinisher(Session session, TableFinishNode node, Metadata metadata)
+    private static TableFinisher createTableFinisher(Session session, Metadata metadata, ExecutionWriterTarget target)
     {
-        WriterTarget target = node.getTarget();
         return (fragments, statistics) -> {
             if (target instanceof CreateHandle) {
                 return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments, statistics);
@@ -2831,9 +2866,8 @@ public class LocalExecutionPlanner
         };
     }
 
-    private static LifespanCommitter createLifespanCommitter(Session session, TableFinishNode node, Metadata metadata)
+    private static LifespanCommitter createLifespanCommitter(Session session, Metadata metadata, ExecutionWriterTarget target)
     {
-        WriterTarget target = node.getTarget();
         return fragments -> {
             if (target instanceof CreateHandle) {
                 metadata.commitPartition(session, ((CreateHandle) target).getHandle(), fragments);

@@ -35,6 +35,7 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
@@ -155,7 +156,8 @@ public class SqlQueryScheduler
             OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            Metadata metadata)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 queryStateMachine,
@@ -174,7 +176,8 @@ public class SqlQueryScheduler
                 rootOutputBuffers,
                 nodeTaskMap,
                 executionPolicy,
-                schedulerStats);
+                schedulerStats,
+                metadata);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -196,7 +199,8 @@ public class SqlQueryScheduler
             OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            Metadata metadata)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
@@ -215,6 +219,7 @@ public class SqlQueryScheduler
                 (fragmentId, tasks, noMoreExchangeLocations) -> updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations),
                 sectionedPlan,
                 Optional.of(new int[1]),
+                metadata,
                 rootOutputBuffers,
                 nodeScheduler,
                 remoteTaskFactory,
@@ -310,6 +315,7 @@ public class SqlQueryScheduler
             ExchangeLocationsConsumer locationsConsumer,
             StreamingPlanSection section,
             Optional<int[]> bucketToPartition,
+            Metadata metadata,
             OutputBuffers outputBuffers,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
@@ -328,9 +334,11 @@ public class SqlQueryScheduler
 
         // Only fetch a distribution once per section to ensure all stages see the same machine assignments
         Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
+        TableWriteInfo tableWriteInfo = TableWriteInfo.createTableWriteInfo(section.getPlan(), metadata, session);
         List<SqlStageExecution> sectionStages = createStreamingLinkedStageExecutions(
                 locationsConsumer,
                 section.getPlan().withBucketToPartition(bucketToPartition),
+                metadata,
                 nodeScheduler,
                 remoteTaskFactory,
                 splitSourceFactory,
@@ -342,6 +350,7 @@ public class SqlQueryScheduler
                 schedulerExecutor,
                 failureDetector,
                 nodeTaskMap,
+                tableWriteInfo,
                 stageSchedulers,
                 stageLinkages,
                 Optional.empty());
@@ -353,6 +362,7 @@ public class SqlQueryScheduler
                     discardingLocationConsumer(),
                     childSection,
                     Optional.empty(),
+                    metadata,
                     createDiscardingOutputBuffers(),
                     nodeScheduler,
                     remoteTaskFactory,
@@ -374,6 +384,7 @@ public class SqlQueryScheduler
     private List<SqlStageExecution> createStreamingLinkedStageExecutions(
             ExchangeLocationsConsumer parent,
             StreamingSubPlan plan,
+            Metadata metadata,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
@@ -385,6 +396,7 @@ public class SqlQueryScheduler
             ScheduledExecutorService schedulerExecutor,
             FailureDetector failureDetector,
             NodeTaskMap nodeTaskMap,
+            TableWriteInfo tableWriteInfo,
             ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers,
             ImmutableMap.Builder<StageId, StageLinkage> stageLinkages,
             Optional<SqlStageExecution> parentStageExecution)
@@ -402,7 +414,8 @@ public class SqlQueryScheduler
                 nodeTaskMap,
                 queryExecutor,
                 failureDetector,
-                schedulerStats);
+                schedulerStats,
+                tableWriteInfo);
 
         stageExecutions.add(stageExecution);
 
@@ -410,7 +423,7 @@ public class SqlQueryScheduler
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             // TODO: defer opening split sources when stage scheduling starts
-            Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session);
+            Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session, tableWriteInfo);
             // nodes are selected dynamically based on the constraints of the splits and the system load
             Entry<PlanNodeId, SplitSource> entry = getOnlyElement(splitSources.entrySet());
             PlanNodeId planNodeId = entry.getKey();
@@ -431,7 +444,7 @@ public class SqlQueryScheduler
         }
         else {
             // TODO: defer opening split sources when stage scheduling starts
-            Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session);
+            Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session, tableWriteInfo);
             if (!splitSources.isEmpty()) {
                 // contains local source
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getTableScanSchedulingOrder();
@@ -519,6 +532,7 @@ public class SqlQueryScheduler
             List<SqlStageExecution> subTree = createStreamingLinkedStageExecutions(
                     stageExecution::addExchangeLocations,
                     stagePlan.withBucketToPartition(bucketToPartition),
+                    metadata,
                     nodeScheduler,
                     remoteTaskFactory,
                     splitSourceFactory,
@@ -530,6 +544,7 @@ public class SqlQueryScheduler
                     schedulerExecutor,
                     failureDetector,
                     nodeTaskMap,
+                    tableWriteInfo,
                     stageSchedulers,
                     stageLinkages,
                     Optional.of(stageExecution));
@@ -985,7 +1000,7 @@ public class SqlQueryScheduler
         }
     }
 
-    private static class StreamingPlanSection
+    public static class StreamingPlanSection
     {
         private final StreamingSubPlan plan;
         // materialized exchange children
@@ -1011,7 +1026,7 @@ public class SqlQueryScheduler
     /**
      * StreamingSubPlan is similar to SubPlan but only contains streaming children
      */
-    private static class StreamingSubPlan
+    public static class StreamingSubPlan
     {
         private final PlanFragment fragment;
         // streaming children

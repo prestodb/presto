@@ -25,6 +25,7 @@ import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.MemoryPoolAssignment;
@@ -348,7 +349,14 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)
+    public TaskInfo updateTask(
+            Session session,
+            TaskId taskId,
+            Optional<PlanFragment> fragment,
+            List<TaskSource> sources,
+            OutputBuffers outputBuffers,
+            OptionalInt totalPartitions,
+            Optional<TableWriteInfo> tableWriteInfo)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -363,7 +371,7 @@ public class SqlTaskManager
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, fragment, sources, outputBuffers, totalPartitions);
+        return sqlTask.updateTask(session, fragment, sources, outputBuffers, totalPartitions, tableWriteInfo);
     }
 
     @Override

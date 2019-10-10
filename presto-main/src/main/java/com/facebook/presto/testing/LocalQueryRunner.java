@@ -62,6 +62,8 @@ import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.SqlQueryScheduler.StreamingPlanSection;
+import com.facebook.presto.execution.scheduler.SqlQueryScheduler.StreamingSubPlan;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
@@ -196,6 +198,8 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
+import static com.facebook.presto.execution.scheduler.SqlQueryScheduler.extractStreamingSections;
+import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -724,6 +728,7 @@ public class LocalQueryRunner
 
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
+                Optional.empty(),
                 pageSourceManager,
                 indexManager,
                 partitioningProviderManager,
@@ -746,6 +751,9 @@ public class LocalQueryRunner
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();
+        StreamingPlanSection streamingPlanSection = extractStreamingSections(subplan);
+        checkState(streamingPlanSection.getChildren().isEmpty(), "expected no materialized exchanges");
+        StreamingSubPlan streamingSubPlan = streamingPlanSection.getPlan();
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
                 taskContext,
                 stageExecutionDescriptor,
@@ -756,7 +764,8 @@ public class LocalQueryRunner
                 outputFactory,
                 new TaskExchangeClientManager(ignored -> {
                     throw new UnsupportedOperationException();
-                }));
+                }),
+                createTableWriteInfo(streamingSubPlan, metadata, session));
 
         // generate sources
         List<TaskSource> sources = new ArrayList<>();

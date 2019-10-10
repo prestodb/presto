@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -107,7 +108,8 @@ public class TestSqlStageExecution
                 nodeTaskMap,
                 executor,
                 new NoOpFailureDetector(),
-                new SplitSchedulerStats());
+                new SplitSchedulerStats(),
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 
         // add listener that fetches stage info when the final status is available

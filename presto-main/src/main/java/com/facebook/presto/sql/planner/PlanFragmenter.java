@@ -19,7 +19,6 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.PartitioningMetadata;
@@ -64,8 +63,8 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
+import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -694,14 +693,13 @@ public class PlanFragmenter
                     .map(columnNameToVariable::get)
                     .collect(toImmutableList());
 
-            InsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
             List<String> outputColumnNames = outputs.stream()
                     .map(variableToColumnMap::get)
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
-            SchemaTableName temporaryTableName = metadata.getTableMetadata(session, tableHandle).getTable();
-            InsertHandle insertHandle = new InsertHandle(insertTableHandle, new SchemaTableName(temporaryTableName.getSchemaName(), temporaryTableName.getTableName()));
+            SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
+            InsertReference insertReference = new InsertReference(tableHandle, schemaTableName);
 
             PartitioningScheme partitioningScheme = new PartitioningScheme(
                     Partitioning.create(partitioningHandle, partitioningVariables),
@@ -737,7 +735,7 @@ public class PlanFragmenter
             TableWriterNode tableWriter = new TableWriterNode(
                     idAllocator.getNextId(),
                     writerSource,
-                    Optional.of(insertHandle),
+                    Optional.of(insertReference),
                     variableAllocator.newVariable("partialrows", BIGINT),
                     variableAllocator.newVariable("partialfragments", VARBINARY),
                     variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
@@ -769,7 +767,7 @@ public class PlanFragmenter
                                     idAllocator.getNextId(),
                                     REMOTE_STREAMING,
                                     tableWriterMerge)),
-                    Optional.of(insertHandle),
+                    Optional.of(insertReference),
                     variableAllocator.newVariable("rows", BIGINT),
                     Optional.empty(),
                     Optional.empty());
@@ -1065,7 +1063,7 @@ public class PlanFragmenter
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
             boolean recoveryEligible = properties.isRecoveryEligible();
             WriterTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
-            if (target instanceof CreateHandle || target instanceof InsertHandle) {
+            if (target instanceof CreateName || target instanceof InsertReference) {
                 recoveryEligible &= metadata.getConnectorCapabilities(session, target.getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
             }
             else {

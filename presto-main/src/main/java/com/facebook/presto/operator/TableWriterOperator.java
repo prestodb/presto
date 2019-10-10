@@ -16,6 +16,9 @@ package com.facebook.presto.operator;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -27,7 +30,6 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.util.AutoCloseableCloser;
 import com.facebook.presto.util.Mergeable;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -50,8 +52,6 @@ import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.operator.TableWriterUtils.createStatisticsPage;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
-import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -70,7 +70,7 @@ public class TableWriterOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final PageSinkManager pageSinkManager;
-        private final WriterTarget target;
+        private final ExecutionWriterTarget target;
         private final List<Integer> columnChannels;
         private final Session session;
         private final OperatorFactory statisticsAggregationOperatorFactory;
@@ -83,7 +83,7 @@ public class TableWriterOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 PageSinkManager pageSinkManager,
-                WriterTarget writerTarget,
+                ExecutionWriterTarget writerTarget,
                 List<Integer> columnChannels,
                 Session session,
                 OperatorFactory statisticsAggregationOperatorFactory,

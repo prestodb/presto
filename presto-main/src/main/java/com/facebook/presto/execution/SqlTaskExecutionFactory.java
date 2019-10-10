@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
@@ -71,7 +72,8 @@ public class SqlTaskExecutionFactory
             TaskExchangeClientManager taskExchangeClientManager,
             PlanFragment fragment,
             List<TaskSource> sources,
-            OptionalInt totalPartitions)
+            OptionalInt totalPartitions,
+            TableWriteInfo tableWriteInfo)
     {
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
@@ -92,7 +94,8 @@ public class SqlTaskExecutionFactory
                         fragment.getStageExecutionDescriptor(),
                         fragment.getTableScanSchedulingOrder(),
                         outputBuffer,
-                        taskExchangeClientManager);
+                        taskExchangeClientManager,
+                        tableWriteInfo);
             }
             catch (Throwable e) {
                 // planning failed

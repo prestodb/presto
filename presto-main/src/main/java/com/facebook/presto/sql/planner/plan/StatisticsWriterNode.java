@@ -19,6 +19,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -64,7 +65,7 @@ public class StatisticsWriterNode
         return source;
     }
 
-    @JsonProperty
+    @JsonIgnore
     public Optional<WriteStatisticsTarget> getTarget()
     {
         return target;

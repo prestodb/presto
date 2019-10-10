@@ -17,6 +17,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -66,7 +67,7 @@ public class TableFinishNode
         return source;
     }
 
-    @JsonProperty
+    @JsonIgnore
     public Optional<WriterTarget> getTarget()
     {
         return target;

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -50,7 +51,8 @@ public class TrackingRemoteTaskFactory
             OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            TableWriteInfo tableWriteInfo)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,
@@ -60,7 +62,8 @@ public class TrackingRemoteTaskFactory
                 totalPartitions,
                 outputBuffers,
                 partitionedSplitCountTracker,
-                summarizeTaskInfo);
+                summarizeTaskInfo,
+                tableWriteInfo);
 
         task.addStateChangeListener(new UpdateQueryStats(stateMachine));
         return task;

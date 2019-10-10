@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
@@ -100,6 +101,8 @@ public final class SqlStageExecution
 
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
 
+    private final TableWriteInfo tableWriteInfo;
+
     private final Map<InternalNode, Set<RemoteTask>> tasks = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
@@ -142,7 +145,8 @@ public final class SqlStageExecution
             NodeTaskMap nodeTaskMap,
             ExecutorService executor,
             FailureDetector failureDetector,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            TableWriteInfo tableWriteInfo)
     {
         requireNonNull(stageExecutionId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
@@ -152,6 +156,7 @@ public final class SqlStageExecution
         requireNonNull(executor, "executor is null");
         requireNonNull(failureDetector, "failureDetector is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
+        requireNonNull(tableWriteInfo, "tableWriteInfo is null");
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
                 session,
@@ -162,7 +167,8 @@ public final class SqlStageExecution
                 summarizeTaskInfo,
                 executor,
                 failureDetector,
-                getMaxFailedTaskPercentage(session));
+                getMaxFailedTaskPercentage(session),
+                tableWriteInfo);
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
@@ -176,7 +182,8 @@ public final class SqlStageExecution
             boolean summarizeTaskInfo,
             Executor executor,
             FailureDetector failureDetector,
-            double maxFailedTaskPercentage)
+            double maxFailedTaskPercentage,
+            TableWriteInfo tableWriteInfo)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
@@ -186,6 +193,7 @@ public final class SqlStageExecution
         this.summarizeTaskInfo = summarizeTaskInfo;
         this.executor = requireNonNull(executor, "executor is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+        this.tableWriteInfo = requireNonNull(tableWriteInfo);
         this.maxFailedTaskPercentage = maxFailedTaskPercentage;
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
@@ -500,7 +508,8 @@ public final class SqlStageExecution
                 totalPartitions,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
-                summarizeTaskInfo);
+                summarizeTaskInfo,
+                tableWriteInfo);
 
         completeSources.forEach(task::noMoreSplits);
 
