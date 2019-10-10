@@ -96,7 +96,7 @@ public final class ShardCompactor
             throws IOException
     {
         for (UUID uuid : uuids) {
-            // todo add logic in compaction for delta
+            // todo add logic in organization for delta or it may corrupt data
             try (ConnectorPageSource pageSource = storageManager.getPageSource(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, uuid, Optional.empty(), false, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
                 while (!pageSource.isFinished()) {
                     Page page = pageSource.getNextPage();
@@ -132,7 +132,7 @@ public final class ShardCompactor
         Queue<SortedPageSource> rowSources = new PriorityQueue<>();
         StoragePageSink outputPageSink = storageManager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, false);
         try {
-            // todo add logic in compaction for delta
+            // todo add logic in organization for delta or it may corrupt data
             for (UUID uuid : uuids) {
                 ConnectorPageSource pageSource = storageManager.getPageSource(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, uuid, Optional.empty(), false, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes);
                 SortedPageSource rowSource = new SortedPageSource(pageSource, columnTypes, sortIndexes, sortOrders);

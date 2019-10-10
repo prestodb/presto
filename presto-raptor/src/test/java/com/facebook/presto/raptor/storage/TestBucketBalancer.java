@@ -279,7 +279,7 @@ public class TestBucketBalancer
         List<ColumnInfo> columnsA = ImmutableList.of(new ColumnInfo(1, BIGINT));
         shardManager.createTable(tableId, columnsA, false, OptionalLong.empty(), false);
 
-        metadataDao.updateTableStats(tableId, 1024, 1024 * 1024 * 1024, compressedSize.toBytes(), compressedSize.toBytes() * 2);
+        metadataDao.updateTableStats(tableId, 1024, 0, 1024 * 1024 * 1024, compressedSize.toBytes(), compressedSize.toBytes() * 2);
         return tableId;
     }
 
