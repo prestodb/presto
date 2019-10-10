@@ -935,7 +935,7 @@ public class PlanPrinter
         @Override
         public Void visitStatisticsWriterNode(StatisticsWriterNode node, Void context)
         {
-            addNode(node, "StatisticsWriter", format("[%s]", node.getTarget()));
+            addNode(node, "StatisticsWriter", format("[%s]", node.getTableHandle()));
             return processChildren(node, context);
         }
 

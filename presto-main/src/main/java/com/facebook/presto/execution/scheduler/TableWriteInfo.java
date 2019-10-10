@@ -33,8 +33,6 @@ import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.StatisticsWriterNode.WriteStatisticsReference;
-import com.facebook.presto.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -109,8 +107,7 @@ public class TableWriteInfo
     {
         Optional<StatisticsWriterNode> node = findSinglePlanNode(plan, StatisticsWriterNode.class);
         if (node.isPresent()) {
-            WriteStatisticsTarget target = node.get().getTarget().orElseThrow(() -> new VerifyException("target is absent"));
-            return Optional.of(metadata.beginStatisticsCollection(session, ((WriteStatisticsReference) target).getHandle()));
+            return Optional.of(metadata.beginStatisticsCollection(session, node.get().getTableHandle()));
         }
         return Optional.empty();
     }

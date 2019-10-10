@@ -321,6 +321,25 @@ public class TestingMetadata
         {
             return tableName;
         }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof TestingTableHandle)) {
+                return false;
+            }
+            TestingTableHandle other = (TestingTableHandle) o;
+            return Objects.equals(tableName, other.tableName);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(tableName);
+        }
     }
 
     public static class TestingColumnHandle
