@@ -1065,11 +1065,8 @@ public class PlanFragmenter
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
             boolean recoveryEligible = properties.isRecoveryEligible();
             WriterTarget target = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
-            if (target instanceof CreateHandle) {
-                recoveryEligible &= metadata.getConnectorCapabilities(session, ((CreateHandle) target).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
-            }
-            else if (target instanceof InsertHandle) {
-                recoveryEligible &= metadata.getConnectorCapabilities(session, ((InsertHandle) target).getHandle().getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
+            if (target instanceof CreateHandle || target instanceof InsertHandle) {
+                recoveryEligible &= metadata.getConnectorCapabilities(session, target.getConnectorId()).contains(SUPPORTS_PARTITION_COMMIT);
             }
             else {
                 recoveryEligible = false;
