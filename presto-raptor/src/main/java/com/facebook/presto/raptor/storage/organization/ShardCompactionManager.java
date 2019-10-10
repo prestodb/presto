@@ -199,6 +199,7 @@ public class ShardCompactionManager
         }
 
         Set<ShardMetadata> filteredShards = tableShards.stream()
+                .filter(shard -> !shard.isDelta())
                 .filter(this::needsCompaction)
                 .filter(shard -> !organizer.inProgress(shard.getShardUuid()))
                 .collect(toSet());
@@ -230,6 +231,10 @@ public class ShardCompactionManager
         }
 
         if (shard.getRowCount() < (FILL_FACTOR * maxShardRows)) {
+            return true;
+        }
+
+        if (shard.getDeltaUuid().isPresent()) {
             return true;
         }
         return false;

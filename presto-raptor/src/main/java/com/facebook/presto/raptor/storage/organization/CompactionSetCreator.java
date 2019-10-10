@@ -77,7 +77,7 @@ public class CompactionSetCreator
                 Set<ShardIndexInfo> shardsToCompact = builder.build();
 
                 if (shardsToCompact.size() > 1) {
-                    compactionSets.add(createOrganizationSet(tableId, shardsToCompact));
+                    compactionSets.add(createOrganizationSet(tableId, tableInfo.isTableSupportsDeltaDelete(), shardsToCompact));
                 }
 
                 builder = ImmutableSet.builder();
@@ -92,7 +92,7 @@ public class CompactionSetCreator
         // create compaction set for the remaining shards of this day
         Set<ShardIndexInfo> shardsToCompact = builder.build();
         if (shardsToCompact.size() > 1) {
-            compactionSets.add(createOrganizationSet(tableId, shardsToCompact));
+            compactionSets.add(createOrganizationSet(tableId, tableInfo.isTableSupportsDeltaDelete(), shardsToCompact));
         }
         return compactionSets.build();
     }

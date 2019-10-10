@@ -227,6 +227,8 @@ public class TestShardOrganizerUtil
                     tableId,
                     OptionalInt.empty(),
                     shard.getShardUuid(),
+                    false,
+                    Optional.empty(),
                     shard.getRowCount(),
                     shard.getUncompressedSize(),
                     sortRange,
