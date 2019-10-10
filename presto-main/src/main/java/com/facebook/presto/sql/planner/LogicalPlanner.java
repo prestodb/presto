@@ -299,7 +299,7 @@ public class LogicalPlanner
                         AggregationNode.Step.SINGLE,
                         Optional.empty(),
                         Optional.empty()),
-                Optional.of(new StatisticsWriterNode.WriteStatisticsReference(targetTable)),
+                targetTable,
                 variableAllocator.newVariable("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
                 tableStatisticAggregation.getDescriptor());

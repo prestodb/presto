@@ -244,7 +244,7 @@ public class SymbolMapper
         return new StatisticsWriterNode(
                 node.getId(),
                 source,
-                node.getTarget(),
+                node.getTableHandle(),
                 node.getRowCountVariable(),
                 node.isRowCountEnabled(),
                 node.getDescriptor().map(this::map));

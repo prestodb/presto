@@ -17,6 +17,9 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -26,6 +29,9 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.testing.TestingHandleResolver;
+import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -54,10 +60,9 @@ public class TestStatisticsWriterNode
             throws Exception
     {
         JsonCodec<StatisticsWriterNode> jsonCodec = getJsonCodec();
-        StatisticsWriterNode original = createStatisticsWriterNode();
-        StatisticsWriterNode expected = new StatisticsWriterNode(original.getId(), original.getSource(), Optional.empty(), original.getRowCountVariable(), original.isRowCountEnabled(), original.getDescriptor());
-        StatisticsWriterNode deserialized = jsonCodec.fromJson(jsonCodec.toJson(original));
-        assertEquals(deserialized.getTarget(), expected.getTarget());
+        StatisticsWriterNode expected = createStatisticsWriterNode();
+        StatisticsWriterNode deserialized = jsonCodec.fromJson(jsonCodec.toJson(expected));
+        assertEquals(deserialized.getTableHandle(), expected.getTableHandle());
         assertEquals(deserialized.getRowCountVariable(), expected.getRowCountVariable());
         assertEquals(deserialized.isRowCountEnabled(), expected.isRowCountEnabled());
         assertEquals(deserialized.getDescriptor(), expected.getDescriptor());
@@ -94,7 +99,7 @@ public class TestStatisticsWriterNode
         return new StatisticsWriterNode(
                 newId(),
                 new ValuesNode(newId(), COLUMNS.stream().map(column -> new VariableReferenceExpression(column, BIGINT)).collect(toImmutableList()), ImmutableList.of()),
-                Optional.of(new StatisticsWriterNode.TestWriteStatisticsHandle()),
+                new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()),
                 variableAllocator.newVariable("count", BIGINT),
                 true,
                 createTestDescriptor());
@@ -120,6 +125,8 @@ public class TestStatisticsWriterNode
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();
+        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
+        handleResolver.addConnectorName("test", new TestingHandleResolver());
         return injector.getInstance(new Key<JsonCodec<StatisticsWriterNode>>() {});
     }
 }
