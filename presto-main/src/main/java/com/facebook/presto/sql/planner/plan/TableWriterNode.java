@@ -180,6 +180,10 @@ public class TableWriterNode
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
     {
+        public abstract ConnectorId getConnectorId();
+
+        public abstract SchemaTableName getSchemaTableName();
+
         @Override
         public abstract String toString();
     }
@@ -199,6 +203,7 @@ public class TableWriterNode
             this.layout = requireNonNull(layout, "layout is null");
         }
 
+        @Override
         public ConnectorId getConnectorId()
         {
             return connectorId;
@@ -212,6 +217,13 @@ public class TableWriterNode
         public Optional<NewTableLayout> getLayout()
         {
             return layout;
+        }
+
+        @Override
+        public SchemaTableName getSchemaTableName()
+
+        {
+            return tableMetadata.getTable();
         }
 
         @Override
@@ -242,6 +254,12 @@ public class TableWriterNode
             return handle;
         }
 
+        @Override
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
         @JsonProperty
         public SchemaTableName getSchemaTableName()
         {
@@ -260,15 +278,29 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final TableHandle handle;
+        private final SchemaTableName schemaTableName;
 
-        public InsertReference(TableHandle handle)
+        public InsertReference(TableHandle handle, SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
         public TableHandle getHandle()
         {
             return handle;
+        }
+
+        @Override
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
+        @Override
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
         }
 
         @Override
@@ -297,6 +329,12 @@ public class TableWriterNode
         public InsertTableHandle getHandle()
         {
             return handle;
+        }
+
+        @Override
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
         }
 
         @JsonProperty
@@ -333,6 +371,13 @@ public class TableWriterNode
             return handle;
         }
 
+        @Override
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
+        @Override
         @JsonProperty
         public SchemaTableName getSchemaTableName()
         {

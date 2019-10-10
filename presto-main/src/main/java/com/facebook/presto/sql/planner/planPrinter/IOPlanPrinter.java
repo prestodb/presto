@@ -37,11 +37,6 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.IOPlanBuilder;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -488,33 +483,10 @@ public class IOPlanPrinter
         public Void visitTableFinish(TableFinishNode node, IOPlanBuilder context)
         {
             WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
-            if (writerTarget instanceof CreateHandle) {
-                CreateHandle createHandle = (CreateHandle) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        createHandle.getHandle().getConnectorId().getCatalogName(),
-                        createHandle.getSchemaTableName().getSchemaName(),
-                        createHandle.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof InsertHandle) {
-                InsertHandle insertHandle = (InsertHandle) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        insertHandle.getHandle().getConnectorId().getCatalogName(),
-                        insertHandle.getSchemaTableName().getSchemaName(),
-                        insertHandle.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof DeleteHandle) {
-                DeleteHandle deleteHandle = (DeleteHandle) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        deleteHandle.getHandle().getConnectorId().getCatalogName(),
-                        deleteHandle.getSchemaTableName().getSchemaName(),
-                        deleteHandle.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof CreateName || writerTarget instanceof InsertReference) {
-                throw new IllegalStateException(format("%s should not appear in final plan", writerTarget.getClass().getSimpleName()));
-            }
-            else {
-                throw new IllegalStateException(format("Unknown WriterTarget subclass %s", writerTarget.getClass().getSimpleName()));
-            }
+            context.setOutputTable(new CatalogSchemaTableName(
+                    writerTarget.getConnectorId().getCatalogName(),
+                    writerTarget.getSchemaTableName().getSchemaName(),
+                    writerTarget.getSchemaTableName().getTableName()));
             return processChildren(node, context);
         }
 

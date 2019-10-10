@@ -393,7 +393,7 @@ public class LogicalPlanner
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new InsertReference(insert.getTarget()),
+                new InsertReference(insert.getTarget(), metadata.getTableMetadata(session, insert.getTarget()).getTable()),
                 visibleTableColumnNames,
                 newTableLayout,
                 statisticsMetadata);
