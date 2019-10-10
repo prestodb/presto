@@ -510,7 +510,8 @@ public class SqlQueryExecution
                 rootOutputBuffers,
                 nodeTaskMap,
                 executionPolicy,
-                schedulerStats);
+                schedulerStats,
+                metadata);
 
         queryScheduler.set(scheduler);
 

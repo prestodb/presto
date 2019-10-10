@@ -18,6 +18,7 @@ import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OutputTableHandle;
@@ -41,7 +42,6 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.AfterClass;
@@ -308,7 +308,7 @@ public class TestTableWriterOperator
                 0,
                 new PlanNodeId("test"),
                 pageSinkManager,
-                new TableWriterNode.CreateHandle(new OutputTableHandle(
+                new CreateHandle(new OutputTableHandle(
                         CONNECTOR_ID,
                         new ConnectorTransactionHandle() {},
                         new ConnectorOutputTableHandle() {}),

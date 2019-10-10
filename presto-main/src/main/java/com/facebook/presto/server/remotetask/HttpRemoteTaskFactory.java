@@ -29,6 +29,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
@@ -145,7 +146,8 @@ public class HttpRemoteTaskFactory
             OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            TableWriteInfo tableWriteInfo)
     {
         return new HttpRemoteTask(session,
                 taskId,
@@ -169,6 +171,7 @@ public class HttpRemoteTaskFactory
                 taskUpdateRequestCodec,
                 partitionedSplitCountTracker,
                 stats,
-                isBinaryTransportEnabled);
+                isBinaryTransportEnabled,
+                tableWriteInfo);
     }
 }

@@ -514,7 +514,8 @@ public class TestSourcePartitionedScheduler
                 nodeTaskMap,
                 queryExecutor,
                 new NoOpFailureDetector(),
-                new SplitSchedulerStats());
+                new SplitSchedulerStats(),
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
 
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)
                 .withBuffer(OUT, 0)

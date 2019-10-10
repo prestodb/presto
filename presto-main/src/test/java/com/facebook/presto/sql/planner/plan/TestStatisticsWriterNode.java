@@ -54,8 +54,9 @@ public class TestStatisticsWriterNode
             throws Exception
     {
         JsonCodec<StatisticsWriterNode> jsonCodec = getJsonCodec();
-        StatisticsWriterNode expected = createStatisticsWriterNode();
-        StatisticsWriterNode deserialized = jsonCodec.fromJson(jsonCodec.toJson(expected));
+        StatisticsWriterNode original = createStatisticsWriterNode();
+        StatisticsWriterNode expected = new StatisticsWriterNode(original.getId(), original.getSource(), Optional.empty(), original.getRowCountVariable(), original.isRowCountEnabled(), original.getDescriptor());
+        StatisticsWriterNode deserialized = jsonCodec.fromJson(jsonCodec.toJson(original));
         assertEquals(deserialized.getTarget(), expected.getTarget());
         assertEquals(deserialized.getRowCountVariable(), expected.getRowCountVariable());
         assertEquals(deserialized.isRowCountEnabled(), expected.isRowCountEnabled());

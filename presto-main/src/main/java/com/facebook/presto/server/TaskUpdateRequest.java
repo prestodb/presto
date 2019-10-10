@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -38,6 +39,7 @@ public class TaskUpdateRequest
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
     private final OptionalInt totalPartitions;
+    private final Optional<TableWriteInfo> tableWriteInfo;
 
     @JsonCreator
     public TaskUpdateRequest(
@@ -46,7 +48,8 @@ public class TaskUpdateRequest
             @JsonProperty("fragment") Optional<PlanFragment> fragment,
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds,
-            @JsonProperty("totalPartitions") OptionalInt totalPartitions)
+            @JsonProperty("totalPartitions") OptionalInt totalPartitions,
+            @JsonProperty("tableWriteInfo") Optional<TableWriteInfo> tableWriteInfo)
     {
         requireNonNull(session, "session is null");
         requireNonNull(extraCredentials, "credentials is null");
@@ -54,6 +57,7 @@ public class TaskUpdateRequest
         requireNonNull(sources, "sources is null");
         requireNonNull(outputIds, "outputIds is null");
         requireNonNull(totalPartitions, "totalPartitions is null");
+        requireNonNull(tableWriteInfo, "tableWriteInfo is null");
 
         this.session = session;
         this.extraCredentials = extraCredentials;
@@ -61,6 +65,7 @@ public class TaskUpdateRequest
         this.sources = ImmutableList.copyOf(sources);
         this.outputIds = outputIds;
         this.totalPartitions = totalPartitions;
+        this.tableWriteInfo = tableWriteInfo;
     }
 
     @JsonProperty
@@ -97,6 +102,12 @@ public class TaskUpdateRequest
     public OptionalInt getTotalPartitions()
     {
         return totalPartitions;
+    }
+
+    @JsonProperty
+    public Optional<TableWriteInfo> getTableWriteInfo()
+    {
+        return tableWriteInfo;
     }
 
     @Override

@@ -35,6 +35,7 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.PageBufferInfo;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.TaskUpdateRequest;
@@ -178,6 +179,8 @@ public final class HttpRemoteTask
 
     private final boolean isBinaryTransportEnabled;
 
+    private final TableWriteInfo tableWriteInfo;
+
     public HttpRemoteTask(
             Session session,
             TaskId taskId,
@@ -201,7 +204,8 @@ public final class HttpRemoteTask
             Codec<TaskUpdateRequest> taskUpdateRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             RemoteTaskStats stats,
-            boolean isBinaryTransportEnabled)
+            boolean isBinaryTransportEnabled,
+            TableWriteInfo tableWriteInfo)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -219,6 +223,7 @@ public final class HttpRemoteTask
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(taskInfoRefreshMaxWait, "taskInfoRefreshMaxWait is null");
+        requireNonNull(tableWriteInfo, "tableWriteInfo is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -239,6 +244,7 @@ public final class HttpRemoteTask
             this.maxErrorDuration = maxErrorDuration;
             this.stats = stats;
             this.isBinaryTransportEnabled = isBinaryTransportEnabled;
+            this.tableWriteInfo = tableWriteInfo;
 
             this.tableScanPlanNodeIds = ImmutableSet.copyOf(planFragment.getTableScanSchedulingOrder());
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
@@ -439,7 +445,8 @@ public final class HttpRemoteTask
     {
         errorTracker.startRequest();
 
-        FutureCallback<StatusResponse> callback = new FutureCallback<StatusResponse>() {
+        FutureCallback<StatusResponse> callback = new FutureCallback<StatusResponse>()
+        {
             @Override
             public void onSuccess(@Nullable StatusResponse response)
             {
@@ -611,13 +618,15 @@ public final class HttpRemoteTask
         List<TaskSource> sources = getSources();
 
         Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment) : Optional.empty();
+        Optional<TableWriteInfo> writeInfo = sendPlan.get() ? Optional.of(tableWriteInfo) : Optional.empty();
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
                 fragment,
                 sources,
                 outputBuffers.get(),
-                totalPartitions);
+                totalPartitions,
+                writeInfo);
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
         if (fragment.isPresent()) {
             stats.updateWithPlanBytes(taskUpdateRequestJson.length);
