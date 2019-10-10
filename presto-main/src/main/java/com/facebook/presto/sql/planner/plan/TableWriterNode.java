@@ -267,16 +267,14 @@ public class TableWriterNode
         private final TableHandle handle;
         private final SchemaTableName schemaTableName;
 
-        @JsonCreator
         public DeleteHandle(
-                @JsonProperty("handle") TableHandle handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+                TableHandle handle,
+                SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
-        @JsonProperty
         public TableHandle getHandle()
         {
             return handle;
@@ -289,7 +287,6 @@ public class TableWriterNode
         }
 
         @Override
-        @JsonProperty
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;

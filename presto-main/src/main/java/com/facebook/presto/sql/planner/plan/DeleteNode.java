@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.DeleteHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +32,6 @@ public class DeleteNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final DeleteHandle target;
     private final VariableReferenceExpression rowId;
     private final List<VariableReferenceExpression> outputVariables;
 
@@ -41,14 +39,12 @@ public class DeleteNode
     public DeleteNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("target") DeleteHandle target,
             @JsonProperty("rowId") VariableReferenceExpression rowId,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
     {
         super(id);
 
         this.source = requireNonNull(source, "source is null");
-        this.target = requireNonNull(target, "target is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
     }
@@ -57,12 +53,6 @@ public class DeleteNode
     public PlanNode getSource()
     {
         return source;
-    }
-
-    @JsonProperty
-    public DeleteHandle getTarget()
-    {
-        return target;
     }
 
     @JsonProperty
@@ -93,6 +83,6 @@ public class DeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new DeleteNode(getId(), Iterables.getOnlyElement(newChildren), target, rowId, outputVariables);
+        return new DeleteNode(getId(), Iterables.getOnlyElement(newChildren), rowId, outputVariables);
     }
 }
