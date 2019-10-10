@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.OutputTableHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
@@ -187,20 +188,20 @@ public class TableWriterNode
     public static class CreateName
             extends WriterTarget
     {
-        private final String catalog;
+        private final ConnectorId connectorId;
         private final ConnectorTableMetadata tableMetadata;
         private final Optional<NewTableLayout> layout;
 
-        public CreateName(String catalog, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
+        public CreateName(ConnectorId connectorId, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
         {
-            this.catalog = requireNonNull(catalog, "catalog is null");
+            this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
             this.layout = requireNonNull(layout, "layout is null");
         }
 
-        public String getCatalog()
+        public ConnectorId getConnectorId()
         {
-            return catalog;
+            return connectorId;
         }
 
         public ConnectorTableMetadata getTableMetadata()
@@ -216,7 +217,7 @@ public class TableWriterNode
         @Override
         public String toString()
         {
-            return catalog + "." + tableMetadata.getTable();
+            return connectorId + "." + tableMetadata.getTable();
         }
     }
 
