@@ -299,7 +299,7 @@ public class LogicalPlanner
                         AggregationNode.Step.SINGLE,
                         Optional.empty(),
                         Optional.empty()),
-                new StatisticsWriterNode.WriteStatisticsReference(targetTable),
+                Optional.of(new StatisticsWriterNode.WriteStatisticsReference(targetTable)),
                 variableAllocator.newVariable("rows", BIGINT),
                 tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
                 tableStatisticAggregation.getDescriptor());
@@ -451,7 +451,7 @@ public class LogicalPlanner
                     new TableWriterNode(
                             idAllocator.getNextId(),
                             source,
-                            target,
+                            Optional.of(target),
                             variableAllocator.newVariable("rows", BIGINT),
                             variableAllocator.newVariable("fragments", VARBINARY),
                             variableAllocator.newVariable("commitcontext", VARBINARY),
@@ -461,7 +461,7 @@ public class LogicalPlanner
                             // partial aggregation is run within the TableWriteOperator to calculate the statistics for
                             // the data consumed by the TableWriteOperator
                             Optional.of(aggregations.getPartialAggregation())),
-                    target,
+                    Optional.of(target),
                     variableAllocator.newVariable("rows", BIGINT),
                     // final aggregation is run within the TableFinishOperator to summarize collected statistics
                     // by the partial aggregation from all of the writer nodes
@@ -476,7 +476,7 @@ public class LogicalPlanner
                 new TableWriterNode(
                         idAllocator.getNextId(),
                         source,
-                        target,
+                        Optional.of(target),
                         variableAllocator.newVariable("rows", BIGINT),
                         variableAllocator.newVariable("fragments", VARBINARY),
                         variableAllocator.newVariable("commitcontext", VARBINARY),
@@ -484,7 +484,7 @@ public class LogicalPlanner
                         columnNames,
                         partitioningScheme,
                         Optional.empty()),
-                target,
+                Optional.of(target),
                 variableAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
@@ -499,7 +499,7 @@ public class LogicalPlanner
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 deleteNode,
-                deleteNode.getTarget(),
+                Optional.of(deleteNode.getTarget()),
                 variableAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());

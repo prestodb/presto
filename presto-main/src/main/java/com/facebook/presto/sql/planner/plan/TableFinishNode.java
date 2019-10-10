@@ -35,7 +35,7 @@ public class TableFinishNode
         extends InternalPlanNode
 {
     private final PlanNode source;
-    private final WriterTarget target;
+    private final Optional<WriterTarget> target;
     private final VariableReferenceExpression rowCountVariable;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor;
@@ -44,7 +44,7 @@ public class TableFinishNode
     public TableFinishNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("target") WriterTarget target,
+            @JsonProperty("target") Optional<WriterTarget> target,
             @JsonProperty("rowCountVariable") VariableReferenceExpression rowCountVariable,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<VariableReferenceExpression>> statisticsAggregationDescriptor)
@@ -67,7 +67,7 @@ public class TableFinishNode
     }
 
     @JsonProperty
-    public WriterTarget getTarget()
+    public Optional<WriterTarget> getTarget()
     {
         return target;
     }

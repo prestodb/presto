@@ -74,6 +74,7 @@ public class TestVerifyNoOriginalExpression
     private PlanBuilder builder;
     private ValuesNode valuesNode;
     private CallExpression comparisonCallExpression;
+
     @BeforeClass
     public void setup()
     {
@@ -207,7 +208,7 @@ public class TestVerifyNoOriginalExpression
         TableFinishNode tableFinishNode = new TableFinishNode(
                 new PlanNodeId("1"),
                 valuesNode,
-                new TestingWriterTarget(),
+                Optional.of(new TestingWriterTarget()),
                 VARIABLE_REFERENCE_EXPRESSION,
                 Optional.empty(),
                 Optional.empty());

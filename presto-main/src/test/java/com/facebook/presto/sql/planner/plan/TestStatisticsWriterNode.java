@@ -34,6 +34,7 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
@@ -92,7 +93,7 @@ public class TestStatisticsWriterNode
         return new StatisticsWriterNode(
                 newId(),
                 new ValuesNode(newId(), COLUMNS.stream().map(column -> new VariableReferenceExpression(column, BIGINT)).collect(toImmutableList()), ImmutableList.of()),
-                new StatisticsWriterNode.TestWriteStatisticsHandle(),
+                Optional.of(new StatisticsWriterNode.TestWriteStatisticsHandle()),
                 variableAllocator.newVariable("count", BIGINT),
                 true,
                 createTestDescriptor());

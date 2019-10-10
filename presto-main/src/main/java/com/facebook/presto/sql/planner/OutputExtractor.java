@@ -19,6 +19,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.google.common.base.VerifyException;
 
 import java.util.Optional;
 
@@ -50,7 +51,7 @@ public class OutputExtractor
         @Override
         public Void visitTableWriter(TableWriterNode node, Void context)
         {
-            TableWriterNode.WriterTarget writerTarget = node.getTarget();
+            TableWriterNode.WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
 
             if (writerTarget instanceof TableWriterNode.CreateHandle) {
                 connectorId = ((TableWriterNode.CreateHandle) writerTarget).getHandle().getConnectorId();
