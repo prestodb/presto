@@ -999,7 +999,7 @@ public class PlanPrinter
         @Override
         public Void visitMetadataDelete(MetadataDeleteNode node, Void context)
         {
-            addNode(node, "MetadataDelete", format("[%s]", node.getTarget()));
+            addNode(node, "MetadataDelete", format("[%s]", node.getTableHandle()));
 
             return processChildren(node, context);
         }
