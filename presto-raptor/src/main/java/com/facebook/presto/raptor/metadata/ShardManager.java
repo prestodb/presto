@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import javafx.util.Pair;
 import org.skife.jdbi.v2.ResultIterator;
 
 import java.util.Collection;
@@ -49,8 +50,22 @@ public interface ShardManager
 
     /**
      * Replace oldShardsUuids with newShards.
+     * Used by rewrite delete and compaction.
+     * With tableSupportsDeltaDelete: Delete oldShardsUuids with their delta shards
+     * Add newShards
      */
-    void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards, OptionalLong updateTime);
+    void replaceShardUuids(long transactionId, boolean tableSupportsDeltaDelete, long tableId, List<ColumnInfo> columns, Map<UUID, Optional<UUID>> oldShardUuids, Collection<ShardInfo> newShards, OptionalLong updateTime);
+
+    /**
+     * Replace oldDeltaDeleteShard with newDeltaDeleteShard.
+     * Used by delta delete.
+     * For shardMap:
+     *      UUID is the target file.
+     *      Optional<UUID> in the Pair is the oldDeltaDeleteShard for the target file.
+     *      Optional<ShardInfo>> in the Pair is the newDeltaDeleteShard for the target file.
+     * NOTE: Optional<ShardInfo>> being Optional.empty() means deleting the target file.
+     */
+    void replaceDeltaUuids(long transactionId, long tableId, List<ColumnInfo> columns, Map<UUID, Pair<Optional<UUID>, Optional<ShardInfo>>> shardMap, OptionalLong updateTime);
 
     /**
      * Get shard metadata for a shard.

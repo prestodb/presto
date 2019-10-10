@@ -82,7 +82,8 @@ class OrganizationJob
         TableMetadata metadata = getTableMetadata(tableId);
         List<ShardInfo> newShards = performCompaction(transactionId, bucketNumber, shardUuids, metadata);
         log.info("Compacted shards %s into %s", shardUuids, newShards.stream().map(ShardInfo::getShardUuid).collect(toList()));
-        shardManager.replaceShardUuids(transactionId, tableId, metadata.getColumns(), shardUuids, newShards, OptionalLong.empty());
+        // todo
+        shardManager.replaceShardUuids(transactionId, false, tableId, metadata.getColumns(), null, newShards, OptionalLong.empty());
     }
 
     private TableMetadata getTableMetadata(long tableId)

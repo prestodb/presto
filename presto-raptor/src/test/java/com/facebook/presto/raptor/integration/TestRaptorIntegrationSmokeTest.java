@@ -838,7 +838,77 @@ public class TestRaptorIntegrationSmokeTest
         // cleanup
         assertUpdate("DROP TABLE test_table_stats");
     }
-    
+
+    @SuppressWarnings("OverlyStrongTypeCast")
+    @Test
+    public void testTableStatsSystemTableWithDeltaDelete()
+    {
+        // create empty table
+        assertUpdate("CREATE TABLE test_table_stats (x bigint) WITH (table_supports_delta_delete = true)");
+
+        @Language("SQL") String sql = "" +
+                "SELECT create_time, update_time, table_version," +
+                "  shard_count, row_count, uncompressed_size, delta_count\n" +
+                "FROM system.table_stats\n" +
+                "WHERE table_schema = 'tpch'\n" +
+                "  AND table_name = 'test_table_stats'";
+        MaterializedRow row = getOnlyElement(computeActual(sql).getMaterializedRows());
+
+        LocalDateTime createTime = (LocalDateTime) row.getField(0);
+        LocalDateTime updateTime1 = (LocalDateTime) row.getField(1);
+        assertEquals(createTime, updateTime1);
+
+        assertEquals(row.getField(2), 1L);      // table_version
+        assertEquals(row.getField(3), 0L);      // shard_count
+        assertEquals(row.getField(4), 0L);      // row_count
+        long size1 = (long) row.getField(5);    // uncompressed_size
+
+        // insert
+        assertUpdate("INSERT INTO test_table_stats VALUES (1), (2), (3), (4)", 4);
+        row = getOnlyElement(computeActual(sql).getMaterializedRows());
+
+        assertEquals(row.getField(0), createTime);
+        LocalDateTime updateTime2 = (LocalDateTime) row.getField(1);
+        assertLessThan(updateTime1, updateTime2);
+
+        assertEquals(row.getField(2), 2L);                    // table_version
+        assertGreaterThanOrEqual((Long) row.getField(3), 1L); // shard_count
+        assertEquals(row.getField(4), 4L);                    // row_count
+        assertGreaterThanOrEqual((Long) row.getField(6), 0L); // delta_count
+        long size2 = (long) row.getField(5);                  // uncompressed_size
+        assertGreaterThan(size2, size1);
+
+        // delete
+        assertUpdate("DELETE FROM test_table_stats WHERE x IN (2, 4)", 2);
+        row = getOnlyElement(computeActual(sql).getMaterializedRows());
+
+        assertEquals(row.getField(0), createTime);
+        LocalDateTime updateTime3 = (LocalDateTime) row.getField(1);
+        assertLessThan(updateTime2, updateTime3);
+
+        assertEquals(row.getField(2), 3L);                    // table_version
+        assertGreaterThanOrEqual((Long) row.getField(3), 1L); // shard_count
+        assertEquals(row.getField(4), 2L);                    // row_count
+        assertGreaterThanOrEqual((Long) row.getField(6), 1L); // delta_count
+        long size3 = (long) row.getField(5);                  // uncompressed_Size
+        // without compaction, the size will grow with delta delete
+        assertGreaterThan(size3, size2);
+
+        // add column
+        assertUpdate("ALTER TABLE test_table_stats ADD COLUMN y bigint");
+        row = getOnlyElement(computeActual(sql).getMaterializedRows());
+
+        assertEquals(row.getField(0), createTime);
+        assertLessThan(updateTime3, (LocalDateTime) row.getField(1));
+
+        assertEquals(row.getField(2), 4L);      // table_version
+        assertEquals(row.getField(4), 2L);      // row_count
+        assertEquals(row.getField(5), size3);   // uncompressed_size
+
+        // cleanup
+        assertUpdate("DROP TABLE test_table_stats");
+    }
+
     @Test
     public void testAlterTable()
     {
@@ -898,6 +968,33 @@ public class TestRaptorIntegrationSmokeTest
         assertQuery("SELECT * FROM test_delete_table", "VALUES (3, 1), (3, 2), (3, 3), (3, 4)");
 
         assertUpdate("DROP TABLE test_delete_table");
+    }
+
+    @Test
+    public void testDeltaDelete()
+    {
+        assertUpdate("CREATE TABLE test_delta_delete_table (c1 bigint, c2 bigint) WITH (table_supports_delta_delete = true)");
+        assertUpdate("INSERT INTO test_delta_delete_table VALUES (1, 1), (1, 2), (1, 3), (1, 4), (11, 1), (11, 2)", 6);
+
+        assertUpdate("ALTER TABLE test_delta_delete_table ADD COLUMN c3 bigint");
+        assertUpdate("INSERT INTO test_delta_delete_table VALUES (2, 1, 1), (2, 2, 2), (2, 3, 3), (2, 4, 4), (22, 1, 1), (22, 2, 2), (22, 4, 4)", 7);
+
+        assertUpdate("DELETE FROM test_delta_delete_table WHERE c1 = 1", 4);
+        assertQuery("SELECT * FROM test_delta_delete_table", "VALUES (11, 1, NULL), (11, 2, NULL), (2, 1, 1), (2, 2, 2), (2, 3, 3), (2, 4, 4), (22, 1, 1), (22, 2, 2), (22, 4, 4)");
+
+        assertUpdate("DELETE FROM test_delta_delete_table WHERE c1 = 1", 0);
+        assertQuery("SELECT * FROM test_delta_delete_table", "VALUES (11, 1, NULL), (11, 2, NULL), (2, 1, 1), (2, 2, 2), (2, 3, 3), (2, 4, 4), (22, 1, 1), (22, 2, 2), (22, 4, 4)");
+
+        assertUpdate("ALTER TABLE test_delta_delete_table DROP COLUMN c2");
+        assertUpdate("INSERT INTO test_delta_delete_table VALUES (3, 1), (3, 2), (3, 3), (3, 4)", 4);
+
+        assertUpdate("DELETE FROM test_delta_delete_table WHERE c1 = 2", 4);
+        assertQuery("SELECT * FROM test_delta_delete_table", "VALUES (11, NULL), (11, NULL), (22, 1), (22, 2), (22, 4), (3, 1), (3, 2), (3, 3), (3, 4)");
+
+        assertUpdate("DELETE FROM test_delta_delete_table WHERE c1 % 11 = 0", 5);
+        assertQuery("SELECT * FROM test_delta_delete_table", "VALUES (3, 1), (3, 2), (3, 3), (3, 4)");
+
+        assertUpdate("DROP TABLE test_delta_delete_table");
     }
 
     @Test
