@@ -43,7 +43,6 @@ import com.facebook.presto.sql.planner.Interpreters.LambdaVariableResolver;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.util.Failures;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.joni.Regex;
@@ -171,9 +170,8 @@ public class RowExpressionInterpreter
     }
 
     /**
-     * For test only; convenient to replace symbol with constants. Production code should not replace any symbols; use the interface above
+     * Replace symbol with constants
      */
-    @VisibleForTesting
     public Object optimize(VariableResolver inputs)
     {
         checkState(optimizationLevel.ordinal() <= EVALUATED.ordinal(), "optimize(SymbolResolver) not allowed for interpreter");
