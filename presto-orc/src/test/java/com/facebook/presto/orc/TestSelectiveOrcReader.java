@@ -123,6 +123,11 @@ public class TestSelectiveOrcReader
                         ImmutableMap.of(0, TupleDomainFilter.IS_NULL),
                         ImmutableMap.of(1, BooleanValue.of(true, false)),
                         ImmutableMap.of(0, BooleanValue.of(false, false), 1, BooleanValue.of(true, false))));
+
+        tester.testRoundTripTypes(
+                ImmutableList.of(BOOLEAN, BOOLEAN, BOOLEAN),
+                ImmutableList.of(newArrayList(true, false, null, false, true), newArrayList(null, null, null, null, null), newArrayList(true, false, null, false, null)),
+                toSubfieldFilters(ImmutableMap.of(0, BooleanValue.of(true, false), 1, BooleanValue.of(true, true), 2, BooleanValue.of(true, true))));
     }
 
     @Test
@@ -146,6 +151,14 @@ public class TestSelectiveOrcReader
                         1,
                         BigintRange.of(12, 14, false)));
         tester.testRoundTripTypes(ImmutableList.of(TINYINT, TINYINT), ImmutableList.of(byteValues, byteValues), filters);
+
+        tester.testRoundTripTypes(
+                ImmutableList.of(TINYINT, TINYINT, TINYINT),
+                ImmutableList.of(toByteArray(newArrayList(1, 2, null, 3, 4)), newArrayList(null, null, null, null, null), toByteArray(newArrayList(5, 6, null, 7, null))),
+                toSubfieldFilters(ImmutableMap.of(
+                        0, BigintValues.of(new long[] {1, 4}, false),
+                        1, BigintValues.of(new long[] {1, 5}, true),
+                        2, BigintValues.of(new long[] {5, 7}, true))));
     }
 
     @Test
@@ -194,6 +207,13 @@ public class TestSelectiveOrcReader
                         ImmutableMap.of(
                                 0, DoubleRange.of(1.0, false, true, 7.0, false, true, true),
                                 1, DoubleRange.of(3.0, false, true, 9.0, false, true, false))));
+        tester.testRoundTripTypes(
+                ImmutableList.of(DOUBLE, DOUBLE, DOUBLE),
+                ImmutableList.of(newArrayList(1.0, 2.0, null, 3.0, 4.0), newArrayList(null, null, null, null, null), newArrayList(1.0, 2.0, null, 3.0, null)),
+                toSubfieldFilters(ImmutableMap.of(
+                        0, DoubleRange.of(1.0, false, true, 7.0, false, true, true),
+                        1, DoubleRange.of(1.0, false, true, 7.0, false, true, true),
+                        2, DoubleRange.of(1.0, false, true, 7.0, false, true, true))));
     }
 
     @Test
@@ -319,6 +339,14 @@ public class TestSelectiveOrcReader
                                 1, FloatRange.of(3.0f, false, true, 9.0f, false, true, false)),
                         ImmutableMap.of(
                                 1, FloatRange.of(1.0f, false, true, 7.0f, false, true, true))));
+
+        tester.testRoundTripTypes(
+                ImmutableList.of(REAL, REAL, REAL),
+                ImmutableList.of(newArrayList(1.0f, 2.0f, 3.0f, 4.0f, 5.0f), newArrayList(null, null, null, null, null), newArrayList(1.0f, 2.0f, null, 3.0f, null)),
+                toSubfieldFilters(ImmutableMap.of(
+                        0, FloatRange.of(2.0f, false, false, 7.0f, false, true, true),
+                        1, FloatRange.of(1.0f, false, false, 7.0f, false, true, true),
+                        2, FloatRange.of(1.0f, false, false, 7.0f, false, true, true))));
     }
 
     @Test
@@ -463,9 +491,9 @@ public class TestSelectiveOrcReader
                 createList(NUM_ROWS, i -> ImmutableList.of(random.nextInt(10), random.nextInt(10), 3, 4)),
                 ImmutableList.of(
                         OrcReaderSettings.builder()
-                            .addRequiredSubfields(0, "c[1]", "c[3]")
-                            .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[1]"), BigintRange.of(0, 4, false))))
-                            .build(),
+                                .addRequiredSubfields(0, "c[1]", "c[3]")
+                                .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[1]"), BigintRange.of(0, 4, false))))
+                                .build(),
                         OrcReaderSettings.builder()
                                 .addRequiredSubfields(0, "c[2]", "c[3]")
                                 .setColumnFilters(ImmutableMap.of(0, ImmutableMap.of(new Subfield("c[2]"), BigintRange.of(0, 4, false))))
@@ -716,6 +744,14 @@ public class TestSelectiveOrcReader
     public void testVarchars()
             throws Exception
     {
+        tester.testRoundTripTypes(
+                ImmutableList.of(VARCHAR, VARCHAR, VARCHAR),
+                ImmutableList.of(newArrayList("abc", "def", null, "hij", "klm"), newArrayList(null, null, null, null, null), newArrayList("abc", "def", null, null, null)),
+                toSubfieldFilters(ImmutableMap.of(
+                        0, stringIn(true, "abc", "def"),
+                        1, stringIn(true, "10", "11"),
+                        2, stringIn(true, "def", "abc"))));
+
         // dictionary
         tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), NUM_ROWS)),
                 stringIn(false, "apple", "apple pie"));
@@ -1042,5 +1078,10 @@ public class TestSelectiveOrcReader
             values.add(-numbers[i % numbers.length] + i);
         }
         return values;
+    }
+
+    private static List<Byte> toByteArray(List<Integer> integers)
+    {
+        return integers.stream().map((i) -> i == null ? null : i.byteValue()).collect(toList());
     }
 }
