@@ -15,10 +15,10 @@ package com.facebook.presto.verifier;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.plugin.memory.MemoryPlugin;
+import com.facebook.presto.testing.mysql.MySqlOptions;
+import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.google.common.collect.ImmutableList;
-import io.airlift.testing.mysql.MySqlOptions;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.units.Duration;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;

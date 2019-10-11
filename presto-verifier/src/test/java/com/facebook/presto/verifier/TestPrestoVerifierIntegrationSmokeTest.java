@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.verifier;
 
+import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.google.common.io.CharSink;
 import io.airlift.airline.Cli;
 import io.airlift.airline.Help;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import org.jdbi.v3.core.Handle;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
