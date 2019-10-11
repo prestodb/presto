@@ -24,6 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.UnsafeSlice;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
@@ -168,6 +169,10 @@ public class LongDecimalSelectiveStreamReader
     @Override
     protected void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
+        if (outputPositionsReadOnly) {
+            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+            outputPositionsReadOnly = false;
+        }
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         for (int i = 0; i < outputPositionCount; i++) {

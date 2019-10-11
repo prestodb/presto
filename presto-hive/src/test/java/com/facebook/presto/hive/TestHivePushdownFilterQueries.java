@@ -334,6 +334,8 @@ public class TestHivePushdownFilterQueries
         assertFilterProject("discount_long_decimal > 0.01 AND tax_short_decimal > 0.01 AND (discount_long_decimal + tax_short_decimal) < 0.03", "discount_long_decimal");
 
         assertFilterProject("long_decimals[1] > 0.01", "count(*)");
+
+        assertFilterProject("tax_real > 0.01 and tax_short_decimal > 0.02 and (discount_long_decimal + tax_short_decimal) < 0.05", "tax_short_decimal, discount_long_decimal");
     }
 
     @Test

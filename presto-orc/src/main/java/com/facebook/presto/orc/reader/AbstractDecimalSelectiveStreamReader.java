@@ -62,6 +62,7 @@ public abstract class AbstractDecimalSelectiveStreamReader
     protected BooleanInputStream presentStream;
     protected DecimalInputStream dataStream;
     protected LongInputStream scaleStream;
+    protected boolean outputPositionsReadOnly;
 
     private final int valuesPerPosition;
     private final Block nullBlock;
@@ -158,6 +159,7 @@ public abstract class AbstractDecimalSelectiveStreamReader
         }
         else {
             outputPositions = positions;
+            outputPositionsReadOnly = true;
         }
 
         // account memory used by values, nulls and outputPositions
