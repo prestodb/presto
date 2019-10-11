@@ -71,8 +71,6 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -106,12 +104,12 @@ import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutpu
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.LimitNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.getNumberOfTableScans;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleTableScans;
-import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
@@ -131,8 +129,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.mergingExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -203,7 +199,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitProject(ProjectNode node, PreferredProperties preferredProperties)
         {
-            Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments(), types);
+            Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments());
             PreferredProperties translatedPreferred = preferredProperties.translate(symbol -> Optional.ofNullable(identities.get(symbol)));
 
             return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
@@ -547,7 +543,7 @@ public class AddExchanges
         public PlanWithProperties visitFilter(FilterNode node, PreferredProperties preferredProperties)
         {
             if (node.getSource() instanceof TableScanNode) {
-                return planTableScan((TableScanNode) node.getSource(), castToExpression(node.getPredicate()));
+                return planTableScan((TableScanNode) node.getSource(), node.getPredicate());
             }
 
             return rebaseAndDeriveProperties(node, planChild(node, preferredProperties));
@@ -556,7 +552,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
         {
-            return planTableScan(node, TRUE_LITERAL);
+            return planTableScan(node, TRUE_CONSTANT);
         }
 
         @Override
@@ -590,7 +586,7 @@ public class AddExchanges
             return rebaseAndDeriveProperties(node, source);
         }
 
-        private PlanWithProperties planTableScan(TableScanNode node, Expression predicate)
+        private PlanWithProperties planTableScan(TableScanNode node, RowExpression predicate)
         {
             PlanNode plan = pushPredicateIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
             // TODO: Support selecting layout with best local property once connector can participate in query optimization.
@@ -1398,12 +1394,12 @@ public class AddExchanges
                 .allMatch(this::canPushdownPartialMergeThroughLowMemoryOperators);
     }
 
-    public static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Assignments assignments, TypeProvider types)
+    public static Map<VariableReferenceExpression, VariableReferenceExpression> computeIdentityTranslations(Assignments assignments)
     {
         Map<VariableReferenceExpression, VariableReferenceExpression> outputToInput = new HashMap<>();
         for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.getMap().entrySet()) {
-            if (castToExpression(assignment.getValue()) instanceof SymbolReference) {
-                outputToInput.put(assignment.getKey(), toVariableReference(castToExpression(assignment.getValue()), types));
+            if (assignment.getValue() instanceof VariableReferenceExpression) {
+                outputToInput.put(assignment.getKey(), (VariableReferenceExpression) assignment.getValue());
             }
         }
         return outputToInput;

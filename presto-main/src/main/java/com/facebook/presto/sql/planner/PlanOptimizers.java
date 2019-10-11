@@ -455,6 +455,15 @@ public class PlanOptimizers
                         .add(new InlineProjections(metadata.getFunctionManager()))
                         .build()));
 
+        // TODO: move this before optimization if possible!!
+        // Replace all expressions with row expressions
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                new TranslateExpressions(metadata, sqlParser).rules()));
+        // After this point, all planNodes should not contain OriginalExpression
+
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
             builder.add((new IterativeOptimizer(
@@ -474,15 +483,6 @@ public class PlanOptimizers
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser)));
         }
-
-        // TODO: move this before optimization if possible!!
-        // Replace all expressions with row expressions
-        builder.add(new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                new TranslateExpressions(metadata, sqlParser).rules()));
-        // After this point, all planNodes should not contain OriginalExpression
 
         //noinspection UnusedAssignment
         estimatedExchangesCostCalculator = null; // Prevent accidental use after AddExchanges
