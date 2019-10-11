@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Optional;
 
 public class ShortDecimalSelectiveStreamReader
@@ -144,6 +145,10 @@ public class ShortDecimalSelectiveStreamReader
     @Override
     protected void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
+        if (outputPositionsReadOnly) {
+            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
+            outputPositionsReadOnly = false;
+        }
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         for (int i = 0; i < outputPositionCount; i++) {
