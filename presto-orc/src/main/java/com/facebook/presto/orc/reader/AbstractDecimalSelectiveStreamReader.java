@@ -62,6 +62,7 @@ public abstract class AbstractDecimalSelectiveStreamReader
     protected BooleanInputStream presentStream;
     protected DecimalInputStream dataStream;
     protected LongInputStream scaleStream;
+    protected boolean outputPositionsReadOnly;
 
     private final int valuesPerPosition;
     private final Block nullBlock;
@@ -202,6 +203,10 @@ public abstract class AbstractDecimalSelectiveStreamReader
         }
         else if (nullsAllowed) {
             outputPositionCount = positionCount;
+            if (filter != null) {
+                outputPositions = positions;
+                outputPositionsReadOnly = true;
+            }
         }
         else {
             outputPositionCount = 0;

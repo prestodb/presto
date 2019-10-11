@@ -265,6 +265,10 @@ public class TimestampSelectiveStreamReader
         }
         else if (nullsAllowed) {
             outputPositionCount = positionCount;
+            if (filter != null) {
+                outputPositions = positions;
+                outputPositionsReadOnly = true;
+            }
         }
         else {
             outputPositionCount = 0;
