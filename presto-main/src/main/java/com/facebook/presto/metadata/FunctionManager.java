@@ -129,8 +129,9 @@ public class FunctionManager
 
         transactionManager.registerFunctionNamespaceManager(functionNamespaceManagerName, functionNamespaceManager);
         for (String functionNamespacePrefix : functionNamespacePrefixes) {
-            if (functionNamespaces.putIfAbsent(FullyQualifiedName.Prefix.of(functionNamespacePrefix), functionNamespaceManager) != null) {
-                throw new IllegalArgumentException(format("Function namespace manager '%s' already registered to handle function namespace '%s'", factory.getName(), functionNamespacePrefix));
+            FunctionNamespaceManager<?> otherFunctionNamespaceManager = functionNamespaces.putIfAbsent(FullyQualifiedName.Prefix.of(functionNamespacePrefix), functionNamespaceManager);
+            if (otherFunctionNamespaceManager != null) {
+                throw new IllegalArgumentException(format("Function namespace manager '%s' already registered to handle function namespace '%s'", otherFunctionNamespaceManager.getName(), functionNamespacePrefix));
             }
         }
     }
