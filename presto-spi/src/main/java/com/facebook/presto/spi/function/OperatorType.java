@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.relation.FullyQualifiedName;
-
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -45,16 +43,16 @@ public enum OperatorType
     XX_HASH_64("XX HASH 64", false),
     INDETERMINATE("INDETERMINATE", true);
 
-    private static final Map<FullyQualifiedName, OperatorType> OPERATOR_TYPES = Arrays.stream(OperatorType.values()).collect(toMap(OperatorType::getFunctionName, Function.identity()));
+    private static final Map<QualifiedFunctionName, OperatorType> OPERATOR_TYPES = Arrays.stream(OperatorType.values()).collect(toMap(OperatorType::getFunctionName, Function.identity()));
 
     private final String operator;
-    private final FullyQualifiedName functionName;
+    private final QualifiedFunctionName functionName;
     private final boolean calledOnNullInput;
 
     OperatorType(String operator, boolean calledOnNullInput)
     {
         this.operator = operator;
-        this.functionName = FullyQualifiedName.of("presto.default.$operator$" + name());
+        this.functionName = QualifiedFunctionName.of("presto.default.$operator$" + name());
         this.calledOnNullInput = calledOnNullInput;
     }
 
@@ -63,7 +61,7 @@ public enum OperatorType
         return operator;
     }
 
-    public FullyQualifiedName getFunctionName()
+    public QualifiedFunctionName getFunctionName()
     {
         return functionName;
     }
@@ -73,7 +71,7 @@ public enum OperatorType
         return calledOnNullInput;
     }
 
-    public static Optional<OperatorType> tryGetOperatorType(FullyQualifiedName operatorName)
+    public static Optional<OperatorType> tryGetOperatorType(QualifiedFunctionName operatorName)
     {
         return Optional.ofNullable(OPERATOR_TYPES.get(operatorName));
     }

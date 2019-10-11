@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
@@ -31,9 +31,9 @@ public class TestRowExpressionVariableInliner
             implements FunctionHandle
     {
         @Override
-        public FullyQualifiedName.Prefix getFunctionNamespace()
+        public QualifiedFunctionName.Prefix getFunctionNamespace()
         {
-            return FullyQualifiedName.of("a.b.c").getPrefix();
+            return QualifiedFunctionName.of("a.b.c").getPrefix();
         }
     }
 

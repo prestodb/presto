@@ -17,9 +17,9 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static java.lang.String.format;
 
 public class TestWeightedDoubleReservoirSample
 {

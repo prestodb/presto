@@ -21,8 +21,8 @@ import com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ScalarIm
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -155,7 +155,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
         protected FunctionWithProvidedBlockReturnPlaceConvention1()
         {
             super(new Signature(
-                    FullyQualifiedName.of(DEFAULT_NAMESPACE, "identity1"),
+                    QualifiedFunctionName.of(DEFAULT_NAMESPACE, "identity1"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),
@@ -275,7 +275,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
         protected FunctionWithProvidedBlockReturnPlaceConvention2()
         {
             super(new Signature(
-                    FullyQualifiedName.of(DEFAULT_NAMESPACE, "identity2"),
+                    QualifiedFunctionName.of(DEFAULT_NAMESPACE, "identity2"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),

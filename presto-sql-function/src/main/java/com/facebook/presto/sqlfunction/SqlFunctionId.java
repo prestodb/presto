@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sqlfunction;
 
-import com.facebook.presto.spi.relation.FullyQualifiedName;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.List;
@@ -25,18 +25,18 @@ import static java.util.stream.Collectors.joining;
 
 public class SqlFunctionId
 {
-    private final FullyQualifiedName name;
+    private final QualifiedFunctionName name;
     private final List<TypeSignature> argumentTypes;
 
     public SqlFunctionId(
-            FullyQualifiedName name,
+            QualifiedFunctionName name,
             List<TypeSignature> argumentTypes)
     {
         this.name = requireNonNull(name, "name is null");
         this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
     }
 
-    public FullyQualifiedName getName()
+    public QualifiedFunctionName getName()
     {
         return name;
     }

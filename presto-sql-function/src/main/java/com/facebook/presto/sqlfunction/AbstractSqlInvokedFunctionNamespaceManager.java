@@ -17,8 +17,8 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -41,17 +41,17 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
 {
     private final ConcurrentMap<FunctionNamespaceTransactionHandle, FunctionCollection> transactions = new ConcurrentHashMap<>();
 
-    private final LoadingCache<FullyQualifiedName, Collection<SqlInvokedRegularFunction>> functions;
+    private final LoadingCache<QualifiedFunctionName, Collection<SqlInvokedRegularFunction>> functions;
     private final LoadingCache<SqlInvokedRegularFunctionHandle, FunctionMetadata> metadataByHandle;
 
     public AbstractSqlInvokedFunctionNamespaceManager(SqlInvokedFunctionNamespaceManagerConfig config)
     {
         this.functions = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getFunctionCacheExpiration().toMillis(), MILLISECONDS)
-                .build(new CacheLoader<FullyQualifiedName, Collection<SqlInvokedRegularFunction>>()
+                .build(new CacheLoader<QualifiedFunctionName, Collection<SqlInvokedRegularFunction>>()
                 {
                     @Override
-                    public Collection<SqlInvokedRegularFunction> load(FullyQualifiedName functionName)
+                    public Collection<SqlInvokedRegularFunction> load(QualifiedFunctionName functionName)
                     {
                         Collection<SqlInvokedRegularFunction> functions = fetchFunctionsDirect(functionName);
                         for (SqlInvokedRegularFunction function : functions) {
@@ -72,7 +72,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 });
     }
 
-    protected abstract Collection<SqlInvokedRegularFunction> fetchFunctionsDirect(FullyQualifiedName functionName);
+    protected abstract Collection<SqlInvokedRegularFunction> fetchFunctionsDirect(QualifiedFunctionName functionName);
 
     protected abstract FunctionMetadata fetchFunctionMetadataDirect(SqlInvokedRegularFunctionHandle functionHandle);
 
@@ -99,7 +99,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     }
 
     @Override
-    public final Collection<SqlInvokedRegularFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, FullyQualifiedName functionName)
+    public final Collection<SqlInvokedRegularFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
     {
         checkArgument(transactionHandle.isPresent(), "missing transactionHandle");
         return transactions.get(transactionHandle.get()).loadAndGetFunctionsTransactional(functionName);
@@ -131,7 +131,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 function.isCalledOnNullInput());
     }
 
-    private Collection<SqlInvokedRegularFunction> fetchFunctions(FullyQualifiedName functionName)
+    private Collection<SqlInvokedRegularFunction> fetchFunctions(QualifiedFunctionName functionName)
     {
         return functions.getUnchecked(functionName);
     }
@@ -139,12 +139,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     private class FunctionCollection
     {
         @GuardedBy("this")
-        private final Map<FullyQualifiedName, Collection<SqlInvokedRegularFunction>> functions = new ConcurrentHashMap<>();
+        private final Map<QualifiedFunctionName, Collection<SqlInvokedRegularFunction>> functions = new ConcurrentHashMap<>();
 
         @GuardedBy("this")
         private final Map<SqlFunctionId, SqlInvokedRegularFunctionHandle> functionHandles = new ConcurrentHashMap<>();
 
-        public synchronized Collection<SqlInvokedRegularFunction> loadAndGetFunctionsTransactional(FullyQualifiedName functionName)
+        public synchronized Collection<SqlInvokedRegularFunction> loadAndGetFunctionsTransactional(QualifiedFunctionName functionName)
         {
             Collection<SqlInvokedRegularFunction> functions = this.functions.computeIfAbsent(functionName, AbstractSqlInvokedFunctionNamespaceManager.this::fetchFunctions);
             functionHandles.putAll(functions.stream().collect(toImmutableMap(SqlInvokedRegularFunction::getFunctionId, SqlInvokedRegularFunction::getRequiredFunctionHandle)));

@@ -15,8 +15,8 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.LogicalRowExpressions;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -37,18 +37,18 @@ import static java.util.Locale.ENGLISH;
 
 public class SpatialJoinUtils
 {
-    public static final FullyQualifiedName ST_CONTAINS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_contains");
-    public static final FullyQualifiedName ST_CROSSES = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_crosses");
-    public static final FullyQualifiedName ST_EQUALS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_equals");
-    public static final FullyQualifiedName ST_INTERSECTS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_intersects");
-    public static final FullyQualifiedName ST_OVERLAPS = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_overlaps");
-    public static final FullyQualifiedName ST_TOUCHES = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_touches");
-    public static final FullyQualifiedName ST_WITHIN = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_within");
-    public static final FullyQualifiedName ST_DISTANCE = FullyQualifiedName.of(DEFAULT_NAMESPACE, "st_distance");
+    public static final QualifiedFunctionName ST_CONTAINS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_contains");
+    public static final QualifiedFunctionName ST_CROSSES = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_crosses");
+    public static final QualifiedFunctionName ST_EQUALS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_equals");
+    public static final QualifiedFunctionName ST_INTERSECTS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_intersects");
+    public static final QualifiedFunctionName ST_OVERLAPS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_overlaps");
+    public static final QualifiedFunctionName ST_TOUCHES = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_touches");
+    public static final QualifiedFunctionName ST_WITHIN = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_within");
+    public static final QualifiedFunctionName ST_DISTANCE = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_distance");
 
     private static final Set<String> ALLOWED_SPATIAL_JOIN_FUNCTIONS = Stream.of(
             ST_CONTAINS, ST_CROSSES, ST_EQUALS, ST_INTERSECTS, ST_OVERLAPS, ST_TOUCHES, ST_WITHIN)
-            .map(FullyQualifiedName::getSuffix)
+            .map(QualifiedFunctionName::getSuffix)
             .map(String::toLowerCase)
             .collect(Collectors.toSet());
 

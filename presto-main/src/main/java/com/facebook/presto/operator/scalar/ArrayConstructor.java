@@ -29,8 +29,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.CallSiteBinder;
@@ -75,7 +75,7 @@ public final class ArrayConstructor
 
     public ArrayConstructor()
     {
-        super(new Signature(FullyQualifiedName.of(DEFAULT_NAMESPACE, "array_constructor"),
+        super(new Signature(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "array_constructor"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),

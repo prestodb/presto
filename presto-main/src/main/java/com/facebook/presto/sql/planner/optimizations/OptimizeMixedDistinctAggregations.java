@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.BigintType;
@@ -193,10 +193,10 @@ public class OptimizeMixedDistinctAggregations
                             Optional.empty(),
                             false,
                             Optional.empty());
-                    FullyQualifiedName functionName = metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
-                    if (functionName.equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "count")) ||
-                            functionName.equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "count_if")) ||
-                            functionName.equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "approx_distinct"))) {
+                    QualifiedFunctionName functionName = metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
+                    if (functionName.equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "count")) ||
+                            functionName.equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "count_if")) ||
+                            functionName.equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "approx_distinct"))) {
                         VariableReferenceExpression newVariable = variableAllocator.newVariable("expr", entry.getKey().getType());
                         aggregations.put(newVariable, aggregation);
                         coalesceVariablesBuilder.put(newVariable, entry.getKey());

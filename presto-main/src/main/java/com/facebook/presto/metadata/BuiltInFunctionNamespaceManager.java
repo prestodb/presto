@@ -158,9 +158,9 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -351,7 +351,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 public class BuiltInFunctionNamespaceManager
         implements FunctionNamespaceManager<BuiltInFunction>
 {
-    public static final FullyQualifiedName.Prefix DEFAULT_NAMESPACE = FullyQualifiedName.of("presto.default.foo").getPrefix();
+    public static final QualifiedFunctionName.Prefix DEFAULT_NAMESPACE = QualifiedFunctionName.of("presto.default.foo").getPrefix();
     public static final String NAME = "_builtin";
 
     private final TypeManager typeManager;
@@ -712,7 +712,7 @@ public class BuiltInFunctionNamespaceManager
     }
 
     @Override
-    public Collection<BuiltInFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, FullyQualifiedName functionName)
+    public Collection<BuiltInFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
     {
         return functions.get(functionName);
     }
@@ -897,7 +897,7 @@ public class BuiltInFunctionNamespaceManager
 
     private static class FunctionMap
     {
-        private final Multimap<FullyQualifiedName, BuiltInFunction> functions;
+        private final Multimap<QualifiedFunctionName, BuiltInFunction> functions;
 
         public FunctionMap()
         {
@@ -906,13 +906,13 @@ public class BuiltInFunctionNamespaceManager
 
         public FunctionMap(FunctionMap map, Iterable<? extends BuiltInFunction> functions)
         {
-            this.functions = ImmutableListMultimap.<FullyQualifiedName, BuiltInFunction>builder()
+            this.functions = ImmutableListMultimap.<QualifiedFunctionName, BuiltInFunction>builder()
                     .putAll(map.functions)
                     .putAll(Multimaps.index(functions, function -> function.getSignature().getName()))
                     .build();
 
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<FullyQualifiedName, Collection<BuiltInFunction>> entry : this.functions.asMap().entrySet()) {
+            for (Map.Entry<QualifiedFunctionName, Collection<BuiltInFunction>> entry : this.functions.asMap().entrySet()) {
                 Collection<BuiltInFunction> values = entry.getValue();
                 long aggregations = values.stream()
                         .map(function -> function.getSignature().getKind())
@@ -927,7 +927,7 @@ public class BuiltInFunctionNamespaceManager
             return ImmutableList.copyOf(functions.values());
         }
 
-        public Collection<BuiltInFunction> get(FullyQualifiedName name)
+        public Collection<BuiltInFunction> get(QualifiedFunctionName name)
         {
             return functions.get(name);
         }
@@ -940,7 +940,7 @@ public class BuiltInFunctionNamespaceManager
 
         MagicLiteralFunction(BlockEncodingSerde blockEncodingSerde)
         {
-            super(new Signature(FullyQualifiedName.of(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX), SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
+            super(new Signature(QualifiedFunctionName.of(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX), SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
             this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         }
 

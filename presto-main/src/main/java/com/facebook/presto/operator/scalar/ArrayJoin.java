@@ -24,8 +24,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -96,7 +96,7 @@ public final class ArrayJoin
         public ArrayJoinWithNullReplacement()
         {
             super(new Signature(
-                    FullyQualifiedName.of(DEFAULT_NAMESPACE, FUNCTION_NAME),
+                    QualifiedFunctionName.of(DEFAULT_NAMESPACE, FUNCTION_NAME),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),
@@ -133,7 +133,7 @@ public final class ArrayJoin
     public ArrayJoin()
     {
         super(new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, FUNCTION_NAME),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, FUNCTION_NAME),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
