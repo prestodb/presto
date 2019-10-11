@@ -41,7 +41,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
-import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.planner.NoOpVariableResolver;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
@@ -652,7 +652,7 @@ public class PropertyDerivations
                     Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, castToExpression(expression), emptyList(), WarningCollector.NOOP);
                     Type type = requireNonNull(expressionTypes.get(NodeRef.of(castToExpression(expression))));
                     ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(castToExpression(expression), metadata, session, expressionTypes);
-                    Object value = optimizer.optimize(NoOpSymbolResolver.INSTANCE);
+                    Object value = optimizer.optimize(NoOpVariableResolver.INSTANCE);
 
                     if (value instanceof SymbolReference) {
                         VariableReferenceExpression variable = toVariableReference((SymbolReference) value, types);

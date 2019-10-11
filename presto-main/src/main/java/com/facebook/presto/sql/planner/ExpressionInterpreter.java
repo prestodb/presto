@@ -41,7 +41,7 @@ import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.planner.Interpreters.LambdaSymbolResolver;
+import com.facebook.presto.sql.planner.Interpreters.LambdaVariableResolver;
 import com.facebook.presto.sql.planner.iterative.rule.DesugarCurrentUser;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -127,6 +127,7 @@ import static com.facebook.presto.sql.planner.Interpreters.interpretLikePredicat
 import static com.facebook.presto.sql.planner.LiteralEncoder.estimatedSizeInBytes;
 import static com.facebook.presto.sql.planner.LiteralEncoder.isSupportedLiteralType;
 import static com.facebook.presto.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
+import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.unescapeLiteralLikePattern;
 import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnonymousRowFieldOrdinalAccess;
@@ -260,13 +261,13 @@ public class ExpressionInterpreter
         return visitor.process(expression, null);
     }
 
-    public Object evaluate(SymbolResolver inputs)
+    public Object evaluate(VariableResolver inputs)
     {
         checkState(!optimize, "evaluate(SymbolResolver) not allowed for optimizer");
         return visitor.process(expression, inputs);
     }
 
-    public Object optimize(SymbolResolver inputs)
+    public Object optimize(VariableResolver inputs)
     {
         checkState(optimize, "evaluate(SymbolResolver) not allowed for interpreter");
         return visitor.process(expression, inputs);
@@ -333,7 +334,7 @@ public class ExpressionInterpreter
             // ExpressionInterpreter should only be invoked after planning.
             // As a result, this method should be unreachable.
             // However, RelationPlanner.visitUnnest and visitValues invokes evaluateConstantExpression.
-            return ((SymbolResolver) context).getValue(new Symbol(node.getValue()));
+            return ((VariableResolver) context).getValue(variable(node.getValue(), type(node)));
         }
 
         @Override
@@ -345,7 +346,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSymbolReference(SymbolReference node, Object context)
         {
-            return ((SymbolResolver) context).getValue(Symbol.from(node));
+            return ((VariableResolver) context).getValue(variable(node.getName(), type(node)));
         }
 
         @Override
@@ -935,7 +936,7 @@ public class ExpressionInterpreter
                             .map(Primitives::wrap)
                             .collect(toImmutableList()),
                     argumentNames,
-                    map -> process(body, new LambdaSymbolResolver(map)));
+                    map -> process(body, new LambdaVariableResolver(map)));
         }
 
         @Override

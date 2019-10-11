@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
@@ -67,21 +68,21 @@ public class Interpreters
         return LikeFunctions.likeChar((long) ((CharType) valueType).getLength(), value, regex);
     }
 
-    public static class LambdaSymbolResolver
-            implements SymbolResolver
+    public static class LambdaVariableResolver
+            implements VariableResolver
     {
         private final Map<String, Object> values;
 
-        public LambdaSymbolResolver(Map<String, Object> values)
+        public LambdaVariableResolver(Map<String, Object> values)
         {
             this.values = requireNonNull(values, "values is null");
         }
 
         @Override
-        public Object getValue(Symbol symbol)
+        public Object getValue(VariableReferenceExpression variable)
         {
-            checkState(values.containsKey(symbol.getName()), "values does not contain %s", symbol);
-            return values.get(symbol.getName());
+            checkState(values.containsKey(variable.getName()), "values does not contain %s", variable);
+            return values.get(variable.getName());
         }
     }
 }

@@ -39,7 +39,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
-import com.facebook.presto.sql.planner.Interpreters.LambdaSymbolResolver;
+import com.facebook.presto.sql.planner.Interpreters.LambdaVariableResolver;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.util.Failures;
@@ -174,7 +174,7 @@ public class RowExpressionInterpreter
      * For test only; convenient to replace symbol with constants. Production code should not replace any symbols; use the interface above
      */
     @VisibleForTesting
-    public Object optimize(SymbolResolver inputs)
+    public Object optimize(VariableResolver inputs)
     {
         checkState(optimizationLevel.ordinal() <= EVALUATED.ordinal(), "optimize(SymbolResolver) not allowed for interpreter");
         return expression.accept(visitor, inputs);
@@ -198,8 +198,8 @@ public class RowExpressionInterpreter
         @Override
         public Object visitVariableReference(VariableReferenceExpression node, Object context)
         {
-            if (context instanceof SymbolResolver) {
-                return ((SymbolResolver) context).getValue(new Symbol(node.getName()));
+            if (context instanceof VariableResolver) {
+                return ((VariableResolver) context).getValue(node);
             }
             return node;
         }
@@ -281,7 +281,7 @@ public class RowExpressionInterpreter
                             .map(Primitives::wrap)
                             .collect(toImmutableList()),
                     node.getArguments(),
-                    map -> body.accept(this, new LambdaSymbolResolver(map)));
+                    map -> body.accept(this, new LambdaVariableResolver(map)));
         }
 
         @Override

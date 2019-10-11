@@ -13,14 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
-public class NoOpSymbolResolver
-        implements SymbolResolver
-{
-    public static final NoOpSymbolResolver INSTANCE = new NoOpSymbolResolver();
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
-    @Override
-    public Object getValue(Symbol symbol)
-    {
-        return symbol.toSymbolReference();
-    }
+public interface VariableResolver
+{
+    Object getValue(VariableReferenceExpression variable);
 }
