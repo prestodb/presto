@@ -48,6 +48,7 @@
         <dep.airlift.version>0.178</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.36</dep.slice.version>
+        <dep.testing-mysql-server-5.version>0.4</dep.testing-mysql-server-5.version>
         <dep.aws-sdk.version>1.11.445</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
@@ -766,7 +767,7 @@
             <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
-                <version>5.1.46</version>
+                <version>5.1.48</version>
             </dependency>
 
             <dependency>
@@ -1010,9 +1011,15 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>testing-mysql-server</artifactId>
-                <version>8.0.12-5</version>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>testing-mysql-server-5</artifactId>
+                <version>${dep.testing-mysql-server-5.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>testing-mysql-server-base</artifactId>
+                <version>${dep.testing-mysql-server-5.version}</version>
             </dependency>
 
             <dependency>

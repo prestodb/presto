@@ -14,15 +14,17 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.mysql.MySqlOptions;
+import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.MySqlOptions;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -60,6 +62,7 @@ public class TestMySqlDistributedQueries
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
+            throws IOException
     {
         mysqlServer.close();
     }

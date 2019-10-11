@@ -14,17 +14,18 @@
 package com.facebook.presto.raptor.integration;
 
 import com.facebook.presto.raptor.RaptorPlugin;
+import com.facebook.presto.testing.mysql.MySqlOptions;
+import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.testing.mysql.MySqlOptions;
-import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.copyTables;
@@ -55,6 +56,7 @@ public class TestRaptorIntegrationSmokeTestMySql
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
+            throws IOException
     {
         mysqlServer.close();
     }
