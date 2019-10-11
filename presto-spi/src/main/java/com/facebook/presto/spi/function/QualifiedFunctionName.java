@@ -13,168 +13,74 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.unmodifiableList;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class QualifiedFunctionName
 {
-    private final List<String> parts;
-    private final List<String> originalParts;
+    private final CatalogSchemaName functionNamespace;
+    private final String name;
+
+    private QualifiedFunctionName(CatalogSchemaName functionNamespace, String name)
+    {
+        this.functionNamespace = requireNonNull(functionNamespace, "functionNamespace is null");
+        this.name = requireNonNull(name, "name is null");
+    }
 
     @JsonCreator
     public static QualifiedFunctionName of(String dottedName)
     {
         String[] parts = dottedName.split("\\.");
-        if (parts.length < 3) {
-            throw new IllegalArgumentException("FullyQualifiedName should be in the form of 'a.b.c' and have at least 3 parts");
+        if (parts.length != 3) {
+            throw new IllegalArgumentException("QualifiedFunctionName should have exactly 3 parts");
         }
-        return of(asList(parts));
+        return of(new CatalogSchemaName(parts[0], parts[1]), parts[2]);
     }
 
-    public static QualifiedFunctionName of(String part1, String part2, String part3, String... rest)
+    public static QualifiedFunctionName of(CatalogSchemaName functionNamespace, String name)
     {
-        List<String> parts = new ArrayList<>(rest.length + 3);
-        parts.add(part1);
-        parts.add(part2);
-        parts.add(part3);
-        parts.addAll(asList(rest));
-        return of(parts);
+        return new QualifiedFunctionName(functionNamespace, name);
     }
 
-    public static QualifiedFunctionName of(List<String> originalParts)
+    public String getUnqualifiedName()
     {
-        requireNonNull(originalParts, "originalParts is null");
-        if (originalParts.size() < 3) {
-            throw new IllegalArgumentException("originalParts should have at least 3 parts");
+        return name;
+    }
+
+    public CatalogSchemaName getFunctionNamespace()
+    {
+        return functionNamespace;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
         }
-
-        List<String> parts = new ArrayList<>(originalParts.size());
-        for (String originalPart : originalParts) {
-            parts.add(originalPart.toLowerCase(ENGLISH));
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
         }
-
-        return new QualifiedFunctionName(originalParts, parts);
+        QualifiedFunctionName o = (QualifiedFunctionName) obj;
+        return Objects.equals(functionNamespace, o.functionNamespace) &&
+                Objects.equals(name, o.name);
     }
 
-    public static QualifiedFunctionName of(QualifiedFunctionName.Prefix prefix, String name)
+    @Override
+    public int hashCode()
     {
-        List<String> parts = new ArrayList<>(prefix.parts);
-        parts.add(name);
-        return of(parts);
-    }
-
-    private QualifiedFunctionName(List<String> originalParts, List<String> parts)
-    {
-        this.originalParts = unmodifiableList(originalParts);
-        this.parts = unmodifiableList(parts);
-    }
-
-    public List<String> getParts()
-    {
-        return parts;
-    }
-
-    public List<String> getOriginalParts()
-    {
-        return originalParts;
-    }
-
-    public String getSuffix()
-    {
-        return parts.get(parts.size() - 1);
-    }
-
-    public Prefix getPrefix()
-    {
-        return new Prefix(parts.subList(0, parts.size() - 1));
+        return Objects.hash(functionNamespace, name);
     }
 
     @JsonValue
     @Override
     public String toString()
     {
-        return String.join(".", parts);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        return parts.equals(((QualifiedFunctionName) o).parts);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return parts.hashCode();
-    }
-
-    public static class Prefix
-    {
-        private final List<String> parts;
-
-        private Prefix(List<String> parts)
-        {
-            this.parts = unmodifiableList(parts);
-        }
-
-        public static Prefix of(String dottedName)
-        {
-            String[] parts = dottedName.split("\\.");
-            if (parts.length < 2) {
-                throw new IllegalArgumentException("Prefix should be in the form of a.b(.c...) with at least 1 dot");
-            }
-            return new Prefix(asList(parts));
-        }
-
-        public boolean contains(Prefix other)
-        {
-            if (parts.size() > other.parts.size()) {
-                return false;
-            }
-            for (int i = 0; i < parts.size(); i++) {
-                if (!parts.get(i).equals(other.parts.get(i))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public String toString()
-        {
-            return String.join(".", parts);
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            return parts.equals(((QualifiedFunctionName.Prefix) o).parts);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return parts.hashCode();
-        }
+        return functionNamespace + "." + name;
     }
 }

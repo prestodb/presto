@@ -113,8 +113,8 @@ public class RewriteSpatialPartitioningAggregation
                 aggregations.put(entry.getKey(),
                         new Aggregation(
                                 new CallExpression(
-                                        name.getSuffix(),
-                                        metadata.getFunctionManager().lookupFunction(NAME.getSuffix(), fromTypes(geometryType, INTEGER)),
+                                        name.getUnqualifiedName(),
+                                        metadata.getFunctionManager().lookupFunction(NAME.getUnqualifiedName(), fromTypes(geometryType, INTEGER)),
                                         entry.getKey().getType(),
                                         ImmutableList.of(
                                                 castToRowExpression(asSymbolReference(envelopeVariable)),

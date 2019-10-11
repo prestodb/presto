@@ -48,7 +48,7 @@ public class SpatialJoinUtils
 
     private static final Set<String> ALLOWED_SPATIAL_JOIN_FUNCTIONS = Stream.of(
             ST_CONTAINS, ST_CROSSES, ST_EQUALS, ST_INTERSECTS, ST_OVERLAPS, ST_TOUCHES, ST_WITHIN)
-            .map(QualifiedFunctionName::getSuffix)
+            .map(QualifiedFunctionName::getUnqualifiedName)
             .map(String::toLowerCase)
             .collect(Collectors.toSet());
 
@@ -88,7 +88,7 @@ public class SpatialJoinUtils
 
     private static boolean isSupportedSpatialFunction(CallExpression call, FunctionManager functionManager)
     {
-        String functionName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName().getSuffix().toLowerCase(ENGLISH);
+        String functionName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName().getUnqualifiedName().toLowerCase(ENGLISH);
         return ALLOWED_SPATIAL_JOIN_FUNCTIONS.contains(functionName);
     }
 
@@ -154,7 +154,7 @@ public class SpatialJoinUtils
     private static boolean isSTDistance(Expression expression)
     {
         if (expression instanceof FunctionCall) {
-            return ((FunctionCall) expression).getName().getSuffix().equalsIgnoreCase(ST_DISTANCE.getSuffix());
+            return ((FunctionCall) expression).getName().getSuffix().equalsIgnoreCase(ST_DISTANCE.getUnqualifiedName());
         }
 
         return false;
