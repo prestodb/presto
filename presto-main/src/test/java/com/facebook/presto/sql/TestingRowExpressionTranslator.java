@@ -23,7 +23,7 @@ import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.planner.NoOpVariableResolver;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
@@ -92,7 +92,7 @@ public class TestingRowExpressionTranslator
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression, TypeProvider.empty());
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, TEST_SESSION, expressionTypes);
-        Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        Object value = interpreter.optimize(NoOpVariableResolver.INSTANCE);
         return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
     }
 

@@ -40,7 +40,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
-import com.facebook.presto.sql.planner.LookupSymbolResolver;
+import com.facebook.presto.sql.planner.LookupVariableResolver;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -424,7 +424,7 @@ public class PickTableLayout
             if (intersection(bindings.keySet(), arguments).isEmpty()) {
                 return true;
             }
-            LookupSymbolResolver inputs = new LookupSymbolResolver(assignments, bindings);
+            LookupVariableResolver inputs = new LookupVariableResolver(assignments, bindings);
 
             // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
             // spurious query failures for partitions that would otherwise be filtered out.

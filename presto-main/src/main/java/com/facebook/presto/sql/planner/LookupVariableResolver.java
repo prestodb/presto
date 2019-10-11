@@ -21,32 +21,29 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
-public class LookupSymbolResolver
-        implements SymbolResolver
+public class LookupVariableResolver
+        implements VariableResolver
 {
-    private final Map<Symbol, ColumnHandle> assignments;
+    private final Map<VariableReferenceExpression, ColumnHandle> assignments;
     private final Map<ColumnHandle, NullableValue> bindings;
 
-    public LookupSymbolResolver(Map<VariableReferenceExpression, ColumnHandle> assignments, Map<ColumnHandle, NullableValue> bindings)
+    public LookupVariableResolver(Map<VariableReferenceExpression, ColumnHandle> assignments, Map<ColumnHandle, NullableValue> bindings)
     {
-        requireNonNull(assignments, "assignments is null");
-        requireNonNull(bindings, "bindings is null");
-
-        this.assignments = assignments.entrySet().stream().collect(toImmutableMap(entry -> new Symbol(entry.getKey().getName()), Map.Entry::getValue));
-        this.bindings = ImmutableMap.copyOf(bindings);
+        this.assignments = requireNonNull(assignments, "assignments is null");
+        this.bindings = ImmutableMap.copyOf(requireNonNull(bindings, "bindings is null"));
     }
 
     @Override
-    public Object getValue(Symbol symbol)
+    public Object getValue(VariableReferenceExpression variable)
     {
-        ColumnHandle column = assignments.get(symbol);
-        checkArgument(column != null, "Missing column assignment for %s", symbol);
+        ColumnHandle column = assignments.get(variable);
+        checkArgument(column != null, "Missing column assignment for %s", variable);
 
         if (!bindings.containsKey(column)) {
-            return symbol.toSymbolReference();
+            // still return SymbolReference that will be consumed by interpreters
+            return new Symbol(variable.getName()).toSymbolReference();
         }
 
         return bindings.get(column).getValue();

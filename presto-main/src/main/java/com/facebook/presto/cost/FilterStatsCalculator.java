@@ -33,7 +33,7 @@ import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
-import com.facebook.presto.sql.planner.NoOpSymbolResolver;
+import com.facebook.presto.sql.planner.NoOpVariableResolver;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -142,7 +142,7 @@ public class FilterStatsCalculator
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, predicate, types);
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(predicate, metadata, session, expressionTypes);
-        Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+        Object value = interpreter.optimize(NoOpVariableResolver.INSTANCE);
 
         if (value == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).

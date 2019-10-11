@@ -62,6 +62,7 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
@@ -857,7 +858,8 @@ public final class FunctionAssertions
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
         ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, expressionTypes);
 
-        Object result = evaluator.evaluate(symbol -> {
+        Object result = evaluator.evaluate(variable -> {
+            Symbol symbol = new Symbol(variable.getName());
             int position = 0;
             int channel = INPUT_MAPPING.get(new VariableReferenceExpression(symbol.getName(), SYMBOL_TYPES.get(symbol.toSymbolReference())));
             Type type = SYMBOL_TYPES.get(symbol.toSymbolReference());
