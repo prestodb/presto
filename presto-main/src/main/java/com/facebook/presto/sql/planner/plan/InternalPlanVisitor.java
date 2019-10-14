@@ -109,21 +109,6 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
-    public R visitUnion(UnionNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitIntersect(IntersectNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitExcept(ExceptNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
     public R visitUnnest(UnnestNode node, C context)
     {
         return visitPlan(node, context);

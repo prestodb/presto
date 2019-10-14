@@ -11,34 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ListMultimap;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Map;
 
 @Immutable
-public class UnionNode
+public final class UnionNode
         extends SetOperationNode
 {
     @JsonCreator
     public UnionNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
-            @JsonProperty("outputToInputs") ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputToInputs)
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("outputToInputs") Map<VariableReferenceExpression, List<VariableReferenceExpression>> outputToInputs)
     {
-        super(id, sources, outputToInputs);
+        super(id, sources, outputVariables, outputToInputs);
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitUnion(this, context);
     }
@@ -46,6 +45,6 @@ public class UnionNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UnionNode(getId(), newChildren, getVariableMapping());
+        return new UnionNode(getId(), newChildren, getOutputVariables(), getVariableMapping());
     }
 }

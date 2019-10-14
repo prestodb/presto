@@ -19,17 +19,18 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.ExpressionVariableInliner;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 
 import java.util.HashMap;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
@@ -99,6 +101,7 @@ public class PushProjectionThroughUnion
             outputLayout.forEach(variable -> mappings.put(variable, projectVariableMapping.get(variable)));
         }
 
-        return Result.ofPlanNode(new UnionNode(parent.getId(), outputSources.build(), mappings.build()));
+        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = mappings.build();
+        return Result.ofPlanNode(new UnionNode(parent.getId(), outputSources.build(), ImmutableList.copyOf(outputsToInputs.keySet()), fromListMultimap(outputsToInputs)));
     }
 }

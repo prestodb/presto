@@ -21,6 +21,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -29,7 +30,6 @@ import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -214,7 +214,7 @@ public class LimitPushDown
                 sources.add(context.rewrite(node.getSources().get(i), childLimit));
             }
 
-            PlanNode output = new UnionNode(node.getId(), sources, node.getVariableMapping());
+            PlanNode output = new UnionNode(node.getId(), sources, node.getOutputVariables(), node.getVariableMapping());
             if (limit != null) {
                 output = new LimitNode(idAllocator.getNextId(), output, limit.getCount(), limit.getStep());
             }

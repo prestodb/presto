@@ -31,6 +31,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -68,7 +69,6 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -82,6 +82,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.SetMultimap;
 
 import java.util.ArrayList;
@@ -120,6 +121,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.PickTableLayout.pus
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -1042,7 +1044,7 @@ public class AddExchanges
                             .build());
         }
 
-        private Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> outputToInputTranslator(UnionNode node, int sourceIndex, TypeProvider types)
+        private Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> outputToInputTranslator(UnionNode node, int sourceIndex)
         {
             return variable -> Optional.of(node.getVariableMapping().get(variable).get(sourceIndex));
         }
@@ -1057,7 +1059,7 @@ public class AddExchanges
             // Try planning the children to see if any of them naturally produce a partitioning (for now, just select the first)
             boolean nullsAndAnyReplicated = parentPreference.isNullsAndAnyReplicated();
             for (int sourceIndex = 0; sourceIndex < node.getSources().size(); sourceIndex++) {
-                PreferredProperties.PartitioningProperties childPartitioning = parentPreference.translateVariable(outputToInputTranslator(node, sourceIndex, types)).get();
+                PreferredProperties.PartitioningProperties childPartitioning = parentPreference.translateVariable(outputToInputTranslator(node, sourceIndex)).get();
                 PreferredProperties childPreferred = PreferredProperties.builder()
                         .global(PreferredProperties.Global.distributed(childPartitioning.withNullsAndAnyReplicated(nullsAndAnyReplicated)))
                         .build();
@@ -1124,10 +1126,13 @@ public class AddExchanges
                         outputToSourcesMapping.put(node.getOutputVariables().get(column), node.sourceOutputLayout(sourceIndex).get(column));
                     }
                 }
+
+                ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = outputToSourcesMapping.build();
                 UnionNode newNode = new UnionNode(
                         node.getId(),
                         partitionedSources.build(),
-                        outputToSourcesMapping.build());
+                        ImmutableList.copyOf(outputsToInputs.keySet()),
+                        fromListMultimap(outputsToInputs));
 
                 return new PlanWithProperties(
                         newNode,
@@ -1212,7 +1217,8 @@ public class AddExchanges
                 }
 
                 // add local union for all unpartitioned inputs
-                result = new UnionNode(node.getId(), singleNodeChildren, mappings.build());
+                ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = mappings.build();
+                result = new UnionNode(node.getId(), singleNodeChildren, ImmutableList.copyOf(outputsToInputs.keySet()), fromListMultimap(outputsToInputs));
             }
             else {
                 throw new IllegalStateException("both singleNodeChildren distributedChildren are empty");

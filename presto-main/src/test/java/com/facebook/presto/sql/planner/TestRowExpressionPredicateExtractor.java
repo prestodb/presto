@@ -31,6 +31,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -38,7 +39,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -49,7 +49,6 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -386,13 +385,13 @@ public class TestRowExpressionPredicateExtractor
     @Test
     public void testUnion()
     {
-        ImmutableListMultimap<VariableReferenceExpression, VariableReferenceExpression> variableMapping = ImmutableListMultimap.of(AV, BV, AV, CV, AV, EV);
         PlanNode node = new UnionNode(newId(),
                 ImmutableList.of(
                         filter(baseTableScan, greaterThan(AV, bigintLiteral(10))),
                         filter(baseTableScan, and(greaterThan(AV, bigintLiteral(10)), lessThan(AV, bigintLiteral(100)))),
                         filter(baseTableScan, and(greaterThan(AV, bigintLiteral(10)), lessThan(AV, bigintLiteral(100))))),
-                variableMapping);
+                ImmutableList.of(AV),
+                ImmutableMap.of(AV, ImmutableList.of(BV, CV, EV)));
 
         RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 

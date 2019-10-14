@@ -33,6 +33,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
@@ -50,7 +51,6 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -61,7 +61,6 @@ import com.facebook.presto.tpch.TpchTransactionHandle;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
@@ -508,10 +507,13 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
-        ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> outputMappings = ImmutableListMultimap.builder();
-        outputMappings.put(new VariableReferenceExpression("orderkey_1", BIGINT), new VariableReferenceExpression("orderkey", BIGINT));
-        outputMappings.put(new VariableReferenceExpression("orderkey_1", BIGINT), new VariableReferenceExpression("orderkey_0", BIGINT));
-        UnionNode union = new UnionNode(new PlanNodeId("union"), ImmutableList.of(ts1, ts2), outputMappings.build());
+        UnionNode union = new UnionNode(
+                new PlanNodeId("union"),
+                ImmutableList.of(ts1, ts2),
+                ImmutableList.of(new VariableReferenceExpression("orderkey_1", BIGINT)),
+                ImmutableMap.of(
+                        new VariableReferenceExpression("orderkey_1", BIGINT),
+                        ImmutableList.of(new VariableReferenceExpression("orderkey", BIGINT), new VariableReferenceExpression("orderkey_0", BIGINT))));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "ts1", statsEstimate(ts1, 4000),
                 "ts2", statsEstimate(ts2, 1000),

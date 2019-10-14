@@ -19,15 +19,19 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -43,13 +47,11 @@ import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
-import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
-import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
@@ -58,7 +60,6 @@ import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
@@ -67,7 +68,6 @@ import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.Expressions;
@@ -79,16 +79,14 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -592,19 +590,19 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitUnion(UnionNode node, RewriteContext<Void> context)
         {
-            return new UnionNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
+            return new UnionNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
         }
 
         @Override
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Void> context)
         {
-            return new IntersectNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
+            return new IntersectNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
         }
 
         @Override
         public PlanNode visitExcept(ExceptNode node, RewriteContext<Void> context)
         {
-            return new ExceptNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
+            return new ExceptNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationOutputVariables(node.getOutputVariables()), canonicalizeSetOperationVariableMap(node.getVariableMapping()));
         }
 
         private static ImmutableList.Builder<PlanNode> rewriteSources(SetOperationNode node, RewriteContext<Void> context)
@@ -813,15 +811,24 @@ public class UnaliasSymbolReferences
             return builder.build();
         }
 
-        private ListMultimap<VariableReferenceExpression, VariableReferenceExpression> canonicalizeSetOperationVariableMap(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> setOperationVariableMap)
+        private Map<VariableReferenceExpression, List<VariableReferenceExpression>> canonicalizeSetOperationVariableMap(Map<VariableReferenceExpression, List<VariableReferenceExpression>> setOperationVariableMap)
         {
-            ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> builder = ImmutableListMultimap.builder();
-            Set<VariableReferenceExpression> addedSymbols = new HashSet<>();
-            for (Map.Entry<VariableReferenceExpression, Collection<VariableReferenceExpression>> entry : setOperationVariableMap.asMap().entrySet()) {
+            LinkedHashMap<VariableReferenceExpression, List<VariableReferenceExpression>> result = new LinkedHashMap<>();
+            Set<VariableReferenceExpression> addVariables = new HashSet<>();
+            for (Map.Entry<VariableReferenceExpression, List<VariableReferenceExpression>> entry : setOperationVariableMap.entrySet()) {
                 VariableReferenceExpression canonicalOutputVariable = canonicalize(entry.getKey());
-                if (addedSymbols.add(canonicalOutputVariable)) {
-                    builder.putAll(canonicalOutputVariable, Iterables.transform(entry.getValue(), this::canonicalize));
+                if (addVariables.add(canonicalOutputVariable)) {
+                    result.put(canonicalOutputVariable, ImmutableList.copyOf(Iterables.transform(entry.getValue(), this::canonicalize)));
                 }
+            }
+            return result;
+        }
+
+        private List<VariableReferenceExpression> canonicalizeSetOperationOutputVariables(List<VariableReferenceExpression> setOperationOutputVariables)
+        {
+            ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.builder();
+            for (VariableReferenceExpression variable : setOperationOutputVariables) {
+                builder.add(canonicalize(variable));
             }
             return builder.build();
         }
