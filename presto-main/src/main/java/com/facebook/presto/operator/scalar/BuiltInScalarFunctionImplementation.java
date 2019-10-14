@@ -21,18 +21,18 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public final class ScalarFunctionImplementation
+public final class BuiltInScalarFunctionImplementation
 {
     private final List<ScalarImplementationChoice> choices;
 
-    public ScalarFunctionImplementation(
+    public BuiltInScalarFunctionImplementation(
             boolean nullable,
             List<ArgumentProperty> argumentProperties,
             MethodHandle methodHandle)
@@ -44,7 +44,7 @@ public final class ScalarFunctionImplementation
                 Optional.empty());
     }
 
-    public ScalarFunctionImplementation(
+    public BuiltInScalarFunctionImplementation(
             boolean nullable,
             List<ArgumentProperty> argumentProperties,
             MethodHandle methodHandle,
@@ -68,7 +68,7 @@ public final class ScalarFunctionImplementation
      *
      * @param choices the list of choices, ordered from generic to specific
      */
-    public ScalarFunctionImplementation(List<ScalarImplementationChoice> choices)
+    public BuiltInScalarFunctionImplementation(List<ScalarImplementationChoice> choices)
     {
         checkArgument(!choices.isEmpty(), "choices is an empty list");
         this.choices = ImmutableList.copyOf(choices);

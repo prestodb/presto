@@ -94,8 +94,8 @@ public final class FastutilSetHelper
 
         private LongStrategy(FunctionManager functionManager, Type type)
         {
-            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
-            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
+            hashCodeHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -136,8 +136,8 @@ public final class FastutilSetHelper
 
         private DoubleStrategy(FunctionManager functionManager, Type type)
         {
-            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
-            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
+            hashCodeHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -178,10 +178,10 @@ public final class FastutilSetHelper
 
         private ObjectStrategy(FunctionManager functionManager, Type type)
         {
-            hashCodeHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type)))
+            hashCodeHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(long.class, Object.class));
-            equalsHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type)))
+            equalsHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
         }

@@ -67,7 +67,7 @@ public final class JsonStringToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         return JSON_TO_MAP.specialize(boundVariables, arity, typeManager, functionManager);
     }

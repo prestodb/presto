@@ -35,7 +35,7 @@ import com.facebook.presto.operator.JoinHashSupplier;
 import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.PagesHash;
 import com.facebook.presto.operator.PagesHashStrategy;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -707,7 +707,7 @@ public class JoinCompiler
                         continue;
                 }
             }
-            ScalarFunctionImplementation operator = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));
+            BuiltInScalarFunctionImplementation operator = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));
             callSiteBinder.bind(operator.getMethodHandle());
             List<BytecodeNode> argumentsBytecode = new ArrayList<>();
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, leftBlock, leftBlockPosition));
