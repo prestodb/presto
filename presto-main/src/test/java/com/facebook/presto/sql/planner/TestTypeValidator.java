@@ -26,13 +26,13 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.sanity.TypeValidator;
 import com.facebook.presto.sql.tree.Cast;
@@ -42,10 +42,8 @@ import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -137,15 +135,12 @@ public class TestTypeValidator
     public void testValidUnion()
     {
         VariableReferenceExpression output = variableAllocator.newVariable("output", DATE);
-        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
-                .put(output, variableD)
-                .put(output, variableD)
-                .build();
 
         PlanNode node = new UnionNode(
                 newId(),
                 ImmutableList.of(baseTableScan, baseTableScan),
-                mappings);
+                ImmutableList.of(output),
+                ImmutableMap.of(output, ImmutableList.of(variableD, variableD)));
 
         assertTypesValid(node);
     }
@@ -357,15 +352,16 @@ public class TestTypeValidator
     public void testInvalidUnion()
     {
         VariableReferenceExpression output = variableAllocator.newVariable("output", DATE);
-        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = ImmutableListMultimap.<VariableReferenceExpression, VariableReferenceExpression>builder()
-                .put(output, variableD)
-                .put(output, variableA) // should be a symbol with DATE type
-                .build();
 
         PlanNode node = new UnionNode(
                 newId(),
                 ImmutableList.of(baseTableScan, baseTableScan),
-                mappings);
+                ImmutableList.of(output),
+                ImmutableMap.of(
+                        output,
+                        ImmutableList.of(
+                                variableD,
+                                variableA))); // should be a symbol with DATE type
 
         assertTypesValid(node);
     }

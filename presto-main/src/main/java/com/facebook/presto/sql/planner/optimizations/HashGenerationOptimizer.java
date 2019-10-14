@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
@@ -44,7 +45,6 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.BiMap;
@@ -54,6 +54,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 
 import java.util.HashMap;
@@ -67,6 +68,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -573,7 +575,7 @@ public class HashGenerationOptimizer
 
             // add hash variables to sources
             ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> newVariableMapping = ImmutableListMultimap.builder();
-            newVariableMapping.putAll(node.getVariableMapping());
+            node.getVariableMapping().forEach(newVariableMapping::putAll);
             ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
             for (int sourceId = 0; sourceId < node.getSources().size(); sourceId++) {
                 // translate preference to input variables
@@ -594,11 +596,13 @@ public class HashGenerationOptimizer
                 }
             }
 
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs = newVariableMapping.build();
             return new PlanWithProperties(
                     new UnionNode(
                             node.getId(),
                             newSources.build(),
-                            newVariableMapping.build()),
+                            ImmutableList.copyOf(outputsToInputs.keySet()),
+                            fromListMultimap(outputsToInputs)),
                     newHashVariables);
         }
 

@@ -18,14 +18,15 @@ import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.isPushTableWriteThroughUnion;
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.tableWriterNode;
 import static com.facebook.presto.sql.planner.plan.Patterns.union;
@@ -76,12 +78,14 @@ public class PushTableWriteThroughUnion
 
         ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> unionMappings = ImmutableListMultimap.builder();
         sourceMappings.forEach(mappings -> mappings.forEach(unionMappings::put));
+        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mappings = unionMappings.build();
 
         return Result.ofPlanNode(
                 new UnionNode(
                         context.getIdAllocator().getNextId(),
                         rewrittenSources.build(),
-                        unionMappings.build()));
+                        ImmutableList.copyOf(mappings.keySet()),
+                        fromListMultimap(mappings)));
     }
 
     private static TableWriterNode rewriteSource(
@@ -112,9 +116,6 @@ public class PushTableWriteThroughUnion
 
     private static Map<VariableReferenceExpression, VariableReferenceExpression> getInputVariableMapping(UnionNode node, int source)
     {
-        return node.getVariableMapping()
-                .keySet()
-                .stream()
-                .collect(toImmutableMap(key -> key, key -> node.getVariableMapping().get(key).get(source)));
+        return node.getOutputVariables().stream().collect(toImmutableMap(key -> key, key -> node.getVariableMapping().get(key).get(source)));
     }
 }
