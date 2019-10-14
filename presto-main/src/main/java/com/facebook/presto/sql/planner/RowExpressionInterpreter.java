@@ -207,15 +207,20 @@ public class RowExpressionInterpreter
         {
             List<Type> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
-            FunctionHandle functionHandle = node.getFunctionHandle();
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(node.getFunctionHandle());
             for (RowExpression expression : node.getArguments()) {
                 Object value = expression.accept(this, context);
-                if (value == null && !functionMetadata.isCalledOnNullInput()) {
-                    return null;
-                }
                 argumentValues.add(value);
                 argumentTypes.add(expression.getType());
+            }
+
+            FunctionHandle functionHandle = node.getFunctionHandle();
+            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(node.getFunctionHandle());
+            if (!functionMetadata.isCalledOnNullInput()) {
+                for (Object value : argumentValues) {
+                    if (value == null) {
+                        return null;
+                    }
+                }
             }
 
             // Special casing for large constant array construction
