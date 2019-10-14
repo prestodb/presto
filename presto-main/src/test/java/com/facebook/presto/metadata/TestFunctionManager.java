@@ -14,8 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CustomFunctions;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
@@ -39,8 +39,8 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static com.facebook.presto.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
+import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -411,13 +411,13 @@ public class TestFunctionManager
                 functions.add(new SqlScalarFunction(signature)
                 {
                     @Override
-                    public ScalarFunctionImplementation specialize(
+                    public BuiltInScalarFunctionImplementation specialize(
                             BoundVariables boundVariables,
                             int arity,
                             TypeManager typeManager,
                             FunctionManager functionManager)
                     {
-                        return new ScalarFunctionImplementation(
+                        return new BuiltInScalarFunctionImplementation(
                                 false,
                                 nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                                 MethodHandles.identity(Void.class));

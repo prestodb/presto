@@ -18,7 +18,7 @@ import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 
@@ -83,7 +83,7 @@ public class BytecodeGeneratorContext
         return manager;
     }
 
-    public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
+    public BytecodeNode generateCall(String name, BuiltInScalarFunctionImplementation function, List<BytecodeNode> arguments)
     {
         return generateCall(name, function, arguments, Optional.empty());
     }
@@ -93,7 +93,7 @@ public class BytecodeGeneratorContext
      */
     public BytecodeNode generateCall(
             String name,
-            ScalarFunctionImplementation function,
+            BuiltInScalarFunctionImplementation function,
             List<BytecodeNode> arguments,
             Optional<OutputBlockVariableAndType> outputBlockVariableAndType)
     {

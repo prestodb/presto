@@ -21,7 +21,7 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.control.SwitchStatement.SwitchBuilder;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -123,9 +123,9 @@ public class InCodeGenerator
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, values);
 
         FunctionHandle hashCodeHandle = generatorContext.getFunctionManager().resolveOperator(HASH_CODE, fromTypes(type));
-        MethodHandle hashCodeFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(hashCodeHandle).getMethodHandle();
+        MethodHandle hashCodeFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(hashCodeHandle).getMethodHandle();
         FunctionHandle isIndeterminateHandle = generatorContext.getFunctionManager().resolveOperator(INDETERMINATE, fromTypes(type));
-        ScalarFunctionImplementation isIndeterminateFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(isIndeterminateHandle);
+        BuiltInScalarFunctionImplementation isIndeterminateFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(isIndeterminateHandle);
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
@@ -295,7 +295,7 @@ public class InCodeGenerator
             Variable value,
             Collection<BytecodeNode> testValues,
             boolean checkForNulls,
-            ScalarFunctionImplementation isIndeterminateFunction)
+            BuiltInScalarFunctionImplementation isIndeterminateFunction)
     {
         Variable caseWasNull = null; // caseWasNull is set to true the first time a null in `testValues` is encountered
         if (checkForNulls) {
@@ -332,7 +332,7 @@ public class InCodeGenerator
         elseBlock.gotoLabel(noMatchLabel);
 
         FunctionHandle equalsHandle = generatorContext.getFunctionManager().resolveOperator(EQUAL, fromTypes(type, type));
-        ScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getScalarFunctionImplementation(equalsHandle);
+        BuiltInScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(equalsHandle);
 
         BytecodeNode elseNode = elseBlock;
         for (BytecodeNode testNode : testValues) {

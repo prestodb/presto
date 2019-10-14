@@ -15,7 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
+import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -235,7 +235,7 @@ public class FunctionManager
         return builtInFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle);
     }
 
-    public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
+    public BuiltInScalarFunctionImplementation getBuiltInScalarFunctionImplementation(FunctionHandle functionHandle)
     {
         return builtInFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
     }
