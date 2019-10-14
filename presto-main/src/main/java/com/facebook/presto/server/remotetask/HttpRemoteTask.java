@@ -34,6 +34,7 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
+import com.facebook.presto.server.thrift.RemoteTaskThriftClient;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -161,6 +162,7 @@ public final class HttpRemoteTask
     private final boolean summarizeTaskInfo;
 
     private final HttpClient httpClient;
+    private final RemoteTaskThriftClient remoteTaskThriftClient;
     private final Executor executor;
     private final ScheduledExecutorService errorScheduledExecutor;
 
@@ -188,6 +190,7 @@ public final class HttpRemoteTask
             OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             HttpClient httpClient,
+            RemoteTaskThriftClient remoteTaskThriftClient,
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorScheduledExecutor,
@@ -229,6 +232,7 @@ public final class HttpRemoteTask
             this.totalPartitions = totalPartitions;
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
+            this.remoteTaskThriftClient = remoteTaskThriftClient;
             this.executor = executor;
             this.errorScheduledExecutor = errorScheduledExecutor;
             this.summarizeTaskInfo = summarizeTaskInfo;
@@ -635,6 +639,19 @@ public final class HttpRemoteTask
         }
         else {
             responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
+        }
+
+        if (remoteTaskThriftClient != null) {
+            // it can be null for the remote task on coordinator, likely due to some announcement/InternalNode publishing bugs.
+            // For now just work around this.
+            try {
+                long current = System.currentTimeMillis();
+                byte[] result = remoteTaskThriftClient.createOrUpdateTask(taskId.toString(), taskUpdateRequestJson);
+                System.out.println("Wenlei Debug Time: " + (System.currentTimeMillis() - current) + " ms");
+            }
+            catch (Throwable t) {
+                log.error(t);
+            }
         }
 
         updateErrorTracker.startRequest();

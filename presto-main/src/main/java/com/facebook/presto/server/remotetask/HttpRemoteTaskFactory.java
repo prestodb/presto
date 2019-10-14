@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -31,6 +32,7 @@ import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
+import com.facebook.presto.server.thrift.RemoteTaskThriftClient;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
@@ -46,6 +48,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -64,6 +67,7 @@ public class HttpRemoteTaskFactory
     private static final Logger LOG = Logger.get(HttpRemoteTaskFactory.class);
 
     private final HttpClient httpClient;
+    private final DriftClient<RemoteTaskThriftClient> remoteTaskDriftClient;
     private final LocationFactory locationFactory;
     private final Codec<TaskStatus> taskStatusCodec;
     private final Codec<TaskInfo> taskInfoCodec;
@@ -81,9 +85,11 @@ public class HttpRemoteTaskFactory
     private final boolean isBinaryTransportEnabled;
 
     @Inject
-    public HttpRemoteTaskFactory(QueryManagerConfig config,
+    public HttpRemoteTaskFactory(
+            QueryManagerConfig config,
             TaskManagerConfig taskConfig,
             @ForScheduler HttpClient httpClient,
+            DriftClient<RemoteTaskThriftClient> remoteTaskDriftClient,
             LocationFactory locationFactory,
             JsonCodec<TaskStatus> taskStatusJsonCodec,
             SmileCodec<TaskStatus> taskStatusSmileCodec,
@@ -95,6 +101,7 @@ public class HttpRemoteTaskFactory
             InternalCommunicationConfig communicationConfig)
     {
         this.httpClient = httpClient;
+        this.remoteTaskDriftClient = requireNonNull(remoteTaskDriftClient);
         this.locationFactory = locationFactory;
         this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
         this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
@@ -137,7 +144,8 @@ public class HttpRemoteTaskFactory
     }
 
     @Override
-    public RemoteTask createRemoteTask(Session session,
+    public RemoteTask createRemoteTask(
+            Session session,
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,
@@ -147,7 +155,8 @@ public class HttpRemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo)
     {
-        return new HttpRemoteTask(session,
+        return new HttpRemoteTask(
+                session,
                 taskId,
                 node.getNodeIdentifier(),
                 locationFactory.createTaskLocation(node, taskId),
@@ -156,6 +165,9 @@ public class HttpRemoteTaskFactory
                 totalPartitions,
                 outputBuffers,
                 httpClient,
+                node.getThriftServerAddress() != null
+                        ? remoteTaskDriftClient.get(Optional.of(node.getThriftServerAddress().toString()))
+                        : null,
                 executor,
                 updateScheduledExecutor,
                 errorScheduledExecutor,

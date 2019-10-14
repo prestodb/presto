@@ -267,6 +267,7 @@ public class TestHttpRemoteTask
                                 new QueryManagerConfig(),
                                 TASK_MANAGER_CONFIG,
                                 testingHttpClient,
+                                null,
                                 new TestSqlTaskManager.MockLocationFactory(),
                                 taskStatusJsonCodec,
                                 taskStatusSmileCodec,

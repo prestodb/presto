@@ -19,6 +19,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.sql.tree.Except;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.common.net.HostAndPort;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
@@ -124,9 +126,10 @@ public final class DiscoveryNodeManager
     {
         for (ServiceDescriptor service : allServices) {
             URI uri = getHttpUri(service, httpsRequired);
+            HostAndPort address = getThriftServerAddress(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, isCoordinator(service));
+                InternalNode node = new InternalNode(service.getNodeId(), uri, address, nodeVersion, isCoordinator(service));
 
                 if (node.getNodeIdentifier().equals(currentNodeId)) {
                     checkState(
@@ -212,11 +215,14 @@ public final class DiscoveryNodeManager
         ImmutableSetMultimap.Builder<ConnectorId, InternalNode> byConnectorIdBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
+//            System.err.print("WenleiDebug: " + service);
+
             URI uri = getHttpUri(service, httpsRequired);
+            HostAndPort address = getThriftServerAddress(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             boolean coordinator = isCoordinator(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, coordinator);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, address, nodeVersion, coordinator);
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -376,6 +382,19 @@ public final class DiscoveryNodeManager
                 return new URI(url);
             }
             catch (URISyntaxException ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static HostAndPort getThriftServerAddress(ServiceDescriptor descriptor)
+    {
+        String address = descriptor.getProperties().get("thriftServerAddress");
+        if (address != null) {
+            try {
+                return HostAndPort.fromString(address);
+            }
+            catch (IllegalArgumentException ignored) {
             }
         }
         return null;

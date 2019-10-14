@@ -16,6 +16,9 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
+import com.google.common.net.HostAndPort;
+
+import javax.annotation.Nullable;
 
 import java.net.URI;
 
@@ -32,14 +35,23 @@ public class InternalNode
 {
     private final String nodeIdentifier;
     private final URI internalUri;
+    @Nullable
+    private final HostAndPort thriftServerAddress;
+
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
+        this(nodeIdentifier, internalUri, null, nodeVersion, coordinator);
+    }
+
+    public InternalNode(String nodeIdentifier, URI internalUri, HostAndPort thriftServerAddress, NodeVersion nodeVersion, boolean coordinator)
+    {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
         this.internalUri = requireNonNull(internalUri, "internalUri is null");
+        this.thriftServerAddress = thriftServerAddress;
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
     }
@@ -61,6 +73,10 @@ public class InternalNode
     public URI getHttpUri()
     {
         return getInternalUri();
+    }
+
+    public HostAndPort getThriftServerAddress() {
+        return thriftServerAddress;
     }
 
     public URI getInternalUri()
@@ -116,6 +132,7 @@ public class InternalNode
         return toStringHelper(this)
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("internalUri", internalUri)
+                .add("thriftServerAddress", thriftServerAddress)
                 .add("nodeVersion", nodeVersion)
                 .toString();
     }

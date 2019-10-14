@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.client.address.AddressSelector;
+import com.facebook.drift.client.guice.DefaultClient;
+import com.facebook.drift.transport.netty.client.DriftNettyClientConfig;
+import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
+import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.SystemSessionProperties;
@@ -81,6 +86,9 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
+import com.facebook.presto.server.thrift.FixedAddressSelector;
+import com.facebook.presto.server.thrift.RemoteTaskThriftClient;
+import com.facebook.presto.server.thrift.TaskThriftService;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -158,6 +166,9 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.drift.client.guice.DriftClientAnnotationFactory.getDriftClientAnnotation;
+import static com.facebook.drift.client.guice.DriftClientBinder.driftClientBinder;
+import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
@@ -479,6 +490,17 @@ public class ServerMainModule
         newExporter(binder).export(SpillerFactory.class).withGeneratedName();
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
+
+        // Thrift RPC
+        binder.install(new DriftNettyClientModule());
+        driftClientBinder(binder)
+                .bindDriftClient(RemoteTaskThriftClient.class)
+                .withAddressSelector(((addressSelectorBinder, annotation, prefix) ->
+                        addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(FixedAddressSelector.class)));
+
+        binder.install(new DriftNettyServerModule());
+        driftServerBinder(binder)
+                .bindService(TaskThriftService.class);
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);

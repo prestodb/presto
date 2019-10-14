@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.server.testing;
 
+import com.facebook.drift.server.DriftServer;
+import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -296,6 +298,8 @@ public class TestingPrestoServer
         connectorManager = injector.getInstance(ConnectorManager.class);
 
         server = injector.getInstance(TestingHttpServer.class);
+        System.err.println("Wenlei Debug: Http Server port: " + server.getPort());
+
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
@@ -324,6 +328,15 @@ public class TestingPrestoServer
         taskManager = injector.getInstance(TaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         announcer = injector.getInstance(Announcer.class);
+
+        // Announce Thrift server address
+        DriftServer driftServer = injector.getInstance(DriftServer.class);
+        driftServer.start();
+        System.err.print("WenleiDebug : drift server port: " + driftServerPort(driftServer) + ", coordinator: " + coordinator);
+        updateThriftServerAddressAnnouncement(announcer, "localhost:" + driftServerPort(driftServer), nodeManager);
+        if (coordinator) {
+            System.err.println("Breakpoint");
+        }
 
         announcer.forceAnnounce();
 
@@ -536,6 +549,23 @@ public class TestingPrestoServer
         nodeManager.refreshNodes();
     }
 
+    private static void updateThriftServerAddressAnnouncement(Announcer announcer, String address, InternalNodeManager nodeManager)
+    {
+        // get existing announcement
+        ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
+
+        // update thriftServerAddress property
+        Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
+        properties.put("thriftServerAddress", address);
+
+        // update announcement
+        announcer.removeServiceAnnouncement(announcement.getId());
+        announcer.addServiceAnnouncement(serviceAnnouncement(announcement.getType()).addProperties(properties).build());
+        announcer.forceAnnounce();
+
+        nodeManager.refreshNodes();
+    }
+
     private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
     {
         for (ServiceAnnouncement announcement : announcements) {
@@ -554,5 +584,10 @@ public class TestingPrestoServer
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static int driftServerPort(DriftServer server)
+    {
+        return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
     }
 }
