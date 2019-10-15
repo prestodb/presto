@@ -903,7 +903,11 @@ public class OrcTester
                     }
                 }
                 catch (RuntimeException e) {
-                    assertEquals(e.getMessage(), entry.getExpectedErrorMessage().get(), "This should fail for the same exception as we expected");
+                    if(entry.getExpectedErrorMessage().isPresent()){
+                        assertEquals(e.getMessage(), entry.getExpectedErrorMessage().get(), "This should fail for the same exception as we expected");
+                    } else {
+                        throw e;
+                    }
                 }
 
                 orderChecker.ifPresent(TupleDomainFilterOrderChecker::assertOrder);

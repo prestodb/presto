@@ -13,25 +13,21 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.type.AbstractIntType;
 import com.facebook.presto.spi.type.AbstractLongType;
 import com.facebook.presto.spi.type.AbstractVariableWidthType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.sun.org.apache.bcel.internal.generic.Select;
 
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
+
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
@@ -45,13 +41,12 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
  */
 public interface SelectOrderer
 {
-
     public static class OrcSelectOrderer
             implements SelectOrderer
     {
-        final static int UNKNOWN_TYPE_WEIGHT = 100;
+        public final static int UNKNOWN_TYPE_WEIGHT = 100;
 
-        private static int score(SelectOrderable orderable)
+        private static int strategy(SelectOrderable orderable)
         {
             if (orderable instanceof TupleDomainFilter) {
                 TupleDomainFilter filter = (TupleDomainFilter) orderable;
@@ -80,7 +75,7 @@ public interface SelectOrderer
             if (orderable instanceof OrderableColumn){
                 OrderableColumn column = (OrderableColumn) orderable;
                 if(column.isConstant()){
-                    return 0;
+                    return 1;
                 }
                 if(!column.getType().isPresent()){
                     return UNKNOWN_TYPE_WEIGHT;
@@ -99,33 +94,31 @@ public interface SelectOrderer
             }
 
             return 100;
-            // throw new IllegalStateException("Can only score a SelectOrderable of type TypleDomainFilter, FilterFunction, or OrderableColumn");
+            // throw new IllegalStateException("Can only strategy a SelectOrderable of type TypleDomainFilter, FilterFunction, or OrderableColumn");
         }
 
         /**
          * @param orderables, a list of things wrapped with that interface (TupleDomainFilters, OrderableColumn, FilterFunction) that we want to sort
-         * @param orderableToColumns A function that takes in a SelectOrderable and returns the list of functions it connects to
-         * @return A list of lists. Each sublist starts with the column associated with it, then the list of TupleDomainFilters, then the list of FilterFunctions that
-         *          read that column. FilterFunctions will always be associated with the *last* column they need to read.
+         * @param orderableToColumns A function that takes in a SelectOrderable and returns the list of columns it connects to
+         * @return A list of lists. Each sublist starts with the column associated with it, then the TupleDomainFilters applied to that column,
+         *          then the FilterFunctions that should be applied right after reading that column.
          *          The outer list orders the columns (which are the first element of the inner list) from first to last order.
          */
         public static List<List<SelectOrderable>> order(List<SelectOrderable> orderables, Function<SelectOrderable, List<OrderableColumn>> orderableToColumns)
         {
             Map<SelectOrderable, Integer> orderableToScore = orderables
                     .stream()
-                    .collect(toImmutableMap(entry -> entry, entry -> score(entry)));
+                    .collect(toImmutableMap(entry -> entry, entry -> strategy(entry)));
 
-            try {
-                orderableToScore = orderables
-                    .stream()
-                    .collect(toImmutableMap(entry -> entry,
-                            entry -> score(entry) * orderableToColumns.apply(entry).stream()
-                                .mapToInt(column -> score(column))
-                                .max()
-                                .getAsInt()));
-            }
-            catch(NoSuchElementException e){
-            }
+
+            orderableToScore = orderables
+                .stream()
+                .collect(toImmutableMap(entry -> entry,
+                        entry -> strategy(entry) * orderableToColumns.apply(entry).stream()
+                            .mapToInt(column -> strategy(column))
+                            .max()
+                            .orElse(UNKNOWN_TYPE_WEIGHT)));
+
 
             List<SelectOrderable> sortedNonColumnOrderables = orderableToScore.entrySet().stream()
                     .filter(entry -> !(entry.getKey() instanceof OrderableColumn))
@@ -134,17 +127,20 @@ public interface SelectOrderer
                     .collect(toImmutableList());
 
             LinkedList<List<SelectOrderable>> columnOrder = new LinkedList<List<SelectOrderable>>();
+            Map<OrderableColumn, Integer> columnLocation = new HashMap<OrderableColumn, Integer>();
 
             for (SelectOrderable orderable: sortedNonColumnOrderables) {
                 int maxIndexOfPossibleColumns = 0;
                 for(OrderableColumn column : orderableToColumns.apply(orderable)){
-                    if(!columnOrder.contains(column)){
+                    if(!columnLocation.containsKey(column)){
+                        int newIndex = columnOrder.size();
                         columnOrder.add(new LinkedList<SelectOrderable>());
                         columnOrder.getLast().add(column);
-                        maxIndexOfPossibleColumns = columnOrder.size() - 1;
+                        columnLocation.put(column, newIndex);
+                        maxIndexOfPossibleColumns = newIndex;
                     }
                     else {
-                        maxIndexOfPossibleColumns = Integer.max(maxIndexOfPossibleColumns, columnOrder.indexOf(column));
+                        maxIndexOfPossibleColumns = Integer.max(maxIndexOfPossibleColumns, columnLocation.get(column));
                     }
                 }
                 if(orderable instanceof TupleDomainFilter){
@@ -156,7 +152,13 @@ public interface SelectOrderer
                 }
 
             }
-            return columnOrder;
+
+            for (SelectOrderable orderable: orderables){
+                if(orderable instanceof OrderableColumn && ! columnLocation.containsKey(orderable)){
+                    columnOrder.add(ImmutableList.of(orderable));
+                }
+            }
+            return ImmutableList.copyOf(columnOrder);
 
         }
     }
@@ -172,12 +174,13 @@ public interface SelectOrderer
     {
     }
 
-    class OrderableColumn
+    public class OrderableColumn
             implements SelectOrderable
     {
         private final boolean isConstant;
         private final int index;
         private final Optional<Type> type;
+        public final static OrderableColumn NULL_COLUMN = OrderableColumn.of(true, -1);
 
         private OrderableColumn(boolean isConstant, int index, Optional<Type> type)
         {
