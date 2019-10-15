@@ -49,6 +49,7 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -149,6 +150,7 @@ import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
@@ -534,6 +536,24 @@ class StatementAnalyzer
             accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), viewName);
 
             validateColumns(node, queryScope.getRelationType());
+
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitCreateFunction(CreateFunction node, Optional<Scope> scope)
+        {
+            analysis.setUpdateType("CREATE FUNCTION");
+
+            Type returnType = metadata.getType(parseTypeSignature(node.getReturnType()));
+            List<Field> fields = node.getParameters().stream()
+                    .map(parameter -> Field.newUnqualified(parameter.getName().getValue(), metadata.getType(parseTypeSignature(parameter.getType()))))
+                    .collect(toImmutableList());
+            Scope functionScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(fields))
+                    .build();
+            Type bodyType = analyzeExpression(node.getBody(), functionScope).getExpressionTypes().get(NodeRef.of(node.getBody()));
+            metadata.getTypeManager().canCoerce(bodyType, returnType);
 
             return createAndAssignScope(node, scope);
         }

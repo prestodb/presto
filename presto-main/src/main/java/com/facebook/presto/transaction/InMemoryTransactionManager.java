@@ -57,6 +57,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
 import static com.facebook.presto.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
@@ -244,6 +245,14 @@ public class InMemoryTransactionManager
         return getTransactionMetadata(transactionId).getFunctionNamespaceTransaction(functionNamespaceManagerName);
     }
 
+    @Override
+    public FunctionNamespaceTransactionHandle getFunctionNamespaceTransactionForWrite(TransactionId transactionId, String functionNamespaceManagerName)
+    {
+        TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
+        transactionMetadata.checkFunctionNamespaceWrite(functionNamespaceManagerName);
+        return transactionMetadata.getFunctionNamespaceTransaction(functionNamespaceManagerName);
+    }
+
     private void checkConnectorWrite(TransactionId transactionId, ConnectorId connectorId)
     {
         getTransactionMetadata(transactionId).checkConnectorWrite(connectorId);
@@ -343,6 +352,9 @@ public class InMemoryTransactionManager
         private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers;
         @GuardedBy("this")
         private final Map<String, FunctionNamespaceTransactionHandle> functionNamespaceTransactions = new ConcurrentHashMap<>();
+
+        @GuardedBy("this")
+        private final AtomicReference<FunctionNamespaceManager<?>> writtenFunctionNamespace = new AtomicReference<>();
 
         public TransactionMetadata(
                 TransactionId transactionId,
@@ -465,6 +477,18 @@ public class InMemoryTransactionManager
             checkOpenTransaction();
 
             return functionNamespaceTransactions.computeIfAbsent(functionNamespaceManagerName, name -> functionNamespaceManagers.get(name).beginTransaction());
+        }
+
+        private synchronized void checkFunctionNamespaceWrite(String functionNamespaceManagerName)
+        {
+            checkOpenTransaction();
+            checkArgument(functionNamespaceManagers.containsKey(functionNamespaceManagerName), "Unknown FunctionNamespaceManager '%s'", functionNamespaceManagerName);
+            if (readOnly) {
+                throw new PrestoException(READ_ONLY_VIOLATION, "Cannot execute write in a read-only transaction");
+            }
+            if (!writtenFunctionNamespace.compareAndSet(null, functionNamespaceManagers.get(functionNamespaceManagerName))) {
+                throw new PrestoException(NOT_SUPPORTED, "Multiple writes to function namespaces in one transaction is not supported");
+            }
         }
 
         public synchronized ConnectorTransactionMetadata createConnectorTransactionMetadata(ConnectorId connectorId, Catalog catalog)

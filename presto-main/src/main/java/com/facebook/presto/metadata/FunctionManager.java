@@ -162,6 +162,13 @@ public class FunctionManager
                 .collect(toImmutableList());
     }
 
+    @SuppressWarnings("unchecked")
+    public void createFunction(SqlFunction function, boolean replace)
+    {
+        FunctionNamespaceManager functionNamespaceManager = getRequiredServingFunctionNamespaceManager(function.getSignature().getName().getFunctionNamespace());
+        functionNamespaceManager.createFunction(function, replace);
+    }
+
     /**
      * Resolves a function using implicit type coercions. We enforce explicit naming for dynamic function namespaces.
      * All unqualified function names will only be resolved against the built-in static function namespace. While it is
@@ -191,17 +198,14 @@ public class FunctionManager
 
     private FunctionHandle resolveFunction(Optional<Session> session, QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
     {
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace());
-        if (!functionNamespaceManager.isPresent()) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, format("Cannot find function namespace for function %s", functionName));
-        }
+        FunctionNamespaceManager<?> functionNamespaceManager = getRequiredServingFunctionNamespaceManager(functionName.getFunctionNamespace());
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = session.flatMap(Session::getTransactionId)
-                .map(transactionId -> transactionManager.getFunctionNamespaceTransaction(transactionId, functionNamespaceManager.get().getName()));
-        Collection<? extends SqlFunction> candidates = functionNamespaceManager.get().getFunctions(transactionHandle, functionName);
+                .map(transactionId -> transactionManager.getFunctionNamespaceTransaction(transactionId, functionNamespaceManager.getName()));
+        Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
 
         try {
-            return lookupFunction(functionNamespaceManager.get(), transactionHandle, functionName, parameterTypes, candidates);
+            return lookupFunction(functionNamespaceManager, transactionHandle, functionName, parameterTypes, candidates);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() != FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -211,7 +215,7 @@ public class FunctionManager
 
         Optional<Signature> match = matchFunctionWithCoercion(candidates, parameterTypes);
         if (match.isPresent()) {
-            return functionNamespaceManager.get().getFunctionHandle(transactionHandle, match.get());
+            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
         }
 
         if (functionName.getUnqualifiedName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
@@ -339,6 +343,15 @@ public class FunctionManager
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName.toString(), parameterTypes, candidates));
+    }
+
+    private FunctionNamespaceManager<?> getRequiredServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionNamespace);
+        if (!functionNamespaceManager.isPresent()) {
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Cannot find function namespace '%s'", functionNamespace));
+        }
+        return functionNamespaceManager.get();
     }
 
     private Optional<FunctionNamespaceManager<?>> getServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)

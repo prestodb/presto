@@ -63,6 +63,8 @@ public interface TransactionManager
 
     FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerName);
 
+    FunctionNamespaceTransactionHandle getFunctionNamespaceTransactionForWrite(TransactionId transactionId, String functionNamespaceManagerName);
+
     void checkAndSetActive(TransactionId transactionId);
 
     void trySetActive(TransactionId transactionId);
