@@ -38,6 +38,8 @@ public interface JdbcClient
         return getSchemaNames(identity).contains(schema);
     }
 
+    String getIdentifierQuote();
+
     Set<String> getSchemaNames(JdbcIdentity identity);
 
     List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema);

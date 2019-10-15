@@ -53,4 +53,9 @@ public class TranslatedExpression<T>
     {
         return new TranslatedExpression<>(Optional.empty(), originalExpression, ImmutableList.of());
     }
+
+    public static <T> TranslatedExpression<T> untranslated(RowExpression originalExpression, List<TranslatedExpression<T>> translatedArguments)
+    {
+        return new TranslatedExpression<>(Optional.empty(), originalExpression, translatedArguments);
+    }
 }

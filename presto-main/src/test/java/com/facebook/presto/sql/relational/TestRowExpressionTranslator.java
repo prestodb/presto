@@ -218,7 +218,7 @@ public class TestRowExpressionTranslator
                 return functionTranslator.translate(functionMetadata, callExpression, translatedExpressions);
             }
             catch (Throwable t) {
-                return untranslated(callExpression);
+                return untranslated(callExpression, translatedExpressions);
             }
         }
 
@@ -242,9 +242,9 @@ public class TestRowExpressionTranslator
         }
 
         @Override
-        public TranslatedExpression<String> translateVariable(VariableReferenceExpression reference, Map<VariableReferenceExpression, ColumnHandle> context, RowExpressionTreeTranslator<String, Map<VariableReferenceExpression, ColumnHandle>> rowExpressionTreeTranslator)
+        public TranslatedExpression<String> translateVariable(VariableReferenceExpression variable, Map<VariableReferenceExpression, ColumnHandle> context, RowExpressionTreeTranslator<String, Map<VariableReferenceExpression, ColumnHandle>> rowExpressionTreeTranslator)
         {
-            return new TranslatedExpression<>(Optional.of(reference.getName()), reference, emptyList());
+            return new TranslatedExpression<>(Optional.of(variable.getName()), variable, emptyList());
         }
     }
 
@@ -252,53 +252,44 @@ public class TestRowExpressionTranslator
     {
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
-        public static String bitwiseAnd(@SqlType(StandardTypes.BIGINT) TranslatedExpression<String> left, @SqlType(StandardTypes.BIGINT) TranslatedExpression<String> right)
+        public static String bitwiseAnd(@SqlType(StandardTypes.BIGINT) String left, @SqlType(StandardTypes.BIGINT) String right)
         {
-            assertTrue(left.getTranslated().isPresent());
-            assertTrue(right.getTranslated().isPresent());
-            return left.getTranslated().get() + " BITWISE_AND " + right.getTranslated().get();
+            return left + " BITWISE_AND " + right;
         }
 
         @ScalarFunction("ln")
         @SqlType(StandardTypes.DOUBLE)
-        public static String ln(@SqlType(StandardTypes.DOUBLE) TranslatedExpression<String> sql)
+        public static String ln(@SqlType(StandardTypes.DOUBLE) String sql)
         {
-            assertTrue(sql.getTranslated().isPresent());
-            return "LNof(" + sql.getTranslated().get() + ")";
+            return "LNof(" + sql + ")";
         }
 
         @ScalarFunction("ceil")
         @SqlType(StandardTypes.DOUBLE)
-        public static String ceil(@SqlType(StandardTypes.BOOLEAN) TranslatedExpression<String> sql)
+        public static String ceil(@SqlType(StandardTypes.BOOLEAN) String sql)
         {
-            assertTrue(sql.getTranslated().isPresent());
-            return "CEILof(" + sql.getTranslated().get() + ")";
+            return "CEILof(" + sql + ")";
         }
 
         @ScalarFunction("not")
         @SqlType(StandardTypes.BOOLEAN)
-        public static String not(@SqlType(StandardTypes.BOOLEAN) TranslatedExpression<String> sql)
+        public static String not(@SqlType(StandardTypes.BOOLEAN) String sql)
         {
-            assertTrue(sql.getTranslated().isPresent());
-            return "NOT_2 " + sql.getTranslated().get();
+            return "NOT_2 " + sql;
         }
 
         @ScalarOperator(OperatorType.ADD)
         @SqlType(StandardTypes.BIGINT)
-        public static String plus(@SqlType(StandardTypes.BIGINT) TranslatedExpression<String> left, @SqlType(StandardTypes.BIGINT) TranslatedExpression<String> right)
+        public static String plus(@SqlType(StandardTypes.BIGINT) String left, @SqlType(StandardTypes.BIGINT) String right)
         {
-            assertTrue(left.getTranslated().isPresent());
-            assertTrue(right.getTranslated().isPresent());
-            return left.getTranslated().get() + " -|- " + right.getTranslated().get();
+            return left + " -|- " + right;
         }
 
         @ScalarOperator(OperatorType.LESS_THAN)
         @SqlType(StandardTypes.BOOLEAN)
-        public static String lessThan(@SqlType(StandardTypes.BIGINT) TranslatedExpression<String> left, @SqlType(StandardTypes.BIGINT) TranslatedExpression<String> right)
+        public static String lessThan(@SqlType(StandardTypes.BIGINT) String left, @SqlType(StandardTypes.BIGINT) String right)
         {
-            assertTrue(left.getTranslated().isPresent());
-            assertTrue(right.getTranslated().isPresent());
-            return left.getTranslated().get() + " LT " + right.getTranslated().get();
+            return left + " LT " + right;
         }
     }
 }

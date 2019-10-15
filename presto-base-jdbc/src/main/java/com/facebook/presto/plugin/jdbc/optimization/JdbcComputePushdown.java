@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.plugin.jdbc.optimization;
 
+import com.facebook.presto.expressions.LogicalRowExpressions;
+import com.facebook.presto.expressions.translator.TranslatedExpression;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
@@ -28,24 +30,47 @@ import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
+import java.util.Set;
 
+import static com.facebook.presto.expressions.translator.FunctionTranslator.buildFunctionTranslator;
+import static com.facebook.presto.expressions.translator.RowExpressionTreeTranslator.translateWith;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcComputePushdown
         implements ConnectorPlanOptimizer
 {
     private final ExpressionOptimizer expressionOptimizer;
+    private final JdbcFilterToSqlTranslator jdbcFilterToSqlTranslator;
+    private final LogicalRowExpressions logicalRowExpressions;
 
     public JdbcComputePushdown(
             FunctionMetadataManager functionMetadataManager,
             StandardFunctionResolution functionResolution,
             DeterminismEvaluator determinismEvaluator,
-            ExpressionOptimizer expressionOptimizer)
+            ExpressionOptimizer expressionOptimizer,
+            String identifierQuote,
+            Set<Class<?>> functionTranslators)
     {
-        this.expressionOptimizer = expressionOptimizer;
+        requireNonNull(functionMetadataManager, "functionMetadataManager is null");
+        requireNonNull(identifierQuote, "identifierQuote is null");
+        requireNonNull(functionTranslators, "functionTranslators is null");
+        requireNonNull(determinismEvaluator, "determinismEvaluator is null");
+        requireNonNull(functionResolution, "functionResolution is null");
+
+        this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
+        this.jdbcFilterToSqlTranslator = new JdbcFilterToSqlTranslator(
+                functionMetadataManager,
+                buildFunctionTranslator(functionTranslators),
+                identifierQuote);
+        this.logicalRowExpressions = new LogicalRowExpressions(
+                determinismEvaluator,
+                functionResolution,
+                functionMetadataManager);
     }
 
     @Override
@@ -100,18 +125,23 @@ public class JdbcComputePushdown
             TableHandle oldTableHandle = oldTableScanNode.getTable();
             JdbcTableHandle oldConnectorTable = (JdbcTableHandle) oldTableHandle.getConnectorHandle();
 
-            // TODO: remove dependency on oldTableLayoutHandle, currently it needs oldTableLayoutHandle to get predicate
-            if (!oldTableHandle.getLayout().isPresent()) {
+            RowExpression predicate = expressionOptimizer.optimize(node.getPredicate(), OPTIMIZED, session);
+            predicate = logicalRowExpressions.convertToConjunctiveNormalForm(predicate);
+            TranslatedExpression<JdbcExpression> jdbcExpression = translateWith(
+                    predicate,
+                    jdbcFilterToSqlTranslator,
+                    oldTableScanNode.getAssignments());
+
+            // TODO if jdbcExpression is not present, walk through translated subtree to find out which parts can be pushed down
+            if (!oldTableHandle.getLayout().isPresent() || !jdbcExpression.getTranslated().isPresent()) {
                 return node;
             }
 
-            // TODO: FilterRowExpression is currently mocked, needs to be implemented
-
             JdbcTableLayoutHandle oldTableLayoutHandle = (JdbcTableLayoutHandle) oldTableHandle.getLayout().get();
-            // TODO: add pushdownResult to new TableLayoutHandle
             JdbcTableLayoutHandle newTableLayoutHandle = new JdbcTableLayoutHandle(
                     oldConnectorTable,
-                    oldTableLayoutHandle.getTupleDomain());
+                    oldTableLayoutHandle.getTupleDomain(),
+                    jdbcExpression.getTranslated());
 
             TableHandle tableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),

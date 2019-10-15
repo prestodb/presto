@@ -24,6 +24,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.expressions.translator.TranslatedExpression.untranslated;
+import static com.facebook.presto.expressions.translator.TranslatorAnnotationParser.removeTypeParameters;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionTranslator<T>
@@ -39,13 +42,21 @@ public class FunctionTranslator<T>
         return new FunctionTranslator<>(functionMappingBuilder.build());
     }
 
-    public TranslatedExpression<T> translate(FunctionMetadata functionMetadata, RowExpression original, List<TranslatedExpression<T>> translatedArguments)
+    public TranslatedExpression<T> translate(FunctionMetadata functionMetadata, RowExpression original, List<TranslatedExpression<T>> translatedExpressions)
             throws Throwable
     {
-        if (!functionMapping.containsKey(functionMetadata)) {
-            return new TranslatedExpression<>(Optional.empty(), original, translatedArguments);
+        functionMetadata = removeTypeParameters(functionMetadata);
+        if (!functionMapping.containsKey(functionMetadata)
+                || !translatedExpressions.stream().map(TranslatedExpression::getTranslated).allMatch(Optional::isPresent)) {
+            return untranslated(original, translatedExpressions);
         }
-        return new TranslatedExpression<>(Optional.of((T) functionMapping.get(functionMetadata).invokeWithArguments(translatedArguments)), original, translatedArguments);
+
+        List<T> translatedArguments = translatedExpressions.stream()
+                .map(TranslatedExpression::getTranslated)
+                .map(Optional::get)
+                .collect(toImmutableList());
+
+        return new TranslatedExpression<>(Optional.of((T) functionMapping.get(functionMetadata).invokeWithArguments(translatedArguments)), original, translatedExpressions);
     }
 
     public TranslatedExpression<T> translate(FunctionMetadata functionMetadata, RowExpression original, TranslatedExpression<T>... translatedArguments)

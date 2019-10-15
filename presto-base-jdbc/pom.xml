@@ -90,6 +90,7 @@
             <artifactId>presto-spi</artifactId>
         </dependency>
 
+        <!-- Presto Expressions -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-expressions</artifactId>
@@ -170,6 +171,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tests</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
