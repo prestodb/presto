@@ -387,7 +387,7 @@ public class FileCache
             return false;
         }
 
-        public  int getPinCount()
+        public int getPinCount()
         {
             return pinCount;
         }
@@ -413,7 +413,7 @@ public class FileCache
                         log.warn("FileCache: Negative pin count" + toString());
                         verify(false, "Negative pinCount at close: " + toString());
                     }
-                    if(softBuffer.getBucket() != this.bucketIndex && this.bucketIndex != -1) {
+                    if (softBuffer.getBucket() != this.bucketIndex && this.bucketIndex != -1) {
                         verify(false, "Entry has different bucketIndex and softBuffer bucketIndex: at close" + toString());
                     }
                     verify(buffer != null);
@@ -649,7 +649,7 @@ public class FileCache
             }
         }
         int retryCount = 0;
-                retry:
+        retry:
         while (true) {
             trimGcd();
             SettableFuture futureToWait = null;
@@ -798,9 +798,9 @@ public class FileCache
         if (entries == null) {
             entries = new Entry[Math.max(MAX_ENTRIES, toIntExact(targetSize / 200000))];
             numEntries = Math.min(200, entries.length);
-                for (int i = 0; i < numEntries; i++) {
-                    entries[i] = new Entry(0);
-                }
+            for (int i = 0; i < numEntries; i++) {
+                entries[i] = new Entry(0);
+            }
         }
     }
 
@@ -1199,10 +1199,10 @@ public class FileCache
                 catch (Exception e) {
                     log.warn("FileCache: Error in prefetch " + e.toString());
                 }
-            finally {
-                currentThread().setName(name);
-            }
-        });
+                finally {
+                    currentThread().setName(name);
+                }
+            });
         }
         catch (Exception e) {
             prefetchSize.addAndGet(-size);
@@ -1445,7 +1445,7 @@ public class FileCache
                     long size = byteArrayPool.getStandardSizes()[i];
                     long percent = ( size * counts[i] * 100) / totalSize.get();
                     long pendingSize = unhitPrefetchBytes[i] / (1024 * 1024);
-                    result = result + (size / 1024) + "K: " + percent + "% " + ((size * counts[i]) >> 20)   + "M Age ms: " + ages[i] / counts[i] / 1000000 + (pendingSize > 0 ? " pending use " + pendingSize + "M" : "") + "\n";
+                    result = result + (size / 1024) + "K: " + percent + "% " + ((size * counts[i]) >> 20) + "M Age ms: " + ages[i] / counts[i] / 1000000 + (pendingSize > 0 ? " pending use " + pendingSize + "M" : "") + "\n";
                 }
             }
             return result;
