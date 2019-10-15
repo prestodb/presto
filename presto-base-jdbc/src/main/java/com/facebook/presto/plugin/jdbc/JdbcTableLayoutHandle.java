@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -20,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,14 +30,23 @@ public class JdbcTableLayoutHandle
 {
     private final JdbcTableHandle table;
     private final TupleDomain<ColumnHandle> tupleDomain;
+    private final Optional<JdbcExpression> additionalPredicate;
 
     @JsonCreator
     public JdbcTableLayoutHandle(
             @JsonProperty("table") JdbcTableHandle table,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> domain)
+            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> domain,
+            @JsonProperty("additionalPredicate") Optional<JdbcExpression> additionalPredicate)
     {
         this.table = requireNonNull(table, "table is null");
         this.tupleDomain = requireNonNull(domain, "tupleDomain is null");
+        this.additionalPredicate = additionalPredicate;
+    }
+
+    @JsonProperty
+    public Optional<JdbcExpression> getAdditionalPredicate()
+    {
+        return additionalPredicate;
     }
 
     @JsonProperty
@@ -61,13 +72,14 @@ public class JdbcTableLayoutHandle
         }
         JdbcTableLayoutHandle that = (JdbcTableLayoutHandle) o;
         return Objects.equals(table, that.table) &&
-                Objects.equals(tupleDomain, that.tupleDomain);
+                Objects.equals(tupleDomain, that.tupleDomain) &&
+                Objects.equals(additionalPredicate, that.additionalPredicate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, tupleDomain);
+        return Objects.hash(table, tupleDomain, additionalPredicate);
     }
 
     @Override

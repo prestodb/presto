@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
@@ -36,7 +37,7 @@ public class JdbcSplit
     private final String schemaName;
     private final String tableName;
     private final TupleDomain<ColumnHandle> tupleDomain;
-    private final Optional<String> additionalPredicate;
+    private final Optional<JdbcExpression> additionalPredicate;
 
     @JsonCreator
     public JdbcSplit(
@@ -45,7 +46,7 @@ public class JdbcSplit
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
-            @JsonProperty("additionalProperty") Optional<String> additionalPredicate)
+            @JsonProperty("additionalProperty") Optional<JdbcExpression> additionalPredicate)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
@@ -88,7 +89,7 @@ public class JdbcSplit
     }
 
     @JsonProperty
-    public Optional<String> getAdditionalPredicate()
+    public Optional<JdbcExpression> getAdditionalPredicate()
     {
         return additionalPredicate;
     }

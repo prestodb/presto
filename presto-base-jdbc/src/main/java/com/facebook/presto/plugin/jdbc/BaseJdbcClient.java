@@ -137,6 +137,12 @@ public class BaseJdbcClient
     }
 
     @Override
+    public String getIdentifierQuote()
+    {
+        return identifierQuote;
+    }
+
+    @Override
     public final Set<String> getSchemaNames(JdbcIdentity identity)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
@@ -265,7 +271,7 @@ public class BaseJdbcClient
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
                 layoutHandle.getTupleDomain(),
-                Optional.empty());
+                layoutHandle.getAdditionalPredicate());
         return new FixedSplitSource(ImmutableList.of(jdbcSplit));
     }
 

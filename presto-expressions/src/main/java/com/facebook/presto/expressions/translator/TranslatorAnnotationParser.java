@@ -66,7 +66,7 @@ class TranslatorAnnotationParser
         return new TypeSignature(typeSignature.getBase());
     }
 
-    private static FunctionMetadata removeTypeParameters(FunctionMetadata metadata)
+    public static FunctionMetadata removeTypeParameters(FunctionMetadata metadata)
     {
         ImmutableList.Builder<TypeSignature> argumentsBuilder = ImmutableList.builder();
         for (TypeSignature typeSignature : metadata.getArgumentTypes()) {

@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -180,7 +181,7 @@ public class TestJdbcRecordSetProvider
 
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
     {
-        JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, domain);
+        JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, domain, Optional.empty());
         ConnectorSplitSource splits = jdbcClient.getSplits(IDENTITY, layoutHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 

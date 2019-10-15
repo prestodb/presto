@@ -28,14 +28,14 @@ public class RowExpressionTranslator<T, C>
         return untranslated(literal);
     }
 
-    public TranslatedExpression<T> translateVariable(VariableReferenceExpression reference, C context, RowExpressionTreeTranslator<T, C> rowExpressionTreeTranslator)
+    public TranslatedExpression<T> translateVariable(VariableReferenceExpression variable, C context, RowExpressionTreeTranslator<T, C> rowExpressionTreeTranslator)
     {
-        return untranslated(reference);
+        return untranslated(variable);
     }
 
-    public TranslatedExpression<T> translateLambda(LambdaDefinitionExpression reference, C context, RowExpressionTreeTranslator<T, C> rowExpressionTreeTranslator)
+    public TranslatedExpression<T> translateLambda(LambdaDefinitionExpression lambda, C context, RowExpressionTreeTranslator<T, C> rowExpressionTreeTranslator)
     {
-        return untranslated(reference);
+        return untranslated(lambda);
     }
 
     public TranslatedExpression<T> translateCall(CallExpression call, C context, RowExpressionTreeTranslator<T, C> rowExpressionTreeTranslator)

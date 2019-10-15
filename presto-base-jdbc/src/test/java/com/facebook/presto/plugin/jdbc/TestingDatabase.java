@@ -25,6 +25,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
@@ -99,7 +100,7 @@ final class TestingDatabase
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
         JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(identity, new SchemaTableName(schemaName, tableName));
-        JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, TupleDomain.all());
+        JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, TupleDomain.all(), Optional.empty());
         ConnectorSplitSource splits = jdbcClient.getSplits(identity, jdbcLayoutHandle);
         return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
     }
