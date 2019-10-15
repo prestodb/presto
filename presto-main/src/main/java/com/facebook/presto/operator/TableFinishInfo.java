@@ -61,7 +61,7 @@ public class TableFinishInfo
 
     @JsonCreator
     public TableFinishInfo(
-            @JsonProperty("connectorOutputMetadataWrapper") String serializedConnectorOutputMetadata,
+            @JsonProperty("serializedConnectorOutputMetadata") String serializedConnectorOutputMetadata,
             @JsonProperty("jsonLengthLimitExceeded") boolean jsonLengthLimitExceeded,
             @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
             @JsonProperty("statisticsCpuTime") Duration statisticsCpuTime)
@@ -73,7 +73,7 @@ public class TableFinishInfo
     }
 
     @JsonProperty
-    public String getConnectorOutputMetadata()
+    public String getSerializedConnectorOutputMetadata()
     {
         return serializedConnectorOutputMetadata;
     }

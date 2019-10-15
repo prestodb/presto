@@ -337,7 +337,7 @@ public class QueryMonitor
                             queryInfo.getOutput().get().getConnectorId().getCatalogName(),
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
-                            tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
+                            tableFinishInfo.map(TableFinishInfo::getSerializedConnectorOutputMetadata),
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
         }
         return new QueryIOMetadata(inputs.build(), output);
