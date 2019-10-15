@@ -11,7 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.relation;
+package com.facebook.presto.expressions;
+
+import com.facebook.presto.spi.relation.RowExpression;
 
 import java.util.Map;
 

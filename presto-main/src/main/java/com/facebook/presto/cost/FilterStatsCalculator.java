@@ -68,8 +68,8 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumD
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.capStats;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;

@@ -11,8 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.expressions.translator;
+package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.expressions.translator.FunctionTranslator;
+import com.facebook.presto.expressions.translator.RowExpressionTranslator;
+import com.facebook.presto.expressions.translator.RowExpressionTreeTranslator;
+import com.facebook.presto.expressions.translator.TranslatedExpression;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -244,7 +248,7 @@ public class TestRowExpressionTranslator
         }
     }
 
-    private static class TestFunctions
+    public static class TestFunctions
     {
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
