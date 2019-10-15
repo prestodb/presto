@@ -452,7 +452,7 @@ public class FileCache
                 return false;
             }
             BufferReference reference = softBuffer;
-            if (reference == null) {
+            if (reference == null || this.bucketIndex == -1) {
                 {
                     // If there is no buffer reference, the entry cannot be in a bucket.
                     close();
