@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.expressions.RowExpressionRewriter;
+import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.RowExpressionRewriter;
-import com.facebook.presto.spi.relation.RowExpressionTreeRewriter;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
 import java.util.HashSet;

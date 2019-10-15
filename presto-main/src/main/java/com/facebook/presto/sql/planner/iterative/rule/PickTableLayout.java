@@ -60,10 +60,10 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
-import static com.facebook.presto.spi.relation.LogicalRowExpressions.TRUE_CONSTANT;
-import static com.facebook.presto.spi.relation.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterNonDeterministicConjuncts;
