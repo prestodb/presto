@@ -91,7 +91,8 @@ public class SimpleHttpResponseHandler<T>
                 uri,
                 OK.code(),
                 response.getStatusCode(),
-                response.getStatusMessage());
+                response.getStatusMessage(),
+                new String(response.getResponseBytes()));
     }
 
     @Override
