@@ -131,7 +131,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize)
+            int initialBatchSize,
+            StripeMetadataSource stripeMetadataSource)
     {
         requireNonNull(includedColumns, "includedColumns is null");
         requireNonNull(predicate, "predicate is null");
@@ -224,7 +225,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 predicate,
                 hiveWriterVersion,
                 metadataReader,
-                writeValidation);
+                writeValidation,
+                stripeMetadataSource);
 
         this.streamReaders = requireNonNull(streamReaders, "streamReaders is null");
         for (int columnId = 0; columnId < root.getFieldCount(); columnId++) {

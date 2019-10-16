@@ -21,6 +21,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
@@ -494,7 +495,7 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 4);
 
         // Optimized writer will keep the only column
-        OrcReader orcReader = new OrcReader(fileOrcDataSource(newFile2), ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new StorageOrcFileTailSource());
+        OrcReader orcReader = new OrcReader(fileOrcDataSource(newFile2), ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new StorageOrcFileTailSource(), new StorageStripeMetadataSource());
         orcReader.getColumnNames().equals(ImmutableList.of("7"));
 
         // Add a column with the different ID with different type
@@ -703,7 +704,15 @@ public class TestOrcFileRewriter
     {
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        return new OrcFileRewriter(READER_ATTRIBUTES, true, new OrcWriterStats(), typeManager, new LocalOrcDataEnvironment(), ZSTD, new StorageOrcFileTailSource());
+        return new OrcFileRewriter(
+                READER_ATTRIBUTES,
+                true,
+                new OrcWriterStats(),
+                typeManager,
+                new LocalOrcDataEnvironment(),
+                ZSTD,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource());
     }
 
     private static Map<String, Type> getColumnTypes(List<Long> columnIds, List<Type> columnTypes)

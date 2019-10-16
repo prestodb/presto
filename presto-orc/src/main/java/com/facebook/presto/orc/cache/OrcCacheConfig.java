@@ -29,6 +29,12 @@ public class OrcCacheConfig
     private DataSize fileTailCacheSize = new DataSize(0, BYTE);
     private Duration fileTailCacheTtlSinceLastAccess = new Duration(0, SECONDS);
 
+    private boolean stripeMetadataCacheEnabled;
+    private DataSize stripeFooterCacheSize = new DataSize(0, BYTE);
+    private Duration stripeFooterCacheTtlSinceLastAccess = new Duration(0, SECONDS);
+    private DataSize stripeStreamCacheSize = new DataSize(0, BYTE);
+    private Duration stripeStreamCacheTtlSinceLastAccess = new Duration(0, SECONDS);
+
     public boolean isFileTailCacheEnabled()
     {
         return fileTailCacheEnabled;
@@ -67,6 +73,75 @@ public class OrcCacheConfig
     public OrcCacheConfig setFileTailCacheTtlSinceLastAccess(Duration fileTailCacheTtlSinceLastAccess)
     {
         this.fileTailCacheTtlSinceLastAccess = fileTailCacheTtlSinceLastAccess;
+        return this;
+    }
+
+    public boolean isStripeMetadataCacheEnabled()
+    {
+        return stripeMetadataCacheEnabled;
+    }
+
+    @Config("orc.stripe-metadata-cache-enabled")
+    @ConfigDescription("Enable cache for stripe metadata")
+    public OrcCacheConfig setStripeMetadataCacheEnabled(boolean stripeMetadataCacheEnabled)
+    {
+        this.stripeMetadataCacheEnabled = stripeMetadataCacheEnabled;
+        return this;
+    }
+
+    @MinDataSize("0B")
+    public DataSize getStripeFooterCacheSize()
+    {
+        return stripeFooterCacheSize;
+    }
+
+    @Config("orc.stripe-footer-cache-size")
+    @ConfigDescription("Size of the stripe footer cache")
+    public OrcCacheConfig setStripeFooterCacheSize(DataSize stripeFooterCacheSize)
+    {
+        this.stripeFooterCacheSize = stripeFooterCacheSize;
+        return this;
+    }
+
+    @MinDuration("0s")
+    public Duration getStripeFooterCacheTtlSinceLastAccess()
+    {
+        return stripeFooterCacheTtlSinceLastAccess;
+    }
+
+    @Config("orc.stripe-footer-cache-ttl-since-last-access")
+    @ConfigDescription("Time-to-live for stripe footer cache entry after last access")
+    public OrcCacheConfig setStripeFooterCacheTtlSinceLastAccess(Duration stripeFooterCacheTtlSinceLastAccess)
+    {
+        this.stripeFooterCacheTtlSinceLastAccess = stripeFooterCacheTtlSinceLastAccess;
+        return this;
+    }
+
+    @MinDataSize("0B")
+    public DataSize getStripeStreamCacheSize()
+    {
+        return stripeStreamCacheSize;
+    }
+
+    @Config("orc.stripe-stream-cache-size")
+    @ConfigDescription("Size of the stripe stream cache")
+    public OrcCacheConfig setStripeStreamCacheSize(DataSize stripeStreamCacheSize)
+    {
+        this.stripeStreamCacheSize = stripeStreamCacheSize;
+        return this;
+    }
+
+    @MinDuration("0s")
+    public Duration getStripeStreamCacheTtlSinceLastAccess()
+    {
+        return stripeStreamCacheTtlSinceLastAccess;
+    }
+
+    @Config("orc.stripe-stream-cache-ttl-since-last-access")
+    @ConfigDescription("Time-to-live for stripe stream cache entry after last access")
+    public OrcCacheConfig setStripeStreamCacheTtlSinceLastAccess(Duration stripeStreamCacheTtlSinceLastAccess)
+    {
+        this.stripeStreamCacheTtlSinceLastAccess = stripeStreamCacheTtlSinceLastAccess;
         return this;
     }
 }

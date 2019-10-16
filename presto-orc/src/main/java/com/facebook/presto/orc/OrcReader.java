@@ -62,6 +62,8 @@ public class OrcReader
 
     private final Optional<OrcWriteValidation> writeValidation;
 
+    private final StripeMetadataSource stripeMetadataSource;
+
     // This is based on the Apache Hive ORC code
     public OrcReader(
             OrcDataSource orcDataSource,
@@ -69,10 +71,11 @@ public class OrcReader
             DataSize maxMergeDistance,
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
-            OrcFileTailSource orcFileTailSource)
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource)
             throws IOException
     {
-        this(orcDataSource, orcEncoding, maxMergeDistance, tinyStripeThreshold, maxBlockSize, orcFileTailSource, Optional.empty());
+        this(orcDataSource, orcEncoding, maxMergeDistance, tinyStripeThreshold, maxBlockSize, orcFileTailSource, stripeMetadataSource, Optional.empty());
     }
 
     OrcReader(
@@ -82,6 +85,7 @@ public class OrcReader
             DataSize tinyStripeThreshold,
             DataSize maxBlockSize,
             OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
             Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {
@@ -94,6 +98,8 @@ public class OrcReader
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
+
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
 
         OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation);
         this.bufferSize = orcFileTail.getBufferSize();
@@ -182,7 +188,8 @@ public class OrcReader
                 footer.getUserMetadata(),
                 systemMemoryUsage.newAggregatedMemoryContext(),
                 writeValidation,
-                initialBatchSize);
+                initialBatchSize,
+                stripeMetadataSource);
     }
 
     public OrcSelectiveRecordReader createSelectiveRecordReader(
@@ -229,7 +236,8 @@ public class OrcReader
                 footer.getUserMetadata(),
                 systemMemoryUsage.newAggregatedMemoryContext(),
                 writeValidation,
-                initialBatchSize);
+                initialBatchSize,
+                stripeMetadataSource);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
@@ -257,7 +265,15 @@ public class OrcReader
             readTypes.put(columnIndex, types.get(columnIndex));
         }
         try {
-            OrcReader orcReader = new OrcReader(input, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), new StorageOrcFileTailSource(), Optional.of(writeValidation));
+            OrcReader orcReader = new OrcReader(
+                    input,
+                    orcEncoding,
+                    new DataSize(1, MEGABYTE),
+                    new DataSize(8, MEGABYTE),
+                    new DataSize(16, MEGABYTE),
+                    new StorageOrcFileTailSource(),
+                    new StorageStripeMetadataSource(),
+                    Optional.of(writeValidation));
             try (OrcBatchRecordReader orcRecordReader = orcReader.createBatchRecordReader(readTypes.build(), OrcPredicate.TRUE, hiveStorageTimeZone, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE)) {
                 while (orcRecordReader.nextBatch() >= 0) {
                     // ignored

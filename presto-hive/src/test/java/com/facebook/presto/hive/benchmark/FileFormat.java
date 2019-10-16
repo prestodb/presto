@@ -38,6 +38,7 @@ import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
@@ -138,7 +139,15 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveBatchPageSourceFactory pageSourceFactory = new OrcBatchPageSourceFactory(TYPE_MANAGER, false, hdfsEnvironment, new FileFormatDataSourceStats(), 100, new StorageOrcFileTailSource(), new HadoopFileOpener());
+            HiveBatchPageSourceFactory pageSourceFactory = new OrcBatchPageSourceFactory(
+                    TYPE_MANAGER,
+                    false,
+                    hdfsEnvironment,
+                    new FileFormatDataSourceStats(),
+                    100,
+                    new StorageOrcFileTailSource(),
+                    new StorageStripeMetadataSource(),
+                    new HadoopFileOpener());
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.ORC);
         }
 
@@ -164,7 +173,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveBatchPageSourceFactory pageSourceFactory = new DwrfBatchPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, hdfsEnvironment, new FileFormatDataSourceStats(), new StorageOrcFileTailSource(), new HadoopFileOpener());
+            HiveBatchPageSourceFactory pageSourceFactory = new DwrfBatchPageSourceFactory(TYPE_MANAGER, HIVE_CLIENT_CONFIG, hdfsEnvironment, new FileFormatDataSourceStats(), new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener());
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF);
         }
 

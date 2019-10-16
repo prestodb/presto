@@ -21,6 +21,7 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -56,6 +57,7 @@ public class DwrfSelectivePageSourceFactory
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
+    private final StripeMetadataSource stripeMetadataSource;
     private final FileOpener fileOpener;
 
     @Inject
@@ -67,6 +69,7 @@ public class DwrfSelectivePageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
             FileOpener fileOpener)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -76,6 +79,7 @@ public class DwrfSelectivePageSourceFactory
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = requireNonNull(config, "config is null").getDomainCompactionThreshold();
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
         this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
     }
 
@@ -127,6 +131,7 @@ public class DwrfSelectivePageSourceFactory
                 stats,
                 domainCompactionThreshold,
                 orcFileTailSource,
+                stripeMetadataSource,
                 extraFileInfo,
                 fileOpener));
     }

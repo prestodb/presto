@@ -21,6 +21,7 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
@@ -163,6 +164,7 @@ public class OrcStorageManager
     private final OrcFileRewriter fileRewriter;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcFileTailSource orcFileTailSource;
+    private final StripeMetadataSource stripeMetadataSource;
 
     @Inject
     public OrcStorageManager(
@@ -177,7 +179,8 @@ public class OrcStorageManager
             ShardRecorder shardRecorder,
             TypeManager typeManager,
             OrcDataEnvironment orcDataEnvironment,
-            OrcFileTailSource orcFileTailSource)
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource)
     {
         this(nodeManager.getCurrentNode().getNodeIdentifier(),
                 storageService,
@@ -196,7 +199,8 @@ public class OrcStorageManager
                 config.getMinAvailableSpace(),
                 config.getOrcCompressionKind(),
                 config.getOrcOptimizedWriterStage(),
-                orcFileTailSource);
+                orcFileTailSource,
+                stripeMetadataSource);
     }
 
     public OrcStorageManager(
@@ -217,7 +221,8 @@ public class OrcStorageManager
             DataSize minAvailableSpace,
             CompressionKind compression,
             OrcOptimizedWriterStage orcOptimizedWriterStage,
-            OrcFileTailSource orcFileTailSource)
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource)
     {
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
@@ -239,8 +244,17 @@ public class OrcStorageManager
         this.compression = requireNonNull(compression, "compression is null");
         this.orcOptimizedWriterStage = requireNonNull(orcOptimizedWriterStage, "orcOptimizedWriterStage is null");
         this.orcDataEnvironment = requireNonNull(orcDataEnvironment, "orcDataEnvironment is null");
+        this.fileRewriter = new OrcFileRewriter(
+                readerAttributes,
+                orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED),
+                stats,
+                typeManager,
+                orcDataEnvironment,
+                compression,
+                orcFileTailSource,
+                stripeMetadataSource);
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
-        this.fileRewriter = new OrcFileRewriter(readerAttributes, orcOptimizedWriterStage.equals(ENABLED_AND_VALIDATED), stats, typeManager, orcDataEnvironment, compression, orcFileTailSource);
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
     }
 
     @PreDestroy
@@ -268,7 +282,14 @@ public class OrcStorageManager
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
 
         try {
-            OrcReader reader = new OrcReader(dataSource, ORC, readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, orcFileTailSource);
+            OrcReader reader = new OrcReader(
+                    dataSource,
+                    ORC,
+                    readerAttributes.getMaxMergeDistance(),
+                    readerAttributes.getTinyStripeThreshold(),
+                    HUGE_MAX_READ_BLOCK_SIZE,
+                    orcFileTailSource,
+                    stripeMetadataSource);
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -420,7 +441,9 @@ public class OrcStorageManager
                     defaultReaderAttributes.getMaxMergeDistance(),
                     defaultReaderAttributes.getTinyStripeThreshold(),
                     HUGE_MAX_READ_BLOCK_SIZE,
-                    orcFileTailSource);
+                    orcFileTailSource,
+                    stripeMetadataSource);
+
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {
                 computeColumnStats(reader, info.getColumnId(), info.getType()).ifPresent(list::add);

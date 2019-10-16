@@ -399,7 +399,8 @@ public class TestMapFlatBatchStreamReader
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, DataSize.Unit.MEGABYTE),
-                new StorageOrcFileTailSource());
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource());
         Type mapType = TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(

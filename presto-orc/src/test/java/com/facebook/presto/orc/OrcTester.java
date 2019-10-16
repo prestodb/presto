@@ -874,7 +874,7 @@ public class OrcTester
             return;
         }
 
-        try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, new StorageOrcFileTailSource())) {
+        try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, new StorageOrcFileTailSource(), new StorageStripeMetadataSource())) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1278,14 +1278,28 @@ public class OrcTester
     static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type, int initialBatchSize)
             throws IOException
     {
-        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, ImmutableList.of(type), initialBatchSize, new StorageOrcFileTailSource());
+        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, ImmutableList.of(type), initialBatchSize, new StorageOrcFileTailSource(), new StorageStripeMetadataSource());
     }
 
-    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, List<Type> types, int initialBatchSize, OrcFileTailSource orcFileTailSource)
+    static OrcBatchRecordReader createCustomOrcRecordReader(
+            TempFile tempFile,
+            OrcEncoding orcEncoding,
+            OrcPredicate predicate,
+            List<Type> types,
+            int initialBatchSize,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-        OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE, orcFileTailSource);
+        OrcReader orcReader = new OrcReader(
+                orcDataSource,
+                orcEncoding,
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                MAX_BLOCK_SIZE,
+                orcFileTailSource,
+                stripeMetadataSource);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
@@ -1347,7 +1361,14 @@ public class OrcTester
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-        OrcReader orcReader = new OrcReader(orcDataSource, orcEncoding, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), MAX_BLOCK_SIZE, new StorageOrcFileTailSource());
+        OrcReader orcReader = new OrcReader(
+                orcDataSource,
+                orcEncoding,
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                MAX_BLOCK_SIZE,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource());
 
         assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);

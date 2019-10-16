@@ -14,7 +14,12 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.orc.CacheStatsMBean;
+import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
+import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.StripeReader.StripeId;
+import com.facebook.presto.orc.StripeReader.StripeStreamId;
 import com.facebook.presto.orc.cache.CachingOrcFileTailSource;
 import com.facebook.presto.orc.cache.OrcCacheConfig;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
@@ -43,6 +48,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.slice.Slice;
 import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
@@ -123,5 +129,32 @@ public class StorageModule
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_OrcFileTail"), cacheStatsMBean);
         }
         return orcFileTailSource;
+    }
+
+    @Singleton
+    @Provides
+    public StripeMetadataSource createStripeMetadataSource(OrcCacheConfig orcCacheConfig, MBeanExporter exporter)
+    {
+        StripeMetadataSource stripeMetadataSource = new StorageStripeMetadataSource();
+        if (orcCacheConfig.isStripeMetadataCacheEnabled()) {
+            Cache<StripeId, Slice> footerCache = CacheBuilder.newBuilder()
+                    .maximumWeight(orcCacheConfig.getStripeFooterCacheSize().toBytes())
+                    .weigher((id, footer) -> ((Slice) footer).length())
+                    .expireAfterAccess(orcCacheConfig.getStripeFooterCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
+                    .recordStats()
+                    .build();
+            Cache<StripeStreamId, Slice> streamCache = CacheBuilder.newBuilder()
+                    .maximumWeight(orcCacheConfig.getStripeStreamCacheSize().toBytes())
+                    .weigher((id, stream) -> ((Slice) stream).length())
+                    .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
+                    .recordStats()
+                    .build();
+            CacheStatsMBean footerCacheStatsMBean = new CacheStatsMBean(footerCache);
+            CacheStatsMBean streamCacheStatsMBean = new CacheStatsMBean(streamCache);
+            stripeMetadataSource = new CachingStripeMetadataSource(stripeMetadataSource, footerCache, streamCache);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
+            exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
+        }
+        return stripeMetadataSource;
     }
 }
