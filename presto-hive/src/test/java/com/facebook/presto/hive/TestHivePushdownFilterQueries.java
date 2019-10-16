@@ -368,6 +368,8 @@ public class TestHivePushdownFilterQueries
 
         assertFilterProject("varchar_array[1] BETWEEN 'd' AND 'f'", "orderkey");
         assertFilterProject("comment between 'd' and 'f' AND uppercase_comment between 'D' and 'E' and length(comment) % 2  = linenumber % 2 and length(uppercase_comment) % 2  = linenumber % 2", "orderkey");
+
+        assertQueryUsingH2Cte("select shipmode from lineitem_ex where shipmode in ('AIR', 'MAIL', 'RAIL') and orderkey < 1000 and linenumber < 5 order by orderkey limit 20");
     }
 
     @Test

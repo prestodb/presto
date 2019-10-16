@@ -374,7 +374,9 @@ public class SliceDictionarySelectiveReader
         }
 
         if (positionCount == outputPositionCount) {
-            return new DictionaryBlock(positionCount, dictionary, values);
+            DictionaryBlock block = new DictionaryBlock(positionCount, dictionary, values);
+            values = null;
+            return block;
         }
 
         int[] valuesCopy = new int[positionCount];
