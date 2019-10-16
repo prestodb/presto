@@ -40,6 +40,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
@@ -459,7 +460,9 @@ public class TestSourcePartitionedScheduler
                 TABLE_SCAN_NODE_ID,
                 new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()),
                 ImmutableList.of(variable),
-                ImmutableMap.of(variable, new TestingColumnHandle("column")));
+                ImmutableMap.of(variable, new TestingColumnHandle("column")),
+                TupleDomain.all(),
+                TupleDomain.all());
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId(0), ImmutableList.of(), Optional.empty(), GATHER);
         PlanFragment testFragment = new PlanFragment(
