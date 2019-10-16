@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.StripeReader.StripeId;
+import com.facebook.presto.orc.StripeReader.StripeStreamId;
 import com.facebook.presto.orc.cache.CachingOrcFileTailSource;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -32,6 +34,7 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Range;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -52,7 +55,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -79,8 +81,11 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
@@ -184,25 +189,52 @@ public abstract class AbstractTestOrcReader
     public void testCaching()
             throws Exception
     {
-        Cache<OrcDataSourceId, OrcFileTail> cache = CacheBuilder.newBuilder()
-                .maximumWeight(new DataSize(1, DataSize.Unit.MEGABYTE).toBytes())
+        Cache<OrcDataSourceId, OrcFileTail> orcFileTailCache = CacheBuilder.newBuilder()
+                .maximumWeight(new DataSize(1, MEGABYTE).toBytes())
                 .weigher((id, tail) -> ((OrcFileTail) tail).getFooterSize() + ((OrcFileTail) tail).getMetadataSize())
-                .expireAfterAccess(new Duration(10, TimeUnit.MINUTES).toMillis(), TimeUnit.MILLISECONDS)
+                .expireAfterAccess(new Duration(10, MINUTES).toMillis(), MILLISECONDS)
                 .recordStats()
                 .build();
-        OrcFileTailSource orcFileTailSource = new CachingOrcFileTailSource(new StorageOrcFileTailSource(), cache);
-        try (TempFile tempFile = createTempFile()) {
-            OrcBatchRecordReader storageReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource);
-            assertEquals(cache.stats().missCount(), 1);
-            assertEquals(cache.stats().hitCount(), 0);
+        OrcFileTailSource orcFileTailSource = new CachingOrcFileTailSource(new StorageOrcFileTailSource(), orcFileTailCache);
 
-            OrcBatchRecordReader cacheReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource);
-            assertEquals(cache.stats().missCount(), 1);
-            assertEquals(cache.stats().hitCount(), 1);
+        Cache<StripeId, Slice> stripeFootercache = CacheBuilder.newBuilder()
+                .maximumWeight(new DataSize(1, MEGABYTE).toBytes())
+                .weigher((id, footer) -> ((Slice) footer).length())
+                .expireAfterAccess(new Duration(10, MINUTES).toMillis(), MILLISECONDS)
+                .recordStats()
+                .build();
+        Cache<StripeStreamId, Slice> stripeStreamCache = CacheBuilder.newBuilder()
+                .maximumWeight(new DataSize(1, MEGABYTE).toBytes())
+                .weigher((id, stream) -> ((Slice) stream).length())
+                .expireAfterAccess(new Duration(10, MINUTES).toMillis(), MILLISECONDS)
+                .recordStats()
+                .build();
+        StripeMetadataSource stripeMetadataSource = new CachingStripeMetadataSource(new StorageStripeMetadataSource(), stripeFootercache, stripeStreamCache);
+
+        try (TempFile tempFile = createTempFile()) {
+            OrcBatchRecordReader storageReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource);
+            assertEquals(orcFileTailCache.stats().missCount(), 1);
+            assertEquals(orcFileTailCache.stats().hitCount(), 0);
+
+            OrcBatchRecordReader cacheReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource);
+            assertEquals(orcFileTailCache.stats().missCount(), 1);
+            assertEquals(orcFileTailCache.stats().hitCount(), 1);
 
             assertEquals(storageReader.getRetainedSizeInBytes(), cacheReader.getRetainedSizeInBytes());
             assertEquals(storageReader.getFileRowCount(), cacheReader.getFileRowCount());
             assertEquals(storageReader.getSplitLength(), cacheReader.getSplitLength());
+
+            storageReader.nextBatch();
+            assertEquals(stripeFootercache.stats().missCount(), 1);
+            assertEquals(stripeFootercache.stats().hitCount(), 0);
+            assertEquals(stripeStreamCache.stats().missCount(), 2);
+            assertEquals(stripeStreamCache.stats().hitCount(), 0);
+            cacheReader.nextBatch();
+            assertEquals(stripeFootercache.stats().missCount(), 1);
+            assertEquals(stripeFootercache.stats().hitCount(), 1);
+            assertEquals(stripeStreamCache.stats().missCount(), 2);
+            assertEquals(stripeStreamCache.stats().hitCount(), 2);
+            assertEquals(storageReader.readBlock(BIGINT, 0).getInt(0), cacheReader.readBlock(BIGINT, 0).getInt(0));
         }
     }
 

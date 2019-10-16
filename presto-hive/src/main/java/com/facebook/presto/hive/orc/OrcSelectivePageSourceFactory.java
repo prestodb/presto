@@ -30,6 +30,7 @@ import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcSelectiveRecordReader;
+import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainFilterUtils;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
@@ -120,6 +121,7 @@ public class OrcSelectivePageSourceFactory
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
+    private final StripeMetadataSource stripeMetadataSource;
     private final FileOpener fileOpener;
 
     @Inject
@@ -131,6 +133,7 @@ public class OrcSelectivePageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
             FileOpener fileOpener)
     {
         this(
@@ -142,6 +145,7 @@ public class OrcSelectivePageSourceFactory
                 stats,
                 config.getDomainCompactionThreshold(),
                 orcFileTailSource,
+                stripeMetadataSource,
                 fileOpener);
     }
 
@@ -154,6 +158,7 @@ public class OrcSelectivePageSourceFactory
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
             FileOpener fileOpener)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -164,6 +169,7 @@ public class OrcSelectivePageSourceFactory
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailCache is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
         this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
     }
 
@@ -216,6 +222,7 @@ public class OrcSelectivePageSourceFactory
                 stats,
                 domainCompactionThreshold,
                 orcFileTailSource,
+                stripeMetadataSource,
                 extraFileInfo,
                 fileOpener));
     }
@@ -243,6 +250,7 @@ public class OrcSelectivePageSourceFactory
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
             Optional<byte[]> extraFileInfo,
             FileOpener fileOpener)
     {
@@ -279,7 +287,7 @@ public class OrcSelectivePageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, tinyStripeThreshold, maxReadBlockSize, orcFileTailSource);
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, tinyStripeThreshold, maxReadBlockSize, orcFileTailSource, stripeMetadataSource);
 
             checkArgument(!domainPredicate.isNone(), "Unexpected NONE domain");
 

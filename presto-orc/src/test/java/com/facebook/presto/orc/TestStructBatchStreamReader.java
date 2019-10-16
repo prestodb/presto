@@ -264,7 +264,7 @@ public class TestStructBatchStreamReader
     {
         DataSize dataSize = new DataSize(1, MEGABYTE);
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-        OrcReader orcReader = new OrcReader(orcDataSource, ORC, dataSize, dataSize, dataSize, new StorageOrcFileTailSource());
+        OrcReader orcReader = new OrcReader(orcDataSource, ORC, dataSize, dataSize, dataSize, new StorageOrcFileTailSource(), new StorageStripeMetadataSource());
 
         Map<Integer, Type> includedColumns = new HashMap<>();
         includedColumns.put(0, readerType);

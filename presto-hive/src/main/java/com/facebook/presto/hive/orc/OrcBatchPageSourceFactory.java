@@ -27,6 +27,7 @@ import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
@@ -83,6 +84,7 @@ public class OrcBatchPageSourceFactory
     private final FileFormatDataSourceStats stats;
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
+    private final StripeMetadataSource stripeMetadataSource;
     private final FileOpener fileOpener;
 
     @Inject
@@ -92,9 +94,18 @@ public class OrcBatchPageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
             FileOpener fileOpener)
     {
-        this(typeManager, requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(), hdfsEnvironment, stats, config.getDomainCompactionThreshold(), orcFileTailSource, fileOpener);
+        this(
+                typeManager,
+                requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(),
+                hdfsEnvironment,
+                stats,
+                config.getDomainCompactionThreshold(),
+                orcFileTailSource,
+                stripeMetadataSource,
+                fileOpener);
     }
 
     public OrcBatchPageSourceFactory(
@@ -104,6 +115,7 @@ public class OrcBatchPageSourceFactory
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
             FileOpener fileOpener)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -112,6 +124,7 @@ public class OrcBatchPageSourceFactory
         this.stats = requireNonNull(stats, "stats is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
         this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
     }
 
@@ -163,6 +176,7 @@ public class OrcBatchPageSourceFactory
                 stats,
                 domainCompactionThreshold,
                 orcFileTailSource,
+                stripeMetadataSource,
                 extraFileInfo,
                 fileOpener));
     }
@@ -191,6 +205,7 @@ public class OrcBatchPageSourceFactory
             FileFormatDataSourceStats stats,
             int domainCompactionThreshold,
             OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
             Optional<byte[]> extraFileInfo,
             FileOpener fileOpener)
     {
@@ -220,7 +235,7 @@ public class OrcBatchPageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, tinyStripeThreshold, maxReadBlockSize, orcFileTailSource);
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, tinyStripeThreshold, maxReadBlockSize, orcFileTailSource, stripeMetadataSource);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();

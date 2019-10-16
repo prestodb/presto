@@ -22,6 +22,7 @@ import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -58,7 +59,14 @@ final class OrcTestingUtil
     public static OrcBatchRecordReader createReader(OrcDataSource dataSource, List<Long> columnIds, List<Type> types)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new StorageOrcFileTailSource());
+        OrcReader orcReader = new OrcReader(
+                dataSource,
+                ORC,
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource());
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());

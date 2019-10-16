@@ -26,6 +26,7 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
@@ -472,7 +473,15 @@ public class TestOrcBatchPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
-            OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, stats, 100, new StorageOrcFileTailSource(), new HadoopFileOpener());
+            OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(
+                    TYPE_MANAGER,
+                    false,
+                    HDFS_ENVIRONMENT,
+                    stats,
+                    100,
+                    new StorageOrcFileTailSource(),
+                    new StorageStripeMetadataSource(),
+                    new HadoopFileOpener());
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(),
                     ImmutableSet.of(orcPageSourceFactory),

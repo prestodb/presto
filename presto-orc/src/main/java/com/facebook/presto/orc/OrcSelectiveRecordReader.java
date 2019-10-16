@@ -113,7 +113,8 @@ public class OrcSelectiveRecordReader
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize)
+            int initialBatchSize,
+            StripeMetadataSource stripeMetadataSource)
     {
         super(includedColumns,
                 createStreamReaders(
@@ -147,7 +148,8 @@ public class OrcSelectiveRecordReader
                 userMetadata,
                 systemMemoryUsage,
                 writeValidation,
-                initialBatchSize);
+                initialBatchSize,
+                stripeMetadataSource);
 
         // Hive column indices can't be used to index into arrays because they are negative
         // for partition and hidden columns. Hence, we create synthetic zero-based indices.

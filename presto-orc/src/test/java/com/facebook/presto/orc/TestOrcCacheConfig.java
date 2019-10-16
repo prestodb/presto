@@ -35,7 +35,12 @@ public class TestOrcCacheConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(OrcCacheConfig.class)
                 .setFileTailCacheEnabled(false)
                 .setFileTailCacheSize(new DataSize(0, BYTE))
-                .setFileTailCacheTtlSinceLastAccess(new Duration(0, SECONDS)));
+                .setFileTailCacheTtlSinceLastAccess(new Duration(0, SECONDS))
+                .setStripeMetadataCacheEnabled(false)
+                .setStripeFooterCacheSize(new DataSize(0, BYTE))
+                .setStripeFooterCacheTtlSinceLastAccess(new Duration(0, SECONDS))
+                .setStripeStreamCacheSize(new DataSize(0, BYTE))
+                .setStripeStreamCacheTtlSinceLastAccess(new Duration(0, SECONDS)));
     }
 
     @Test
@@ -45,12 +50,22 @@ public class TestOrcCacheConfig
                 .put("orc.file-tail-cache-enabled", "true")
                 .put("orc.file-tail-cache-size", "1GB")
                 .put("orc.file-tail-cache-ttl-since-last-access", "10m")
+                .put("orc.stripe-metadata-cache-enabled", "true")
+                .put("orc.stripe-footer-cache-size", "2GB")
+                .put("orc.stripe-footer-cache-ttl-since-last-access", "5m")
+                .put("orc.stripe-stream-cache-size", "3GB")
+                .put("orc.stripe-stream-cache-ttl-since-last-access", "10m")
                 .build();
 
         OrcCacheConfig expected = new OrcCacheConfig()
                 .setFileTailCacheEnabled(true)
                 .setFileTailCacheSize(new DataSize(1, GIGABYTE))
-                .setFileTailCacheTtlSinceLastAccess(new Duration(10, MINUTES));
+                .setFileTailCacheTtlSinceLastAccess(new Duration(10, MINUTES))
+                .setStripeMetadataCacheEnabled(true)
+                .setStripeFooterCacheSize(new DataSize(2, GIGABYTE))
+                .setStripeFooterCacheTtlSinceLastAccess(new Duration(5, MINUTES))
+                .setStripeStreamCacheSize(new DataSize(3, GIGABYTE))
+                .setStripeStreamCacheTtlSinceLastAccess(new Duration(10, MINUTES));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

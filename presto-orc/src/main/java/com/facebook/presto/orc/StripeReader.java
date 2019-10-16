@@ -41,7 +41,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.airlift.slice.Slices;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -51,6 +51,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
@@ -67,6 +68,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static com.facebook.presto.orc.stream.CheckpointInputStreamSource.createCheckpointStreamSource;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -84,6 +86,7 @@ public class StripeReader
     private final OrcPredicate predicate;
     private final MetadataReader metadataReader;
     private final Optional<OrcWriteValidation> writeValidation;
+    private final StripeMetadataSource stripeMetadataSource;
 
     public StripeReader(OrcDataSource orcDataSource,
             Optional<OrcDecompressor> decompressor,
@@ -93,7 +96,8 @@ public class StripeReader
             OrcPredicate predicate,
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
-            Optional<OrcWriteValidation> writeValidation)
+            Optional<OrcWriteValidation> writeValidation,
+            StripeMetadataSource stripeMetadataSource)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
@@ -104,13 +108,16 @@ public class StripeReader
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
+        this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
     }
 
     public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
+        StripeId stripeId = new StripeId(orcDataSource.getId(), stripe.getOffset());
+
         // read the stripe footer
-        StripeFooter stripeFooter = readStripeFooter(stripe, systemMemoryUsage);
+        StripeFooter stripeFooter = readStripeFooter(stripeId, stripe, systemMemoryUsage);
         List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
 
         // get streams for selected columns
@@ -146,7 +153,7 @@ public class StripeReader
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
 
             // read the file regions
-            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
+            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage);
 
             // read the bloom filter for each column
             Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(streams, streamsData);
@@ -207,7 +214,7 @@ public class StripeReader
         ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.build();
 
         // read the file regions
-        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
+        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage);
 
         long minAverageRowBytes = 0;
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
@@ -245,23 +252,15 @@ public class StripeReader
         return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
 
-    public Map<StreamId, OrcInputStream> readDiskRanges(long stripeOffset, Map<StreamId, DiskRange> diskRanges, AggregatedMemoryContext systemMemoryUsage)
+    private Map<StreamId, OrcInputStream> readDiskRanges(StripeId stripeId, Map<StreamId, DiskRange> diskRanges, AggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         //
         // Note: this code does not use the Java 8 stream APIs to avoid any extra object allocation
         //
 
-        // transform ranges to have an absolute offset in file
-        ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
-        for (Entry<StreamId, DiskRange> entry : diskRanges.entrySet()) {
-            DiskRange diskRange = entry.getValue();
-            diskRangesBuilder.put(entry.getKey(), new DiskRange(stripeOffset + diskRange.getOffset(), diskRange.getLength()));
-        }
-        diskRanges = diskRangesBuilder.build();
-
         // read ranges
-        Map<StreamId, OrcDataSourceInput> streamsData = orcDataSource.readFully(diskRanges);
+        Map<StreamId, OrcDataSourceInput> streamsData = stripeMetadataSource.getInputs(orcDataSource, stripeId, diskRanges);
 
         // transform streams to OrcInputStream
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
@@ -374,16 +373,15 @@ public class StripeReader
         return new RowGroup(groupId, rowOffset, rowCount, minAverageRowBytes, rowGroupStreams);
     }
 
-    public StripeFooter readStripeFooter(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
+    public StripeFooter readStripeFooter(StripeId stripeId, StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
-        long offset = stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength();
-        int tailLength = toIntExact(stripe.getFooterLength());
+        long footerOffset = stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength();
+        int footerLength = toIntExact(stripe.getFooterLength());
 
         // read the footer
-        byte[] tailBuffer = new byte[tailLength];
-        orcDataSource.readFully(offset, tailBuffer);
-        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage, tailLength)) {
+        Slice footerSlice = stripeMetadataSource.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength);
+        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, systemMemoryUsage, footerLength)) {
             return metadataReader.readStripeFooter(types, inputStream);
         }
     }
@@ -530,5 +528,102 @@ public class StripeReader
     private static int ceil(int dividend, int divisor)
     {
         return ((dividend + divisor) - 1) / divisor;
+    }
+
+    public static class StripeId
+    {
+        private final OrcDataSourceId sourceId;
+        private final long offset;
+
+        public StripeId(OrcDataSourceId sourceId, long offset)
+        {
+            this.sourceId = requireNonNull(sourceId, "sourceId is null");
+            this.offset = offset;
+        }
+
+        public OrcDataSourceId getSourceId()
+        {
+            return sourceId;
+        }
+
+        public long getOffset()
+        {
+            return offset;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            StripeId stripeId = (StripeId) o;
+            return offset == stripeId.offset &&
+                    Objects.equals(sourceId, stripeId.sourceId);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(sourceId, offset);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("sourceId", sourceId)
+                    .add("offset", offset)
+                    .toString();
+        }
+    }
+
+    public static class StripeStreamId
+    {
+        private final StripeId stripeId;
+        private final StreamId streamId;
+
+        public StripeStreamId(StripeId stripeId, StreamId streamId)
+        {
+            this.stripeId = requireNonNull(stripeId, "stripeId is null");
+            this.streamId = requireNonNull(streamId, "streamId is null");
+        }
+
+        public StreamId getStreamId()
+        {
+            return streamId;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            StripeStreamId that = (StripeStreamId) o;
+            return Objects.equals(stripeId, that.stripeId) &&
+                    Objects.equals(streamId, that.streamId);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(stripeId, streamId);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("stripeId", stripeId)
+                    .add("streamId", streamId)
+                    .toString();
+        }
     }
 }

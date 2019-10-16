@@ -65,7 +65,8 @@ public class OrcBatchRecordReader
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize)
+            int initialBatchSize,
+            StripeMetadataSource stripeMetadataSource)
     {
         super(includedColumns,
                 // The streamReadersSystemMemoryContext covers the StreamReader local buffer sizes, plus leaf node StreamReaders'
@@ -94,7 +95,8 @@ public class OrcBatchRecordReader
                 userMetadata,
                 systemMemoryUsage,
                 writeValidation,
-                initialBatchSize);
+                initialBatchSize,
+                stripeMetadataSource);
 
         this.includedColumns = includedColumns;
     }
