@@ -46,6 +46,9 @@ public final class TableScanNode
 
     private final TupleDomain<ColumnHandle> enforcedConstraint;
 
+    /**
+     * This constructor is for JSON deserialization only.  Do not use!
+     */
     @JsonCreator
     public TableScanNode(
             @JsonProperty("id") PlanNodeId id,
@@ -53,7 +56,6 @@ public final class TableScanNode
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
-        // This constructor is for JSON deserialization only. Do not use.
         super(id);
         this.table = requireNonNull(table, "table is null");
         this.outputVariables = unmodifiableList(requireNonNull(outputVariables, "outputVariables is null"));
