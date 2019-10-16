@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server.remotetask;
 
+// This interface has nothing to do with HTTP
 public interface SimpleHttpResponseCallback<T>
 {
     void success(T value);

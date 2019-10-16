@@ -57,6 +57,7 @@ import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import org.checkerframework.checker.nullness.compatqual.NullableDecl;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -101,6 +102,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -627,44 +629,76 @@ public final class HttpRemoteTask
             stats.updateWithPlanBytes(taskUpdateRequestJson.length);
         }
 
-        HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
-        Request request = setContentTypeHeaders(isBinaryTransportEnabled, preparePost())
-                .setUri(uriBuilder.build())
-                .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
-                .build();
+        if (remoteTaskThriftClient == null) {
+            // the classic HTTP client path
 
-        ResponseHandler responseHandler;
-        if (isBinaryTransportEnabled) {
-            responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
-        }
-        else {
-            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
-        }
-
-        if (remoteTaskThriftClient != null) {
             // it can be null for the remote task on coordinator, likely due to some announcement/InternalNode publishing bugs.
             // For now just work around this.
-            try {
-                long current = System.currentTimeMillis();
-                byte[] result = remoteTaskThriftClient.createOrUpdateTask(taskId.toString(), taskUpdateRequestJson);
-                System.out.println("Wenlei Debug Time: " + (System.currentTimeMillis() - current) + " ms");
+
+            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
+            Request request = setContentTypeHeaders(isBinaryTransportEnabled, preparePost())
+                    .setUri(uriBuilder.build())
+                    .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
+                    .build();
+
+            ResponseHandler responseHandler;
+            if (isBinaryTransportEnabled) {
+                responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
             }
-            catch (Throwable t) {
-                log.error(t);
+            else {
+                responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
             }
+
+            updateErrorTracker.startRequest();
+
+            ListenableFuture<BaseResponse<TaskInfo>> future = httpClient.executeAsync(request, responseHandler);
+            currentRequest = future;
+            currentRequestStartNanos = System.nanoTime();
+
+            // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
+            // and does so without grabbing the instance lock.
+            needsUpdate.set(false);
+
+            Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats), executor);
         }
+        else {
+            // Horray! Use Thrift call!!!
+            ListenableFuture<byte[]> future = remoteTaskThriftClient.createOrUpdateTask(taskId.toString(), taskUpdateRequestJson, summarizeTaskInfo);
+            // This is fine since currentRequest is a Future<?>
+            currentRequest = future;
+            currentRequestStartNanos = System.nanoTime();
 
-        updateErrorTracker.startRequest();
+            // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
+            // and does so without grabbing the instance lock.
+            needsUpdate.set(false);
 
-        ListenableFuture<BaseResponse<TaskInfo>> future = httpClient.executeAsync(request, responseHandler);
-        currentRequest = future;
-        currentRequestStartNanos = System.nanoTime();
+            UpdateResponseHandler updateResponseHandler = new UpdateResponseHandler(sources);
+            Futures.addCallback(
+                    future,
+                    new FutureCallback<byte[]>() {
+                        @Override
+                        public void onSuccess(@NullableDecl byte[] result)
+                        {
+                            stats.updateSuccess();
+                            stats.responseSize(result.length);
+                            try {
+                                updateResponseHandler.success(taskInfoCodec.fromBytes(result));
+                            }
+                            catch (Throwable t) {
+                                // this should never happen
+                                updateResponseHandler.fatal(t);
+                            }
+                        }
 
-        // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
-        // and does so without grabbing the instance lock.
-        needsUpdate.set(false);
-
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats), executor);
+                        @Override
+                        public void onFailure(Throwable t)
+                        {
+                            stats.updateFailure();
+                            updateResponseHandler.failed(t);
+                        }
+                    },
+                    executor);
+        }
     }
 
     private synchronized List<TaskSource> getSources()

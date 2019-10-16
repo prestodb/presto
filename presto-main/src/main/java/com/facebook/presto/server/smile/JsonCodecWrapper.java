@@ -44,4 +44,10 @@ public class JsonCodecWrapper<T>
     {
         return jsonCodec.toJsonBytes(instance);
     }
+
+    @Override
+    public T fromBytes(byte[] bytes)
+    {
+        return jsonCodec.fromJson(bytes);
+    }
 }
