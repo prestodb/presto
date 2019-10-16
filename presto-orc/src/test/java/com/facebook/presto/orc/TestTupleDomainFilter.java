@@ -200,6 +200,7 @@ public class TestTupleDomainFilter
     {
         TupleDomainFilter filter = BytesRange.of(toBytes("abc"), false, toBytes("abc"), false, false);
         assertTrue(filter.testBytes(toBytes("abc"), 0, 3));
+        assertFalse(filter.testBytes(toBytes("acb"), 0, 3));
         assertTrue(filter.testLength(3));
 
         assertFalse(filter.testNull());

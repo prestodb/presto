@@ -914,8 +914,8 @@ public interface TupleDomainFilter
                     if (buffer[i + offset] != lower[i]) {
                         return false;
                     }
-                    return true;
                 }
+                return true;
             }
 
             if (lower != null) {
