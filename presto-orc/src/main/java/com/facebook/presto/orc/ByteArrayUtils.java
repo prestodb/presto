@@ -48,33 +48,39 @@ public class ByteArrayUtils
     // Adapted from io.airlift.slice.Slice
     public static int compareRanges(byte[] left, int leftOffset, int leftLength, byte[] right, int rightOffset, int rightLength)
     {
-        int minLength = min(leftLength, rightLength);
-        int i = 0;
-        if (minLength >= SIZE_OF_LONG) {
-            while (i < minLength) {
-                long leftLong = unsafe.getLong(left, (long) ARRAY_BYTE_BASE_OFFSET + leftOffset + i);
-                long rightLong = unsafe.getLong(right, (long) ARRAY_BYTE_BASE_OFFSET + rightOffset + i);
+        long leftAddress = ARRAY_BYTE_BASE_OFFSET + leftOffset;
+        long rightAddress = ARRAY_BYTE_BASE_OFFSET + rightOffset;
 
-                if (leftLong != rightLong) {
-                    return longBytesToLong(leftLong) < longBytesToLong(rightLong) ? -1 : 1;
-                }
+        int lengthToCompare = min(leftLength, rightLength);
+        while (lengthToCompare >= SIZE_OF_LONG) {
+            long leftLong = unsafe.getLong(left, leftAddress);
+            long rightLong = unsafe.getLong(right, rightAddress);
 
-                i += SIZE_OF_LONG;
+            if (leftLong != rightLong) {
+                return longBytesToLong(leftLong) < longBytesToLong(rightLong) ? -1 : 1;
             }
-            i -= SIZE_OF_LONG;
+
+            leftAddress += SIZE_OF_LONG;
+            rightAddress += SIZE_OF_LONG;
+            lengthToCompare -= SIZE_OF_LONG;
         }
 
-        while (i < minLength) {
-            int leftByte = Byte.toUnsignedInt(left[leftOffset + i]);
-            int rightByte = Byte.toUnsignedInt(right[rightOffset + i]);
-
-            if (leftByte != rightByte) {
-                return leftByte - rightByte;
+        while (lengthToCompare > 0) {
+            int compareResult = compareUnsignedBytes(unsafe.getByte(left, leftAddress), unsafe.getByte(right, rightAddress));
+            if (compareResult != 0) {
+                return compareResult;
             }
-            i++;
+            leftAddress++;
+            rightAddress++;
+            lengthToCompare--;
         }
 
         return Integer.compare(leftLength, rightLength);
+    }
+
+    private static int compareUnsignedBytes(byte thisByte, byte thatByte)
+    {
+        return Byte.toUnsignedInt(thisByte) - Byte.toUnsignedInt(thatByte);
     }
 
     /**
