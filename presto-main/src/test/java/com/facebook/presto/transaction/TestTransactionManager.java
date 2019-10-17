@@ -172,7 +172,7 @@ public class TestTransactionManager
             throws Exception
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
-            TransactionManager transactionManager = InMemoryTransactionManager.create(
+            InMemoryTransactionManager inMemoryTransactionManager = (InMemoryTransactionManager) InMemoryTransactionManager.create(
                     new TransactionManagerConfig()
                             .setIdleTimeout(new Duration(1, TimeUnit.MILLISECONDS))
                             .setIdleCheckInterval(new Duration(5, TimeUnit.MILLISECONDS)),
@@ -180,18 +180,19 @@ public class TestTransactionManager
                     new CatalogManager(),
                     finishingExecutor);
 
-            TransactionId transactionId = transactionManager.beginTransaction(false);
+            TransactionId transactionId = inMemoryTransactionManager.beginTransaction(false);
 
-            assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
-            TransactionInfo transactionInfo = transactionManager.getTransactionInfo(transactionId);
+            assertEquals(inMemoryTransactionManager.getAllTransactionInfos().size(), 1);
+            TransactionInfo transactionInfo = inMemoryTransactionManager.getTransactionInfo(transactionId);
             assertFalse(transactionInfo.isAutoCommitContext());
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            transactionManager.trySetInactive(transactionId);
+            inMemoryTransactionManager.trySetInactive(transactionId);
             TimeUnit.MILLISECONDS.sleep(100);
-
-            assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+            // make sure it is cleaned up
+            inMemoryTransactionManager.cleanUpExpiredTransactions();
+            assertTrue(inMemoryTransactionManager.getAllTransactionInfos().isEmpty());
         }
     }
 
