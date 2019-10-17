@@ -695,6 +695,118 @@ where :math:`f(x)` is the partial density function of :math:`x`.
         as this will reduce memory and running time.
 
 
+Discrete Entropy Functions
+-------------------------------
+
+The following functions approximate the `discrete entropy <https://en.wikipedia.org/wiki/Entropy_(information_theory)>`_.
+That is, for a random variable :math:`x`, they approximate
+
+.. math ::
+
+    H(x) = - \sum P(x) \log_2\left(P(x)\right) dx,
+
+where :math:`P(x)` is probability of :math:`x`.
+
+.. function:: discrete_entropy(x)
+
+    Returns the approximate log-2 discrete entropy from a random variable's sample outcomes. The function internally
+    creates a map of the (hashed) outcomes of :math:`x` to the number of their occurrences, then calculates
+    the entropy based on the maximum-likelihood estimate of the counts.
+
+    ``x`` (``boolean``, ```double``, ``int``, ``long``, or ``varchar``) is the samples.
+
+    For example, to find the differential entropy of ``x``, use
+
+    .. code-block:: none
+
+         SELECT
+             discrete_entropy(x)
+         FROM
+             data
+
+    .. note::
+
+        This is equivalent to ``discrete_entropy(x, 'mle')``. If the number of instances is small,
+        consider using jacknife correction via ``discrete_entropy(x, 'jacknife')``.
+
+.. function:: discrete_entropy(x, weight)
+
+    Returns the approximate log-2 discrete entropy from a random variable's sample weighted outcomes. The function internally
+    creates a map of the (hashed) outcomes of :math:`x` to the total weight of their occurrences, then calculates
+    the entropy based on the maximum-likelihood estimate of the weights.
+
+    ``x`` (``boolean``, ```double``, ``int``, ``long``, or ``varchar``) is the samples.
+
+    ``weight`` (``double``) is the non-negative weights.
+
+    For example, to find the differential entropy of ``x`` with weights ``weight``, use
+
+    .. code-block:: none
+
+         SELECT
+             discrete_entropy(x, weight)
+         FROM
+             data
+
+    .. note::
+
+        This is equivalent to ``discrete_entropy(x, weight, 'mle')``. If the number of instances is small,
+        consider using jacknife correction via ``discrete_entropy(x, weight, 'jacknife')``.
+
+.. function:: discrete_entropy(x, method)
+
+    Returns the approximate log-2 discrete entropy from a random variable's sample outcomes.
+    If ``method`` is ``'mle'``, this is equivalent to ``discrete_entropy(x)``. If ``method`` is ``'jacknife'``,
+    the function internally
+    creates a map of the (hashed) outcomes of :math:`x` and their weights to the number of their occurrences,
+    then calculates the entropy based on the jacknife-corrected maximum-likelihood estimate of the counts.
+
+    ``x`` (``boolean``, ```double``, ``int``, ``long``, or ``varchar``) is the samples.
+
+    ``method`` is either ``'mle'`` or ``'jacknife'``.
+
+    For example, to find the differential entropy of ``x``, use
+
+    .. code-block:: none
+
+         SELECT
+             discrete_entropy(x, 'jacknife')
+         FROM
+             data
+
+    .. note::
+
+        If the number of instances is large, prefer using ``'mle'`` to ``jacknife``, as it is faster.
+
+.. function:: discrete_entropy(x, weight, method)
+
+    Returns the approximate log-2 discrete entropy from a random variable's sample outcomes.
+    If ``method`` is ``'mle'``, this is equivalent to ``discrete_entropy(x, 'weight')``. If ``method`` is ``'jacknife'``,
+    the function internally
+    creates a map of the (hashed) outcomes of :math:`x` and their weights to the number of their occurrences,
+    then calculates the entropy based on the jacknife-corrected maximum-likelihood estimate of the counts.
+
+    ``x`` (``boolean``, ```double``, ``int``, ``long``, or ``varchar``) is the samples.
+
+    ``weight`` (``double``) is the non-negative weights.
+
+    ``method`` is either ``'mle'`` or ``'jacknife'``.
+
+    For example, to find the differential entropy of ``x`` using weights ``weight`` and jacknife estimation, use
+
+    .. code-block:: none
+
+         SELECT
+             discrete_entropy(x, weight, 'jacknife')
+         FROM
+             data
+
+    .. note::
+
+        If the number of instances is large, prefer using ``'mle'`` to ``jacknife``, as it is faster. If the number
+        of distinct weights is large, ``'jacknife'`` might have high memory usage.
+
+
 ---------------------------
 
 .. [Alizadeh2010] Alizadeh Noughabi, Hadi & Arghami, N. (2010). "A New Estimator of Entropy".
