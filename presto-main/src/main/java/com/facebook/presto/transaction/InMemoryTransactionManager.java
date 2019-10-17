@@ -136,7 +136,7 @@ public class InMemoryTransactionManager
         }, idleCheckInterval.toMillis(), idleCheckInterval.toMillis(), MILLISECONDS);
     }
 
-    private synchronized void cleanUpExpiredTransactions()
+    synchronized void cleanUpExpiredTransactions()
     {
         Iterator<Entry<TransactionId, TransactionMetadata>> iterator = transactions.entrySet().iterator();
         while (iterator.hasNext()) {
