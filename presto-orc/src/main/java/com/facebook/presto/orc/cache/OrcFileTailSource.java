@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.orc.cache;
 
+import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcWriteValidation;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.facebook.presto.orc.cache.OrcCacheConfig;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
