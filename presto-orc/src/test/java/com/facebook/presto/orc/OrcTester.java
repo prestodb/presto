@@ -21,6 +21,8 @@ import com.facebook.presto.orc.TrackingTupleDomainFilter.TestBigintRange;
 import com.facebook.presto.orc.TrackingTupleDomainFilter.TestDoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
+import com.facebook.presto.orc.cache.OrcFileTailSource;
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;

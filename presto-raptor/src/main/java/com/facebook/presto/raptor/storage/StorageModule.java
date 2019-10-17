@@ -14,11 +14,11 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.orc.CacheStatsMBean;
-import com.facebook.presto.orc.CachingOrcFileTailSource;
-import com.facebook.presto.orc.OrcCacheConfig;
 import com.facebook.presto.orc.OrcDataSourceId;
-import com.facebook.presto.orc.OrcFileTailSource;
-import com.facebook.presto.orc.StorageOrcFileTailSource;
+import com.facebook.presto.orc.cache.CachingOrcFileTailSource;
+import com.facebook.presto.orc.cache.OrcCacheConfig;
+import com.facebook.presto.orc.cache.OrcFileTailSource;
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.metadata.AssignmentLimiter;
