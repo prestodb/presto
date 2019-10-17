@@ -150,7 +150,7 @@ public class MemoryRevokingScheduler
     private void onMemoryReserved(MemoryPool memoryPool)
     {
         try {
-            if (!memoryRevokingNeeded(memoryPool)) {
+            if (memoryRevokingNeeded(memoryPool)) {
                 return;
             }
 
@@ -189,7 +189,7 @@ public class MemoryRevokingScheduler
         if (checkPending.getAndSet(false)) {
             Collection<SqlTask> sqlTasks = null;
             for (MemoryPool memoryPool : memoryPools) {
-                if (!memoryRevokingNeeded(memoryPool)) {
+                if (memoryRevokingNeeded(memoryPool)) {
                     continue;
                 }
 
@@ -211,8 +211,8 @@ public class MemoryRevokingScheduler
 
     private boolean memoryRevokingNeeded(MemoryPool memoryPool)
     {
-        return memoryPool.getReservedRevocableBytes() > 0
-                && memoryPool.getFreeBytes() <= memoryPool.getMaxBytes() * (1.0 - memoryRevokingThreshold);
+        return memoryPool.getReservedRevocableBytes() <= 0
+                || !(memoryPool.getFreeBytes() <= memoryPool.getMaxBytes() * (1.0 - memoryRevokingThreshold));
     }
 
     private long getMemoryAlreadyBeingRevoked(Collection<SqlTask> sqlTasks, MemoryPool memoryPool)

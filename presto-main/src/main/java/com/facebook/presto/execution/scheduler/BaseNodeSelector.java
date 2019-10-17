@@ -43,7 +43,7 @@ import static java.lang.Math.min;
 
 abstract class BaseNodeSelector
 {
-    public static List<InternalNode> selectNodes(int limit, ResettableRandomizedIterator<InternalNode> candidates)
+    protected List<InternalNode> selectNodes(int limit, ResettableRandomizedIterator<InternalNode> candidates)
     {
         checkArgument(limit > 0, "limit must be at least 1");
 
@@ -55,7 +55,7 @@ abstract class BaseNodeSelector
         return selected;
     }
 
-    public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
+    protected ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
     {
         ImmutableList<InternalNode> nodes = nodeMap.getNodesByHostAndPort().values().stream()
                 .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
@@ -64,7 +64,7 @@ abstract class BaseNodeSelector
         return new ResettableRandomizedIterator<>(nodes);
     }
 
-    public static List<InternalNode> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
+    protected List<InternalNode> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
     {
         Set<InternalNode> chosen = new LinkedHashSet<>();
         Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
@@ -98,8 +98,7 @@ abstract class BaseNodeSelector
                 // `coordinatorIds.contains(node.getNodeIdentifier())`. But checking the condition isn't necessary
                 // because every node satisfies it. Otherwise, `chosen` wouldn't have been empty.
 
-                nodeMap.getNodesByHostAndPort().get(host).stream()
-                        .forEach(chosen::add);
+                chosen.addAll(nodeMap.getNodesByHostAndPort().get(host));
 
                 InetAddress address;
                 try {
@@ -112,8 +111,7 @@ abstract class BaseNodeSelector
 
                 // consider a split with a host without a port as being accessible by all nodes in that host
                 if (!host.hasPort()) {
-                    nodeMap.getNodesByHost().get(address).stream()
-                            .forEach(chosen::add);
+                    chosen.addAll(nodeMap.getNodesByHost().get(address));
                 }
             }
         }

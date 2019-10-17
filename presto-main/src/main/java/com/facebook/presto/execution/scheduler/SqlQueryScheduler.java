@@ -883,7 +883,7 @@ public class SqlQueryScheduler
         return future;
     }
 
-    public static StreamingPlanSection extractStreamingSections(SubPlan subPlan)
+    private static StreamingPlanSection extractStreamingSections(SubPlan subPlan)
     {
         ImmutableList.Builder<SubPlan> materializedExchangeChildren = ImmutableList.builder();
         StreamingSubPlan streamingSection = extractStreamingSection(subPlan, materializedExchangeChildren);
@@ -928,7 +928,7 @@ public class SqlQueryScheduler
         private final ExchangeLocationsConsumer parent;
         private final Set<OutputBufferManager> childOutputBufferManagers;
 
-        public StageLinkage(PlanFragmentId fragmentId, ExchangeLocationsConsumer parent, Set<SqlStageExecution> children)
+        StageLinkage(PlanFragmentId fragmentId, ExchangeLocationsConsumer parent, Set<SqlStageExecution> children)
         {
             this.currentStageFragmentId = fragmentId;
             this.parent = parent;
@@ -938,18 +938,16 @@ public class SqlQueryScheduler
                         if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
                             return new BroadcastOutputBufferManager(childStage::setOutputBuffers);
                         }
-                        else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
+                        if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
                             return new ScaledOutputBufferManager(childStage::setOutputBuffers);
                         }
-                        else {
-                            int partitionCount = Ints.max(childStage.getFragment().getPartitioningScheme().getBucketToPartition().get()) + 1;
-                            return new PartitionedOutputBufferManager(partitioningHandle, partitionCount, childStage::setOutputBuffers);
-                        }
+                        int partitionCount = Ints.max(childStage.getFragment().getPartitioningScheme().getBucketToPartition().get()) + 1;
+                        return new PartitionedOutputBufferManager(partitioningHandle, partitionCount, childStage::setOutputBuffers);
                     })
                     .collect(toImmutableSet());
         }
 
-        public void processScheduleResults(StageExecutionState newState, Set<RemoteTask> newTasks)
+        void processScheduleResults(StageExecutionState newState, Set<RemoteTask> newTasks)
         {
             boolean noMoreTasks = false;
             switch (newState) {
@@ -994,7 +992,7 @@ public class SqlQueryScheduler
         // materialized exchange children
         private final List<StreamingPlanSection> children;
 
-        public StreamingPlanSection(StreamingSubPlan plan, List<StreamingPlanSection> children)
+        StreamingPlanSection(StreamingSubPlan plan, List<StreamingPlanSection> children)
         {
             this.plan = requireNonNull(plan, "plan is null");
             this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
@@ -1020,7 +1018,7 @@ public class SqlQueryScheduler
         // streaming children
         private final List<StreamingSubPlan> children;
 
-        public StreamingSubPlan(PlanFragment fragment, List<StreamingSubPlan> children)
+        StreamingSubPlan(PlanFragment fragment, List<StreamingSubPlan> children)
         {
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
@@ -1036,7 +1034,7 @@ public class SqlQueryScheduler
             return children;
         }
 
-        public StreamingSubPlan withBucketToPartition(Optional<int[]> bucketToPartition)
+        StreamingSubPlan withBucketToPartition(Optional<int[]> bucketToPartition)
         {
             return new StreamingSubPlan(fragment.withBucketToPartition(bucketToPartition), children);
         }
