@@ -26,7 +26,6 @@ import com.facebook.presto.orc.StorageOrcFileTailSource;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
@@ -73,16 +72,6 @@ final class OrcTestingUtil
         }
 
         return createRecordReader(orcReader, includedColumns);
-    }
-
-    public static OrcBatchRecordReader createReaderNoRows(OrcDataSource dataSource)
-            throws IOException
-    {
-        OrcReader orcReader = new OrcReader(dataSource, ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new StorageOrcFileTailSource());
-
-        assertEquals(orcReader.getColumnNames().size(), 0);
-
-        return createRecordReader(orcReader, ImmutableMap.of());
     }
 
     public static OrcBatchRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
