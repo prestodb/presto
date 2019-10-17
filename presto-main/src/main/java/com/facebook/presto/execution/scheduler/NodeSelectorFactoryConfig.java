@@ -21,7 +21,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 @DefunctConfig({"node-scheduler.location-aware-scheduling-enabled", "node-scheduler.multiple-tasks-per-node-enabled"})
-public class NodeSchedulerConfig
+public class NodeSelectorFactoryConfig
 {
     public static class NetworkTopologyType
     {
@@ -43,7 +43,7 @@ public class NodeSchedulerConfig
     }
 
     @Config("node-scheduler.network-topology")
-    public NodeSchedulerConfig setNetworkTopology(String networkTopology)
+    public NodeSelectorFactoryConfig setNetworkTopology(String networkTopology)
     {
         this.networkTopology = networkTopology;
         return this;
@@ -56,7 +56,7 @@ public class NodeSchedulerConfig
     }
 
     @Config("node-scheduler.min-candidates")
-    public NodeSchedulerConfig setMinCandidates(int candidates)
+    public NodeSelectorFactoryConfig setMinCandidates(int candidates)
     {
         this.minCandidates = candidates;
         return this;
@@ -68,7 +68,7 @@ public class NodeSchedulerConfig
     }
 
     @Config("node-scheduler.include-coordinator")
-    public NodeSchedulerConfig setIncludeCoordinator(boolean includeCoordinator)
+    public NodeSelectorFactoryConfig setIncludeCoordinator(boolean includeCoordinator)
     {
         this.includeCoordinator = includeCoordinator;
         return this;
@@ -76,7 +76,7 @@ public class NodeSchedulerConfig
 
     @Config("node-scheduler.max-pending-splits-per-task")
     @LegacyConfig({"node-scheduler.max-pending-splits-per-node-per-task", "node-scheduler.max-pending-splits-per-node-per-stage"})
-    public NodeSchedulerConfig setMaxPendingSplitsPerTask(int maxPendingSplitsPerTask)
+    public NodeSelectorFactoryConfig setMaxPendingSplitsPerTask(int maxPendingSplitsPerTask)
     {
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
         return this;
@@ -93,7 +93,7 @@ public class NodeSchedulerConfig
     }
 
     @Config("node-scheduler.max-splits-per-node")
-    public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
+    public NodeSelectorFactoryConfig setMaxSplitsPerNode(int maxSplitsPerNode)
     {
         this.maxSplitsPerNode = maxSplitsPerNode;
         return this;

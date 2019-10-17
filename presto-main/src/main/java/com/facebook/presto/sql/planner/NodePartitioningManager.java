@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactory;
 import com.facebook.presto.execution.scheduler.group.DynamicBucketNodeMap;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
@@ -51,13 +51,13 @@ import static java.util.Objects.requireNonNull;
 
 public class NodePartitioningManager
 {
-    private final NodeScheduler nodeScheduler;
+    private final NodeSelectorFactory nodeSelectorFactory;
     private final PartitioningProviderManager partitioningProviderManager;
 
     @Inject
-    public NodePartitioningManager(NodeScheduler nodeScheduler, PartitioningProviderManager partitioningProviderManager)
+    public NodePartitioningManager(NodeSelectorFactory nodeSelectorFactory, PartitioningProviderManager partitioningProviderManager)
     {
-        this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
+        this.nodeSelectorFactory = requireNonNull(nodeSelectorFactory, "nodeSelectorFactory is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
     }
 
@@ -111,7 +111,7 @@ public class NodePartitioningManager
         requireNonNull(partitioningHandle, "partitioningHandle is null");
 
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getNodePartitionMap(session, nodeScheduler);
+            return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getNodePartitionMap(session, nodeSelectorFactory);
         }
 
         ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
@@ -126,7 +126,7 @@ public class NodePartitioningManager
             ConnectorId connectorId = partitioningHandle.getConnectorId()
                     .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
             bucketToNode = createArbitraryBucketToNode(
-                    nodeScheduler.createNodeSelector(connectorId).selectRandomNodes(getMaxTasksPerStage(session)),
+                    nodeSelectorFactory.createNodeSelector(connectorId).selectRandomNodes(getMaxTasksPerStage(session)),
                     connectorBucketNodeMap.getBucketCount());
         }
 
@@ -165,7 +165,7 @@ public class NodePartitioningManager
         return new FixedBucketNodeMap(
                 getSplitToBucket(session, partitioningHandle),
                 createArbitraryBucketToNode(
-                        new ArrayList<>(nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session))),
+                        new ArrayList<>(nodeSelectorFactory.createNodeSelector(partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session))),
                         connectorBucketNodeMap.getBucketCount()));
     }
 

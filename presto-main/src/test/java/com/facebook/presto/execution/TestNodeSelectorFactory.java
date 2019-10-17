@@ -18,9 +18,9 @@ import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
 import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSelector;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactory;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
@@ -68,7 +68,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
-public class TestNodeScheduler
+public class TestNodeSelectorFactory
 {
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("connector_id");
     private FinalizerService finalizerService;
@@ -92,15 +92,15 @@ public class TestNodeScheduler
         nodeBuilder.add(new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
         ImmutableList<InternalNode> nodes = nodeBuilder.build();
         nodeManager.addNode(CONNECTOR_ID, nodes);
-        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+        NodeSelectorFactoryConfig nodeSelectorFactoryConfig = new NodeSelectorFactoryConfig()
                 .setMaxSplitsPerNode(20)
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeSelectorFactory nodeSelectorFactory = new NodeSelectorFactory(new LegacyNetworkTopology(), nodeManager, nodeSelectorFactoryConfig, nodeTaskMap);
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
-        nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
+        nodeSelector = nodeSelectorFactory.createNodeSelector(CONNECTOR_ID);
         remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
         remoteTaskScheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("remoteTaskScheduledExecutor-%s"));
 
@@ -143,7 +143,7 @@ public class TestNodeScheduler
 
         // contents of taskMap indicate the node-task map for the current stage
         Map<InternalNode, RemoteTask> taskMap = new HashMap<>();
-        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+        NodeSelectorFactoryConfig nodeSelectorFactoryConfig = new NodeSelectorFactoryConfig()
                 .setMaxSplitsPerNode(25)
                 .setIncludeCoordinator(false)
                 .setNetworkTopology("test")
@@ -164,8 +164,8 @@ public class TestNodeScheduler
                 }
             }
         };
-        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, nodeSchedulerConfig, nodeTaskMap, new Duration(5, SECONDS));
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
+        NodeSelectorFactory nodeSelectorFactory = new NodeSelectorFactory(locationCache, topology, nodeManager, nodeSelectorFactoryConfig, nodeTaskMap, new Duration(5, SECONDS));
+        NodeSelector nodeSelector = nodeSelectorFactory.createNodeSelector(CONNECTOR_ID);
 
         // Fill up the nodes with non-local data
         ImmutableSet.Builder<Split> nonRackLocalBuilder = ImmutableSet.builder();
@@ -432,13 +432,13 @@ public class TestNodeScheduler
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
-        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+        NodeSelectorFactoryConfig nodeSelectorFactoryConfig = new NodeSelectorFactoryConfig()
                 .setMaxSplitsPerNode(20)
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID, 2);
+        NodeSelectorFactory nodeSelectorFactory = new NodeSelectorFactory(new LegacyNetworkTopology(), nodeManager, nodeSelectorFactoryConfig, nodeTaskMap);
+        NodeSelector nodeSelector = nodeSelectorFactory.createNodeSelector(CONNECTOR_ID, 2);
 
         Set<Split> splits = new HashSet<>();
 
@@ -468,15 +468,15 @@ public class TestNodeScheduler
 
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
-        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+        NodeSelectorFactoryConfig nodeSelectorFactoryConfig = new NodeSelectorFactoryConfig()
                 .setMaxSplitsPerNode(20)
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
         LegacyNetworkTopology networkTopology = new LegacyNetworkTopology();
         // refresh interval is 1 nanosecond
-        NodeScheduler nodeScheduler = new NodeScheduler(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, nodeSchedulerConfig, nodeTaskMap, Duration.valueOf("0s"));
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID, 2);
+        NodeSelectorFactory nodeSelectorFactory = new NodeSelectorFactory(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, nodeSelectorFactoryConfig, nodeTaskMap, Duration.valueOf("0s"));
+        NodeSelector nodeSelector = nodeSelectorFactory.createNodeSelector(CONNECTOR_ID, 2);
 
         Set<Split> splits = new HashSet<>();
         splits.add(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote()));

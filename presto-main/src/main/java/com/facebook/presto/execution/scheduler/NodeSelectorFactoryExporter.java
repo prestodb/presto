@@ -28,20 +28,20 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public final class NodeSchedulerExporter
+public final class NodeSelectorFactoryExporter
 {
     private final MBeanExporter exporter;
     @GuardedBy("this")
     private final List<String> objectNames = new ArrayList<>();
 
     @Inject
-    public NodeSchedulerExporter(NodeScheduler nodeScheduler, MBeanExporter exporter)
+    public NodeSelectorFactoryExporter(NodeSelectorFactory nodeSelectorFactory, MBeanExporter exporter)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
-        Map<String, CounterStat> topologicalSplitCounters = nodeScheduler.getTopologicalSplitCounters();
+        Map<String, CounterStat> topologicalSplitCounters = nodeSelectorFactory.getTopologicalSplitCounters();
         for (Map.Entry<String, CounterStat> entry : topologicalSplitCounters.entrySet()) {
             try {
-                String objectName = ObjectNames.builder(NodeScheduler.class).withProperty("segment", entry.getKey()).build();
+                String objectName = ObjectNames.builder(NodeSelectorFactory.class).withProperty("segment", entry.getKey()).build();
                 this.exporter.export(objectName, entry.getValue());
                 objectNames.add(objectName);
             }

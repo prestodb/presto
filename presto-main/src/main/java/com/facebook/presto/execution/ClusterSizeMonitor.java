@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.PrestoException;
@@ -69,11 +69,11 @@ public class ClusterSizeMonitor
     private boolean minimumWorkerRequirementMet;
 
     @Inject
-    public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig)
+    public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSelectorFactoryConfig nodeSelectorFactoryConfig, QueryManagerConfig queryManagerConfig)
     {
         this(
                 nodeManager,
-                requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator(),
+                requireNonNull(nodeSelectorFactoryConfig, "nodeSelectorFactoryConfig is null").isIncludeCoordinator(),
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getInitializationRequiredWorkers(),
                 queryManagerConfig.getInitializationTimeout(),
                 queryManagerConfig.getRequiredWorkers(),

@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig.NetworkTopologyType.LEGACY;
 
-public class TestNodeSchedulerConfig
+public class TestNodeSelectorFactoryConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeSchedulerConfig.class)
+        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeSelectorFactoryConfig.class)
                 .setNetworkTopology(LEGACY)
                 .setMinCandidates(10)
                 .setMaxSplitsPerNode(100)
@@ -46,7 +46,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.max-splits-per-node", "101")
                 .build();
 
-        NodeSchedulerConfig expected = new NodeSchedulerConfig()
+        NodeSelectorFactoryConfig expected = new NodeSelectorFactoryConfig()
                 .setNetworkTopology("flat")
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(101)

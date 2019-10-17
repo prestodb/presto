@@ -15,7 +15,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.TableLayoutResult;
@@ -35,7 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig.NetworkTopologyType.LEGACY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -48,11 +48,11 @@ public class SplitManager
     private final boolean preferSplitHostAddresses;
 
     @Inject
-    public SplitManager(MetadataManager metadata, QueryManagerConfig config, NodeSchedulerConfig nodeSchedulerConfig)
+    public SplitManager(MetadataManager metadata, QueryManagerConfig config, NodeSelectorFactoryConfig nodeSelectorFactoryConfig)
     {
         this.metadata = metadata;
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
-        this.preferSplitHostAddresses = !nodeSchedulerConfig.getNetworkTopology().equals(LEGACY);
+        this.preferSplitHostAddresses = !nodeSelectorFactoryConfig.getNetworkTopology().equals(LEGACY);
     }
 
     public void addConnectorSplitManager(ConnectorId connectorId, ConnectorSplitManager connectorSplitManager)

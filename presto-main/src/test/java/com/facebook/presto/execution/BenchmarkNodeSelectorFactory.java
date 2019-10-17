@@ -18,9 +18,9 @@ import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSelector;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactory;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
@@ -65,9 +65,9 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.BENCHMARK;
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig.NetworkTopologyType.BENCHMARK;
+import static com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig.NetworkTopologyType.FLAT;
+import static com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig.NetworkTopologyType.LEGACY;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -79,7 +79,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkNodeScheduler
+public class BenchmarkNodeSelectorFactory
 {
     private static final int MAX_SPLITS_PER_NODE = 100;
     private static final int MAX_PENDING_SPLITS_PER_TASK_PER_NODE = 50;
@@ -170,8 +170,8 @@ public class BenchmarkNodeScheduler
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode(CONNECTOR_ID, nodes);
-            NodeScheduler nodeScheduler = new NodeScheduler(getNetworkTopology(), nodeManager, getNodeSchedulerConfig(), nodeTaskMap);
-            nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
+            NodeSelectorFactory nodeSelectorFactory = new NodeSelectorFactory(getNetworkTopology(), nodeManager, getNodeSelectorFactoryConfig(), nodeTaskMap);
+            nodeSelector = nodeSelectorFactory.createNodeSelector(CONNECTOR_ID);
         }
 
         @TearDown
@@ -180,9 +180,9 @@ public class BenchmarkNodeScheduler
             finalizerService.destroy();
         }
 
-        private NodeSchedulerConfig getNodeSchedulerConfig()
+        private NodeSelectorFactoryConfig getNodeSelectorFactoryConfig()
         {
-            return new NodeSchedulerConfig()
+            return new NodeSelectorFactoryConfig()
                     .setMaxSplitsPerNode(MAX_SPLITS_PER_NODE)
                     .setIncludeCoordinator(false)
                     .setNetworkTopology(topologyName)
@@ -229,7 +229,7 @@ public class BenchmarkNodeScheduler
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkNodeScheduler.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkNodeSelectorFactory.class.getSimpleName() + ".*")
                 .build();
         new Runner(options).run();
     }

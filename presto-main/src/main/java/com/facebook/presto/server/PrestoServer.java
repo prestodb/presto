@@ -16,7 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorModule;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -136,7 +136,7 @@ public class PrestoServer
                     injector.getInstance(Announcer.class),
                     injector.getInstance(CatalogManager.class),
                     injector.getInstance(ServerConfig.class),
-                    injector.getInstance(NodeSchedulerConfig.class));
+                    injector.getInstance(NodeSelectorFactoryConfig.class));
 
             injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
@@ -160,7 +160,7 @@ public class PrestoServer
         return ImmutableList.of();
     }
 
-    private static void updateConnectorIds(Announcer announcer, CatalogManager metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
+    private static void updateConnectorIds(Announcer announcer, CatalogManager metadata, ServerConfig serverConfig, NodeSelectorFactoryConfig schedulerConfig)
     {
         // get existing announcement
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());

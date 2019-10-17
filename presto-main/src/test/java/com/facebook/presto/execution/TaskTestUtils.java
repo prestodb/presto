@@ -19,8 +19,8 @@ import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactory;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -122,13 +122,13 @@ public final class TaskTestUtils
         // we don't start the finalizer so nothing will be collected, which is ok for a test
         FinalizerService finalizerService = new FinalizerService();
 
-        NodeScheduler nodeScheduler = new NodeScheduler(
+        NodeSelectorFactory nodeSelectorFactory = new NodeSelectorFactory(
                 new LegacyNetworkTopology(),
                 new InMemoryNodeManager(),
-                new NodeSchedulerConfig().setIncludeCoordinator(true),
+                new NodeSelectorFactoryConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService));
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
-        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
+        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeSelectorFactory, partitioningProviderManager);
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
         return new LocalExecutionPlanner(

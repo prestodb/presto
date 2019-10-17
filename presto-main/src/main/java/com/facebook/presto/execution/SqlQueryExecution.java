@@ -22,7 +22,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactory;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
 import com.facebook.presto.execution.warnings.WarningCollector;
@@ -106,7 +106,7 @@ public class SqlQueryExecution
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
     private final NodePartitioningManager nodePartitioningManager;
-    private final NodeScheduler nodeScheduler;
+    private final NodeSelectorFactory nodeSelectorFactory;
     private final List<PlanOptimizer> planOptimizers;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
@@ -139,7 +139,7 @@ public class SqlQueryExecution
             SqlParser sqlParser,
             SplitManager splitManager,
             NodePartitioningManager nodePartitioningManager,
-            NodeScheduler nodeScheduler,
+            NodeSelectorFactory nodeSelectorFactory,
             List<PlanOptimizer> planOptimizers,
             PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
@@ -162,7 +162,7 @@ public class SqlQueryExecution
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
-            this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
+            this.nodeSelectorFactory = requireNonNull(nodeSelectorFactory, "nodeSelectorFactory is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
@@ -498,7 +498,7 @@ public class SqlQueryExecution
                 locationFactory,
                 outputStagePlan,
                 nodePartitioningManager,
-                nodeScheduler,
+                nodeSelectorFactory,
                 remoteTaskFactory,
                 splitSourceFactory,
                 stateMachine.getSession(),
@@ -665,7 +665,7 @@ public class SqlQueryExecution
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
         private final NodePartitioningManager nodePartitioningManager;
-        private final NodeScheduler nodeScheduler;
+        private final NodeSelectorFactory nodeSelectorFactory;
         private final List<PlanOptimizer> planOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
@@ -689,7 +689,7 @@ public class SqlQueryExecution
                 LocationFactory locationFactory,
                 SplitManager splitManager,
                 NodePartitioningManager nodePartitioningManager,
-                NodeScheduler nodeScheduler,
+                NodeSelectorFactory nodeSelectorFactory,
                 PlanOptimizers planOptimizers,
                 PlanFragmenter planFragmenter,
                 RemoteTaskFactory remoteTaskFactory,
@@ -714,7 +714,7 @@ public class SqlQueryExecution
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
-            this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
+            this.nodeSelectorFactory = requireNonNull(nodeSelectorFactory, "nodeSelectorFactory is null");
             requireNonNull(planOptimizers, "planOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
@@ -758,7 +758,7 @@ public class SqlQueryExecution
                     sqlParser,
                     splitManager,
                     nodePartitioningManager,
-                    nodeScheduler,
+                    nodeSelectorFactory,
                     planOptimizers,
                     planFragmenter,
                     remoteTaskFactory,

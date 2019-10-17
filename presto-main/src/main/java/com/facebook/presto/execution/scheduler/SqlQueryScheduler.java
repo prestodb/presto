@@ -143,7 +143,7 @@ public class SqlQueryScheduler
             LocationFactory locationFactory,
             SubPlan plan,
             NodePartitioningManager nodePartitioningManager,
-            NodeScheduler nodeScheduler,
+            NodeSelectorFactory nodeSelectorFactory,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
@@ -162,7 +162,7 @@ public class SqlQueryScheduler
                 locationFactory,
                 plan,
                 nodePartitioningManager,
-                nodeScheduler,
+                nodeSelectorFactory,
                 remoteTaskFactory,
                 splitSourceFactory,
                 session,
@@ -184,7 +184,7 @@ public class SqlQueryScheduler
             LocationFactory locationFactory,
             SubPlan plan,
             NodePartitioningManager nodePartitioningManager,
-            NodeScheduler nodeScheduler,
+            NodeSelectorFactory nodeSelectorFactory,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
@@ -216,7 +216,7 @@ public class SqlQueryScheduler
                 sectionedPlan,
                 Optional.of(new int[1]),
                 rootOutputBuffers,
-                nodeScheduler,
+                nodeSelectorFactory,
                 remoteTaskFactory,
                 splitSourceFactory,
                 session,
@@ -311,7 +311,7 @@ public class SqlQueryScheduler
             StreamingPlanSection section,
             Optional<int[]> bucketToPartition,
             OutputBuffers outputBuffers,
-            NodeScheduler nodeScheduler,
+            NodeSelectorFactory nodeSelectorFactory,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
@@ -331,7 +331,7 @@ public class SqlQueryScheduler
         List<SqlStageExecution> sectionStages = createStreamingLinkedStageExecutions(
                 locationsConsumer,
                 section.getPlan().withBucketToPartition(bucketToPartition),
-                nodeScheduler,
+                nodeSelectorFactory,
                 remoteTaskFactory,
                 splitSourceFactory,
                 session,
@@ -354,7 +354,7 @@ public class SqlQueryScheduler
                     childSection,
                     Optional.empty(),
                     createDiscardingOutputBuffers(),
-                    nodeScheduler,
+                    nodeSelectorFactory,
                     remoteTaskFactory,
                     splitSourceFactory,
                     session,
@@ -374,7 +374,7 @@ public class SqlQueryScheduler
     private List<SqlStageExecution> createStreamingLinkedStageExecutions(
             ExchangeLocationsConsumer parent,
             StreamingSubPlan plan,
-            NodeScheduler nodeScheduler,
+            NodeSelectorFactory nodeSelectorFactory,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
@@ -422,7 +422,7 @@ public class SqlQueryScheduler
                 connectorId = null;
             }
 
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(connectorId, maxTasksPerStage);
+            NodeSelector nodeSelector = nodeSelectorFactory.createNodeSelector(connectorId, maxTasksPerStage);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
@@ -465,7 +465,7 @@ public class SqlQueryScheduler
                                 .collect(toImmutableList());
                     }
                     else {
-                        stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(connectorId).selectRandomNodes(maxTasksPerStage));
+                        stageNodeList = new ArrayList<>(nodeSelectorFactory.createNodeSelector(connectorId).selectRandomNodes(maxTasksPerStage));
                     }
                     bucketToPartition = Optional.empty();
                 }
@@ -492,7 +492,7 @@ public class SqlQueryScheduler
                         bucketNodeMap,
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
-                        nodeScheduler.createNodeSelector(connectorId),
+                        nodeSelectorFactory.createNodeSelector(connectorId),
                         connectorPartitionHandles);
                 stageSchedulers.put(stageId, stageScheduler);
                 if (plan.getFragment().getStageExecutionDescriptor().isRecoverableGroupedExecution()) {
@@ -522,7 +522,7 @@ public class SqlQueryScheduler
             List<SqlStageExecution> subTree = createStreamingLinkedStageExecutions(
                     stageExecution::addExchangeLocations,
                     stagePlan.withBucketToPartition(bucketToPartition),
-                    nodeScheduler,
+                    nodeSelectorFactory,
                     remoteTaskFactory,
                     splitSourceFactory,
                     session,
@@ -565,7 +565,7 @@ public class SqlQueryScheduler
                     stageExecution,
                     sourceTasksProvider,
                     writerTasksProvider,
-                    nodeScheduler.createNodeSelector(null),
+                    nodeSelectorFactory.createNodeSelector(null),
                     schedulerExecutor,
                     getWriterMinSize(session));
             whenAllStages(childStageExecutions, StageExecutionState::isDone)

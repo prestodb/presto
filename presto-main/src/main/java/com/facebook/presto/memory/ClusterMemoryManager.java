@@ -16,7 +16,7 @@ package com.facebook.presto.memory;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryIdGenerator;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.memory.LowMemoryKiller.QueryMemoryInfo;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -146,7 +146,7 @@ public class ClusterMemoryManager
             ServerConfig serverConfig,
             MemoryManagerConfig config,
             NodeMemoryConfig nodeMemoryConfig,
-            NodeSchedulerConfig schedulerConfig,
+            NodeSelectorFactoryConfig schedulerConfig,
             InternalCommunicationConfig communicationConfig)
     {
         requireNonNull(config, "config is null");

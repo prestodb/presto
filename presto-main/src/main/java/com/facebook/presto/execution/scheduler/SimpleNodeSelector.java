@@ -32,18 +32,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.execution.scheduler.NodeScheduler.calculateLowWatermark;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistributionNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class SimpleNodeSelector
+        extends BaseNodeSelector
         implements NodeSelector
 {
     private static final Logger log = Logger.get(SimpleNodeSelector.class);

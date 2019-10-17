@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 
@@ -30,13 +30,13 @@ public class TaskCountEstimator
     private final IntSupplier numberOfNodes;
 
     @Inject
-    public TaskCountEstimator(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager)
+    public TaskCountEstimator(NodeSelectorFactoryConfig nodeSelectorFactoryConfig, InternalNodeManager nodeManager)
     {
-        requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
+        requireNonNull(nodeSelectorFactoryConfig, "nodeSelectorFactoryConfig is null");
         requireNonNull(nodeManager, "nodeManager is null");
         this.numberOfNodes = () -> {
             Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
-            if (nodeSchedulerConfig.isIncludeCoordinator()) {
+            if (nodeSelectorFactoryConfig.isIncludeCoordinator()) {
                 return activeNodes.size();
             }
             return toIntExact(activeNodes.stream()

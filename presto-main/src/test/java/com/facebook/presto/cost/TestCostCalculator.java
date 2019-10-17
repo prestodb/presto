@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactory;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -110,7 +110,7 @@ public class TestCostCalculator
     private MetadataManager metadata;
     private TransactionManager transactionManager;
     private FinalizerService finalizerService;
-    private NodeScheduler nodeScheduler;
+    private NodeSelectorFactory nodeSelectorFactory;
     private NodePartitioningManager nodePartitioningManager;
 
     @BeforeClass
@@ -129,13 +129,13 @@ public class TestCostCalculator
 
         finalizerService = new FinalizerService();
         finalizerService.start();
-        nodeScheduler = new NodeScheduler(
+        nodeSelectorFactory = new NodeSelectorFactory(
                 new LegacyNetworkTopology(),
                 new InMemoryNodeManager(),
-                new NodeSchedulerConfig().setIncludeCoordinator(true),
+                new NodeSelectorFactoryConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService));
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
-        nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
+        nodePartitioningManager = new NodePartitioningManager(nodeSelectorFactory, partitioningProviderManager);
         planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser());
     }
 
@@ -150,8 +150,8 @@ public class TestCostCalculator
         metadata = null;
         finalizerService.destroy();
         finalizerService = null;
-        nodeScheduler.stop();
-        nodeScheduler = null;
+        nodeSelectorFactory.stop();
+        nodeSelectorFactory = null;
         nodePartitioningManager = null;
     }
 

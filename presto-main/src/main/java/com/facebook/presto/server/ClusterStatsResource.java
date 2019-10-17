@@ -15,7 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.NodeState;
@@ -41,9 +41,9 @@ public class ClusterStatsResource
     private final ClusterMemoryManager clusterMemoryManager;
 
     @Inject
-    public ClusterStatsResource(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager, QueryManager queryManager, ClusterMemoryManager clusterMemoryManager)
+    public ClusterStatsResource(NodeSelectorFactoryConfig nodeSelectorFactoryConfig, InternalNodeManager nodeManager, QueryManager queryManager, ClusterMemoryManager clusterMemoryManager)
     {
-        this.isIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
+        this.isIncludeCoordinator = requireNonNull(nodeSelectorFactoryConfig, "nodeSelectorFactoryConfig is null").isIncludeCoordinator();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");

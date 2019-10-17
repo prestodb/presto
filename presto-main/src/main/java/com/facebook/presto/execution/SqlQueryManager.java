@@ -21,7 +21,7 @@ import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
@@ -132,7 +132,7 @@ public class SqlQueryManager
     public SqlQueryManager(
             QueryPreparer queryPreparer,
             EmbedVersion embedVersion,
-            NodeSchedulerConfig nodeSchedulerConfig,
+            NodeSelectorFactoryConfig nodeSelectorFactoryConfig,
             QueryManagerConfig queryManagerConfig,
             QueryMonitor queryMonitor,
             ResourceGroupManager<?> resourceGroupManager,
@@ -156,7 +156,7 @@ public class SqlQueryManager
         this.boundedExecutor = new BoundedExecutor(unboundedExecutorService, queryManagerConfig.getQuerySubmissionMaxThreads());
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) unboundedExecutorService);
 
-        requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
+        requireNonNull(nodeSelectorFactoryConfig, "nodeSelectorFactoryConfig is null");
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");

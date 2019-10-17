@@ -41,9 +41,9 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
-import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactory;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryExporter;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManagerExporter;
@@ -158,8 +158,8 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig.NetworkTopologyType.FLAT;
+import static com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig.NetworkTopologyType.LEGACY;
 import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -254,20 +254,20 @@ public class ServerMainModule
 
         // node scheduler
         // TODO: remove from NodePartitioningManager and move to CoordinatorModule
-        configBinder(binder).bindConfig(NodeSchedulerConfig.class);
-        binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
-        binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(NodeSelectorFactoryConfig.class);
+        binder.bind(NodeSelectorFactory.class).in(Scopes.SINGLETON);
+        binder.bind(NodeSelectorFactoryExporter.class).in(Scopes.SINGLETON);
         binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(NodeScheduler.class).withGeneratedName();
+        newExporter(binder).export(NodeSelectorFactory.class).withGeneratedName();
 
         // network topology
-        // TODO: move to CoordinatorModule when NodeScheduler is moved
+        // TODO: move to CoordinatorModule when NodeSelectorFactory is moved
         install(installModuleIf(
-                NodeSchedulerConfig.class,
+                NodeSelectorFactoryConfig.class,
                 config -> LEGACY.equalsIgnoreCase(config.getNetworkTopology()),
                 moduleBinder -> moduleBinder.bind(NetworkTopology.class).to(LegacyNetworkTopology.class).in(Scopes.SINGLETON)));
         install(installModuleIf(
-                NodeSchedulerConfig.class,
+                NodeSelectorFactoryConfig.class,
                 config -> FLAT.equalsIgnoreCase(config.getNetworkTopology()),
                 moduleBinder -> moduleBinder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)));
 

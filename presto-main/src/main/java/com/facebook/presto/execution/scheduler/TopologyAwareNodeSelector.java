@@ -38,16 +38,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.calculateLowWatermark;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistributionNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
-import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelector
+        extends BaseNodeSelector
         implements NodeSelector
 {
     private static final Logger log = Logger.get(TopologyAwareNodeSelector.class);

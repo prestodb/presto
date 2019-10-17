@@ -59,8 +59,8 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
-import com.facebook.presto.execution.scheduler.NodeScheduler;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactory;
+import com.facebook.presto.execution.scheduler.NodeSelectorFactoryConfig;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
@@ -256,7 +256,7 @@ public class LocalQueryRunner
 
     private final boolean alwaysRevokeMemory;
     private final NodeSpillConfig nodeSpillConfig;
-    private final NodeSchedulerConfig nodeSchedulerConfig;
+    private final NodeSelectorFactoryConfig nodeSelectorFactoryConfig;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -293,11 +293,11 @@ public class LocalQueryRunner
         this.typeRegistry = new TypeRegistry();
         this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         this.indexManager = new IndexManager();
-        this.nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
-        NodeScheduler nodeScheduler = new NodeScheduler(
+        this.nodeSelectorFactoryConfig = new NodeSelectorFactoryConfig().setIncludeCoordinator(true);
+        NodeSelectorFactory nodeSelectorFactory = new NodeSelectorFactory(
                 new LegacyNetworkTopology(),
                 nodeManager,
-                nodeSchedulerConfig,
+                nodeSelectorFactoryConfig,
                 new NodeTaskMap(finalizerService));
         this.pageSinkManager = new PageSinkManager();
         CatalogManager catalogManager = new CatalogManager();
@@ -307,7 +307,7 @@ public class LocalQueryRunner
                 catalogManager,
                 notificationExecutor);
         this.partitioningProviderManager = new PartitioningProviderManager();
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
+        this.nodePartitioningManager = new NodePartitioningManager(nodeSelectorFactory, partitioningProviderManager);
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
 
         this.blockEncodingManager = new BlockEncodingManager(typeRegistry);
@@ -321,7 +321,7 @@ public class LocalQueryRunner
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager);
-        this.splitManager = new SplitManager(metadata, new QueryManagerConfig(), nodeSchedulerConfig);
+        this.splitManager = new SplitManager(metadata, new QueryManagerConfig(), nodeSelectorFactoryConfig);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), sqlParser);
         this.joinCompiler = new JoinCompiler(metadata, featuresConfig);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
