@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import java.util.Arrays;
 
+import static com.google.common.base.Verify.verify;
 import static java.lang.Math.toIntExact;
 
 public class EntropyCalculations
@@ -24,7 +25,7 @@ public class EntropyCalculations
     /**
      * @implNote Based on Alizadeh Noughabi, Hadi & Arghami, N. (2010). "A New Estimator of Entropy".
      */
-    public static double calculateFromSamples(double[] samples)
+    public static double calculateFromSamplesUsingVasicek(double[] samples)
     {
         if (samples.length == 0) {
             return Double.NaN;
@@ -41,5 +42,11 @@ public class EntropyCalculations
             entropy += Math.log(n / (aI * m) * (sIPlusM - sIMinusM));
         }
         return entropy / n / Math.log(2);
+    }
+
+    static double calculateEntropyFromHistogramAggregates(double width, double sumWeight, double sumWeightLogWeight)
+    {
+        verify(sumWeight > 0.0);
+        return Math.max((Math.log(width * sumWeight) - sumWeightLogWeight / sumWeight) / Math.log(2.0), 0.0);
     }
 }

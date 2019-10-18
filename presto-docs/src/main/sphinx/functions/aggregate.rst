@@ -564,6 +564,7 @@ To find the `ROC curve <https://en.wikipedia.org/wiki/Receiver_operating_charact
 
     The thresholds are defined as a sequence whose :math:`j`-th entry is the :math:`j`-th smallest threshold.
 
+
 Differential Entropy Functions
 -------------------------------
 
@@ -572,7 +573,7 @@ That is, for a random variable :math:`x`, they approximate
 
 .. math ::
 
-    H(x) = - \int x \log_2\left(f(x)\right) dx,
+    h(x) = - \int x \log_2\left(f(x)\right) dx,
 
 where :math:`f(x)` is the partial density function of :math:`x`.
 

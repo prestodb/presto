@@ -34,9 +34,10 @@ public class TestUnweightedDoubleReservoirSample
     @Test
     public void testGetMaxSamples()
     {
-        UnweightedDoubleReservoirSample sample = new UnweightedDoubleReservoirSample(200);
+        UnweightedDoubleReservoirSample reservoir = new UnweightedDoubleReservoirSample(200);
 
-        assertEquals(sample.getMaxSamples(), 200);
+        assertEquals(reservoir.getMaxSamples(), 200);
+        assertEquals(reservoir.getTotalPopulationCount(), 0);
     }
 
     @Test
@@ -49,6 +50,7 @@ public class TestUnweightedDoubleReservoirSample
         reservoir.add(3.0);
 
         assertEquals(Arrays.stream(reservoir.getSamples()).sorted().toArray(), new double[] {1.0, 2.0, 3.0});
+        assertEquals(reservoir.getTotalPopulationCount(), 3);
     }
 
     @Test
@@ -58,6 +60,7 @@ public class TestUnweightedDoubleReservoirSample
 
         long streamLength = 1_000_000;
         for (int i = 0; i < streamLength; ++i) {
+            assertEquals(reservoir.getTotalPopulationCount(), i);
             reservoir.add(i);
         }
 
