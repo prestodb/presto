@@ -11,28 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.storage;
+package com.facebook.presto.raptor.filesystem;
 
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.conf.Configuration;
 
-import java.util.Set;
-import java.util.UUID;
+import java.net.URI;
 
-public interface StorageService
+public interface RaptorHdfsConfiguration
 {
-    void start();
-
-    long getAvailableBytes();
-
-    void createParents(Path file);
-
-    Path getStorageFile(UUID shardUuid);
-
-    Path getStagingFile(UUID shardUuid);
-
-    Path getQuarantineFile(UUID shardUuid);
-
-    Set<UUID> getStorageShards();
-
-    void promoteFromStagingToStorage(UUID shardUuid);
+    Configuration getConfiguration(FileSystemContext context, URI uri);
 }

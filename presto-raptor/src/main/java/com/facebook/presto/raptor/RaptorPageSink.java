@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
@@ -71,10 +72,12 @@ public class RaptorPageSink
     private final Optional<Type> temporalColumnType;
     private final TemporalFunction temporalFunction;
     private final int maxAllowedFilesPerWriter;
+    private final FileSystemContext context;
 
     private final PageWriter pageWriter;
 
     public RaptorPageSink(
+            FileSystemContext context,
             PageSorter pageSorter,
             StorageManager storageManager,
             TemporalFunction temporalFunction,
@@ -103,6 +106,7 @@ public class RaptorPageSink
 
         this.bucketCount = bucketCount;
         this.bucketFields = bucketColumnIds.stream().mapToInt(columnIds::indexOf).toArray();
+        this.context = requireNonNull(context, "context is null");
 
         if (temporalColumnHandle.isPresent() && columnIds.contains(temporalColumnHandle.get().getColumnId())) {
             temporalColumnIndex = OptionalInt.of(columnIds.indexOf(temporalColumnHandle.get().getColumnId()));
@@ -169,7 +173,7 @@ public class RaptorPageSink
     {
         return new PageBuffer(
                 maxBufferBytes,
-                storageManager.createStoragePageSink(transactionId, bucketNumber, columnIds, columnTypes, true),
+                storageManager.createStoragePageSink(context, transactionId, bucketNumber, columnIds, columnTypes, true),
                 columnTypes,
                 sortFields,
                 sortOrders,

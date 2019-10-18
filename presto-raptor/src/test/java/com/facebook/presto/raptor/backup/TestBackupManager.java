@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.backup;
 
+import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
+import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.storage.BackupStats;
-import com.facebook.presto.raptor.storage.FileStorageService;
-import com.facebook.presto.raptor.storage.LocalOrcDataEnvironment;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Files;
 import org.apache.hadoop.fs.Path;
@@ -56,7 +56,7 @@ public class TestBackupManager
 
     private File temporary;
     private BackupStore backupStore;
-    private FileStorageService storageService;
+    private LocalFileStorageService storageService;
     private BackupManager backupManager;
 
     @BeforeMethod
@@ -68,7 +68,7 @@ public class TestBackupManager
         fileStore.start();
         backupStore = new TestingBackupStore(fileStore);
 
-        storageService = new FileStorageService(new LocalOrcDataEnvironment(), new File(temporary, "data"));
+        storageService = new LocalFileStorageService(new LocalOrcDataEnvironment(), new File(temporary, "data").toURI());
         storageService.start();
 
         backupManager = new BackupManager(Optional.of(backupStore), storageService, new LocalOrcDataEnvironment(), 5);

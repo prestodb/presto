@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
+import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterMethod;
@@ -23,7 +25,7 @@ import java.io.File;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.raptor.storage.FileStorageService.getFileSystemPath;
+import static com.facebook.presto.raptor.filesystem.LocalFileStorageService.getFileSystemPath;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -36,16 +38,16 @@ import static org.testng.FileAssert.assertDirectory;
 import static org.testng.FileAssert.assertFile;
 
 @Test(singleThreaded = true)
-public class TestFileStorageService
+public class TestLocalFileStorageService
 {
     private File temporary;
-    private FileStorageService store;
+    private LocalFileStorageService store;
 
     @BeforeMethod
     public void setup()
     {
         temporary = createTempDir();
-        store = new FileStorageService(new LocalOrcDataEnvironment(), temporary);
+        store = new LocalFileStorageService(new LocalOrcDataEnvironment(), temporary.toURI());
         store.start();
     }
 

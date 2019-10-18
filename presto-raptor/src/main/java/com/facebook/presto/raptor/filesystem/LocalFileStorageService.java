@@ -11,9 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.storage;
+package com.facebook.presto.raptor.filesystem;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.raptor.storage.OrcDataEnvironment;
+import com.facebook.presto.raptor.storage.StorageManagerConfig;
+import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -27,6 +30,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
@@ -35,15 +39,15 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.raptor.storage.LocalOrcDataEnvironment.tryGetLocalFileSystem;
+import static com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment.tryGetLocalFileSystem;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class FileStorageService
+public class LocalFileStorageService
         implements StorageService
 {
-    private static final Logger log = Logger.get(FileStorageService.class);
+    private static final Logger log = Logger.get(LocalFileStorageService.class);
 
     private static final Pattern HEX_DIRECTORY = Pattern.compile("[0-9a-f]{2}");
     private static final String FILE_EXTENSION = ".orc";
@@ -55,17 +59,19 @@ public class FileStorageService
     private final File baseQuarantineDir;
 
     @Inject
-    public FileStorageService(OrcDataEnvironment environment, StorageManagerConfig config)
+    public LocalFileStorageService(OrcDataEnvironment environment, StorageManagerConfig storageManagerConfig)
     {
-        this(environment, config.getDataDirectory());
+        this(environment, storageManagerConfig.getDataDirectory());
     }
 
-    public FileStorageService(OrcDataEnvironment environment, File dataDirectory)
+    public LocalFileStorageService(OrcDataEnvironment environment, URI dataDirectory)
     {
         Optional<RawLocalFileSystem> fileSystem = tryGetLocalFileSystem(requireNonNull(environment, "environment is null"));
-        checkState(fileSystem.isPresent(), "FileStorageService has to have local file system");
+        checkState(fileSystem.isPresent(), "LocalFileStorageService has to have local file system");
+        checkState(dataDirectory.isAbsolute(), "dataDirectory URI is not absolute");
+        checkState(dataDirectory.getScheme().equals("file"), "dataDirectory URI is not pointing to local file system");
         this.localFileSystem = fileSystem.get();
-        File baseDataDir = requireNonNull(dataDirectory, "dataDirectory is null");
+        File baseDataDir = requireNonNull(localFileSystem.pathToFile(new Path(dataDirectory)), "dataDirectory is null");
         this.baseStorageDir = new File(baseDataDir, "storage");
         this.baseStagingDir = new File(baseDataDir, "staging");
         this.baseQuarantineDir = new File(baseDataDir, "quarantine");
@@ -118,8 +124,8 @@ public class FileStorageService
     public Set<UUID> getStorageShards()
     {
         ImmutableSet.Builder<UUID> shards = ImmutableSet.builder();
-        for (File level1 : listFiles(baseStorageDir, FileStorageService::isHexDirectory)) {
-            for (File level2 : listFiles(level1, FileStorageService::isHexDirectory)) {
+        for (File level1 : listFiles(baseStorageDir, LocalFileStorageService::isHexDirectory)) {
+            for (File level2 : listFiles(level1, LocalFileStorageService::isHexDirectory)) {
                 for (File file : listFiles(level2, path -> true)) {
                     if (file.isFile()) {
                         uuidFromFileName(file.getName()).ifPresent(shards::add);
@@ -134,6 +140,22 @@ public class FileStorageService
     public void createParents(Path file)
     {
         createDirectory(file.getParent());
+    }
+
+    @Override
+    public void promoteFromStagingToStorage(UUID shardUuid)
+    {
+        Path stagingFile = getStagingFile(shardUuid);
+        Path storageFile = getStorageFile(shardUuid);
+
+        createParents(storageFile);
+
+        try {
+            localFileSystem.rename(stagingFile, storageFile);
+        }
+        catch (IOException e) {
+            throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
+        }
     }
 
     /**

@@ -29,7 +29,7 @@ public class TestRaptorReadOnlySecurity
     public void setUp()
             throws Exception
     {
-        queryRunner = createRaptorQueryRunner(ImmutableMap.of(), false, false, ImmutableMap.of("raptor.security", "read-only"));
+        queryRunner = createRaptorQueryRunner(ImmutableMap.of(), false, false, false, ImmutableMap.of("raptor.security", "read-only"));
     }
 
     @AfterClass(alwaysRun = true)

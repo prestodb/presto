@@ -90,11 +90,11 @@ public final class OrcFileRewriter
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
     }
 
-    public OrcFileInfo rewrite(Map<String, Type> allColumnTypes, Path input, Path output, BitSet rowsToDelete)
+    public OrcFileInfo rewrite(FileSystem fileSystem, Map<String, Type> allColumnTypes, Path input, Path output, BitSet rowsToDelete)
             throws IOException
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
-                OrcDataSource dataSource = orcDataEnvironment.createOrcDataSource(input, readerAttributes)) {
+                OrcDataSource dataSource = orcDataEnvironment.createOrcDataSource(fileSystem, input, readerAttributes)) {
             OrcReader reader = new OrcReader(
                     dataSource,
                     ORC,
@@ -162,7 +162,7 @@ public final class OrcFileRewriter
             }
             try (Closer<OrcBatchRecordReader, IOException> recordReader = closer(reader.createBatchRecordReader(readerColumns, TRUE, DEFAULT_STORAGE_TIMEZONE, newSimpleAggregatedMemoryContext(), INITIAL_BATCH_SIZE), OrcBatchRecordReader::close);
                     Closer<OrcWriter, IOException> writer = closer(new OrcWriter(
-                            orcDataEnvironment.createOrcDataSink(output),
+                            orcDataEnvironment.createOrcDataSink(fileSystem, output),
                             writerColumnIds,
                             writerStorageTypes,
                             ORC,

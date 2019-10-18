@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -28,6 +29,7 @@ import java.util.UUID;
 public interface StorageManager
 {
     default ConnectorPageSource getPageSource(
+            FileSystemContext fileSystemContext,
             UUID shardUuid,
             OptionalInt bucketNumber,
             List<Long> columnIds,
@@ -35,10 +37,11 @@ public interface StorageManager
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes)
     {
-        return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty(), Optional.empty());
+        return getPageSource(fileSystemContext, shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty(), Optional.empty());
     }
 
     ConnectorPageSource getPageSource(
+            FileSystemContext fileSystemContext,
             UUID shardUuid,
             OptionalInt bucketNumber,
             List<Long> columnIds,
@@ -49,6 +52,7 @@ public interface StorageManager
             Optional<Map<String, Type>> allColumnTypes);
 
     StoragePageSink createStoragePageSink(
+            FileSystemContext fileSystemContext,
             long transactionId,
             OptionalInt bucketNumber,
             List<Long> columnIds,

@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.storage;
+package com.facebook.presto.raptor.filesystem;
 
 import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
-import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
+import com.facebook.presto.raptor.storage.OrcDataEnvironment;
+import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -30,13 +31,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_LOCAL_FILE_SYSTEM_ERROR;
+import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_FILE_SYSTEM_ERROR;
 
 public class LocalOrcDataEnvironment
         implements OrcDataEnvironment
 {
     private static final Configuration CONFIGURATION = new Configuration();
-
     private final RawLocalFileSystem localFileSystem;
 
     @Inject
@@ -46,18 +46,23 @@ public class LocalOrcDataEnvironment
             this.localFileSystem = new RaptorLocalFileSystem(CONFIGURATION);
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_LOCAL_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
+            throw new PrestoException(RAPTOR_FILE_SYSTEM_ERROR, "Raptor cannot create local file system", e);
         }
     }
 
     @Override
-    public FileSystem getFileSystem()
+    public FileSystem getFileSystem(FileSystemContext ignore)
+    {
+        return localFileSystem;
+    }
+
+    public RawLocalFileSystem getLocalFileSystem()
     {
         return localFileSystem;
     }
 
     @Override
-    public OrcDataSource createOrcDataSource(Path path, ReaderAttributes readerAttributes)
+    public OrcDataSource createOrcDataSource(FileSystem ignore, Path path, ReaderAttributes readerAttributes)
             throws IOException
     {
         return new FileOrcDataSource(
@@ -69,7 +74,7 @@ public class LocalOrcDataEnvironment
     }
 
     @Override
-    public OrcDataSink createOrcDataSink(Path path)
+    public OrcDataSink createOrcDataSink(FileSystem fileSystem, Path path)
             throws IOException
     {
         return new OutputStreamOrcDataSink(new FileOutputStream(localFileSystem.pathToFile(path)));
@@ -78,7 +83,7 @@ public class LocalOrcDataEnvironment
     public static Optional<RawLocalFileSystem> tryGetLocalFileSystem(OrcDataEnvironment environment)
     {
         if (environment instanceof LocalOrcDataEnvironment) {
-            return Optional.of((RaptorLocalFileSystem) environment.getFileSystem());
+            return Optional.of(((LocalOrcDataEnvironment) environment).getLocalFileSystem());
         }
         return Optional.empty();
     }

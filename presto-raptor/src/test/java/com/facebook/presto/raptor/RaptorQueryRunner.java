@@ -43,16 +43,17 @@ public final class RaptorQueryRunner
 
     private RaptorQueryRunner() {}
 
-    public static DistributedQueryRunner createRaptorQueryRunner(Map<String, String> extraProperties, boolean loadTpch, boolean bucketed)
+    public static DistributedQueryRunner createRaptorQueryRunner(Map<String, String> extraProperties, boolean loadTpch, boolean bucketed, boolean useHdfs)
             throws Exception
     {
-        return createRaptorQueryRunner(extraProperties, loadTpch, bucketed, ImmutableMap.of());
+        return createRaptorQueryRunner(extraProperties, loadTpch, bucketed, useHdfs, ImmutableMap.of());
     }
 
     public static DistributedQueryRunner createRaptorQueryRunner(
             Map<String, String> extraProperties,
             boolean loadTpch,
             boolean bucketed,
+            boolean useHdfs,
             Map<String, String> extraRaptorProperties)
             throws Exception
     {
@@ -63,16 +64,26 @@ public final class RaptorQueryRunner
 
         queryRunner.installPlugin(new RaptorPlugin());
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();
-        Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
-                .putAll(extraRaptorProperties)
+
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        builder.putAll(extraRaptorProperties)
                 .put("metadata.db.type", "h2")
                 .put("metadata.db.connections.max", "100")
                 .put("metadata.db.filename", new File(baseDir, "db").getAbsolutePath())
-                .put("storage.data-directory", new File(baseDir, "data").getAbsolutePath())
-                .put("storage.max-shard-rows", "2000")
-                .put("backup.provider", "file")
-                .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
-                .build();
+                .put("storage.max-shard-rows", "2000");
+
+        if (useHdfs) {
+            builder.put("storage.file-system", "hdfs")
+                    .put("storage.data-directory", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile().toURI().toString());
+        }
+        else {
+            builder.put("backup.provider", "file")
+                    .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
+                    .put("storage.file-system", "file")
+                    .put("storage.data-directory", new File(baseDir, "data").toURI().toString());
+        }
+
+        Map<String, String> raptorProperties = builder.build();
 
         queryRunner.createCatalog("raptor", "raptor", raptorProperties);
 
@@ -145,7 +156,7 @@ public final class RaptorQueryRunner
     {
         Logging.initialize();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        DistributedQueryRunner queryRunner = createRaptorQueryRunner(properties, false, false);
+        DistributedQueryRunner queryRunner = createRaptorQueryRunner(properties, true, false, false);
         Thread.sleep(10);
         Logger log = Logger.get(RaptorQueryRunner.class);
         log.info("======== SERVER STARTED ========");

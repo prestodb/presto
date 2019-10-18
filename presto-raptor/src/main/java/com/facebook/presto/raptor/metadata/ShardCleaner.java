@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.metadata;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.raptor.backup.BackupStore;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
@@ -25,7 +26,6 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -86,7 +86,7 @@ public class ShardCleaner
     private final Duration backupCleanTime;
     private final ScheduledExecutorService scheduler;
     private final ExecutorService backupExecutor;
-    private final FileSystem fileSystem;
+    private final OrcDataEnvironment orcDataEnvironment;
     private final Duration maxCompletedTransactionAge;
 
     private final AtomicBoolean started = new AtomicBoolean();
@@ -160,7 +160,7 @@ public class ShardCleaner
         this.backupCleanTime = requireNonNull(backupCleanTime, "backupCleanTime is null");
         this.scheduler = newScheduledThreadPool(2, daemonThreadsNamed("shard-cleaner-%s"));
         this.backupExecutor = newFixedThreadPool(backupDeletionThreads, daemonThreadsNamed("shard-cleaner-backup-%s"));
-        this.fileSystem = requireNonNull(environment, "environment is null").getFileSystem();
+        this.orcDataEnvironment = requireNonNull(environment, "environment is null");
         this.maxCompletedTransactionAge = requireNonNull(maxCompletedTransactionAge, "maxCompletedTransactionAge is null");
     }
 
@@ -526,6 +526,6 @@ public class ShardCleaner
     private void deleteFile(Path file)
             throws IOException
     {
-        fileSystem.delete(file, false);
+        orcDataEnvironment.getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT).delete(file, false);
     }
 }

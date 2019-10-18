@@ -19,15 +19,12 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import javax.validation.constraints.NotNull;
-
-import java.io.File;
+import java.net.URI;
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static com.facebook.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED;
@@ -50,6 +47,7 @@ public class TestStorageManagerConfig
     {
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
                 .setDataDirectory(null)
+                .setFileSystemProvider("file")
                 .setMinAvailableSpace(new DataSize(0, BYTE))
                 .setOrcMaxMergeDistance(new DataSize(1, MEGABYTE))
                 .setOrcMaxReadSize(new DataSize(8, MEGABYTE))
@@ -79,9 +77,11 @@ public class TestStorageManagerConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws Exception
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("storage.data-directory", "/data")
+                .put("storage.data-directory", "file:///data")
+                .put("storage.file-system", "hdfs")
                 .put("storage.min-available-space", "123GB")
                 .put("storage.orc.max-merge-distance", "16kB")
                 .put("storage.orc.max-read-size", "16kB")
@@ -110,7 +110,8 @@ public class TestStorageManagerConfig
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
-                .setDataDirectory(new File("/data"))
+                .setDataDirectory(new URI("file:///data"))
+                .setFileSystemProvider("hdfs")
                 .setMinAvailableSpace(new DataSize(123, GIGABYTE))
                 .setOrcMaxMergeDistance(new DataSize(16, KILOBYTE))
                 .setOrcMaxReadSize(new DataSize(16, KILOBYTE))
@@ -138,11 +139,5 @@ public class TestStorageManagerConfig
                 .setMaxAllowedFilesPerWriter(50);
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test
-    public void testValidations()
-    {
-        assertFailsValidation(new StorageManagerConfig().setDataDirectory(null), "dataDirectory", "may not be null", NotNull.class);
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.ConcatPageSource;
@@ -60,19 +61,22 @@ public class RaptorPageSourceProvider
         OptionalLong transactionId = raptorSplit.getTransactionId();
         Optional<Map<String, Type>> columnTypes = raptorSplit.getColumnTypes();
 
+        FileSystemContext context = new FileSystemContext(session);
+
         if (raptorSplit.getShardUuids().size() == 1) {
             UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
-            return createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId, columnTypes);
+            return createPageSource(context, shardUuid, bucketNumber, columns, predicate, attributes, transactionId, columnTypes);
         }
 
         Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
-                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, attributes, transactionId, columnTypes))
+                .map(shardUuid -> createPageSource(context, shardUuid, bucketNumber, columns, predicate, attributes, transactionId, columnTypes))
                 .iterator();
 
         return new ConcatPageSource(iterator);
     }
 
     private ConnectorPageSource createPageSource(
+            FileSystemContext context,
             UUID shardUuid,
             OptionalInt bucketNumber,
             List<ColumnHandle> columns,
@@ -85,6 +89,6 @@ public class RaptorPageSourceProvider
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId, allColumnTypes);
+        return storageManager.getPageSource(context, shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId, allColumnTypes);
     }
 }
