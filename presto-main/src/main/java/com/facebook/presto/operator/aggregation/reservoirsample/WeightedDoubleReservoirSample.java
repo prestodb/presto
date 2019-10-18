@@ -83,7 +83,6 @@ public class WeightedDoubleReservoirSample
     {
         if (count < samples.length) {
             samples[count] = sample;
-            weights[count] = adjustedWeight;
             count++;
             bubbleUp();
             return;
