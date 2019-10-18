@@ -22,6 +22,8 @@ import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.orc.StorageOrcFileTailSource;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
+import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -40,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.units.DataSize;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -64,7 +67,7 @@ import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
-import static com.facebook.presto.raptor.storage.FileStorageService.getFileSystemPath;
+import static com.facebook.presto.raptor.filesystem.LocalFileStorageService.getFileSystemPath;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.fileOrcDataSource;
 import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
@@ -224,7 +227,8 @@ public class TestOrcFileRewriter
         rowsToDelete.set(4);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        OrcFileInfo info = createFileRewriter().rewrite(fileSystem, getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 2);
         assertBetweenInclusive(info.getUncompressedSize(), 94L, 118L * 2);
 
@@ -339,7 +343,8 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        OrcFileInfo info = createFileRewriter().rewrite(fileSystem, getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 1);
         assertBetweenInclusive(info.getUncompressedSize(), 13L, 13L * 2);
 
@@ -383,7 +388,8 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        OrcFileInfo info = createFileRewriter().rewrite(fileSystem, getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 0);
         assertEquals(info.getUncompressedSize(), 0);
 
@@ -405,7 +411,8 @@ public class TestOrcFileRewriter
         BitSet rowsToDelete = new BitSet();
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        OrcFileInfo info = createFileRewriter().rewrite(fileSystem, getColumnTypes(columnIds, columnTypes), path(file), path(newFile), rowsToDelete);
         assertEquals(info.getRowCount(), 2);
         assertBetweenInclusive(info.getUncompressedSize(), 16L, 16L * 2);
         assertEquals(readAllBytes(newFile.toPath()), readAllBytes(file.toPath()));
@@ -429,7 +436,8 @@ public class TestOrcFileRewriter
         }
 
         File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = createFileRewriter().rewrite(getColumnTypes(columnIds, columnTypes), path(file), path(newFile), new BitSet());
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        OrcFileInfo info = createFileRewriter().rewrite(fileSystem, getColumnTypes(columnIds, columnTypes), path(file), path(newFile), new BitSet());
         assertEquals(info.getRowCount(), 3);
         assertBetweenInclusive(info.getUncompressedSize(), 55L, 55L * 2);
     }
@@ -465,7 +473,9 @@ public class TestOrcFileRewriter
 
         // Add a column
         File newFile1 = new File(temporary, randomUUID().toString());
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
         OrcFileInfo info = createFileRewriter().rewrite(
+                fileSystem,
                 getColumnTypes(ImmutableList.of(3L, 7L, 10L), ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE)),
                 path(file),
                 path(newFile1),
@@ -476,6 +486,7 @@ public class TestOrcFileRewriter
         // Drop a column
         File newFile2 = new File(temporary, randomUUID().toString());
         info = createFileRewriter().rewrite(
+                fileSystem,
                 getColumnTypes(ImmutableList.of(7L, 10L), ImmutableList.of(createVarcharType(20), DOUBLE)),
                 path(newFile1),
                 path(newFile2),
@@ -489,6 +500,7 @@ public class TestOrcFileRewriter
         // Add a column with the different ID with different type
         File newFile3 = new File(temporary, randomUUID().toString());
         info = createFileRewriter().rewrite(
+                fileSystem,
                 getColumnTypes(ImmutableList.of(7L, 10L, 13L), ImmutableList.of(createVarcharType(20), DOUBLE, createVarcharType(5))),
                 path(newFile2),
                 path(newFile3),
@@ -510,6 +522,7 @@ public class TestOrcFileRewriter
         rowsToDelete.set(1);
         rowsToDelete.set(3);
         info = createFileRewriter().rewrite(
+                fileSystem,
                 getColumnTypes(ImmutableList.of(7L, 13L, 18L), ImmutableList.of(createVarcharType(20), createVarcharType(5), INTEGER)),
                 path(newFile3),
                 path(newFile4),
@@ -517,6 +530,7 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 1);
 
         ConnectorPageSource source = storageManager.getPageSource(
+                FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
                 uuid,
                 OptionalInt.empty(),
                 ImmutableList.of(13L, 7L, 18L),
@@ -545,6 +559,7 @@ public class TestOrcFileRewriter
         // Remove all the columns
         File newFile5 = new File(temporary, randomUUID().toString());
         info = createFileRewriter().rewrite(
+                fileSystem,
                 getColumnTypes(ImmutableList.of(13L, 18L), ImmutableList.of(createVarcharType(5), INTEGER)),
                 path(newFile4),
                 path(newFile5),
@@ -587,7 +602,9 @@ public class TestOrcFileRewriter
 
         // Add a column
         File newFile1 = new File(temporary, randomUUID().toString());
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
         OrcFileInfo info = createFileRewriter().rewrite(
+                fileSystem,
                 getColumnTypes(ImmutableList.of(3L, 7L, 10L), ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE)),
                 path(file),
                 path(newFile1),
@@ -597,6 +614,7 @@ public class TestOrcFileRewriter
         // Drop a column
         File newFile2 = new File(temporary, randomUUID().toString());
         info = createFileRewriter().rewrite(
+                fileSystem,
                 getColumnTypes(ImmutableList.of(7L, 10L), ImmutableList.of(createVarcharType(20), DOUBLE)),
                 path(newFile1),
                 path(newFile2),
@@ -606,6 +624,7 @@ public class TestOrcFileRewriter
         // Add a column with the same ID but different type
         File newFile3 = new File(temporary, randomUUID().toString());
         info = createFileRewriter().rewrite(
+                fileSystem,
                 getColumnTypes(ImmutableList.of(7L, 10L, 3L), ImmutableList.of(createVarcharType(20), DOUBLE, createVarcharType(5))),
                 path(newFile2),
                 path(newFile3),
@@ -622,6 +641,7 @@ public class TestOrcFileRewriter
 
         // Drop a column and add a column
         info = createFileRewriter().rewrite(
+                fileSystem,
                 getColumnTypes(ImmutableList.of(7L, 3L, 8L), ImmutableList.of(createVarcharType(20), createVarcharType(5), INTEGER)),
                 path(newFile3),
                 path(newFile4),
@@ -629,6 +649,7 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 1);
 
         ConnectorPageSource source = storageManager.getPageSource(
+                FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
                 uuid,
                 OptionalInt.empty(),
                 ImmutableList.of(3L, 7L, 8L),

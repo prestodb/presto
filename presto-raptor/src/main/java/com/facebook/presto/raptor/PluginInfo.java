@@ -31,6 +31,11 @@ public class PluginInfo
         return new DatabaseMetadataModule();
     }
 
+    public Map<String, Module> getFileSystemProviders()
+    {
+        return ImmutableMap.of();
+    }
+
     public Map<String, Module> getBackupProviders()
     {
         return ImmutableMap.of();

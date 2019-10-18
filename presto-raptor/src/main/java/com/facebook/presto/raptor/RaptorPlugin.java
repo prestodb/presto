@@ -33,6 +33,7 @@ public class RaptorPlugin
 {
     private final String name;
     private final Module metadataModule;
+    private final Map<String, Module> fileSystemProviders;
     private final Map<String, Module> backupProviders;
 
     public RaptorPlugin()
@@ -42,21 +43,22 @@ public class RaptorPlugin
 
     private RaptorPlugin(PluginInfo info)
     {
-        this(info.getName(), info.getMetadataModule(), info.getBackupProviders());
+        this(info.getName(), info.getMetadataModule(), info.getFileSystemProviders(), info.getBackupProviders());
     }
 
-    public RaptorPlugin(String name, Module metadataModule, Map<String, Module> backupProviders)
+    public RaptorPlugin(String name, Module metadataModule, Map<String, Module> fileSystemProviders, Map<String, Module> backupProviders)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.metadataModule = requireNonNull(metadataModule, "metadataModule is null");
+        this.fileSystemProviders = requireNonNull(fileSystemProviders, "fileSystemProviders is null");
         this.backupProviders = ImmutableMap.copyOf(requireNonNull(backupProviders, "backupProviders is null"));
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new RaptorConnectorFactory(name, metadataModule, backupProviders));
+        return ImmutableList.of(new RaptorConnectorFactory(name, metadataModule, fileSystemProviders, backupProviders));
     }
 
     private static PluginInfo getPluginInfo()

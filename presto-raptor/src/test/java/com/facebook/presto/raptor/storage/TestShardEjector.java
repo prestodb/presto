@@ -16,6 +16,8 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.raptor.backup.BackupStore;
+import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
+import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardInfo;
@@ -76,7 +78,7 @@ public class TestShardEjector
         shardManager = createShardManager(dbi);
 
         dataDir = createTempDir();
-        storageService = new FileStorageService(new LocalOrcDataEnvironment(), dataDir);
+        storageService = new LocalFileStorageService(new LocalOrcDataEnvironment(), dataDir.toURI());
         storageService.start();
     }
 

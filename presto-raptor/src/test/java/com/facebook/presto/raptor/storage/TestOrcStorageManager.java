@@ -20,6 +20,9 @@ import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
+import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
+import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.ShardDelta;
@@ -48,6 +51,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
@@ -61,6 +65,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -145,8 +150,8 @@ public class TestOrcStorageManager
     public void setup()
     {
         temporary = createTempDir();
-        File directory = new File(temporary, "data");
-        storageService = new FileStorageService(new LocalOrcDataEnvironment(), directory);
+        URI directory = new File(temporary, "data").toURI();
+        storageService = new LocalFileStorageService(new LocalOrcDataEnvironment(), directory);
         storageService.start();
 
         File backupDirectory = new File(temporary, "backup");
@@ -229,7 +234,8 @@ public class TestOrcStorageManager
 
         recoveryManager.restoreFromBackup(shardUuid, shardInfo.getCompressedSize(), OptionalLong.of(shardInfo.getXxhash64()));
 
-        try (OrcDataSource dataSource = manager.openShard(shardUuid, READER_ATTRIBUTES)) {
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        try (OrcDataSource dataSource = manager.openShard(fileSystem, shardUuid, READER_ATTRIBUTES)) {
             OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
             assertEquals(reader.nextBatch(), 2);
@@ -327,6 +333,7 @@ public class TestOrcStorageManager
             throws Exception
     {
         OrcStorageManager manager = createOrcStorageManager();
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
 
         long transactionId = TRANSACTION_ID;
         List<Long> columnIds = ImmutableList.of(3L, 7L);
@@ -347,6 +354,7 @@ public class TestOrcStorageManager
         BitSet rowsToDelete = new BitSet();
         rowsToDelete.set(0);
         Collection<Slice> fragments = manager.rewriteShard(
+                fileSystem,
                 transactionId,
                 OptionalInt.empty(),
                 shards.get(0).getShardUuid(),
@@ -567,13 +575,13 @@ public class TestOrcStorageManager
             UUID uuid,
             TupleDomain<RaptorColumnHandle> tupleDomain)
     {
-        return manager.getPageSource(uuid, OptionalInt.empty(), columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES);
+        return manager.getPageSource(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, uuid, OptionalInt.empty(), columnIds, columnTypes, tupleDomain, READER_ATTRIBUTES);
     }
 
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
     {
         long transactionId = TRANSACTION_ID;
-        return manager.createStoragePageSink(transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
+        return manager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
     }
 
     private OrcStorageManager createOrcStorageManager()
@@ -593,8 +601,8 @@ public class TestOrcStorageManager
 
     public static OrcStorageManager createOrcStorageManager(IDBI dbi, File temporary, int maxShardRows)
     {
-        File directory = new File(temporary, "data");
-        StorageService storageService = new FileStorageService(new LocalOrcDataEnvironment(), directory);
+        URI directory = new File(temporary, "data").toURI();
+        StorageService storageService = new LocalFileStorageService(new LocalOrcDataEnvironment(), directory);
         storageService.start();
 
         File backupDirectory = new File(temporary, "backup");

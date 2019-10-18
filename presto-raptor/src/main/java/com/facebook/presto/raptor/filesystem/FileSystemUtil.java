@@ -15,17 +15,51 @@ package com.facebook.presto.raptor.filesystem;
 
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.XxHash64;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 
 public final class FileSystemUtil
 {
+    private static final Configuration INITIAL_CONFIGURATION;
+
+    static {
+        Configuration.addDefaultResource("hdfs-default.xml");
+        Configuration.addDefaultResource("hdfs-site.xml");
+
+        // must not be transitively reloaded during the future loading of various Hadoop modules
+        // all the required default resources must be declared above
+        INITIAL_CONFIGURATION = new Configuration(false);
+        Configuration defaultConfiguration = new Configuration();
+        FileSystemUtil.copy(defaultConfiguration, FileSystemUtil.INITIAL_CONFIGURATION);
+    }
+
     private FileSystemUtil() {}
+
+    public static Configuration getInitialConfiguration()
+    {
+        return copy(INITIAL_CONFIGURATION);
+    }
+
+    public static Configuration copy(Configuration configuration)
+    {
+        Configuration copy = new Configuration(false);
+        copy(configuration, copy);
+        return copy;
+    }
+
+    public static void copy(Configuration from, Configuration to)
+    {
+        for (Map.Entry<String, String> entry : from) {
+            to.set(entry.getKey(), entry.getValue());
+        }
+    }
 
     public static long xxhash64(FileSystem fileSystem, Path file)
     {

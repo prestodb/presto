@@ -66,6 +66,7 @@ public class TestRaptorIntegrationSmokeTest
                 ImmutableMap.of(),
                 true,
                 false,
+                false,
                 ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
     }
 

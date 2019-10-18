@@ -15,6 +15,8 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
+import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
+import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.PrestoException;
@@ -72,7 +74,7 @@ public class TestShardRecovery
         File backupDirectory = new File(temporary, "backup");
         backupStore = new FileBackupStore(backupDirectory);
         backupStore.start();
-        storageService = new FileStorageService(new LocalOrcDataEnvironment(), directory);
+        storageService = new LocalFileStorageService(new LocalOrcDataEnvironment(), directory.toURI());
         storageService.start();
 
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());

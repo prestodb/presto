@@ -16,8 +16,8 @@ package com.facebook.presto.raptor.metadata;
 import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
-import com.facebook.presto.raptor.storage.FileStorageService;
-import com.facebook.presto.raptor.storage.LocalOrcDataEnvironment;
+import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
+import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.raptor.util.UuidUtil.UuidArgumentFactory;
@@ -79,7 +79,7 @@ public class TestShardCleaner
 
         temporary = createTempDir();
         File directory = new File(temporary, "data");
-        storageService = new FileStorageService(new LocalOrcDataEnvironment(), directory);
+        storageService = new LocalFileStorageService(new LocalOrcDataEnvironment(), directory.toURI());
         storageService.start();
 
         File backupDirectory = new File(temporary, "backup");

@@ -14,20 +14,26 @@
 package com.facebook.presto.raptor.integration;
 
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
 
-public class TestRaptorDistributedQueriesBucketed
-        extends TestRaptorDistributedQueries
+public class TestRaptorIntegrationSmokeTestHdfs
+        extends TestRaptorIntegrationSmokeTest
 {
-    public TestRaptorDistributedQueriesBucketed()
+    public TestRaptorIntegrationSmokeTestHdfs()
     {
-        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
+        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true, true, ImmutableMap.of()));
     }
 
-    @Override
-    protected boolean supportsNotNullColumns()
+    @Test
+    public void testShardsSystemTableBucketNumber()
     {
-        return false;
+        assertQuery("" +
+                        "SELECT count(DISTINCT bucket_number)\n" +
+                        "FROM system.shards\n" +
+                        "WHERE table_schema = 'tpch'\n" +
+                        "  AND table_name = 'orders'",
+                "SELECT 25");
     }
 }

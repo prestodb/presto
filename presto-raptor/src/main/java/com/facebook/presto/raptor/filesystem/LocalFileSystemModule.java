@@ -11,23 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.integration;
+package com.facebook.presto.raptor.filesystem;
 
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.raptor.storage.OrcDataEnvironment;
+import com.facebook.presto.raptor.storage.StorageService;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
-
-public class TestRaptorDistributedQueriesBucketed
-        extends TestRaptorDistributedQueries
+public class LocalFileSystemModule
+        implements Module
 {
-    public TestRaptorDistributedQueriesBucketed()
-    {
-        super(() -> createRaptorQueryRunner(ImmutableMap.of(), true, true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
-    }
-
     @Override
-    protected boolean supportsNotNullColumns()
+    public void configure(Binder binder)
     {
-        return false;
+        binder.bind(StorageService.class).to(LocalFileStorageService.class).in(Scopes.SINGLETON);
+        binder.bind(OrcDataEnvironment.class).to(LocalOrcDataEnvironment.class).in(Scopes.SINGLETON);
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
@@ -60,6 +61,7 @@ public class RaptorPageSinkProvider
 
         RaptorOutputTableHandle handle = (RaptorOutputTableHandle) tableHandle;
         return new RaptorPageSink(
+                new FileSystemContext(session),
                 pageSorter,
                 storageManager,
                 temporalFunction,
@@ -82,6 +84,7 @@ public class RaptorPageSinkProvider
 
         RaptorInsertTableHandle handle = (RaptorInsertTableHandle) tableHandle;
         return new RaptorPageSink(
+                new FileSystemContext(session),
                 pageSorter,
                 storageManager,
                 temporalFunction,

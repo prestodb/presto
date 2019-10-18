@@ -24,7 +24,7 @@ public class TestRaptorDistributedQueries
     @SuppressWarnings("unused")
     public TestRaptorDistributedQueries()
     {
-        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
+        this(() -> createRaptorQueryRunner(ImmutableMap.of(), true, false, false, ImmutableMap.of("storage.orc.optimized-writer-stage", "ENABLED_AND_VALIDATED")));
     }
 
     protected TestRaptorDistributedQueries(QueryRunnerSupplier supplier)

@@ -30,7 +30,7 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import java.io.File;
+import java.net.URI;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -44,7 +44,8 @@ import static java.lang.Runtime.getRuntime;
 @DefunctConfig("storage.backup-directory")
 public class StorageManagerConfig
 {
-    private File dataDirectory;
+    private URI dataDirectory;
+    private String fileSystemProvider = "file";
     private DataSize minAvailableSpace = new DataSize(0, BYTE);
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration missingShardDiscoveryInterval = new Duration(5, TimeUnit.MINUTES);
@@ -73,16 +74,30 @@ public class StorageManagerConfig
     private int maxAllowedFilesPerWriter = Integer.MAX_VALUE;
 
     @NotNull
-    public File getDataDirectory()
+    public URI getDataDirectory()
     {
         return dataDirectory;
     }
 
     @Config("storage.data-directory")
-    @ConfigDescription("Base directory to use for storing shard data")
-    public StorageManagerConfig setDataDirectory(File dataDirectory)
+    @ConfigDescription("Base URI to use for storing shard data")
+    public StorageManagerConfig setDataDirectory(URI dataURI)
     {
-        this.dataDirectory = dataDirectory;
+        this.dataDirectory = dataURI;
+        return this;
+    }
+
+    @NotNull
+    public String getFileSystemProvider()
+    {
+        return fileSystemProvider;
+    }
+
+    @Config("storage.file-system")
+    @ConfigDescription("File system used for storage (e.g. file, hdfs)")
+    public StorageManagerConfig setFileSystemProvider(String fileSystemProvider)
+    {
+        this.fileSystemProvider = fileSystemProvider;
         return this;
     }
 

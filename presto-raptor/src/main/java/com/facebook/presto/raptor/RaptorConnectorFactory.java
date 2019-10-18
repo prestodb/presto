@@ -16,6 +16,7 @@ package com.facebook.presto.raptor;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.raptor.backup.BackupModule;
+import com.facebook.presto.raptor.filesystem.FileSystemModule;
 import com.facebook.presto.raptor.security.RaptorSecurityModule;
 import com.facebook.presto.raptor.storage.StorageModule;
 import com.facebook.presto.raptor.util.RebindSafeMBeanServer;
@@ -46,13 +47,15 @@ public class RaptorConnectorFactory
 {
     private final String name;
     private final Module metadataModule;
+    private final Map<String, Module> fileSystemProviders;
     private final Map<String, Module> backupProviders;
 
-    public RaptorConnectorFactory(String name, Module metadataModule, Map<String, Module> backupProviders)
+    public RaptorConnectorFactory(String name, Module metadataModule, Map<String, Module> fileSystemProviders, Map<String, Module> backupProviders)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.metadataModule = requireNonNull(metadataModule, "metadataModule is null");
+        this.fileSystemProviders = requireNonNull(fileSystemProviders, "fileSystemProviders is null");
         this.backupProviders = ImmutableMap.copyOf(requireNonNull(backupProviders, "backupProviders is null"));
     }
 
@@ -84,6 +87,7 @@ public class RaptorConnectorFactory
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     },
                     metadataModule,
+                    new FileSystemModule(fileSystemProviders),
                     new BackupModule(backupProviders),
                     new StorageModule(catalogName),
                     new RaptorModule(catalogName),
