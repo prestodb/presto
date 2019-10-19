@@ -573,7 +573,7 @@ That is, for a random variable :math:`x`, they approximate
 
 .. math ::
 
-    h(x) = - \int x \log_2\left(f(x)\right) dx,
+    h(x) = - \int f(x) \log_2\left(f(x)\right) dx,
 
 where :math:`f(x)` is the partial density function of :math:`x`.
 
@@ -600,8 +600,8 @@ where :math:`f(x)` is the partial density function of :math:`x`.
     .. note::
 
         If :math:`x` has a known lower and upper bound,
-        prefer the versions taking ``(bucket_count, x, 1.0, "fixed_histogram_mle", min, max)``,
-        or ``(bucket_count, x, 1.0, "fixed_histogram_jacknife", min, max)``,
+        prefer the versions taking ``(bucket_count, x, 1.0, 'fixed_histogram_mle', min, max)``,
+        or ``(bucket_count, x, 1.0, 'fixed_histogram_jacknife', min, max)``,
         as they have better convergence.
 
 .. function:: differential_entropy(sample_size, x, weight)
@@ -630,8 +630,8 @@ where :math:`f(x)` is the partial density function of :math:`x`.
     .. note::
 
         If :math:`x` has a known lower and upper bound,
-        prefer the versions taking ``(bucket_count, x, weight, "fixed_histogram_mle", min, max)``,
-        or ``(bucket_count, x, weight, "fixed_histogram_jacknife", min, max)``,
+        prefer the versions taking ``(bucket_count, x, weight, 'fixed_histogram_mle', min, max)``,
+        or ``(bucket_count, x, weight, 'fixed_histogram_jacknife', min, max)``,
         as they have better convergence.
 
 .. function:: differential_entropy(bucket_count, x, weight, method, min, max) -> double
@@ -689,9 +689,9 @@ where :math:`f(x)` is the partial density function of :math:`x`.
 
         Otherwise, if the number of distinct weights is low,
         especially if the number of samples is low, consider using the version taking
-        ``(bucket_count, x, weight, "fixed_histogram_jacknife", min, max)``, as jacknife bias correction,
+        ``(bucket_count, x, weight, 'fixed_histogram_jacknife', min, max)``, as jacknife bias correction,
         is better than maximum likelihood estimation. However, if the number of distinct weights is high,
-        consider using the version taking ``(bucket_count, x, weight, "fixed_histogram_mle", min, max)``,
+        consider using the version taking ``(bucket_count, x, weight, 'fixed_histogram_mle', min, max)``,
         as this will reduce memory and running time.
 
 
@@ -807,17 +807,86 @@ where :math:`P(x)` is probability of :math:`x`.
         of distinct weights is large, ``'jacknife'`` might have high memory usage.
 
 
+Mutual Information for Classification Functions
+--------------------------------------------------------------
+
+    The following functions approximate the binary
+    normalized `mutual information <https://en.wikipedia.org/wiki/Mutual_information>`_, which is a measure
+    of usefulness of a numerical feature for classification. They output a number between 0 (not predictive)
+    and 1 (completely predictive). See [Krier2006]_ for further details.
+
+    For a discrete random variable :math:`y` and a numerical random variable :math:`x`, they approximate
+
+    .. math ::
+
+        I(x, y) = {h(x) - h(x \;|\; y) \over H(y)},
+
+    where :math:`H` is `discrete entropy <https://en.wikipedia.org/wiki/Entropy_(information_theory)>`_ and
+    :math:`h` is `differential entropy <https://en.wikipedia.org/wiki/Differential_entropy>`_.
+    Thus, they measure by how much the entropy of :math:`y` is reduced by knowing :math:`x`,
+    normalized by the entropy of :math:`y`.
+
+    .. function:: normalized_differential_mutual_information_classification(sample_size, y, x)
+
+        Returns the approximate normalized mutual information between a discrete ``y`` and a continuous ``x`` using
+        reservoir sampling (see :func:`differential_entropy`).
+
+        The parameter ```sample_size`` determines the maximal number of reservoir samples.
+
+        If :math:`x` has a known lower and upper bound,
+        prefer the 'fixed_histogram_mle' or 'fixed_histogram_jacknife' methods, as they have better convergence.
+
+    .. function:: normalized_differential_mutual_information_classification(sample_size, y, x, weight, 'reservoir_vasicek')
+
+        Returns the approximate normalized mutual information between a discrete ``y`` and a continuous ``x`` using
+        reservoir sampling (see :func:`differential_entropy`).
+
+        The parameter `sample_size` determines the maxima number of reservoir samples. The parameter `weight` is the weight
+        of the sample, and must be non-negative.
+
+        If :math:`x` has a known lower and upper bound,
+        prefer the 'fixed_histogram_mle' or 'fixed_histogram_jacknife' methods, as they have better convergence.
+
+    .. function:: normalized_differential_mutual_information_classification(bucket_count, y, x, weight, 'fixed_histogram_mle', min, max) -> double
+
+        Returns the approximate normalized mutual information between a discrete ``y`` and a continuous ``x`` using
+        the maximum-likelihood approximation of a histogram (see :func:`differential_entropy`).
+
+        The parameter ``bucket_count`` determines the number of histogram buckets. The parameters ``min`` and ``max`` are the
+        minimal and maximal values, respectively; the function will throw if there is an input outside this range.
+        The parameter ``weight`` is the weight of the sample, and must be non-negative.
+
+        If :math:`x` doesn't have known lower and upper bounds, prefer one of the two methods based on reservoir sampling.
+        Otherwise, if the number of samples is low, consider using the 'fixed_histogram_jacknife' version.
+
+    .. function:: normalized_differential_mutual_information_classification(bucket_count, y, x, weight, 'fixed_histogram_jacknife', min, max) -> double
+
+        Returns the approximate normalized mutual information between a discrete ``y`` and a continuous ``x`` using
+        a jacknife approximation of a histogram (see :func:`differential_entropy`).
+
+        The parameter ``bucket_count`` determines the number of histogram buckets. The parameters `min` and `max` are the
+        minimal and maximal values, respectively; the function will throw if there is an input outside this range.
+        The parameter `weight` is the weight of the sample, and must be non-negative.
+
+        If :math:`x` doesn't have known lower and upper bounds, prefer one of the two methods based on reservoir sampling.
+        Otherwise, if :math:`weight` can take on a wide range of distinct values, avoid using this method, as space and time costs
+        might be very high; instead, use 'fixed_histogram_mle'.
+
 ---------------------------
 
-.. [Alizadeh2010] Alizadeh Noughabi, Hadi & Arghami, N. (2010). "A New Estimator of Entropy".
+.. [Alizadeh2010] Alizadeh Noughabi, Hadi & Arghami, N. (2010). 'A New Estimator of Entropy'.
 
 .. [Beirlant2001] Beirlant, Dudewicz, Gyorfi, and van der Meulen,
-    "Nonparametric entropy estimation: an overview", (2001)
+    'Nonparametric entropy estimation: an overview', (2001)
 
-.. [BenHaimTomTov2010] Yael Ben-Haim and Elad Tom-Tov, "A streaming parallel decision tree algorithm",
+.. [BenHaimTomTov2010] Yael Ben-Haim and Elad Tom-Tov, 'A streaming parallel decision tree algorithm',
     J. Machine Learning Research 11 (2010), pp. 849--872.
 
-.. [Black2015] Black, Paul E. (26 January 2015). "Reservoir sampling". Dictionary of Algorithms and Data Structures.
+.. [Black2015] Black, Paul E. (26 January 2015). 'Reservoir sampling'. Dictionary of Algorithms and Data Structures.
 
-.. [Efraimidis2006] Efraimidis, Pavlos S.; Spirakis, Paul G. (2006-03-16). "Weighted random sampling with a reservoir".
+.. [Efraimidis2006] Efraimidis, Pavlos S.; Spirakis, Paul G. (2006-03-16). 'Weighted random sampling with a reservoir'.
     Information Processing Letters. 97 (5): 181–185.
+
+.. [Krier2006] Krier, C & François, Damien & Wertz, Vincent & Verleysen, Michel. (2006).
+    Feature scoring by mutual information for classification of mass spectra. 10.1142/9789812774118_0079.
+
