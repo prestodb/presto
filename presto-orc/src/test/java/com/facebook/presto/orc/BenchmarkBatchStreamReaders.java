@@ -40,6 +40,7 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.io.File;
 import java.io.IOException;
@@ -70,7 +71,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
-@OutputTimeUnit(TimeUnit.SECONDS)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(3)
 @Warmup(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @Measurement(iterations = 20, time = 500, timeUnit = MILLISECONDS)
@@ -118,7 +119,7 @@ public class BenchmarkBatchStreamReaders
                 "real",
                 "double",
                 "varchar_direct",
-                "varchar_dictionary",
+                "varchar_dictionary"
         })
         private String typeSignature;
 
@@ -238,6 +239,7 @@ public class BenchmarkBatchStreamReaders
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkBatchStreamReaders.class.getSimpleName() + ".*")
+                .warmupMode(WarmupMode.BULK)
                 .build();
 
         new Runner(options).run();
