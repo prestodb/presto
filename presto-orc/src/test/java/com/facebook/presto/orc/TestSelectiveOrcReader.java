@@ -744,6 +744,7 @@ public class TestSelectiveOrcReader
     public void testVarchars()
             throws Exception
     {
+        Random random = new Random(0);
         tester.testRoundTripTypes(
                 ImmutableList.of(VARCHAR, VARCHAR, VARCHAR),
                 ImmutableList.of(newArrayList("abc", "def", null, "hij", "klm"), newArrayList(null, null, null, null, null), newArrayList("abc", "def", null, null, null)),
@@ -800,6 +801,13 @@ public class TestSelectiveOrcReader
                 newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 200_000)).stream()
                         .map(Object::toString)
                         .collect(toList()));
+
+        // presentStream is null in some row groups
+        Function<Integer, String> randomStrings = i -> String.valueOf(random.nextInt(NUM_ROWS));
+        tester.testRoundTripTypes(
+                ImmutableList.of(INTEGER, VARCHAR),
+                ImmutableList.of(createList(NUM_ROWS, i -> random.nextInt(NUM_ROWS)), newArrayList(createList(NUM_ROWS, randomStrings))),
+                toSubfieldFilters(ImmutableMap.of(0, BigintRange.of(10_000, 15_000, true))));
     }
 
     @Test
