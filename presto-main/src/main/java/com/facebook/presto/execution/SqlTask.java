@@ -88,6 +88,8 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
 
+    private final AtomicReference<String> communicationSlug = new AtomicReference<>();
+
     public static SqlTask createSqlTask(
             TaskId taskId,
             URI location,
@@ -373,6 +375,11 @@ public class SqlTask
         return Futures.transform(futureTaskState, input -> getTaskInfo(), directExecutor());
     }
 
+    public void updateCommunicationSlug(String communicationSlug)
+    {
+        this.communicationSlug.compareAndSet(null, requireNonNull(communicationSlug, "communicationSlug is null"));
+    }
+
     public TaskInfo updateTask(
             Session session,
             Optional<PlanFragment> fragment,
@@ -429,10 +436,20 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize, String communicationSlug)
     {
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        requireNonNull(communicationSlug);
+
+        String currentCommunicationSlug = this.communicationSlug.get();
+        // Take care of situation where in machine has not received the first updateTask from the coordinator
+        if (currentCommunicationSlug == null) {
+            return Futures.immediateFuture(BufferResult.emptyResults(taskInstanceId, startingSequenceId, false));
+        }
+        else if (!currentCommunicationSlug.equals(communicationSlug)) {
+            throw new RuntimeException(("The communicationSlug does not match"));
+        }
 
         return outputBuffer.get(bufferId, startingSequenceId, maxSize);
     }

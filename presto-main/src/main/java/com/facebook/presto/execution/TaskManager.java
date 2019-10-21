@@ -91,7 +91,8 @@ public interface TaskManager
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
             OptionalInt totalPartitions,
-            Optional<TableWriteInfo> tableWriteInfo);
+            Optional<TableWriteInfo> tableWriteInfo,
+            String communicationSlug);
 
     /**
      * Cancels a task.  If the task does not already exist, is is created and then
@@ -113,7 +114,7 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize);
+    ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize, String communicationSlug);
 
     /**
      * Acknowledges previously received results.

@@ -453,5 +453,11 @@ public class MockRemoteTaskFactory
             }
             return getPartitionedSplitCount() - runningDrivers;
         }
+
+        @Override
+        public String getCommunicationSlug()
+        {
+            return "";
+        }
     }
 }

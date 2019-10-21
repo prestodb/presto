@@ -144,7 +144,7 @@ public class TestExchangeOperator
 
     private static Split newRemoteSplit(String taskId)
     {
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(URI.create("http://localhost/" + taskId), TaskId.valueOf(taskId)));
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(URI.create("http://localhost/" + taskId), TaskId.valueOf(taskId), taskId + "_slug"));
     }
 
     @Test

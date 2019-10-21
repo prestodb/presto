@@ -107,7 +107,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                "");
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -192,7 +193,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                "");
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -232,7 +234,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                "");
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -300,7 +303,8 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                "");
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -355,7 +359,8 @@ public class TestHttpPageBufferClient
                 callback,
                 scheduler,
                 ticker,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                "");
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 

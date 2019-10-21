@@ -65,6 +65,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_COMM_SLUG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readSerializedPages;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
@@ -115,6 +116,7 @@ public final class HttpPageBufferClient
     private final ClientCallback clientCallback;
     private final ScheduledExecutorService scheduler;
     private final Backoff backoff;
+    private final String communicationSlug;
 
     @GuardedBy("this")
     private boolean closed;
@@ -150,9 +152,10 @@ public final class HttpPageBufferClient
             URI location,
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            String communicationSlug)
     {
-        this(httpClient, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
+        this(httpClient, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor, communicationSlug);
     }
 
     public HttpPageBufferClient(
@@ -163,7 +166,8 @@ public final class HttpPageBufferClient
             ClientCallback clientCallback,
             ScheduledExecutorService scheduler,
             Ticker ticker,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            String communicationSlug)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.acknowledgePages = acknowledgePages;
@@ -174,6 +178,7 @@ public final class HttpPageBufferClient
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
         this.backoff = new Backoff(maxErrorDuration, ticker);
+        this.communicationSlug = requireNonNull(communicationSlug, "communicationSlug is null");
     }
 
     public synchronized PageBufferClientStatus getStatus()
@@ -296,6 +301,7 @@ public final class HttpPageBufferClient
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
+                        .setHeader(PRESTO_TASK_COMM_SLUG, communicationSlug)
                         .setUri(uri).build(),
                 new PageResponseHandler());
 

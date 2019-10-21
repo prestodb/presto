@@ -71,6 +71,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.execution.BasicStageExecutionStats.EMPTY_STAGE_STATS;
+import static com.facebook.presto.execution.QueryExecution.TaskConnectionInformation;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.FINISHING;
 import static com.facebook.presto.execution.QueryState.PLANNING;
@@ -631,7 +632,7 @@ public class QueryStateMachine
         outputManager.setColumns(columnNames, columnTypes);
     }
 
-    public void updateOutputLocations(Map<URI, TaskId> newExchangeLocations, boolean noMoreExchangeLocations)
+    public void updateOutputLocations(Map<URI, TaskConnectionInformation> newExchangeLocations, boolean noMoreExchangeLocations)
     {
         outputManager.updateOutputLocations(newExchangeLocations, noMoreExchangeLocations);
     }
@@ -1104,7 +1105,7 @@ public class QueryStateMachine
         @GuardedBy("this")
         private List<Type> columnTypes;
         @GuardedBy("this")
-        private final Map<URI, TaskId> exchangeLocations = new LinkedHashMap<>();
+        private final Map<URI, TaskConnectionInformation> exchangeLocations = new LinkedHashMap<>();
         @GuardedBy("this")
         private boolean noMoreExchangeLocations;
 
@@ -1144,7 +1145,7 @@ public class QueryStateMachine
             queryOutputInfo.ifPresent(info -> fireStateChanged(info, outputInfoListeners));
         }
 
-        public void updateOutputLocations(Map<URI, TaskId> newExchangeLocations, boolean noMoreExchangeLocations)
+        public void updateOutputLocations(Map<URI, TaskConnectionInformation> newExchangeLocations, boolean noMoreExchangeLocations)
         {
             requireNonNull(newExchangeLocations, "newExchangeLocations is null");
 

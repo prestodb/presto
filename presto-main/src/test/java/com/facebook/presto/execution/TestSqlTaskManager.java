@@ -117,13 +117,13 @@ public class TestSqlTaskManager
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-            BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
+            BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE), "").get();
             assertEquals(results.isBufferComplete(), false);
             assertEquals(results.getSerializedPages().size(), 1);
             assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
             for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
+                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, Unit.MEGABYTE), "").get();
             }
             assertEquals(results.isBufferComplete(), true);
             assertEquals(results.getSerializedPages().size(), 0);
@@ -258,7 +258,8 @@ public class TestSqlTaskManager
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
                 OptionalInt.empty(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                "");
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
@@ -278,7 +279,8 @@ public class TestSqlTaskManager
                 ImmutableList.of(),
                 outputBuffers,
                 OptionalInt.empty(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                "");
     }
 
     public static class MockExchangeClientSupplier

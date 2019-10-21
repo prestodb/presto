@@ -366,7 +366,7 @@ public final class SqlStageExecution
             ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
             for (RemoteTask sourceTask : sourceTasks) {
                 TaskStatus sourceTaskStatus = sourceTask.getTaskStatus();
-                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), sourceTaskStatus.getSelf(), sourceTaskStatus.getTaskId()));
+                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), sourceTaskStatus.getSelf(), sourceTaskStatus.getTaskId(), sourceTask.getCommunicationSlug()));
             }
             task.addSplits(newSplits.build());
         }
@@ -492,7 +492,7 @@ public final class SqlStageExecution
         sourceTasks.forEach((planNodeId, task) -> {
             TaskStatus status = task.getTaskStatus();
             if (status.getState() != TaskState.FINISHED) {
-                initialSplits.put(planNodeId, createRemoteSplitFor(taskId, status.getSelf(), status.getTaskId()));
+                initialSplits.put(planNodeId, createRemoteSplitFor(taskId, status.getSelf(), status.getTaskId(), task.getCommunicationSlug()));
             }
         });
 
@@ -541,11 +541,11 @@ public final class SqlStageExecution
         stateMachine.recordGetSplitTime(start);
     }
 
-    private static Split createRemoteSplitFor(TaskId taskId, URI remoteSourceTaskLocation, TaskId remoteSourceTaskId)
+    private static Split createRemoteSplitFor(TaskId taskId, URI remoteSourceTaskLocation, TaskId remoteSourceTaskId, String communicationSlug)
     {
         // Fetch the results from the buffer assigned to the task based on id
         URI splitLocation = uriBuilderFrom(remoteSourceTaskLocation).appendPath("results").appendPath(String.valueOf(taskId.getId())).build();
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(splitLocation, remoteSourceTaskId));
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(splitLocation, remoteSourceTaskId, communicationSlug));
     }
 
     private void updateTaskStatus(TaskStatus taskStatus)

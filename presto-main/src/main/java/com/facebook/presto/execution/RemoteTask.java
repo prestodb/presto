@@ -66,4 +66,6 @@ public interface RemoteTask
     int getPartitionedSplitCount();
 
     int getQueuedPartitionedSplitCount();
+
+    String getCommunicationSlug();
 }

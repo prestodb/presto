@@ -76,6 +76,28 @@ public interface QueryExecution
                 Optional<QueryType> queryType);
     }
 
+    class TaskConnectionInformation
+    {
+        private final TaskId taskId;
+        private final String communicationSlug;
+
+        public TaskConnectionInformation(TaskId taskId, String communicationSlug)
+        {
+            this.taskId = requireNonNull(taskId, "taskId is null");
+            this.communicationSlug = requireNonNull(communicationSlug, "communicationSlug is null");
+        }
+
+        public TaskId getTaskId()
+        {
+            return taskId;
+        }
+
+        public String getCommunicationSlug()
+        {
+            return communicationSlug;
+        }
+    }
+
     /**
      * Output schema and buffer URIs for query.  The info will always contain column names and types.  Buffer locations will always
      * contain the full location set, but may be empty.  Users of this data should keep a private copy of the seen buffers to
@@ -86,10 +108,10 @@ public interface QueryExecution
     {
         private final List<String> columnNames;
         private final List<Type> columnTypes;
-        private final Map<URI, TaskId> bufferLocations;
+        private final Map<URI, TaskConnectionInformation> bufferLocations;
         private final boolean noMoreBufferLocations;
 
-        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Map<URI, TaskId> bufferLocations, boolean noMoreBufferLocations)
+        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Map<URI, TaskConnectionInformation> bufferLocations, boolean noMoreBufferLocations)
         {
             this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
@@ -107,7 +129,7 @@ public interface QueryExecution
             return columnTypes;
         }
 
-        public Map<URI, TaskId> getBufferLocations()
+        public Map<URI, TaskConnectionInformation> getBufferLocations()
         {
             return bufferLocations;
         }

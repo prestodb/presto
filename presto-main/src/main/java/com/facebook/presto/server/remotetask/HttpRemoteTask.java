@@ -111,7 +111,9 @@ import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -185,6 +187,8 @@ public final class HttpRemoteTask
     private final int maxTaskUpdateSizeInBytes;
 
     private final TableWriteInfo tableWriteInfo;
+
+    private final String communicationSlug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
 
     public HttpRemoteTask(
             Session session,
@@ -339,6 +343,12 @@ public final class HttpRemoteTask
     public TaskStatus getTaskStatus()
     {
         return taskStatusFetcher.getTaskStatus();
+    }
+
+    @Override
+    public String getCommunicationSlug()
+    {
+        return communicationSlug;
     }
 
     @Override
@@ -633,7 +643,8 @@ public final class HttpRemoteTask
                 sources,
                 outputBuffers.get(),
                 totalPartitions,
-                writeInfo);
+                writeInfo,
+                communicationSlug);
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
 
         if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {

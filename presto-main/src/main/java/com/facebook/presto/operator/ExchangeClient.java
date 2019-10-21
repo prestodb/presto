@@ -163,7 +163,7 @@ public class ExchangeClient
         }
     }
 
-    public synchronized void addLocation(URI location, TaskId remoteSourceTaskId)
+    public synchronized void addLocation(URI location, TaskId remoteSourceTaskId, String communicationSlug)
     {
         requireNonNull(location, "location is null");
 
@@ -192,7 +192,8 @@ public class ExchangeClient
                 location,
                 new ExchangeClientCallback(),
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                communicationSlug);
         allClients.put(location, client);
         checkState(taskIdToLocationMap.put(remoteSourceTaskId, location) == null, "Duplicate remoteSourceTaskId: " + remoteSourceTaskId);
         queuedClients.add(client);

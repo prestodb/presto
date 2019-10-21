@@ -29,7 +29,6 @@ import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
@@ -83,6 +82,7 @@ import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMateri
 import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.execution.BasicStageExecutionStats.aggregateBasicStageStats;
+import static com.facebook.presto.execution.QueryExecution.TaskConnectionInformation;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.execution.StageExecutionState.ABORTED;
 import static com.facebook.presto.execution.StageExecutionState.CANCELED;
@@ -287,10 +287,10 @@ public class SqlQueryScheduler
 
     private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations)
     {
-        Map<URI, TaskId> bufferLocations = tasks.stream()
+        Map<URI, TaskConnectionInformation> bufferLocations = tasks.stream()
                 .collect(toImmutableMap(
                         task -> getBufferLocation(task, rootBufferId),
-                        RemoteTask::getTaskId));
+                        task -> new TaskConnectionInformation(task.getTaskId(), task.getCommunicationSlug())));
         queryStateMachine.updateOutputLocations(bufferLocations, noMoreExchangeLocations);
     }
 

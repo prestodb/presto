@@ -70,6 +70,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_COMM_SLUG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -134,7 +135,8 @@ public class TaskResource
                 taskUpdateRequest.getSources(),
                 taskUpdateRequest.getOutputIds(),
                 taskUpdateRequest.getTotalPartitions(),
-                taskUpdateRequest.getTableWriteInfo());
+                taskUpdateRequest.getTableWriteInfo(),
+                taskUpdateRequest.getCommunicationSlug());
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
@@ -250,13 +252,14 @@ public class TaskResource
             @PathParam("bufferId") OutputBufferId bufferId,
             @PathParam("token") final long token,
             @HeaderParam(PRESTO_MAX_SIZE) DataSize maxSize,
+            @HeaderParam(PRESTO_TASK_COMM_SLUG) String communicationSlug,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
         long start = System.nanoTime();
-        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
+        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize, communicationSlug);
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,

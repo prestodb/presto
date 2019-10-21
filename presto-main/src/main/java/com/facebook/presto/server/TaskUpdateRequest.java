@@ -40,6 +40,7 @@ public class TaskUpdateRequest
     private final OutputBuffers outputIds;
     private final OptionalInt totalPartitions;
     private final Optional<TableWriteInfo> tableWriteInfo;
+    private final String communicationSlug;
 
     @JsonCreator
     public TaskUpdateRequest(
@@ -49,7 +50,8 @@ public class TaskUpdateRequest
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds,
             @JsonProperty("totalPartitions") OptionalInt totalPartitions,
-            @JsonProperty("tableWriteInfo") Optional<TableWriteInfo> tableWriteInfo)
+            @JsonProperty("tableWriteInfo") Optional<TableWriteInfo> tableWriteInfo,
+            @JsonProperty("communicationSlug") String communicationSlug)
     {
         requireNonNull(session, "session is null");
         requireNonNull(extraCredentials, "credentials is null");
@@ -58,6 +60,7 @@ public class TaskUpdateRequest
         requireNonNull(outputIds, "outputIds is null");
         requireNonNull(totalPartitions, "totalPartitions is null");
         requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+        requireNonNull(communicationSlug, "communicationSlug is null");
 
         this.session = session;
         this.extraCredentials = extraCredentials;
@@ -66,6 +69,7 @@ public class TaskUpdateRequest
         this.outputIds = outputIds;
         this.totalPartitions = totalPartitions;
         this.tableWriteInfo = tableWriteInfo;
+        this.communicationSlug = communicationSlug;
     }
 
     @JsonProperty
@@ -110,6 +114,12 @@ public class TaskUpdateRequest
         return tableWriteInfo;
     }
 
+    @JsonProperty
+    public String getCommunicationSlug()
+    {
+        return communicationSlug;
+    }
+
     @Override
     public String toString()
     {
@@ -120,6 +130,7 @@ public class TaskUpdateRequest
                 .add("sources", sources)
                 .add("outputIds", outputIds)
                 .add("totalPartitions", totalPartitions)
+                .add("communicationSlug", "_should_not_be_logged_")
                 .toString();
     }
 }

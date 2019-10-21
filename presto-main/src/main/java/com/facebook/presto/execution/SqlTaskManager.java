@@ -356,13 +356,15 @@ public class SqlTaskManager
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
             OptionalInt totalPartitions,
-            Optional<TableWriteInfo> tableWriteInfo)
+            Optional<TableWriteInfo> tableWriteInfo,
+            String communicationSlug)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
         requireNonNull(fragment, "fragment is null");
         requireNonNull(sources, "sources is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
+        requireNonNull(communicationSlug, "communicationSlug is null");
 
         if (resourceOvercommit(session)) {
             // TODO: This should have been done when the QueryContext was created. However, the session isn't available at that point.
@@ -371,18 +373,20 @@ public class SqlTaskManager
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
+        sqlTask.updateCommunicationSlug(communicationSlug);
         return sqlTask.updateTask(session, fragment, sources, outputBuffers, totalPartitions, tableWriteInfo);
     }
 
     @Override
-    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize, String communicationSlug)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
         requireNonNull(maxSize, "maxSize is null");
+        requireNonNull(communicationSlug, "communicationSlug is null");
 
-        return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
+        return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize, communicationSlug);
     }
 
     @Override

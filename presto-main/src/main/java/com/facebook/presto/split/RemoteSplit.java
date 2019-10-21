@@ -31,12 +31,14 @@ public class RemoteSplit
 {
     private final URI location;
     private final TaskId remoteSourceTaskId;
+    private final String communicationSlug;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("location") URI location, @JsonProperty("remoteSourceTaskId") TaskId remoteSourceTaskId)
+    public RemoteSplit(@JsonProperty("location") URI location, @JsonProperty("remoteSourceTaskId") TaskId remoteSourceTaskId, @JsonProperty("communicationSlug") String communicationSlug)
     {
         this.location = requireNonNull(location, "location is null");
         this.remoteSourceTaskId = requireNonNull(remoteSourceTaskId, "remoteSourceTaskId is null");
+        this.communicationSlug = requireNonNull(communicationSlug, "communicationSlug is null");
     }
 
     @JsonProperty
@@ -49,6 +51,12 @@ public class RemoteSplit
     public TaskId getRemoteSourceTaskId()
     {
         return remoteSourceTaskId;
+    }
+
+    @JsonProperty
+    public String getCommunicationSlug()
+    {
+        return communicationSlug;
     }
 
     @Override

@@ -120,7 +120,7 @@ public class ExchangeOperator
         checkArgument(split.getConnectorId().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        exchangeClient.addLocation(remoteSplit.getLocation(), remoteSplit.getRemoteSourceTaskId());
+        exchangeClient.addLocation(remoteSplit.getLocation(), remoteSplit.getRemoteSourceTaskId(), remoteSplit.getCommunicationSlug());
 
         return Optional::empty;
     }
