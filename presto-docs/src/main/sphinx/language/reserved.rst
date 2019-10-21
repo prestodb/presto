@@ -14,7 +14,6 @@ Keyword                        SQL:2016      SQL-92
 ``AS``                         reserved      reserved
 ``BETWEEN``                    reserved      reserved
 ``BY``                         reserved      reserved
-``CALLED``                     reserved
 ``CASE``                       reserved      reserved
 ``CAST``                       reserved      reserved
 ``CONSTRAINT``                 reserved      reserved
@@ -28,7 +27,6 @@ Keyword                        SQL:2016      SQL-92
 ``DEALLOCATE``                 reserved      reserved
 ``DELETE``                     reserved      reserved
 ``DESCRIBE``                   reserved      reserved
-``DETERMINISTIC``              reserved
 ``DISTINCT``                   reserved      reserved
 ``DROP``                       reserved      reserved
 ``ELSE``                       reserved      reserved
@@ -42,7 +40,6 @@ Keyword                        SQL:2016      SQL-92
 ``FOR``                        reserved      reserved
 ``FROM``                       reserved      reserved
 ``FULL``                       reserved      reserved
-``FUNCTION``                   reserved
 ``GROUP``                      reserved      reserved
 ``GROUPING``                   reserved
 ``HAVING``                     reserved      reserved
@@ -53,7 +50,6 @@ Keyword                        SQL:2016      SQL-92
 ``INTO``                       reserved      reserved
 ``IS``                         reserved      reserved
 ``JOIN``                       reserved      reserved
-``LANGUAGE``                   reserved      reserved
 ``LEFT``                       reserved      reserved
 ``LIKE``                       reserved      reserved
 ``LOCALTIME``                  reserved
@@ -68,12 +64,9 @@ Keyword                        SQL:2016      SQL-92
 ``OUTER``                      reserved      reserved
 ``PREPARE``                    reserved      reserved
 ``RECURSIVE``                  reserved
-``RETURN``                     reserved
-``RETURNS``                    reserved
 ``RIGHT``                      reserved      reserved
 ``ROLLUP``                     reserved
 ``SELECT``                     reserved      reserved
-``SQL``                        reserved      reserved
 ``TABLE``                      reserved      reserved
 ``THEN``                       reserved      reserved
 ``TRUE``                       reserved      reserved
