@@ -331,7 +331,7 @@ public class SliceDirectSelectiveStreamReader
     {
         int dataToSkip = 0;
         for (int i = 0; i < items; i++) {
-            if (isNullVector == null || !isNullVector[start + i]) {
+            if (presentStream == null || !isNullVector[start + i]) {
                 dataToSkip += lengthVector[lengthIndex];
                 lengthIndex++;
             }
