@@ -74,25 +74,43 @@ public class RemoteTaskStats
     @Managed
     public double getResponseSizeBytes()
     {
-        return responseSizeBytes.get();
+        return responseSizeBytes.getAverage();
     }
 
     @Managed
     public double getStatusRoundTripMillis()
     {
-        return statusRoundTripMillis.get();
+        return statusRoundTripMillis.getAverage();
+    }
+
+    @Managed
+    public long getStatusRoundTripCount()
+    {
+        return statusRoundTripMillis.getCount();
     }
 
     @Managed
     public double getUpdateRoundTripMillis()
     {
-        return updateRoundTripMillis.get();
+        return updateRoundTripMillis.getAverage();
+    }
+
+    @Managed
+    public long getUpdateRoundTripCount()
+    {
+        return updateRoundTripMillis.getCount();
     }
 
     @Managed
     public double getInfoRoundTripMillis()
     {
-        return infoRoundTripMillis.get();
+        return infoRoundTripMillis.getAverage();
+    }
+
+    @Managed
+    public long getInfoRoundTripCount()
+    {
+        return infoRoundTripMillis.getCount();
     }
 
     @Managed
@@ -124,7 +142,7 @@ public class RemoteTaskStats
     @ThreadSafe
     private static class IncrementalAverage
     {
-        private long count;
+        private volatile long count;
         private volatile double average;
 
         synchronized void add(long value)
@@ -133,9 +151,14 @@ public class RemoteTaskStats
             average = average + (value - average) / count;
         }
 
-        double get()
+        double getAverage()
         {
             return average;
+        }
+
+        long getCount()
+        {
+            return count;
         }
     }
 }
