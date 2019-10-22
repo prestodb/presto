@@ -16,6 +16,9 @@ package com.facebook.presto.server;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.units.DataSize;
+
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class InternalCommunicationConfig
 {
@@ -27,6 +30,7 @@ public class InternalCommunicationConfig
     private boolean kerberosEnabled;
     private boolean kerberosUseCanonicalHostname = true;
     private boolean binaryTransportEnabled;
+    private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
 
     public boolean isHttpsRequired()
     {
@@ -99,6 +103,19 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setBinaryTransportEnabled(boolean binaryTransportEnabled)
     {
         this.binaryTransportEnabled = binaryTransportEnabled;
+        return this;
+    }
+
+    public DataSize getMaxTaskUpdateSize()
+    {
+        return maxTaskUpdateSize;
+    }
+
+    @Config("experimental.internal-communication.max-task-update-size")
+    @ConfigDescription("Enables limit on the size of the task update")
+    public InternalCommunicationConfig setMaxTaskUpdateSize(DataSize maxTaskUpdateSize)
+    {
+        this.maxTaskUpdateSize = maxTaskUpdateSize;
         return this;
     }
 }

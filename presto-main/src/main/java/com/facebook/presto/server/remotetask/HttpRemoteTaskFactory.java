@@ -55,6 +55,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.server.smile.JsonCodecWrapper.wrapJsonCodec;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -80,6 +81,7 @@ public class HttpRemoteTaskFactory
     private final ScheduledExecutorService errorScheduledExecutor;
     private final RemoteTaskStats stats;
     private final boolean isBinaryTransportEnabled;
+    private final int maxTaskUpdateSizeInBytes;
 
     @Inject
     public HttpRemoteTaskFactory(QueryManagerConfig config,
@@ -106,6 +108,7 @@ public class HttpRemoteTaskFactory
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
         this.stats = requireNonNull(stats, "stats is null");
         isBinaryTransportEnabled = requireNonNull(communicationConfig, "communicationConfig is null").isBinaryTransportEnabled();
+        this.maxTaskUpdateSizeInBytes = toIntExact(requireNonNull(communicationConfig, "communicationConfig is null").getMaxTaskUpdateSize().toBytes());
 
         if (isBinaryTransportEnabled) {
             this.taskStatusCodec = taskStatusSmileCodec;
@@ -172,6 +175,7 @@ public class HttpRemoteTaskFactory
                 partitionedSplitCountTracker,
                 stats,
                 isBinaryTransportEnabled,
-                tableWriteInfo);
+                tableWriteInfo,
+                maxTaskUpdateSizeInBytes);
     }
 }

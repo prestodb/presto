@@ -76,6 +76,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -98,6 +99,7 @@ import static com.facebook.presto.server.remotetask.RequestErrorTracker.logError
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
 import static com.facebook.presto.server.smile.JsonCodecWrapper.unwrapJsonCodec;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TASK_UPDATE_SIZE_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -108,6 +110,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -117,6 +120,7 @@ public final class HttpRemoteTask
         implements RemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
+    private static final double UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE = 0.01;
 
     private final TaskId taskId;
     private final URI taskLocation;
@@ -178,6 +182,7 @@ public final class HttpRemoteTask
     private final AtomicBoolean aborting = new AtomicBoolean(false);
 
     private final boolean isBinaryTransportEnabled;
+    private final int maxTaskUpdateSizeInBytes;
 
     private final TableWriteInfo tableWriteInfo;
 
@@ -205,7 +210,8 @@ public final class HttpRemoteTask
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            int maxTaskUpdateSizeInBytes)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -245,6 +251,7 @@ public final class HttpRemoteTask
             this.stats = stats;
             this.isBinaryTransportEnabled = isBinaryTransportEnabled;
             this.tableWriteInfo = tableWriteInfo;
+            this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
 
             this.tableScanPlanNodeIds = ImmutableSet.copyOf(planFragment.getTableScanSchedulingOrder());
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
@@ -628,8 +635,19 @@ public final class HttpRemoteTask
                 totalPartitions,
                 writeInfo);
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
+
+        if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
+            throw new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, format("TaskUpdate size of %d Bytes has exceeded the limit of %d Bytes", taskUpdateRequestJson.length, maxTaskUpdateSizeInBytes));
+        }
+
         if (fragment.isPresent()) {
-            stats.updateWithPlanBytes(taskUpdateRequestJson.length);
+            stats.updateWithPlanSize(taskUpdateRequestJson.length);
+        }
+        else {
+            if (ThreadLocalRandom.current().nextDouble() < UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE) {
+                // This is to keep track of the task update size even when the plan fragment is NOT present
+                stats.updateWithoutPlanSize(taskUpdateRequestJson.length);
+            }
         }
 
         HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);

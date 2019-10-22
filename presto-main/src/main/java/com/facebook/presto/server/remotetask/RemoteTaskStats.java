@@ -25,7 +25,8 @@ public class RemoteTaskStats
     private final IncrementalAverage infoRoundTripMillis = new IncrementalAverage();
     private final IncrementalAverage statusRoundTripMillis = new IncrementalAverage();
     private final IncrementalAverage responseSizeBytes = new IncrementalAverage();
-    private final DistributionStat updateWithPlanBytes = new DistributionStat();
+    private final DistributionStat updateWithPlanSize = new DistributionStat();
+    private final DistributionStat updateWithoutPlanSize = new DistributionStat();
 
     private long requestSuccess;
     private long requestFailure;
@@ -60,9 +61,14 @@ public class RemoteTaskStats
         requestFailure++;
     }
 
-    public void updateWithPlanBytes(long bytes)
+    public void updateWithPlanSize(long bytes)
     {
-        updateWithPlanBytes.add(bytes);
+        updateWithPlanSize.add(bytes);
+    }
+
+    public void updateWithoutPlanSize(long bytes)
+    {
+        updateWithoutPlanSize.add(bytes);
     }
 
     @Managed
@@ -103,9 +109,16 @@ public class RemoteTaskStats
 
     @Managed
     @Nested
-    public DistributionStat getUpdateWithPlanBytes()
+    public DistributionStat getUpdateWithPlanSize()
     {
-        return updateWithPlanBytes;
+        return updateWithPlanSize;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getUpdateWithoutPlanSize()
+    {
+        return updateWithoutPlanSize;
     }
 
     @ThreadSafe
