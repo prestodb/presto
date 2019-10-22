@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -21,6 +22,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestInternalCommunicationConfig
 {
@@ -33,7 +35,8 @@ public class TestInternalCommunicationConfig
                 .setKeyStorePassword(null)
                 .setKerberosEnabled(false)
                 .setKerberosUseCanonicalHostname(true)
-                .setBinaryTransportEnabled(false));
+                .setBinaryTransportEnabled(false)
+                .setMaxTaskUpdateSize(new DataSize(16, MEGABYTE)));
     }
 
     @Test
@@ -46,6 +49,7 @@ public class TestInternalCommunicationConfig
                 .put("internal-communication.kerberos.enabled", "true")
                 .put("internal-communication.kerberos.use-canonical-hostname", "false")
                 .put("experimental.internal-communication.binary-transport-enabled", "true")
+                .put("experimental.internal-communication.max-task-update-size", "512MB")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
@@ -54,7 +58,8 @@ public class TestInternalCommunicationConfig
                 .setKeyStorePassword("key")
                 .setKerberosEnabled(true)
                 .setKerberosUseCanonicalHostname(false)
-                .setBinaryTransportEnabled(true);
+                .setBinaryTransportEnabled(true)
+                .setMaxTaskUpdateSize(new DataSize(512, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }
