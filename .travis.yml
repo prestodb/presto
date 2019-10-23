@@ -19,7 +19,8 @@ env:
     - TEST_SPECIFIC_MODULES=presto-hive
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-materialized"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-recoverable-grouped-execution"
-    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries"
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-basic"
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-advanced" 
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-repartitioning"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-parquet"
     - TEST_SPECIFIC_MODULES=presto-main
