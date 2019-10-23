@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -46,6 +47,7 @@ import static com.facebook.presto.orc.reader.SliceBatchStreamReader.computeTrunc
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -97,11 +99,14 @@ public class SliceDictionaryBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public SliceDictionaryBatchStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType)
+    private final LocalMemoryContext systemMemoryContext;
+
+    public SliceDictionaryBatchStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType, LocalMemoryContext systemMemoryContext)
     {
         this.maxCodePointCount = maxCodePointCount;
         this.isCharType = isCharType;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -212,6 +217,7 @@ public class SliceDictionaryBatchStreamReader
                 // resize the dictionary lengths array if necessary
                 if (stripeDictionaryLength.length < stripeDictionarySize) {
                     stripeDictionaryLength = new int[stripeDictionarySize];
+                    systemMemoryContext.setBytes(sizeOf(stripeDictionaryLength));
                 }
 
                 // read the lengths
@@ -228,8 +234,11 @@ public class SliceDictionaryBatchStreamReader
 
                 // we must always create a new dictionary array because the previous dictionary may still be referenced
                 stripeDictionaryData = new byte[toIntExact(dataLength)];
+                systemMemoryContext.setBytes(sizeOf(stripeDictionaryData));
+
                 // add one extra entry for null
                 stripeDictionaryOffsetVector = new int[stripeDictionarySize + 2];
+                systemMemoryContext.setBytes(sizeOf(stripeDictionaryOffsetVector));
 
                 // read dictionary values
                 ByteArrayInputStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
@@ -380,8 +389,17 @@ public class SliceDictionaryBatchStreamReader
     }
 
     @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+        stripeDictionaryLength = null;
+        stripeDictionaryData = null;
+        stripeDictionaryOffsetVector = null;
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE;
+        return INSTANCE_SIZE + sizeOf(stripeDictionaryLength);
     }
 }
