@@ -76,7 +76,7 @@ public class OrcBatchRecordReader
                 // doesn't have a local buffer. All non-leaf level StreamReaders' (e.g. MapStreamReader, LongStreamReader,
                 // ListStreamReader and StructStreamReader) instance sizes were not counted, because calling setBytes() in
                 // their constructors is confusing.
-                createStreamReaders(orcDataSource, types, hiveStorageTimeZone, includedColumns),
+                createStreamReaders(orcDataSource, types, hiveStorageTimeZone, includedColumns, systemMemoryUsage.newAggregatedMemoryContext()),
                 predicate,
                 numberOfRows,
                 fileStripes,
@@ -157,7 +157,8 @@ public class OrcBatchRecordReader
             OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
-            Map<Integer, Type> includedColumns)
+            Map<Integer, Type> includedColumns,
+            AggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
@@ -169,7 +170,7 @@ public class OrcBatchRecordReader
                 Type type = includedColumns.get(columnId);
                 if (type != null) {
                     StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                    streamReaders[columnId] = BatchStreamReaders.createStreamReader(type, streamDescriptor, hiveStorageTimeZone);
+                    streamReaders[columnId] = BatchStreamReaders.createStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
                 }
             }
         }

@@ -238,6 +238,11 @@ public class DecimalBatchStreamReader
     }
 
     @Override
+    public void close()
+    {
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -24,12 +25,14 @@ import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.io.Closer;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,14 +70,14 @@ public class ListBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public ListBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public ListBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, ArrayType.class::isInstance);
         elementType = ((ArrayType) type).getElementType();
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.elementStreamReader = createStreamReader(elementType, streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone);
+        this.elementStreamReader = createStreamReader(elementType, streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
     }
 
     @Override
@@ -200,6 +203,17 @@ public class ListBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
+        try (Closer closer = Closer.create()) {
+            closer.register(elementStreamReader::close);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override

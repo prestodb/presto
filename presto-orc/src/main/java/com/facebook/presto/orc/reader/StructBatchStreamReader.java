@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -28,12 +29,14 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.io.Closer;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -68,7 +71,7 @@ public class StructBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    StructBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    StructBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -88,7 +91,7 @@ public class StructBatchStreamReader
 
             StreamDescriptor fieldStream = nestedStreams.get(fieldName);
             if (fieldStream != null) {
-                structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, hiveStorageTimeZone));
+                structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, hiveStorageTimeZone, systemMemoryContext));
             }
         }
         this.fieldNames = fieldNames.build();
@@ -225,6 +228,19 @@ public class StructBatchStreamReader
             }
         }
         return blocks;
+    }
+
+    @Override
+    public void close()
+    {
+        try (Closer closer = Closer.create()) {
+            for (BatchStreamReader batchStreamReader : structFields.values()) {
+                closer.register(batchStreamReader::close);
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override

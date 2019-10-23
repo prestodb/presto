@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -48,6 +49,7 @@ import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class LongDirectBatchStreamReader
@@ -76,13 +78,16 @@ public class LongDirectBatchStreamReader
     private int[] intNonNullValueTemp = new int[0];
     private long[] longNonNullValueTemp = new long[0];
 
-    public LongDirectBatchStreamReader(Type type, StreamDescriptor streamDescriptor)
+    private LocalMemoryContext systemMemoryContext;
+
+    public LongDirectBatchStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
         this.type = type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -188,6 +193,7 @@ public class LongDirectBatchStreamReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (longNonNullValueTemp.length < minNonNullValueSize) {
             longNonNullValueTemp = new long[minNonNullValueSize];
+            systemMemoryContext.setBytes(sizeOf(longNonNullValueTemp));
         }
 
         dataStream.next(longNonNullValueTemp, nonNullCount);
@@ -204,6 +210,7 @@ public class LongDirectBatchStreamReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (intNonNullValueTemp.length < minNonNullValueSize) {
             intNonNullValueTemp = new int[minNonNullValueSize];
+            systemMemoryContext.setBytes(sizeOf(intNonNullValueTemp));
         }
 
         dataStream.next(intNonNullValueTemp, nonNullCount);
@@ -220,6 +227,7 @@ public class LongDirectBatchStreamReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (shortNonNullValueTemp.length < minNonNullValueSize) {
             shortNonNullValueTemp = new short[minNonNullValueSize];
+            systemMemoryContext.setBytes(sizeOf(shortNonNullValueTemp));
         }
 
         dataStream.next(shortNonNullValueTemp, nonNullCount);
@@ -274,6 +282,15 @@ public class LongDirectBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+        shortNonNullValueTemp = null;
+        intNonNullValueTemp = null;
+        longNonNullValueTemp = null;
     }
 
     @Override

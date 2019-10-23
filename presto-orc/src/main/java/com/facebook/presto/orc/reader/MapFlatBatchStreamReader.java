@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -31,6 +32,7 @@ import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
@@ -39,6 +41,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -94,7 +97,9 @@ public class MapFlatBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapFlatBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    private AggregatedMemoryContext systemMemoryContext;
+
+    public MapFlatBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -102,6 +107,7 @@ public class MapFlatBatchStreamReader
         this.type = (MapType) type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.keyOrcType = streamDescriptor.getNestedStreams().get(0).getOrcTypeKind();
         this.baseValueStreamDescriptor = streamDescriptor.getNestedStreams().get(1);
     }
@@ -248,7 +254,7 @@ public class MapFlatBatchStreamReader
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
-            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(type.getValueType(), valueStreamDescriptor, hiveStorageTimeZone);
+            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(type.getValueType(), valueStreamDescriptor, hiveStorageTimeZone, systemMemoryContext);
             valueStreamReader.startStripe(dictionaryStreamSources, encodings);
             valueStreamReaders.add(valueStreamReader);
         }
@@ -377,6 +383,19 @@ public class MapFlatBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
+        try (Closer closer = Closer.create()) {
+            for (BatchStreamReader valueStreamReader : valueStreamReaders) {
+                closer.register(valueStreamReader::close);
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override

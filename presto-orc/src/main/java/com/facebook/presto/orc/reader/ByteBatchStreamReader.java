@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -41,6 +42,7 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStr
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class ByteBatchStreamReader
@@ -65,12 +67,15 @@ public class ByteBatchStreamReader
 
     private byte[] nonNullValueTemp = new byte[0];
 
-    public ByteBatchStreamReader(Type type, StreamDescriptor streamDescriptor)
+    private final LocalMemoryContext systemMemoryContext;
+
+    public ByteBatchStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, TinyintType.class::isInstance);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -148,6 +153,7 @@ public class ByteBatchStreamReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new byte[minNonNullValueSize];
+            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
         }
 
         dataStream.next(nonNullValueTemp, nonNullCount);
@@ -202,6 +208,13 @@ public class ByteBatchStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    @Override
+    public void close()
+    {
+        systemMemoryContext.close();
+        nonNullValueTemp = null;
     }
 
     @Override
