@@ -144,11 +144,11 @@ public class TestHashBuilderOperator
         // Are we using the memory we should be using?
         assertEquals(buildOperator.getState(), LOOKUP_SOURCE_BUILT);
         if (buildHashEnabled) {
-            assertEquals(estimatedFootprintBefore, 59656384);
+            assertEquals(estimatedFootprintBefore, 46147728);
             assertEquals(estimatedFootprintAfter, 59640024);
         }
         else {
-            assertEquals(estimatedFootprintBefore, 51396272);
+            assertEquals(estimatedFootprintBefore, 37887616);
             assertEquals(estimatedFootprintAfter, 51384016);
         }
     }
