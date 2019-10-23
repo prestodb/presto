@@ -32,7 +32,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -556,7 +555,7 @@ public class PickTableLayout
                     .collect(toImmutableSet());
         }
 
-        private boolean isCandidate(Map<ColumnHandle, NullableValue> bindings)
+        private boolean isCandidate(Map<ColumnHandle, ConstantExpression> bindings)
         {
             if (intersection(bindings.keySet(), arguments).isEmpty()) {
                 return true;
@@ -588,7 +587,7 @@ public class PickTableLayout
                     .collect(toImmutableSet());
         }
 
-        private boolean isCandidate(Map<ColumnHandle, NullableValue> bindings)
+        private boolean isCandidate(Map<ColumnHandle, ConstantExpression> bindings)
         {
             if (intersection(bindings.keySet(), arguments).isEmpty()) {
                 return true;
@@ -608,14 +607,14 @@ public class PickTableLayout
             implements VariableResolver
     {
         private final Map<VariableReferenceExpression, ColumnHandle> assignments;
-        private final Map<ColumnHandle, NullableValue> bindings;
+        private final Map<ColumnHandle, ConstantExpression> bindings;
         // Use Object type to let interpreters consume the result
         // TODO: use RowExpression once the Expression-to-RowExpression is done
         private final Function<VariableReferenceExpression, Object> missingBindingSupplier;
 
         public LookupVariableResolver(
                 Map<VariableReferenceExpression, ColumnHandle> assignments,
-                Map<ColumnHandle, NullableValue> bindings,
+                Map<ColumnHandle, ConstantExpression> bindings,
                 Function<VariableReferenceExpression, Object> missingBindingSupplier)
         {
             this.assignments = requireNonNull(assignments, "assignments is null");

@@ -19,8 +19,8 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -325,15 +325,15 @@ public class TestTpchMetadata
         assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), TupleDomain.none(), session);
     }
 
-    private Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> domain, TpchColumn... columns)
+    private Predicate<Map<ColumnHandle, ConstantExpression>> convertToPredicate(TupleDomain<ColumnHandle> domain, TpchColumn... columns)
     {
         Preconditions.checkArgument(columns.length > 0, "No columns given");
         return bindings -> {
             for (TpchColumn column : columns) {
                 ColumnHandle columnHandle = tpchMetadata.toColumnHandle(column);
                 if (bindings.containsKey(columnHandle)) {
-                    NullableValue nullableValue = requireNonNull(bindings.get(columnHandle), "binding is null");
-                    if (!PredicateUtils.convertToPredicate(domain, tpchMetadata.toColumnHandle(column)).test(nullableValue)) {
+                    ConstantExpression constantExpression = requireNonNull(bindings.get(columnHandle), "binding is null");
+                    if (!PredicateUtils.convertToPredicate(domain, tpchMetadata.toColumnHandle(column)).test(constantExpression)) {
                         return false;
                     }
                 }
@@ -363,15 +363,15 @@ public class TestTpchMetadata
         requireNonNull(column, "column is null");
         requireNonNull(value, "value is null");
         return TupleDomain.fromFixedValues(
-                ImmutableMap.of(tpchMetadata.toColumnHandle(column), new NullableValue(getPrestoType(column), value)));
+                ImmutableMap.of(tpchMetadata.toColumnHandle(column), new ConstantExpression(value, getPrestoType(column))));
     }
 
     private static TupleDomain<ColumnHandle> fixedValueTupleDomain(TpchMetadata tpchMetadata, TpchColumn<?> column1, Object value1, TpchColumn<?> column2, Object value2)
     {
         return TupleDomain.fromFixedValues(
                 ImmutableMap.of(
-                        tpchMetadata.toColumnHandle(column1), new NullableValue(getPrestoType(column1), value1),
-                        tpchMetadata.toColumnHandle(column2), new NullableValue(getPrestoType(column2), value2)));
+                        tpchMetadata.toColumnHandle(column1), new ConstantExpression(value1, getPrestoType(column1)),
+                        tpchMetadata.toColumnHandle(column2), new ConstantExpression(value2, getPrestoType(column2))));
     }
 
     private static ConnectorTableLayoutResult getTableOnlyLayout(TpchMetadata tpchMetadata, ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)

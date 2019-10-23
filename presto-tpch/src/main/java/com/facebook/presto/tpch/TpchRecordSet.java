@@ -17,8 +17,8 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -215,14 +215,14 @@ public class TpchRecordSet<E extends TpchEntity>
                 return false;
             }
 
-            Map<ColumnHandle, NullableValue> rowMap = predicate.getDomains().get().keySet().stream()
+            Map<ColumnHandle, ConstantExpression> rowMap = predicate.getDomains().get().keySet().stream()
                     .collect(toImmutableMap(
                             column -> column,
                             column -> {
                                 TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) column;
                                 Type type = tpchColumnHandle.getType();
                                 TpchColumn tpchColumn = table.getColumn(tpchColumnHandle.getColumnName());
-                                return NullableValue.of(type, getPrestoObject(tpchColumn, type));
+                                return ConstantExpression.of(getPrestoObject(tpchColumn, type), type);
                             }));
 
             TupleDomain<ColumnHandle> rowTupleDomain = TupleDomain.fromFixedValues(rowMap);

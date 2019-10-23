@@ -67,6 +67,17 @@ public final class ConstantExpression
         return value == null;
     }
 
+    public static ConstantExpression of(Object value, Type type)
+    {
+        requireNonNull(value, "value is null");
+        return new ConstantExpression(value, type);
+    }
+
+    public static ConstantExpression asNull(Type type)
+    {
+        return new ConstantExpression(null, type);
+    }
+
     @Override
     @JsonProperty
     public Type getType()

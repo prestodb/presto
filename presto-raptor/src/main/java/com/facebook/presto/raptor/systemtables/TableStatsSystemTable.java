@@ -25,8 +25,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.skife.jdbi.v2.IDBI;
@@ -96,7 +96,7 @@ public class TableStatsSystemTable
 
     private static List<Page> buildPages(MetadataDao dao, TupleDomain<Integer> tupleDomain)
     {
-        Map<Integer, NullableValue> domainValues = extractFixedValues(tupleDomain).orElse(ImmutableMap.of());
+        Map<Integer, ConstantExpression> domainValues = extractFixedValues(tupleDomain).orElse(ImmutableMap.of());
         String schemaName = getStringValue(domainValues.get(getColumnIndex(METADATA, SCHEMA_NAME)));
         String tableName = getStringValue(domainValues.get(getColumnIndex(METADATA, TABLE_NAME)));
 

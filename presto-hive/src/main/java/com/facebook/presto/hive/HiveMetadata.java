@@ -66,8 +66,8 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -426,7 +426,7 @@ public class HiveMetadata
             public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
             {
                 TupleDomain<ColumnHandle> targetTupleDomain = constraint.transform(fieldIdToColumnHandle::get);
-                Predicate<Map<ColumnHandle, NullableValue>> targetPredicate = convertToPredicate(targetTupleDomain);
+                Predicate<Map<ColumnHandle, ConstantExpression>> targetPredicate = convertToPredicate(targetTupleDomain);
                 Constraint<ColumnHandle> targetConstraint = new Constraint<>(targetTupleDomain, targetPredicate);
                 Iterable<List<Object>> records = () ->
                         stream(partitionManager.getPartitionsIterator(metastore, sourceTableHandle, targetConstraint, session))
@@ -1705,14 +1705,14 @@ public class HiveMetadata
         }
         else {
             TupleDomain<ColumnHandle> partitionColumnPredicate = layoutHandle.getPartitionColumnPredicate();
-            Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(partitionColumnPredicate);
+            Predicate<Map<ColumnHandle, ConstantExpression>> predicate = convertToPredicate(partitionColumnPredicate);
             List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(partitionColumnPredicate, predicate), Optional.empty());
             return ((HiveTableLayoutHandle) Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle()).getPartitions().get();
         }
     }
 
     @VisibleForTesting
-    static Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
+    static Predicate<Map<ColumnHandle, ConstantExpression>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
     {
         return bindings -> tupleDomain.contains(TupleDomain.fromFixedValues(bindings));
     }
@@ -2114,7 +2114,7 @@ public class HiveMetadata
         Type type = null;
 
         for (HivePartition partition : partitions) {
-            NullableValue value = partition.getKeys().get(column);
+            ConstantExpression value = partition.getKeys().get(column);
             if (value == null) {
                 throw new PrestoException(HIVE_UNKNOWN_ERROR, format("Partition %s does not have a value for partition column %s", partition, column));
             }

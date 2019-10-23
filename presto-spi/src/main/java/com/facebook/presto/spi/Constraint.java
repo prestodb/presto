@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 
 import java.util.Map;
 import java.util.Optional;
@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public class Constraint<T>
 {
     private final TupleDomain<T> summary;
-    private final Optional<Predicate<Map<T, NullableValue>>> predicate;
+    private final Optional<Predicate<Map<T, ConstantExpression>>> predicate;
 
     public static <V> Constraint<V> alwaysTrue()
     {
@@ -42,12 +42,12 @@ public class Constraint<T>
         this(summary, Optional.empty());
     }
 
-    public Constraint(TupleDomain<T> summary, Predicate<Map<T, NullableValue>> predicate)
+    public Constraint(TupleDomain<T> summary, Predicate<Map<T, ConstantExpression>> predicate)
     {
         this(summary, Optional.of(predicate));
     }
 
-    public Constraint(TupleDomain<T> summary, Optional<Predicate<Map<T, NullableValue>>> predicate)
+    public Constraint(TupleDomain<T> summary, Optional<Predicate<Map<T, ConstantExpression>>> predicate)
     {
         requireNonNull(summary, "summary is null");
         requireNonNull(predicate, "predicate is null");
@@ -61,7 +61,7 @@ public class Constraint<T>
         return summary;
     }
 
-    public Optional<Predicate<Map<T, NullableValue>>> predicate()
+    public Optional<Predicate<Map<T, ConstantExpression>>> predicate()
     {
         return predicate;
     }

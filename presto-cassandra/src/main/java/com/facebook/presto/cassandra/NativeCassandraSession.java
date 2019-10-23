@@ -44,8 +44,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -375,7 +375,7 @@ public class NativeCassandraSession
         }
 
         ByteBuffer buffer = ByteBuffer.allocate(1000);
-        HashMap<ColumnHandle, NullableValue> map = new HashMap<>();
+        HashMap<ColumnHandle, ConstantExpression> map = new HashMap<>();
         Set<String> uniquePartitionIds = new HashSet<>();
         StringBuilder stringBuilder = new StringBuilder();
 
@@ -399,7 +399,7 @@ public class NativeCassandraSession
                     buffer.put(component);
                 }
                 CassandraColumnHandle columnHandle = partitionKeyColumns.get(i);
-                NullableValue keyPart = CassandraType.getColumnValueForPartitionKey(row, i, columnHandle.getCassandraType(), columnHandle.getTypeArguments());
+                ConstantExpression keyPart = CassandraType.getColumnValueForPartitionKey(row, i, columnHandle.getCassandraType(), columnHandle.getTypeArguments());
                 map.put(columnHandle, keyPart);
                 if (i > 0) {
                     stringBuilder.append(" AND ");

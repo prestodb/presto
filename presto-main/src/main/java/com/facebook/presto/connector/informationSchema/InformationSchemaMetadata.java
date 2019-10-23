@@ -32,8 +32,8 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.EquatableValueSet;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -262,7 +262,7 @@ public class InformationSchemaMetadata
     private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(
             ConnectorSession connectorSession,
             TupleDomain<ColumnHandle> constraint,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
+            Optional<Predicate<Map<ColumnHandle, ConstantExpression>>> predicate)
     {
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
@@ -283,7 +283,7 @@ public class InformationSchemaMetadata
             ConnectorSession connectorSession,
             Set<QualifiedTablePrefix> prefixes,
             TupleDomain<ColumnHandle> constraint,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
+            Optional<Predicate<Map<ColumnHandle, ConstantExpression>>> predicate)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
@@ -332,17 +332,17 @@ public class InformationSchemaMetadata
         return Optional.empty();
     }
 
-    private Map<ColumnHandle, NullableValue> schemaAsFixedValues(String schema)
+    private Map<ColumnHandle, ConstantExpression> schemaAsFixedValues(String schema)
     {
-        return ImmutableMap.of(SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
+        return ImmutableMap.of(SCHEMA_COLUMN_HANDLE, new ConstantExpression(utf8Slice(schema), createUnboundedVarcharType()));
     }
 
-    private Map<ColumnHandle, NullableValue> asFixedValues(QualifiedObjectName objectName)
+    private Map<ColumnHandle, ConstantExpression> asFixedValues(QualifiedObjectName objectName)
     {
         return ImmutableMap.of(
-                CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getCatalogName())),
-                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getSchemaName())),
-                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getObjectName())));
+                CATALOG_COLUMN_HANDLE, new ConstantExpression(utf8Slice(objectName.getCatalogName()), createUnboundedVarcharType()),
+                SCHEMA_COLUMN_HANDLE, new ConstantExpression(utf8Slice(objectName.getSchemaName()), createUnboundedVarcharType()),
+                TABLE_NAME_COLUMN_HANDLE, new ConstantExpression(utf8Slice(objectName.getObjectName()), createUnboundedVarcharType()));
     }
 
     @Override

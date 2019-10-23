@@ -28,8 +28,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -112,7 +112,7 @@ public class TableMetadataSystemTable
 
     private static List<Page> buildPages(MetadataDao dao, ConnectorTableMetadata tableMetadata, TupleDomain<Integer> tupleDomain)
     {
-        Map<Integer, NullableValue> domainValues = extractFixedValues(tupleDomain).orElse(ImmutableMap.of());
+        Map<Integer, ConstantExpression> domainValues = extractFixedValues(tupleDomain).orElse(ImmutableMap.of());
         String schemaName = getStringValue(domainValues.get(getColumnIndex(tableMetadata, SCHEMA_NAME)));
         String tableName = getStringValue(domainValues.get(getColumnIndex(tableMetadata, TABLE_NAME)));
 
@@ -220,7 +220,7 @@ public class TableMetadataSystemTable
         throw new IllegalArgumentException(format("Column %s not found", columnName));
     }
 
-    static String getStringValue(NullableValue value)
+    static String getStringValue(ConstantExpression value)
     {
         if ((value == null) || value.isNull()) {
             return null;

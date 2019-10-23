@@ -30,8 +30,8 @@ import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
@@ -103,22 +103,22 @@ public class TpchMetadata
     private static final Set<Slice> ORDER_STATUS_VALUES = ImmutableSet.of("F", "O", "P").stream()
             .map(Slices::utf8Slice)
             .collect(toImmutableSet());
-    private static final Set<NullableValue> ORDER_STATUS_NULLABLE_VALUES = ORDER_STATUS_VALUES.stream()
-            .map(value -> new NullableValue(getPrestoType(OrderColumn.ORDER_STATUS), value))
+    private static final Set<ConstantExpression> ORDER_STATUS_NULLABLE_VALUES = ORDER_STATUS_VALUES.stream()
+            .map(value -> new ConstantExpression(value, getPrestoType(OrderColumn.ORDER_STATUS)))
             .collect(toSet());
 
     private static final Set<Slice> PART_TYPE_VALUES = Distributions.getDefaultDistributions().getPartTypes().getValues().stream()
             .map(Slices::utf8Slice)
             .collect(toImmutableSet());
-    private static final Set<NullableValue> PART_TYPE_NULLABLE_VALUES = PART_TYPE_VALUES.stream()
-            .map(value -> new NullableValue(getPrestoType(PartColumn.TYPE), value))
+    private static final Set<ConstantExpression> PART_TYPE_NULLABLE_VALUES = PART_TYPE_VALUES.stream()
+            .map(value -> new ConstantExpression(value, getPrestoType(PartColumn.TYPE)))
             .collect(toSet());
 
     private static final Set<Slice> PART_CONTAINER_VALUES = Distributions.getDefaultDistributions().getPartContainers().getValues().stream()
             .map(Slices::utf8Slice)
             .collect(toImmutableSet());
-    private static final Set<NullableValue> PART_CONTAINER_NULLABLE_VALUES = PART_CONTAINER_VALUES.stream()
-            .map(value -> new NullableValue(getPrestoType(PartColumn.CONTAINER), value))
+    private static final Set<ConstantExpression> PART_CONTAINER_NULLABLE_VALUES = PART_CONTAINER_VALUES.stream()
+            .map(value -> new ConstantExpression(value, getPrestoType(PartColumn.CONTAINER)))
             .collect(toSet());
 
     private final String connectorId;
@@ -254,9 +254,9 @@ public class TpchMetadata
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, unenforcedConstraint));
     }
 
-    private Set<NullableValue> filterValues(Set<NullableValue> nullableValues, TpchColumn<?> column, Constraint<ColumnHandle> constraint)
+    private Set<ConstantExpression> filterValues(Set<ConstantExpression> constantExpressions, TpchColumn<?> column, Constraint<ColumnHandle> constraint)
     {
-        return nullableValues.stream()
+        return constantExpressions.stream()
                 .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
                 .filter(value -> !constraint.predicate().isPresent() || constraint.predicate().get().test(ImmutableMap.of(toColumnHandle(column), value)))
                 .collect(toSet());
@@ -475,7 +475,7 @@ public class TpchMetadata
         return builder.build();
     }
 
-    private TupleDomain<ColumnHandle> toTupleDomain(Map<TpchColumnHandle, Set<NullableValue>> predicate)
+    private TupleDomain<ColumnHandle> toTupleDomain(Map<TpchColumnHandle, Set<ConstantExpression>> predicate)
     {
         return TupleDomain.withColumnDomains(predicate.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> {

@@ -29,7 +29,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -521,12 +521,12 @@ public class MetastoreHiveStatisticsProvider
         return isVarcharType(type) || isCharType(type);
     }
 
-    private static int getSize(NullableValue nullableValue)
+    private static int getSize(ConstantExpression constantExpression)
     {
-        if (nullableValue.isNull()) {
+        if (constantExpression.isNull()) {
             return 0;
         }
-        Object value = nullableValue.getValue();
+        Object value = constantExpression.getValue();
         checkArgument(value instanceof Slice, "value is expected to be of Slice type");
         return ((Slice) value).length();
     }
@@ -556,7 +556,7 @@ public class MetastoreHiveStatisticsProvider
                 .map(HivePartition::getKeys)
                 .map(keys -> keys.get(column))
                 .filter(value -> !value.isNull())
-                .map(NullableValue::getValue)
+                .map(ConstantExpression::getValue)
                 .map(value -> convertPartitionValueToDouble(type, value))
                 .collect(toImmutableList());
 

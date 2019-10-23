@@ -25,7 +25,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
@@ -483,127 +483,95 @@ public final class HiveUtil
                 isCharType(type);
     }
 
-    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
+    public static ConstantExpression parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
     {
         verifyPartitionTypeSupported(partitionName, type);
 
         boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
+        if (isNull) {
+            return ConstantExpression.asNull(type);
+        }
+
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
-            if (isNull) {
-                return NullableValue.asNull(decimalType);
-            }
             if (decimalType.isShort()) {
                 if (value.isEmpty()) {
-                    return NullableValue.of(decimalType, 0L);
+                    return ConstantExpression.of(0L, type);
                 }
-                return NullableValue.of(decimalType, shortDecimalPartitionKey(value, decimalType, partitionName));
+                return ConstantExpression.of(shortDecimalPartitionKey(value, decimalType, partitionName), type);
             }
             else {
                 if (value.isEmpty()) {
-                    return NullableValue.of(decimalType, Decimals.encodeUnscaledValue(BigInteger.ZERO));
+                    return ConstantExpression.of(Decimals.encodeUnscaledValue(BigInteger.ZERO), type);
                 }
-                return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
+                return ConstantExpression.of(longDecimalPartitionKey(value, decimalType, partitionName), type);
             }
         }
 
         if (BOOLEAN.equals(type)) {
-            if (isNull) {
-                return NullableValue.asNull(BOOLEAN);
-            }
             if (value.isEmpty()) {
-                return NullableValue.of(BOOLEAN, false);
+                return ConstantExpression.of(false, type);
             }
-            return NullableValue.of(BOOLEAN, booleanPartitionKey(value, partitionName));
+            return ConstantExpression.of(booleanPartitionKey(value, partitionName), type);
         }
 
         if (TINYINT.equals(type)) {
-            if (isNull) {
-                return NullableValue.asNull(TINYINT);
-            }
             if (value.isEmpty()) {
-                return NullableValue.of(TINYINT, 0L);
+                return ConstantExpression.of(0L, type);
             }
-            return NullableValue.of(TINYINT, tinyintPartitionKey(value, partitionName));
+            return ConstantExpression.of(tinyintPartitionKey(value, partitionName), type);
         }
 
         if (SMALLINT.equals(type)) {
-            if (isNull) {
-                return NullableValue.asNull(SMALLINT);
-            }
             if (value.isEmpty()) {
-                return NullableValue.of(SMALLINT, 0L);
+                return ConstantExpression.of(0L, type);
             }
-            return NullableValue.of(SMALLINT, smallintPartitionKey(value, partitionName));
+            return ConstantExpression.of(smallintPartitionKey(value, partitionName), type);
         }
 
         if (INTEGER.equals(type)) {
-            if (isNull) {
-                return NullableValue.asNull(INTEGER);
-            }
             if (value.isEmpty()) {
-                return NullableValue.of(INTEGER, 0L);
+                return ConstantExpression.of(0L, type);
             }
-            return NullableValue.of(INTEGER, integerPartitionKey(value, partitionName));
+            return ConstantExpression.of(integerPartitionKey(value, partitionName), type);
         }
 
         if (BIGINT.equals(type)) {
-            if (isNull) {
-                return NullableValue.asNull(BIGINT);
-            }
             if (value.isEmpty()) {
-                return NullableValue.of(BIGINT, 0L);
+                return ConstantExpression.of(0L, type);
             }
-            return NullableValue.of(BIGINT, bigintPartitionKey(value, partitionName));
+            return ConstantExpression.of(bigintPartitionKey(value, partitionName), type);
         }
 
         if (DATE.equals(type)) {
-            if (isNull) {
-                return NullableValue.asNull(DATE);
-            }
-            return NullableValue.of(DATE, datePartitionKey(value, partitionName));
+            return ConstantExpression.of(datePartitionKey(value, partitionName), type);
         }
 
         if (TIMESTAMP.equals(type)) {
-            if (isNull) {
-                return NullableValue.asNull(TIMESTAMP);
-            }
-            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, timeZone, partitionName));
+            return ConstantExpression.of(timestampPartitionKey(value, timeZone, partitionName), type);
         }
 
         if (REAL.equals(type)) {
-            if (isNull) {
-                return NullableValue.asNull(REAL);
-            }
             if (value.isEmpty()) {
-                return NullableValue.of(REAL, (long) floatToRawIntBits(0.0f));
+                return ConstantExpression.of((long) floatToRawIntBits(0.0f), type);
             }
-            return NullableValue.of(REAL, floatPartitionKey(value, partitionName));
+            return ConstantExpression.of(floatPartitionKey(value, partitionName), type);
         }
 
         if (DOUBLE.equals(type)) {
-            if (isNull) {
-                return NullableValue.asNull(DOUBLE);
-            }
             if (value.isEmpty()) {
-                return NullableValue.of(DOUBLE, 0.0);
+                return ConstantExpression.of(0.0, type);
             }
-            return NullableValue.of(DOUBLE, doublePartitionKey(value, partitionName));
+            return ConstantExpression.of(doublePartitionKey(value, partitionName), type);
         }
 
         if (isVarcharType(type)) {
-            if (isNull) {
-                return NullableValue.asNull(type);
-            }
-            return NullableValue.of(type, varcharPartitionKey(value, partitionName, type));
+            return ConstantExpression.of(varcharPartitionKey(value, partitionName, type), type);
         }
 
         if (isCharType(type)) {
-            if (isNull) {
-                return NullableValue.asNull(type);
-            }
-            return NullableValue.of(type, charPartitionKey(value, partitionName, type));
+            return ConstantExpression.of(charPartitionKey(value, partitionName, type), type);
         }
 
         throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));

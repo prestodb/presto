@@ -30,8 +30,8 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.transaction.TransactionId;
@@ -135,9 +135,9 @@ public class TestInformationSchemaMetadata
                 TupleDomain.all(),
                 // test_schema has a table named "another_table" and we filter that out in this predicate
                 bindings -> {
-                    NullableValue catalog = bindings.get(new InformationSchemaColumnHandle("table_catalog"));
-                    NullableValue schema = bindings.get(new InformationSchemaColumnHandle("table_schema"));
-                    NullableValue table = bindings.get(new InformationSchemaColumnHandle("table_name"));
+                    ConstantExpression catalog = bindings.get(new InformationSchemaColumnHandle("table_catalog"));
+                    ConstantExpression schema = bindings.get(new InformationSchemaColumnHandle("table_schema"));
+                    ConstantExpression table = bindings.get(new InformationSchemaColumnHandle("table_name"));
                     boolean isValid = true;
                     if (catalog != null) {
                         isValid = ((Slice) catalog.getValue()).toStringUtf8().equals("test_catalog");

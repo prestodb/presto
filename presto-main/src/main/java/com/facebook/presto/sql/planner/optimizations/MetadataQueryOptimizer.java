@@ -31,8 +31,8 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -159,13 +159,13 @@ public class MetadataQueryOptimizer
             ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
             for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
                 if (!domain.isNone()) {
-                    Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
+                    Map<ColumnHandle, ConstantExpression> entries = TupleDomain.extractFixedValues(domain).get();
 
                     ImmutableList.Builder<RowExpression> rowBuilder = ImmutableList.builder();
                     // for each input column, add a literal expression using the entry value
                     for (VariableReferenceExpression input : inputs) {
                         ColumnHandle column = columns.get(input);
-                        NullableValue value = entries.get(column);
+                        ConstantExpression value = entries.get(column);
                         if (value == null) {
                             // partition key does not have a single value, so bail out to be safe
                             return context.defaultRewrite(node);

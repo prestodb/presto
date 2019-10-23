@@ -15,7 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
@@ -29,7 +29,7 @@ public class HivePartition
 
     private final SchemaTableName tableName;
     private final String partitionId;
-    private final Map<ColumnHandle, NullableValue> keys;
+    private final Map<ColumnHandle, ConstantExpression> keys;
 
     public HivePartition(SchemaTableName tableName)
     {
@@ -39,7 +39,7 @@ public class HivePartition
     public HivePartition(
             SchemaTableName tableName,
             String partitionId,
-            Map<ColumnHandle, NullableValue> keys)
+            Map<ColumnHandle, ConstantExpression> keys)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.partitionId = requireNonNull(partitionId, "partitionId is null");
@@ -56,7 +56,7 @@ public class HivePartition
         return partitionId;
     }
 
-    public Map<ColumnHandle, NullableValue> getKeys()
+    public Map<ColumnHandle, ConstantExpression> getKeys()
     {
         return keys;
     }

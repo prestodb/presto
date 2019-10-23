@@ -22,13 +22,13 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.predicate.DiscreteValues;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.Ranges;
 import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
@@ -399,7 +399,7 @@ public final class ExpressionDomainTranslator
             Expression symbolExpression = normalized.getSymbolExpression();
             if (symbolExpression instanceof SymbolReference) {
                 String symbolName = ((SymbolReference) symbolExpression).getName();
-                NullableValue value = normalized.getValue();
+                ConstantExpression value = normalized.getValue();
                 Type type = value.getType(); // common type for symbol and value
                 return createComparisonExtractionResult(normalized.getComparisonOperator(), symbolName, type, value.getValue(), complement);
             }
@@ -466,17 +466,17 @@ public final class ExpressionDomainTranslator
 
             Expression symbolExpression;
             ComparisonExpression.Operator comparisonOperator;
-            NullableValue value;
+            ConstantExpression value;
 
             if (left instanceof Expression) {
                 symbolExpression = comparison.getLeft();
                 comparisonOperator = comparison.getOperator();
-                value = new NullableValue(rightType, right);
+                value = new ConstantExpression(right, rightType);
             }
             else {
                 symbolExpression = comparison.getRight();
                 comparisonOperator = comparison.getOperator().flip();
-                value = new NullableValue(leftType, left);
+                value = new ConstantExpression(left, leftType);
             }
 
             return Optional.of(new NormalizedSimpleComparison(symbolExpression, comparisonOperator, value));
@@ -577,15 +577,15 @@ public final class ExpressionDomainTranslator
         private Optional<Expression> coerceComparisonWithRounding(
                 Type symbolExpressionType,
                 Expression symbolExpression,
-                NullableValue nullableValue,
+                ConstantExpression constantExpression,
                 ComparisonExpression.Operator comparisonOperator)
         {
-            requireNonNull(nullableValue, "nullableValue is null");
-            if (nullableValue.isNull()) {
+            requireNonNull(constantExpression, "constantExpression is null");
+            if (constantExpression.isNull()) {
                 return Optional.empty();
             }
-            Type valueType = nullableValue.getType();
-            Object value = nullableValue.getValue();
+            Type valueType = constantExpression.getType();
+            Object value = constantExpression.getValue();
             return floorValue(valueType, symbolExpressionType, value)
                     .map((floorValue) -> rewriteComparisonExpression(symbolExpressionType, symbolExpression, valueType, value, floorValue, comparisonOperator));
         }
@@ -766,9 +766,9 @@ public final class ExpressionDomainTranslator
     {
         private final Expression symbolExpression;
         private final ComparisonExpression.Operator comparisonOperator;
-        private final NullableValue value;
+        private final ConstantExpression value;
 
-        public NormalizedSimpleComparison(Expression symbolExpression, ComparisonExpression.Operator comparisonOperator, NullableValue value)
+        public NormalizedSimpleComparison(Expression symbolExpression, ComparisonExpression.Operator comparisonOperator, ConstantExpression value)
         {
             this.symbolExpression = requireNonNull(symbolExpression, "nameReference is null");
             this.comparisonOperator = requireNonNull(comparisonOperator, "comparisonOperator is null");
@@ -785,7 +785,7 @@ public final class ExpressionDomainTranslator
             return comparisonOperator;
         }
 
-        public NullableValue getValue()
+        public ConstantExpression getValue()
         {
             return value;
         }

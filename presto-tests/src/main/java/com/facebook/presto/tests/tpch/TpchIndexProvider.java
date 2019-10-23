@@ -20,8 +20,8 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedRecordSet;
 import com.facebook.presto.tpch.TpchColumnHandle;
@@ -58,7 +58,7 @@ public class TpchIndexProvider
     {
         TpchIndexHandle tpchIndexHandle = (TpchIndexHandle) indexHandle;
 
-        Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tpchIndexHandle.getFixedValues()).get();
+        Map<ColumnHandle, ConstantExpression> fixedValues = TupleDomain.extractFixedValues(tpchIndexHandle.getFixedValues()).get();
         checkArgument(lookupSchema.stream().noneMatch(handle -> fixedValues.keySet().contains(handle)),
                 "Lookup columnHandles are not expected to overlap with the fixed value predicates");
 

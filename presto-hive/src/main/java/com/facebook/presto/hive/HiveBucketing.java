@@ -20,9 +20,9 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -291,7 +291,7 @@ final class HiveBucketing
             return Optional.empty();
         }
 
-        Optional<Map<ColumnHandle, NullableValue>> bindings = TupleDomain.extractFixedValues(effectivePredicate);
+        Optional<Map<ColumnHandle, ConstantExpression>> bindings = TupleDomain.extractFixedValues(effectivePredicate);
         if (!bindings.isPresent()) {
             return Optional.empty();
         }
@@ -321,7 +321,7 @@ final class HiveBucketing
         return Optional.of(new HiveBucketFilter(builder.build()));
     }
 
-    private static OptionalInt getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
+    private static OptionalInt getHiveBucket(Table table, Map<ColumnHandle, ConstantExpression> bindings)
     {
         if (bindings.isEmpty()) {
             return OptionalInt.empty();
@@ -342,7 +342,7 @@ final class HiveBucketing
 
         // Get bindings for bucket columns
         Map<String, Object> bucketBindings = new HashMap<>();
-        for (Entry<ColumnHandle, NullableValue> entry : bindings.entrySet()) {
+        for (Entry<ColumnHandle, ConstantExpression> entry : bindings.entrySet()) {
             HiveColumnHandle colHandle = (HiveColumnHandle) entry.getKey();
             if (!entry.getValue().isNull() && bucketColumns.contains(colHandle.getName())) {
                 bucketBindings.put(colHandle.getName(), entry.getValue().getValue());

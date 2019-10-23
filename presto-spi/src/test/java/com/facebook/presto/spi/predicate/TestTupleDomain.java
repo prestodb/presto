@@ -19,6 +19,7 @@ import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
 import com.facebook.presto.spi.block.TestingBlockJsonSerde;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.TestingTypeDeserializer;
 import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.spi.type.Type;
@@ -542,8 +543,8 @@ public class TestTupleDomain
                                 .put(D, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), true))
                                 .build())).get(),
                 ImmutableMap.of(
-                        B, NullableValue.of(VARCHAR, utf8Slice("value")),
-                        C, NullableValue.asNull(BIGINT)));
+                        B, ConstantExpression.of(utf8Slice("value"), VARCHAR),
+                        C, ConstantExpression.asNull(BIGINT)));
     }
 
     @Test
@@ -563,11 +564,11 @@ public class TestTupleDomain
     {
         assertEquals(
                 TupleDomain.fromFixedValues(
-                        ImmutableMap.<ColumnHandle, NullableValue>builder()
-                                .put(A, NullableValue.of(BIGINT, 1L))
-                                .put(B, NullableValue.of(VARCHAR, utf8Slice("value")))
-                                .put(C, NullableValue.of(DOUBLE, 0.01))
-                                .put(D, NullableValue.asNull(BOOLEAN))
+                        ImmutableMap.<ColumnHandle, ConstantExpression>builder()
+                                .put(A, ConstantExpression.of(1L, BIGINT))
+                                .put(B, ConstantExpression.of(utf8Slice("value"), VARCHAR))
+                                .put(C, ConstantExpression.of(0.01, DOUBLE))
+                                .put(D, ConstantExpression.asNull(BOOLEAN))
                                 .build()),
                 TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                         .put(A, Domain.singleValue(BIGINT, 1L))
@@ -611,7 +612,7 @@ public class TestTupleDomain
         tupleDomain = TupleDomain.none();
         assertEquals(tupleDomain, mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() {}));
 
-        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(A, NullableValue.of(BIGINT, 1L), B, NullableValue.asNull(VARCHAR)));
+        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(A, ConstantExpression.of(1L, BIGINT), B, ConstantExpression.asNull(VARCHAR)));
         assertEquals(tupleDomain, mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() {}));
     }
 

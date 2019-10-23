@@ -19,6 +19,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -34,7 +35,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.spi.predicate.NullableValue.asNull;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedIndexSource;
@@ -96,6 +96,6 @@ public class TestPruneIndexSourceColumns
                                 orderkey, orderkeyHandle,
                                 custkey, custkeyHandle,
                                 totalprice, totalpriceHandle),
-                        TupleDomain.fromFixedValues(ImmutableMap.of(totalpriceHandle, asNull(DOUBLE)))));
+                        TupleDomain.fromFixedValues(ImmutableMap.of(totalpriceHandle, ConstantExpression.asNull(DOUBLE)))));
     }
 }

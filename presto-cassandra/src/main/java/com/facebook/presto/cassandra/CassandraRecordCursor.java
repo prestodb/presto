@@ -16,7 +16,7 @@ package com.facebook.presto.cassandra;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
@@ -115,7 +115,7 @@ public class CassandraRecordCursor
     @Override
     public Slice getSlice(int i)
     {
-        NullableValue value = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i));
+        ConstantExpression value = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i));
         if (value.getValue() instanceof Slice) {
             return (Slice) value.getValue();
         }

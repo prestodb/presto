@@ -18,7 +18,7 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
@@ -160,58 +160,58 @@ public enum CassandraType
         }
     }
 
-    public static NullableValue getColumnValue(Row row, int i, FullCassandraType fullCassandraType)
+    public static ConstantExpression getColumnValue(Row row, int i, FullCassandraType fullCassandraType)
     {
         return getColumnValue(row, i, fullCassandraType.getCassandraType(), fullCassandraType.getTypeArguments());
     }
 
-    public static NullableValue getColumnValue(Row row, int i, CassandraType cassandraType,
+    public static ConstantExpression getColumnValue(Row row, int i, CassandraType cassandraType,
             List<CassandraType> typeArguments)
     {
         Type nativeType = cassandraType.getNativeType();
         if (row.isNull(i)) {
-            return NullableValue.asNull(nativeType);
+            return ConstantExpression.asNull(nativeType);
         }
         else {
             switch (cassandraType) {
                 case ASCII:
                 case TEXT:
                 case VARCHAR:
-                    return NullableValue.of(nativeType, utf8Slice(row.getString(i)));
+                    return ConstantExpression.of(utf8Slice(row.getString(i)), nativeType);
                 case INT:
-                    return NullableValue.of(nativeType, (long) row.getInt(i));
+                    return ConstantExpression.of((long) row.getInt(i), nativeType);
                 case BIGINT:
                 case COUNTER:
-                    return NullableValue.of(nativeType, row.getLong(i));
+                    return ConstantExpression.of(row.getLong(i), nativeType);
                 case BOOLEAN:
-                    return NullableValue.of(nativeType, row.getBool(i));
+                    return ConstantExpression.of(row.getBool(i), nativeType);
                 case DOUBLE:
-                    return NullableValue.of(nativeType, row.getDouble(i));
+                    return ConstantExpression.of(row.getDouble(i), nativeType);
                 case FLOAT:
-                    return NullableValue.of(nativeType, (long) floatToRawIntBits(row.getFloat(i)));
+                    return ConstantExpression.of((long) floatToRawIntBits(row.getFloat(i)), nativeType);
                 case DECIMAL:
-                    return NullableValue.of(nativeType, row.getDecimal(i).doubleValue());
+                    return ConstantExpression.of(row.getDecimal(i).doubleValue(), nativeType);
                 case UUID:
                 case TIMEUUID:
-                    return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
+                    return ConstantExpression.of(utf8Slice(row.getUUID(i).toString()), nativeType);
                 case TIMESTAMP:
-                    return NullableValue.of(nativeType, row.getTimestamp(i).getTime());
+                    return ConstantExpression.of(row.getTimestamp(i).getTime(), nativeType);
                 case INET:
-                    return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(i))));
+                    return ConstantExpression.of(utf8Slice(toAddrString(row.getInet(i))), nativeType);
                 case VARINT:
-                    return NullableValue.of(nativeType, utf8Slice(row.getVarint(i).toString()));
+                    return ConstantExpression.of(utf8Slice(row.getVarint(i).toString()), nativeType);
                 case BLOB:
                 case CUSTOM:
-                    return NullableValue.of(nativeType, wrappedBuffer(row.getBytesUnsafe(i)));
+                    return ConstantExpression.of(wrappedBuffer(row.getBytesUnsafe(i)), nativeType);
                 case SET:
                     checkTypeArguments(cassandraType, 1, typeArguments);
-                    return NullableValue.of(nativeType, utf8Slice(buildSetValue(row, i, typeArguments.get(0))));
+                    return ConstantExpression.of(utf8Slice(buildSetValue(row, i, typeArguments.get(0))), nativeType);
                 case LIST:
                     checkTypeArguments(cassandraType, 1, typeArguments);
-                    return NullableValue.of(nativeType, utf8Slice(buildListValue(row, i, typeArguments.get(0))));
+                    return ConstantExpression.of(utf8Slice(buildListValue(row, i, typeArguments.get(0))), nativeType);
                 case MAP:
                     checkTypeArguments(cassandraType, 2, typeArguments);
-                    return NullableValue.of(nativeType, utf8Slice(buildMapValue(row, i, typeArguments.get(0), typeArguments.get(1))));
+                    return ConstantExpression.of(utf8Slice(buildMapValue(row, i, typeArguments.get(0), typeArguments.get(1))), nativeType);
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
@@ -219,20 +219,20 @@ public enum CassandraType
         }
     }
 
-    public static NullableValue getColumnValueForPartitionKey(Row row, int i, CassandraType cassandraType, List<CassandraType> typeArguments)
+    public static ConstantExpression getColumnValueForPartitionKey(Row row, int i, CassandraType cassandraType, List<CassandraType> typeArguments)
     {
         Type nativeType = cassandraType.getNativeType();
         if (row.isNull(i)) {
-            return NullableValue.asNull(nativeType);
+            return ConstantExpression.asNull(nativeType);
         }
         switch (cassandraType) {
             case ASCII:
             case TEXT:
             case VARCHAR:
-                return NullableValue.of(nativeType, utf8Slice(row.getString(i)));
+                return ConstantExpression.of(utf8Slice(row.getString(i)), nativeType);
             case UUID:
             case TIMEUUID:
-                return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
+                return ConstantExpression.of(utf8Slice(row.getUUID(i).toString()), nativeType);
             default:
                 return getColumnValue(row, i, cassandraType, typeArguments);
         }

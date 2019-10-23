@@ -14,8 +14,8 @@
 package com.facebook.presto.tpch.util;
 
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.google.common.collect.ImmutableMap;
 
@@ -25,7 +25,7 @@ public final class PredicateUtils
 {
     private PredicateUtils() {}
 
-    public static Predicate<NullableValue> convertToPredicate(TupleDomain<ColumnHandle> predicate, TpchColumnHandle columnHandle)
+    public static Predicate<ConstantExpression> convertToPredicate(TupleDomain<ColumnHandle> predicate, TpchColumnHandle columnHandle)
     {
         TupleDomain<ColumnHandle> columnPredicate = filterColumns(predicate, columnHandle::equals);
         return nullableValue -> columnPredicate.contains(TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, nullableValue)));

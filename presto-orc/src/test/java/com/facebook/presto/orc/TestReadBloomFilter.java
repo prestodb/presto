@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -123,7 +123,7 @@ public class TestReadBloomFilter
     private static <T> TupleDomainOrcPredicate<String> makeOrcPredicate(Type type, T value, boolean bloomFilterEnabled)
     {
         return new TupleDomainOrcPredicate<>(
-                fromFixedValues(ImmutableMap.of("test", NullableValue.of(type, value))),
+                fromFixedValues(ImmutableMap.of("test", ConstantExpression.of(value, type))),
                 ImmutableList.of(new ColumnReference<>("test", 0, type)),
                 bloomFilterEnabled,
                 Optional.empty());

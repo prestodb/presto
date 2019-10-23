@@ -24,8 +24,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.CharType;
@@ -286,7 +286,7 @@ public class HivePartitionManager
 
         Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().get();
         for (HiveColumnHandle column : partitionColumns) {
-            NullableValue value = partition.getKeys().get(column);
+            ConstantExpression value = partition.getKeys().get(column);
             Domain allowedDomain = domains.get(column);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value.getValue())) {
                 return Optional.empty();
@@ -392,13 +392,13 @@ public class HivePartitionManager
             DateTimeZone timeZone)
     {
         List<String> partitionValues = extractPartitionValues(partitionName);
-        ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnHandle, ConstantExpression> builder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
             HiveColumnHandle column = partitionColumns.get(i);
-            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionColumnTypes.get(i), timeZone);
+            ConstantExpression parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionColumnTypes.get(i), timeZone);
             builder.put(column, parsedValue);
         }
-        Map<ColumnHandle, NullableValue> values = builder.build();
+        Map<ColumnHandle, ConstantExpression> values = builder.build();
         return new HivePartition(tableName, partitionName, values);
     }
 

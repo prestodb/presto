@@ -22,8 +22,8 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -70,7 +70,7 @@ public class JmxSplitManager
 
         List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
                 .filter(node -> {
-                    NullableValue value = NullableValue.of(createUnboundedVarcharType(), utf8Slice(node.getNodeIdentifier()));
+                    ConstantExpression value = ConstantExpression.of(utf8Slice(node.getNodeIdentifier()), createUnboundedVarcharType());
                     return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle.get(), value)));
                 })
                 .map(node -> new JmxSplit(tableHandle, ImmutableList.of(node.getHostAndPort())))

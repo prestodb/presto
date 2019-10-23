@@ -26,7 +26,6 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.DiscreteValues;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker;
-import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.Ranges;
 import com.facebook.presto.spi.predicate.SortedRangeSet;
@@ -409,7 +408,7 @@ public final class RowExpressionDomainTranslator
                 NormalizedSimpleComparison normalized = optionalNormalized.get();
 
                 RowExpression expression = normalized.getExpression();
-                NullableValue value = normalized.getValue();
+                ConstantExpression value = normalized.getValue();
                 Domain domain = createComparisonDomain(normalized.getComparisonOperator(), value.getType(), value.getValue(), complement);
                 Optional<T> column = columnExtractor.extract(expression, domain);
                 if (column.isPresent()) {
@@ -473,15 +472,15 @@ public final class RowExpressionDomainTranslator
         private Optional<RowExpression> coerceComparisonWithRounding(
                 Type expressionType,
                 RowExpression expression,
-                NullableValue nullableValue,
+                ConstantExpression constantExpression,
                 OperatorType comparisonOperator)
         {
-            requireNonNull(nullableValue, "nullableValue is null");
-            if (nullableValue.isNull()) {
+            requireNonNull(constantExpression, "constantExpression is null");
+            if (constantExpression.isNull()) {
                 return Optional.empty();
             }
-            Type valueType = nullableValue.getType();
-            Object value = nullableValue.getValue();
+            Type valueType = constantExpression.getType();
+            Object value = constantExpression.getValue();
             return floorValue(valueType, expressionType, value)
                     .map((floorValue) -> rewriteComparisonExpression(expressionType, expression, valueType, value, floorValue, comparisonOperator));
         }
@@ -657,17 +656,17 @@ public final class RowExpressionDomainTranslator
 
             RowExpression expression;
             OperatorType comparisonOperator;
-            NullableValue value;
+            ConstantExpression value;
 
             if (left instanceof RowExpression) {
                 expression = leftExpression;
                 comparisonOperator = operatorType;
-                value = new NullableValue(rightExpression.getType(), right);
+                value = new ConstantExpression(right, rightExpression.getType());
             }
             else {
                 expression = rightExpression;
                 comparisonOperator = flip(operatorType);
-                value = new NullableValue(leftExpression.getType(), left);
+                value = new ConstantExpression(left, leftExpression.getType());
             }
 
             return Optional.of(new NormalizedSimpleComparison(expression, comparisonOperator, value));
@@ -867,9 +866,9 @@ public final class RowExpressionDomainTranslator
     {
         private final RowExpression expression;
         private final OperatorType comparisonOperator;
-        private final NullableValue value;
+        private final ConstantExpression value;
 
-        public NormalizedSimpleComparison(RowExpression expression, OperatorType comparisonOperator, NullableValue value)
+        public NormalizedSimpleComparison(RowExpression expression, OperatorType comparisonOperator, ConstantExpression value)
         {
             this.expression = requireNonNull(expression, "expression is null");
             this.comparisonOperator = requireNonNull(comparisonOperator, "comparisonOperator is null");
@@ -886,7 +885,7 @@ public final class RowExpressionDomainTranslator
             return comparisonOperator;
         }
 
-        public NullableValue getValue()
+        public ConstantExpression getValue()
         {
             return value;
         }

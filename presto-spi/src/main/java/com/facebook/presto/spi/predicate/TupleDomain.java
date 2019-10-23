@@ -91,7 +91,7 @@ public final class TupleDomain<T>
      * Extract all column constraints that require exactly one value or only null in their respective Domains.
      * Returns an empty Optional if the Domain is none.
      */
-    public static <T> Optional<Map<T, NullableValue>> extractFixedValues(TupleDomain<T> tupleDomain)
+    public static <T> Optional<Map<T, ConstantExpression>> extractFixedValues(TupleDomain<T> tupleDomain)
     {
         if (!tupleDomain.getDomains().isPresent()) {
             return Optional.empty();
@@ -100,7 +100,7 @@ public final class TupleDomain<T>
         return Optional.of(tupleDomain.getDomains().get()
                 .entrySet().stream()
                 .filter(entry -> entry.getValue().isNullableSingleValue())
-                .collect(toLinkedMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> new ConstantExpression(entry.getValue().getNullableSingleValue(), entry.getValue().getType()))));
     }
 
     /**
@@ -123,7 +123,7 @@ public final class TupleDomain<T>
      * Convert a map of columns to values into the TupleDomain which requires
      * those columns to be fixed to those values. Null is allowed as a fixed value.
      */
-    public static <T> TupleDomain<T> fromFixedValues(Map<T, NullableValue> fixedValues)
+    public static <T> TupleDomain<T> fromFixedValues(Map<T, ConstantExpression> fixedValues)
     {
         return TupleDomain.withColumnDomains(fixedValues.entrySet().stream()
                 .collect(toLinkedMap(

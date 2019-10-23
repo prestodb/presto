@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +45,7 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, ConstantExpression.of(Slices.utf8Slice(Integer.toString(i)), VarcharType.VARCHAR))));
         }
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
@@ -60,7 +60,7 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, ConstantExpression.asNull(VarcharType.VARCHAR))));
         }
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
@@ -75,13 +75,13 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, ConstantExpression.of(Slices.utf8Slice(Integer.toString(i)), VarcharType.VARCHAR))));
         }
 
         partitions.add(new HivePartition(
                 new SchemaTableName("test", "test"),
                 "null",
-                ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
+                ImmutableMap.of(TEST_COLUMN_HANDLE, ConstantExpression.asNull(VarcharType.VARCHAR))));
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
     }
