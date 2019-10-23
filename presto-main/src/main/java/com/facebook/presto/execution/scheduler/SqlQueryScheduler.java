@@ -93,6 +93,7 @@ import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardingOutputBuffers;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
+import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -283,6 +284,7 @@ public class SqlQueryScheduler
                     }
                 }
             });
+            stageExecution.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.of(getStageInfo())));
         }
 
         // when query is done or any time a stage completes, attempt to transition query to "final query info ready"
@@ -291,9 +293,6 @@ public class SqlQueryScheduler
                 queryStateMachine.updateQueryInfo(Optional.of(getStageInfo()));
             }
         });
-        for (SqlStageExecution stageExecution : stageExecutions.values()) {
-            stageExecution.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.of(getStageInfo())));
-        }
     }
 
     private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations)
@@ -334,11 +333,10 @@ public class SqlQueryScheduler
 
         // Only fetch a distribution once per section to ensure all stages see the same machine assignments
         Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
-        TableWriteInfo tableWriteInfo = TableWriteInfo.createTableWriteInfo(section.getPlan(), metadata, session);
+        TableWriteInfo tableWriteInfo = createTableWriteInfo(section.getPlan(), metadata, session);
         List<SqlStageExecution> sectionStages = createStreamingLinkedStageExecutions(
                 locationsConsumer,
                 section.getPlan().withBucketToPartition(bucketToPartition),
-                metadata,
                 nodeScheduler,
                 remoteTaskFactory,
                 splitSourceFactory,
@@ -384,7 +382,6 @@ public class SqlQueryScheduler
     private List<SqlStageExecution> createStreamingLinkedStageExecutions(
             ExchangeLocationsConsumer parent,
             StreamingSubPlan plan,
-            Metadata metadata,
             NodeScheduler nodeScheduler,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
@@ -535,7 +532,6 @@ public class SqlQueryScheduler
             List<SqlStageExecution> subTree = createStreamingLinkedStageExecutions(
                     stageExecution::addExchangeLocations,
                     stagePlan.withBucketToPartition(bucketToPartition),
-                    metadata,
                     nodeScheduler,
                     remoteTaskFactory,
                     splitSourceFactory,
