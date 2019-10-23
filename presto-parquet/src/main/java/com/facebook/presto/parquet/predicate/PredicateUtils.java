@@ -125,7 +125,6 @@ public final class PredicateUtils
                     dataSource.readFully(columnMetaData.getStartingPos(), buffer);
                     Optional<DictionaryPage> dictionaryPage = readDictionaryPage(buffer, columnMetaData.getCodec());
                     dictionaries.put(descriptor, new DictionaryDescriptor(descriptor, dictionaryPage));
-                    break;
                 }
             }
         }
@@ -157,7 +156,7 @@ public final class PredicateUtils
     private static boolean isColumnPredicate(ColumnDescriptor columnDescriptor, TupleDomain<ColumnDescriptor> parquetTupleDomain)
     {
         verify(parquetTupleDomain.getDomains().isPresent(), "parquetTupleDomain is empty");
-        return parquetTupleDomain.getDomains().get().keySet().contains(columnDescriptor);
+        return parquetTupleDomain.getDomains().get().containsKey(columnDescriptor);
     }
 
     @VisibleForTesting
