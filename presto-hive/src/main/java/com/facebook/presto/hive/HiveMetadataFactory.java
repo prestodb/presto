@@ -57,6 +57,7 @@ public class HiveMetadataFactory
     private final StagingFileCommitter stagingFileCommitter;
     private final ZeroRowFileCreator zeroRowFileCreator;
     private final String prestoVersion;
+    private final PartitionObjectBuilder partitionObjectBuilder;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -75,7 +76,8 @@ public class HiveMetadataFactory
             TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            PartitionObjectBuilder partitionObjectBuilder)
     {
         this(
                 metastore,
@@ -98,7 +100,8 @@ public class HiveMetadataFactory
                 typeTranslator,
                 stagingFileCommitter,
                 zeroRowFileCreator,
-                nodeVersion.toString());
+                nodeVersion.toString(),
+                partitionObjectBuilder);
     }
 
     public HiveMetadataFactory(
@@ -122,7 +125,8 @@ public class HiveMetadataFactory
             TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
-            String prestoVersion)
+            String prestoVersion,
+            PartitionObjectBuilder partitionObjectBuilder)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -146,6 +150,7 @@ public class HiveMetadataFactory
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
         this.zeroRowFileCreator = requireNonNull(zeroRowFileCreator, "zeroRowFileCreator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
+        this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -183,6 +188,7 @@ public class HiveMetadataFactory
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
                 stagingFileCommitter,
-                zeroRowFileCreator);
+                zeroRowFileCreator,
+                partitionObjectBuilder);
     }
 }

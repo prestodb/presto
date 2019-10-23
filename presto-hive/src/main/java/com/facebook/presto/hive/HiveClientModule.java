@@ -113,6 +113,7 @@ public class HiveClientModule
         binder.bind(new TypeLiteral<Supplier<TransactionalMetadata>>() {}).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(StagingFileCommitter.class).to(HiveStagingFileCommitter.class).in(Scopes.SINGLETON);
         binder.bind(ZeroRowFileCreator.class).to(HiveZeroRowFileCreator.class).in(Scopes.SINGLETON);
+        binder.bind(PartitionObjectBuilder.class).to(HivePartitionObjectBuilder.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generatedNameOf(HiveSplitManager.class, connectorId));

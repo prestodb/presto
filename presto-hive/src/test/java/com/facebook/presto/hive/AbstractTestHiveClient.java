@@ -839,7 +839,8 @@ public abstract class AbstractTestHiveClient
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(hdfsEnvironment, listeningDecorator(executor)),
-                TEST_SERVER_VERSION);
+                TEST_SERVER_VERSION,
+                new HivePartitionObjectBuilder());
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),

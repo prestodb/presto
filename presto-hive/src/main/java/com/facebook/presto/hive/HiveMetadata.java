@@ -145,7 +145,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
-import static com.facebook.presto.hive.HivePartitionManager.extractPartitionValues;
 import static com.facebook.presto.hive.HiveSessionProperties.getCompressionCodec;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.getTemporaryTableCompressionCodec;
@@ -274,6 +273,7 @@ public class HiveMetadata
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final StagingFileCommitter stagingFileCommitter;
     private final ZeroRowFileCreator zeroRowFileCreator;
+    private final PartitionObjectBuilder partitionObjectBuilder;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -293,7 +293,8 @@ public class HiveMetadata
             String prestoVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
             StagingFileCommitter stagingFileCommitter,
-            ZeroRowFileCreator zeroRowFileCreator)
+            ZeroRowFileCreator zeroRowFileCreator,
+            PartitionObjectBuilder partitionObjectBuilder)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -314,6 +315,7 @@ public class HiveMetadata
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
         this.zeroRowFileCreator = requireNonNull(zeroRowFileCreator, "zeroRowFileCreator is null");
+        this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -1180,7 +1182,7 @@ public class HiveMetadata
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
-                Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
+                Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(partitionObjectBuilder.buildPartitionObject(session, table, partitionUpdate, prestoVersion));
                 zeroRowFileCreator.createFiles(
                         session,
                         hdfsContext,
@@ -1218,7 +1220,7 @@ public class HiveMetadata
             Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
         }
         for (PartitionUpdate update : partitionUpdates) {
-            Partition partition = buildPartitionObject(session, table, update);
+            Partition partition = partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion);
             PartitionStatistics partitionStatistics = createPartitionStatistics(
                     session,
                     update.getStatistics(),
@@ -1228,7 +1230,7 @@ public class HiveMetadata
                     session,
                     handle.getSchemaName(),
                     handle.getTableName(),
-                    buildPartitionObject(session, table, update),
+                    partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion),
                     update.getWritePath(),
                     partitionStatistics);
         }
@@ -1412,7 +1414,7 @@ public class HiveMetadata
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             HdfsContext hdfsContext = new HdfsContext(session, table.get().getDatabaseName(), table.get().getTableName());
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
-                Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table.get(), partitionUpdate));
+                Optional<Partition> partition = table.get().getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(partitionObjectBuilder.buildPartitionObject(session, table.get(), partitionUpdate, prestoVersion));
                 zeroRowFileCreator.createFiles(
                         session,
                         hdfsContext,
@@ -1466,7 +1468,7 @@ public class HiveMetadata
             }
             else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == OVERWRITE) {
                 // insert into new partition or overwrite existing partition
-                Partition partition = buildPartitionObject(session, table.get(), partitionUpdate);
+                Partition partition = partitionObjectBuilder.buildPartitionObject(session, table.get(), partitionUpdate, prestoVersion);
                 if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }
@@ -1502,27 +1504,6 @@ public class HiveMetadata
         return fileWriteInfos.stream()
                 .map(FileWriteInfo::getTargetFileName)
                 .collect(toImmutableList());
-    }
-
-    private Partition buildPartitionObject(ConnectorSession session, Table table, PartitionUpdate partitionUpdate)
-    {
-        return Partition.builder()
-                .setDatabaseName(table.getDatabaseName())
-                .setTableName(table.getTableName())
-                .setColumns(table.getDataColumns())
-                .setValues(extractPartitionValues(partitionUpdate.getName()))
-                .setParameters(ImmutableMap.<String, String>builder()
-                        .put(PRESTO_VERSION_NAME, prestoVersion)
-                        .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                        .build())
-                .withStorage(storage -> storage
-                        .setStorageFormat(isRespectTableFormat(session) ?
-                                table.getStorage().getStorageFormat() :
-                                fromHiveStorageFormat(HiveSessionProperties.getHiveStorageFormat(session)))
-                        .setLocation(partitionUpdate.getTargetPath().toString())
-                        .setBucketProperty(table.getStorage().getBucketProperty())
-                        .setSerdeParameters(table.getStorage().getSerdeParameters()))
-                .build();
     }
 
     private PartitionStatistics createPartitionStatistics(
