@@ -191,7 +191,7 @@ public class HivePartitionManager
                     partitions,
                     compactEffectivePredicate,
                     effectivePredicate,
-                    TupleDomain.none(),
+                    TupleDomain.all(),
                     hiveBucketHandle,
                     bucketFilter);
         }

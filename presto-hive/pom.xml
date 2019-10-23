@@ -408,6 +408,7 @@
                                 <exclude>**/TestHiveDistributedQueriesWithExchangeMaterialization.java</exclude>
                                 <exclude>**/TestHiveRecoverableGroupedExecution.java</exclude>
                                 <exclude>**/TestHivePushdownFilterQueries.java</exclude>
+                                <exclude>**/TestHiveSelectiveDistributedQueries.java</exclude>
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
                             </excludes>
                         </configuration>
@@ -474,6 +475,22 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHivePushdownFilterQueries.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-hive-selective-distributed-queries</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestHiveSelectiveDistributedQueries.java</include>
                             </includes>
                         </configuration>
                     </plugin>
