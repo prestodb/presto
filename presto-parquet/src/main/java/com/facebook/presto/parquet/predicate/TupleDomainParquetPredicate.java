@@ -106,8 +106,9 @@ public class TupleDomainParquetPredicate
     }
 
     @Override
-    public boolean matches(Map<ColumnDescriptor, DictionaryDescriptor> dictionaries)
+    public boolean matches(DictionaryDescriptor dictionary)
     {
+        requireNonNull(dictionary, "dictionary is null");
         if (effectivePredicate.isNone()) {
             return false;
         }
@@ -115,18 +116,14 @@ public class TupleDomainParquetPredicate
         Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                 .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
 
-        for (RichColumnDescriptor column : columns) {
-            Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
-            if (effectivePredicateDomain == null) {
-                continue;
-            }
-            DictionaryDescriptor dictionaryDescriptor = dictionaries.get(column);
-            Domain domain = getDomain(effectivePredicateDomain.getType(), dictionaryDescriptor);
-            if (effectivePredicateDomain.intersect(domain).isNone()) {
-                return false;
-            }
-        }
-        return true;
+        Domain effectivePredicateDomain = effectivePredicateDomains.get(dictionary.getColumnDescriptor());
+
+        return effectivePredicateDomain == null || effectivePredicateMatches(effectivePredicateDomain, dictionary);
+    }
+
+    private static boolean effectivePredicateMatches(Domain effectivePredicateDomain, DictionaryDescriptor dictionary)
+    {
+        return !effectivePredicateDomain.intersect(getDomain(effectivePredicateDomain.getType(), dictionary)).isNone();
     }
 
     @VisibleForTesting
