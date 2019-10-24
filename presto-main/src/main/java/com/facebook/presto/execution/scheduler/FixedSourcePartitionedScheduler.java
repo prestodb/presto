@@ -39,7 +39,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
@@ -64,6 +66,8 @@ public class FixedSourcePartitionedScheduler
     private boolean scheduledTasks;
     private boolean anySourceSchedulingFinished;
     private final Optional<LifespanScheduler> groupedLifespanScheduler;
+
+    private final Queue<Integer> tasksToRecover = new ConcurrentLinkedQueue<>();
 
     public FixedSourcePartitionedScheduler(
             SqlStageExecution stage,
@@ -161,9 +165,8 @@ public class FixedSourcePartitionedScheduler
         return partitionHandles.get(lifespan.getId());
     }
 
-    // Only schedule() and recover() are synchronized
     @Override
-    public synchronized ScheduleResult schedule()
+    public ScheduleResult schedule()
     {
         // schedule a task on every node in the distribution
         List<RemoteTask> newTasks = ImmutableList.of();
@@ -186,6 +189,13 @@ public class FixedSourcePartitionedScheduler
         BlockedReason blockedReason = BlockedReason.NO_ACTIVE_DRIVER_GROUP;
 
         if (groupedLifespanScheduler.isPresent()) {
+            while (!tasksToRecover.isEmpty()) {
+                if (anySourceSchedulingFinished) {
+                    throw new IllegalStateException("Recover after any source scheduling finished is not supported");
+                }
+                groupedLifespanScheduler.get().onTaskFailed(tasksToRecover.poll(), sourceSchedulers);
+            }
+
             if (groupedLifespanScheduler.get().allLifespanExecutionFinished()) {
                 for (SourceScheduler sourceScheduler : sourceSchedulers) {
                     sourceScheduler.notifyAllLifespansFinishedExecution();
@@ -243,15 +253,9 @@ public class FixedSourcePartitionedScheduler
         }
     }
 
-    // Only schedule() and recover() are synchronized
-    public synchronized void recover(TaskId taskId)
+    public void recover(TaskId taskId)
     {
-        checkState(groupedLifespanScheduler.isPresent(), "groupedLifespanScheduler is not present for recoverable grouped execution");
-        if (anySourceSchedulingFinished) {
-            throw new IllegalStateException("Recover after any source scheduling finished is not supported");
-        }
-
-        groupedLifespanScheduler.get().onTaskFailed(taskId.getId(), sourceSchedulers);
+        tasksToRecover.add(taskId.getId());
     }
 
     @Override

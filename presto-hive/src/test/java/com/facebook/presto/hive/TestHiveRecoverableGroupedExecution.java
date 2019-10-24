@@ -100,7 +100,7 @@ public class TestHiveRecoverableGroupedExecution
         executor.shutdownNow();
     }
 
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testCreateBucketedTable()
             throws Exception
     {
@@ -138,7 +138,7 @@ public class TestHiveRecoverableGroupedExecution
                         "DROP TABLE IF EXISTS test_failure"));
     }
 
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testInsertBucketedTable()
             throws Exception
     {
@@ -180,7 +180,7 @@ public class TestHiveRecoverableGroupedExecution
                         "DROP TABLE IF EXISTS test_failure"));
     }
 
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testCreateUnbucketedTableWithGroupedExecution()
             throws Exception
     {
@@ -218,7 +218,7 @@ public class TestHiveRecoverableGroupedExecution
                         "DROP TABLE IF EXISTS test_failure"));
     }
 
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testInsertUnbucketedTableWithGroupedExecution()
             throws Exception
     {
@@ -260,7 +260,7 @@ public class TestHiveRecoverableGroupedExecution
                         "DROP TABLE IF EXISTS test_failure"));
     }
 
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 60_000)
     public void testScanFilterProjectionOnlyQueryOnUnbucketedTable()
             throws Exception
     {
