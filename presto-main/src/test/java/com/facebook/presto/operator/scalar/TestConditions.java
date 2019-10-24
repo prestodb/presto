@@ -442,4 +442,22 @@ public class TestConditions
                 DOUBLE,
                 33.0);
     }
+
+    @Test
+    public void testSimpleCase1()
+    {
+        assertFunction("case 8 " +
+                        "when double '76.1' then 1 " +
+                        "when real '8.1' then 2 " +
+                        "end",
+                INTEGER,
+                null);
+
+        assertFunction("case 8 " +
+                        "when 9 then 1 " +
+                        "when cast(null as decimal) then 2 " +
+                        "end",
+                INTEGER,
+                null);
+    }
 }

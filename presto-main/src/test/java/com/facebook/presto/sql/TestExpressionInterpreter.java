@@ -1113,7 +1113,7 @@ public class TestExpressionInterpreter
                 "" +
                         "case BIGINT '1' " +
                         "when unbound_long then 1 " +
-                        "when cast(fail() AS integer) then 2 " +
+                        "when cast(fail() AS bigint) then 2 " +
                         "else 1 " +
                         "end");
 
