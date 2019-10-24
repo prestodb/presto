@@ -340,6 +340,37 @@ Statistical Aggregate Functions
     Returns linear regression slope of input values. ``y`` is the dependent
     value. ``x`` is the independent value.
 
+.. function:: reservoir_sample(max_samples, x, weight) -> array<x>
+
+    `Reservoir sample <https://en.wikipedia.org/wiki/Reservoir_sampling>`_
+    (see [Black2015]_), or
+    `weighted reservoir sample <https://en.wikipedia.org/wiki/Reservoir_sampling#Weighted_random_sampling_using_Reservoir>`_
+    (see [Efraimidis2006]), of values ``x``.
+
+    Returns an array of up to ``max_samples`` randomly selected elements.
+    ``max_samples`` is the maximum number of elements to store and return.
+    ``weight`` is an optional ``double`` parameter, which must be non-negative. It indicates the
+    probability of selecting the corresponding value.
+
+    For example, to sample 100 elements from ``x``, selected with weight ``w`` as a row, use
+
+        .. code-block:: none
+
+             SELECT
+                 reservoir_sample(100, x, w)
+             FROM
+                 data
+
+    To sample 100 elements from ``x`` as a column, use
+
+        .. code-block:: none
+
+             SELECT
+                 sample
+             FROM
+                 data
+             CROSS JOIN UNNEST(reservoir_sample(100, x) AS t (sample)
+
 .. function:: skewness(x) -> double
 
     Returns the skewness of all input values.

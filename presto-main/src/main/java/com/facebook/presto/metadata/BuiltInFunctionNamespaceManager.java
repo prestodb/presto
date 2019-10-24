@@ -63,6 +63,7 @@ import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunctio
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggregationFunction;
+import com.facebook.presto.operator.aggregation.reservoirsample.UnweightedReservoirSampleAggregationFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
 import com.facebook.presto.operator.scalar.ArrayContains;
 import com.facebook.presto.operator.scalar.ArrayDistinctFromOperator;
@@ -644,6 +645,9 @@ public class BuiltInFunctionNamespaceManager
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
                 .function(TRY_CAST)
+                // Tmp Ami
+                // .functions(UnweightedReservoirSampleAggregationFunction.RESERVOIR_SAMPLE, WeightedReservoirSampleAggregationFunction.RESERVOIR_SAMPLE)
+                .function(UnweightedReservoirSampleAggregationFunction.RESERVOIR_SAMPLE)
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
