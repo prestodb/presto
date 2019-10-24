@@ -1313,6 +1313,12 @@ public class OrcTester
         return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, newSimpleAggregatedMemoryContext(), initialBatchSize);
     }
 
+    public static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, List<?> values)
+            throws Exception
+    {
+        writeOrcColumnsPresto(outputFile, format, compression, ImmutableList.of(type), ImmutableList.of(values), new OrcWriterStats());
+    }
+
     private static void writeOrcColumnsPresto(File outputFile, Format format, CompressionKind compression, List<Type> types, List<List<?>> values, OrcWriterStats stats)
             throws Exception
     {

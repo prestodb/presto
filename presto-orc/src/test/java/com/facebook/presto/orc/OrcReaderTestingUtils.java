@@ -23,10 +23,15 @@ public class OrcReaderTestingUtils
 
     public static OrcReaderOptions createDefaultTestConfig()
     {
+        return createTestingReaderOptions(false);
+    }
+
+    public static OrcReaderOptions createTestingReaderOptions(boolean zstdJniDecompressionEnabled)
+    {
         return new OrcReaderOptions(
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),
-                false);
+                zstdJniDecompressionEnabled);
     }
 }

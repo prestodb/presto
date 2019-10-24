@@ -41,7 +41,6 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
-import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,11 +52,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
-import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
-import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
+import static com.facebook.presto.orc.OrcTester.Format.DWRF;
+import static com.facebook.presto.orc.OrcTester.writeOrcColumnPresto;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.io.Files.createTempDir;
@@ -71,12 +69,12 @@ import static org.joda.time.DateTimeZone.UTC;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@OutputTimeUnit(TimeUnit.SECONDS)
 @Fork(3)
 @Warmup(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @Measurement(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkBatchStreamReaders
+public class BenchmarkBatchStreamReadersWithZstd
 {
     private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 5);
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 10);
@@ -85,10 +83,23 @@ public class BenchmarkBatchStreamReaders
     private static final List<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
     @Benchmark
-    public Object readBlocks(BenchmarkData data)
+    public Object readBlocksWithoutJni(BenchmarkData data)
             throws Throwable
     {
-        OrcBatchRecordReader recordReader = data.createRecordReader();
+        OrcBatchRecordReader recordReader = data.createRecordReader(false);
+        ImmutableList.Builder<Block> blocks = new ImmutableList.Builder<>();
+        while (recordReader.nextBatch() > 0) {
+            Block block = recordReader.readBlock(0);
+            blocks.add(block);
+        }
+        return blocks.build();
+    }
+
+    @Benchmark
+    public Object readBlocksWithJni(BenchmarkData data)
+            throws Throwable
+    {
+        OrcBatchRecordReader recordReader = data.createRecordReader(true);
         ImmutableList.Builder<Block> blocks = new ImmutableList.Builder<>();
         while (recordReader.nextBatch() > 0) {
             Block block = recordReader.readBlock(0);
@@ -105,6 +116,7 @@ public class BenchmarkBatchStreamReaders
         private Type type;
         private File temporaryDirectory;
         private File orcFile;
+        private final OrcTester.Format format = DWRF;
 
         @SuppressWarnings("unused")
         @Param({
@@ -119,7 +131,7 @@ public class BenchmarkBatchStreamReaders
                 "real",
                 "double",
                 "varchar_direct",
-                "varchar_dictionary"
+                "varchar_dictionary",
         })
         private String typeSignature;
 
@@ -144,7 +156,7 @@ public class BenchmarkBatchStreamReaders
 
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnHive(orcFile, ORC_12, NONE, type, createValues());
+            writeOrcColumnPresto(orcFile, format, ZSTD, type, createValues());
         }
 
         @TearDown
@@ -198,16 +210,16 @@ public class BenchmarkBatchStreamReaders
             throw new UnsupportedOperationException("Unsupported type: " + typeSignature);
         }
 
-        private OrcBatchRecordReader createRecordReader()
+        private OrcBatchRecordReader createRecordReader(boolean zstdJniDecompressionEnabled)
                 throws IOException
         {
             OrcDataSource dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
             OrcReader orcReader = new OrcReader(
                     dataSource,
-                    ORC,
+                    format.getOrcEncoding(),
                     new StorageOrcFileTailSource(),
                     new StorageStripeMetadataSource(),
-                    OrcReaderTestingUtils.createDefaultTestConfig());
+                    OrcReaderTestingUtils.createTestingReaderOptions(zstdJniDecompressionEnabled));
             return orcReader.createBatchRecordReader(
                     ImmutableMap.of(0, type),
                     OrcPredicate.TRUE,
@@ -236,8 +248,7 @@ public class BenchmarkBatchStreamReaders
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkBatchStreamReaders.class.getSimpleName() + ".*")
-                .warmupMode(WarmupMode.BULK)
+                .include(".*" + BenchmarkBatchStreamReadersWithZstd.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();
