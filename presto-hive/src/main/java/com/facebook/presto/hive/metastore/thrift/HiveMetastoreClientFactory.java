@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
@@ -47,9 +47,9 @@ public class HiveMetastoreClientFactory
     }
 
     @Inject
-    public HiveMetastoreClientFactory(HiveClientConfig config, HiveMetastoreAuthentication metastoreAuthentication)
+    public HiveMetastoreClientFactory(MetastoreClientConfig metastoreClientConfig, HiveMetastoreAuthentication metastoreAuthentication)
     {
-        this(Optional.empty(), Optional.ofNullable(config.getMetastoreSocksProxy()), config.getMetastoreTimeout(), metastoreAuthentication);
+        this(Optional.empty(), Optional.ofNullable(metastoreClientConfig.getMetastoreSocksProxy()), metastoreClientConfig.getMetastoreTimeout(), metastoreAuthentication);
     }
 
     public HiveMetastoreClient create(HostAndPort address)

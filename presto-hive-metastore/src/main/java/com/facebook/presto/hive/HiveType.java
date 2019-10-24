@@ -233,7 +233,7 @@ public final class HiveType
                 List<TypeInfo> structFieldTypeInfos = structTypeInfo.getAllStructFieldTypeInfos();
                 List<String> structFieldNames = structTypeInfo.getAllStructFieldNames();
                 if (structFieldTypeInfos.size() != structFieldNames.size()) {
-                    throw new PrestoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
+                    throw new PrestoException(MetastoreErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
                 }
                 ImmutableList.Builder<TypeSignatureParameter> typeSignatureBuilder = ImmutableList.builder();
                 for (int i = 0; i < structFieldTypeInfos.size(); i++) {

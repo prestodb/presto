@@ -28,8 +28,8 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_FILESYSTEM_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class HiveFileIterator

@@ -16,21 +16,19 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_OFFLINE;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_TABLE_OFFLINE;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
-public class PartitionOfflineException
+public class TableOfflineException
         extends PrestoException
 {
     private final SchemaTableName tableName;
-    private final String partition;
 
-    public PartitionOfflineException(SchemaTableName tableName, String partitionName, boolean forPresto, String offlineMessage)
+    public TableOfflineException(SchemaTableName tableName, boolean forPresto, String offlineMessage)
     {
-        super(HIVE_PARTITION_OFFLINE, formatMessage(tableName, partitionName, forPresto, offlineMessage));
+        super(HIVE_TABLE_OFFLINE, formatMessage(tableName, forPresto, offlineMessage));
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.partition = requireNonNull(partitionName, "partition is null");
     }
 
     public SchemaTableName getTableName()
@@ -38,16 +36,10 @@ public class PartitionOfflineException
         return tableName;
     }
 
-    public String getPartition()
-    {
-        return partition;
-    }
-
-    private static String formatMessage(SchemaTableName tableName, String partitionName, boolean forPresto, String offlineMessage)
+    private static String formatMessage(SchemaTableName tableName, boolean forPresto, String offlineMessage)
     {
         StringBuilder resultBuilder = new StringBuilder()
                 .append("Table '").append(tableName).append("'")
-                .append(" partition '").append(partitionName).append("'")
                 .append(" is offline");
         if (forPresto) {
             resultBuilder.append(" for Presto");
