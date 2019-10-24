@@ -29,6 +29,12 @@ public interface OrcDecompressor
     static Optional<OrcDecompressor> createOrcDecompressor(OrcDataSourceId orcDataSourceId, CompressionKind compression, int bufferSize)
             throws OrcCorruptionException
     {
+        return createOrcDecompressor(orcDataSourceId, compression, bufferSize, false);
+    }
+
+    static Optional<OrcDecompressor> createOrcDecompressor(OrcDataSourceId orcDataSourceId, CompressionKind compression, int bufferSize, boolean zstdJniDecompressionEnabled)
+            throws OrcCorruptionException
+    {
         if ((compression != NONE) && ((bufferSize <= 0) || (bufferSize > MAX_BUFFER_SIZE))) {
             throw new OrcCorruptionException(orcDataSourceId, "Invalid compression block size: " + bufferSize);
         }
@@ -42,7 +48,7 @@ public interface OrcDecompressor
             case LZ4:
                 return Optional.of(new OrcLz4Decompressor(orcDataSourceId, bufferSize));
             case ZSTD:
-                return Optional.of(new OrcZstdDecompressor(orcDataSourceId, bufferSize));
+                return Optional.of(new OrcZstdDecompressor(orcDataSourceId, bufferSize, zstdJniDecompressionEnabled));
             default:
                 throw new OrcCorruptionException(orcDataSourceId, "Unknown compression type: " + compression);
         }

@@ -97,7 +97,7 @@ public class OrcReader
         OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation);
         this.bufferSize = orcFileTail.getBufferSize();
         this.compressionKind = orcFileTail.getCompressionKind();
-        this.decompressor = createOrcDecompressor(orcDataSource.getId(), compressionKind, bufferSize);
+        this.decompressor = createOrcDecompressor(orcDataSource.getId(), compressionKind, bufferSize, orcReaderOptions.isOrcZstdJniDecompressionEnabled());
         this.hiveWriterVersion = orcFileTail.getHiveWriterVersion();
 
         try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getFooterSlice().getInput(), decompressor, newSimpleAggregatedMemoryContext(), orcFileTail.getFooterSize())) {
