@@ -15,7 +15,7 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.PartitionStatistics;
 
-import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 

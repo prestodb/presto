@@ -17,9 +17,12 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.PartitionOfflineException;
 import com.facebook.presto.hive.TableOfflineException;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -33,13 +36,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.MetaStoreUtils.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
@@ -57,8 +60,32 @@ import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 
 public class MetastoreUtil
 {
+    public static final String PRESTO_OFFLINE = "presto_offline";
+
     private MetastoreUtil()
     {
+    }
+
+    public static boolean isArrayType(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
+    }
+
+    public static boolean isMapType(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(StandardTypes.MAP);
+    }
+
+    public static boolean isRowType(Type type)
+    {
+        return type.getTypeSignature().getBase().equals(StandardTypes.ROW);
+    }
+
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
+    {
+        if (!condition) {
+            throw new PrestoException(errorCode, format(formatString, args));
+        }
     }
 
     public static Properties getHiveSchema(Table table)
@@ -333,6 +360,29 @@ public class MetastoreUtil
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, getRenameErrorMessage(source, target), e);
         }
+    }
+
+    public static List<String> toPartitionValues(String partitionName)
+    {
+        // mimics Warehouse.makeValsFromName
+        ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
+        int start = 0;
+        while (true) {
+            while (start < partitionName.length() && partitionName.charAt(start) != '=') {
+                start++;
+            }
+            start++;
+            int end = start;
+            while (end < partitionName.length() && partitionName.charAt(end) != '/') {
+                end++;
+            }
+            if (start > partitionName.length()) {
+                break;
+            }
+            resultBuilder.add(unescapePathName(partitionName.substring(start, end)));
+            start = end + 1;
+        }
+        return resultBuilder.build();
     }
 
     private static String getRenameErrorMessage(Path source, Path target)

@@ -22,7 +22,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.google.common.base.MoreObjects.toStringHelper;

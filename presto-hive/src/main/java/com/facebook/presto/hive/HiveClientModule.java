@@ -153,6 +153,7 @@ public class HiveClientModule
         fileWriterFactoryBinder.addBinding().to(RcFileFileWriterFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ParquetFileWriterConfig.class);
+        binder.install(new MetastoreClientModule());
     }
 
     @ForHiveClient

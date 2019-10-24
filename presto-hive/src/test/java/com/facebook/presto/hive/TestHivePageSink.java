@@ -106,13 +106,14 @@ public class TestHivePageSink
             throws Exception
     {
         HiveClientConfig config = new HiveClientConfig();
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         File tempDir = Files.createTempDir();
         try {
             ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(new File(tempDir, "metastore"));
             for (HiveStorageFormat format : HiveStorageFormat.values()) {
                 config.setHiveStorageFormat(format);
                 config.setCompressionCodec(NONE);
-                long uncompressedLength = writeTestFile(config, metastore, makeFileName(tempDir, config));
+                long uncompressedLength = writeTestFile(config, metastoreClientConfig, metastore, makeFileName(tempDir, config));
                 assertGreaterThan(uncompressedLength, 0L);
 
                 for (HiveCompressionCodec codec : HiveCompressionCodec.values()) {
@@ -120,7 +121,7 @@ public class TestHivePageSink
                         continue;
                     }
                     config.setCompressionCodec(codec);
-                    long length = writeTestFile(config, metastore, makeFileName(tempDir, config));
+                    long length = writeTestFile(config, metastoreClientConfig, metastore, makeFileName(tempDir, config));
                     assertTrue(uncompressedLength > length, format("%s with %s compressed to %s which is not less than %s", format, codec, length, uncompressedLength));
                 }
             }
@@ -135,11 +136,11 @@ public class TestHivePageSink
         return tempDir.getAbsolutePath() + "/" + config.getHiveStorageFormat().name() + "." + config.getCompressionCodec().name();
     }
 
-    private static long writeTestFile(HiveClientConfig config, ExtendedHiveMetastore metastore, String outputPath)
+    private static long writeTestFile(HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore metastore, String outputPath)
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle();
         HiveWriterStats stats = new HiveWriterStats();
-        ConnectorPageSink pageSink = createPageSink(transaction, config, metastore, new Path("file:///" + outputPath), stats);
+        ConnectorPageSink pageSink = createPageSink(transaction, config, metastoreClientConfig, metastore, new Path("file:///" + outputPath), stats);
         List<LineItemColumn> columns = getTestColumns();
         List<Type> columnTypes = columns.stream()
                 .map(LineItemColumn::getType)
@@ -188,7 +189,7 @@ public class TestHivePageSink
         File outputFile = getOnlyElement(files);
         long length = outputFile.length();
 
-        ConnectorPageSource pageSource = createPageSource(transaction, config, outputFile);
+        ConnectorPageSource pageSource = createPageSource(transaction, config, metastoreClientConfig, outputFile);
 
         List<Page> pages = new ArrayList<>();
         while (!pageSource.isFinished()) {
@@ -214,7 +215,7 @@ public class TestHivePageSink
         return resultBuilder.build();
     }
 
-    private static ConnectorPageSource createPageSource(HiveTransactionHandle transaction, HiveClientConfig config, File outputFile)
+    private static ConnectorPageSource createPageSource(HiveTransactionHandle transaction, HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, File outputFile)
     {
         HiveSplit split = new HiveSplit(
                 SCHEMA_NAME,
@@ -259,11 +260,11 @@ public class TestHivePageSink
                         Optional.empty(),
                         false,
                         "layout")));
-        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveBatchPageSourceFactories(config), getDefaultHiveSelectivePageSourceFactories(config), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
+        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config, metastoreClientConfig), getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
         return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()));
     }
 
-    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)
+    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)
     {
         LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, Optional.empty(), NEW, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
@@ -281,9 +282,9 @@ public class TestHivePageSink
                 "test",
                 ImmutableMap.of());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
-        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config);
+        HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config, metastoreClientConfig);
         HivePageSinkProvider provider = new HivePageSinkProvider(
-                getDefaultHiveFileWriterFactories(config),
+                getDefaultHiveFileWriterFactories(config, metastoreClientConfig),
                 hdfsEnvironment,
                 PAGE_SORTER,
                 metastore,
@@ -296,7 +297,7 @@ public class TestHivePageSink
                 new HiveEventClient(),
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
                 stats,
-                getDefaultOrcFileWriterFactory(config));
+                getDefaultOrcFileWriterFactory(config, metastoreClientConfig));
         return provider.createPageSink(transaction, getSession(config), handle, PageSinkProperties.defaultProperties());
     }
 

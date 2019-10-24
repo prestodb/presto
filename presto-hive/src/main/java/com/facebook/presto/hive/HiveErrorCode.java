@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.ErrorType;
 
+import static com.facebook.presto.hive.MetastoreErrorCode.ERROR_CODE_MASK;
 import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
@@ -24,26 +25,26 @@ import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 public enum HiveErrorCode
         implements ErrorCodeSupplier
 {
-    HIVE_METASTORE_ERROR(0, EXTERNAL),
+    // HIVE_METASTORE_ERROR(0) moved to MetastoreErrorCode
     HIVE_CURSOR_ERROR(1, EXTERNAL),
-    HIVE_TABLE_OFFLINE(2, USER_ERROR),
+    // HIVE_TABLE_OFFLINE(2) moved to MetastoreErrorCode
     HIVE_CANNOT_OPEN_SPLIT(3, EXTERNAL),
     HIVE_FILE_NOT_FOUND(4, EXTERNAL),
     HIVE_UNKNOWN_ERROR(5, EXTERNAL),
-    HIVE_PARTITION_OFFLINE(6, USER_ERROR),
+    // HIVE_PARTITION_OFFLINE(6) moved to MetastoreErrorCode
     HIVE_BAD_DATA(7, EXTERNAL),
     HIVE_PARTITION_SCHEMA_MISMATCH(8, EXTERNAL),
     HIVE_MISSING_DATA(9, EXTERNAL),
     HIVE_INVALID_PARTITION_VALUE(10, EXTERNAL),
     HIVE_TIMEZONE_MISMATCH(11, EXTERNAL),
-    HIVE_INVALID_METADATA(12, EXTERNAL),
+    // HIVE_INVALID_METADATA(12) moved to MetastoreErrorCode
     HIVE_INVALID_VIEW_DATA(13, EXTERNAL),
     HIVE_DATABASE_LOCATION_ERROR(14, EXTERNAL),
     HIVE_PATH_ALREADY_EXISTS(15, EXTERNAL),
-    HIVE_FILESYSTEM_ERROR(16, EXTERNAL),
+    // HIVE_FILESYSTEM_ERROR(16) moved to MetastoreErrorCode
     // code HIVE_WRITER_ERROR(17) is deprecated
     HIVE_SERDE_NOT_FOUND(18, EXTERNAL),
-    HIVE_UNSUPPORTED_FORMAT(19, EXTERNAL),
+    // HIVE_UNSUPPORTED_FORMAT(19) moved to MetastoreErrorCode
     HIVE_PARTITION_READ_ONLY(20, USER_ERROR),
     HIVE_TOO_MANY_OPEN_PARTITIONS(21, USER_ERROR),
     HIVE_CONCURRENT_MODIFICATION_DETECTED(22, EXTERNAL),
@@ -72,7 +73,7 @@ public enum HiveErrorCode
 
     HiveErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0100_0000, name(), type);
+        errorCode = new ErrorCode(code + ERROR_CODE_MASK, name(), type);
     }
 
     @Override

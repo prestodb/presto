@@ -88,9 +88,9 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
@@ -300,7 +300,7 @@ public final class ThriftMetastoreUtil
         Stream<PrestoPrincipal> principals = Stream.concat(
                 Stream.of(userPrincipal),
                 listApplicableRoles(metastore, userPrincipal)
-                .map(role -> new PrestoPrincipal(ROLE, role)));
+                        .map(role -> new PrestoPrincipal(ROLE, role)));
         return listTablePrivileges(metastore, databaseName, tableName, principals);
     }
 

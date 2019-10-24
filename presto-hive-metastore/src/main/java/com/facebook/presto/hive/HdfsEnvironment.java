@@ -45,7 +45,7 @@ public class HdfsEnvironment
     @Inject
     public HdfsEnvironment(
             HdfsConfiguration hdfsConfiguration,
-            HiveClientConfig config,
+            MetastoreClientConfig config,
             HdfsAuthentication hdfsAuthentication)
     {
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");

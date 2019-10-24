@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
@@ -32,19 +31,10 @@ import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.mapred.SequenceFileInputFormat;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hive.hcatalog.data.JsonSerDe;
 
-import java.util.List;
-
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public enum HiveStorageFormat
@@ -126,46 +116,5 @@ public enum HiveStorageFormat
     public DataSize getEstimatedWriterSystemMemoryUsage()
     {
         return estimatedWriterSystemMemoryUsage;
-    }
-
-    public void validateColumns(List<HiveColumnHandle> handles)
-    {
-        if (this == AVRO) {
-            for (HiveColumnHandle handle : handles) {
-                if (!handle.isPartitionKey()) {
-                    validateAvroType(handle.getHiveType().getTypeInfo(), handle.getName());
-                }
-            }
-        }
-    }
-
-    private static void validateAvroType(TypeInfo type, String columnName)
-    {
-        if (type.getCategory() == Category.MAP) {
-            TypeInfo keyType = mapTypeInfo(type).getMapKeyTypeInfo();
-            if ((keyType.getCategory() != Category.PRIMITIVE) ||
-                    (primitiveTypeInfo(keyType).getPrimitiveCategory() != PrimitiveCategory.STRING)) {
-                throw new PrestoException(NOT_SUPPORTED, format("Column %s has a non-varchar map key, which is not supported by Avro", columnName));
-            }
-        }
-        else if (type.getCategory() == Category.PRIMITIVE) {
-            PrimitiveCategory primitive = primitiveTypeInfo(type).getPrimitiveCategory();
-            if (primitive == PrimitiveCategory.BYTE) {
-                throw new PrestoException(NOT_SUPPORTED, format("Column %s is tinyint, which is not supported by Avro. Use integer instead.", columnName));
-            }
-            if (primitive == PrimitiveCategory.SHORT) {
-                throw new PrestoException(NOT_SUPPORTED, format("Column %s is smallint, which is not supported by Avro. Use integer instead.", columnName));
-            }
-        }
-    }
-
-    private static PrimitiveTypeInfo primitiveTypeInfo(TypeInfo typeInfo)
-    {
-        return (PrimitiveTypeInfo) typeInfo;
-    }
-
-    private static MapTypeInfo mapTypeInfo(TypeInfo typeInfo)
-    {
-        return (MapTypeInfo) typeInfo;
     }
 }

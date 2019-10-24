@@ -44,12 +44,12 @@ public abstract class AbstractTestHiveFileSystemS3
         super.setup(host, port, databaseName, this::createHdfsConfiguration, s3SelectPushdownEnabled);
     }
 
-    HdfsConfiguration createHdfsConfiguration(HiveClientConfig config)
+    HdfsConfiguration createHdfsConfiguration(HiveClientConfig config, MetastoreClientConfig metastoreConfig)
     {
         S3ConfigurationUpdater s3Config = new PrestoS3ConfigurationUpdater(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
                 .setS3AwsSecretKey(awsSecretKey));
-        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, s3Config, ignored -> {}), ImmutableSet.of());
+        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, metastoreConfig, s3Config, ignored -> {}), ImmutableSet.of());
     }
 
     @Override

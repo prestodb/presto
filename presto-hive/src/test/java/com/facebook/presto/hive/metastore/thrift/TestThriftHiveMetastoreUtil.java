@@ -59,7 +59,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.DOUBLE_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
 import static org.testng.Assert.assertEquals;
 
-public class TestThriftMetastoreUtil
+public class TestThriftHiveMetastoreUtil
 {
     @Test
     public void testLongStatsToColumnStatistics()

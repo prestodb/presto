@@ -14,11 +14,11 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -265,7 +265,7 @@ public class BridgingHiveMetastore
             return ImmutableMap.of();
         }
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
-                .collect(Collectors.toMap(identity(), HiveUtil::toPartitionValues));
+                .collect(Collectors.toMap(identity(), MetastoreUtil::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(databaseName, tableName, partitionNames).stream()
                 .map(ThriftMetastoreUtil::fromMetastoreApiPartition)
                 .collect(Collectors.toMap(Partition::getValues, identity()));

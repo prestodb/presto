@@ -61,19 +61,19 @@ public class HdfsConfigurationInitializer
     private int textMaxLineLength;
 
     @VisibleForTesting
-    public HdfsConfigurationInitializer(HiveClientConfig config)
+    public HdfsConfigurationInitializer(HiveClientConfig config, MetastoreClientConfig metastoreConfig)
     {
-        this(config, ignored -> {}, ignored -> {});
+        this(config, metastoreConfig, ignored -> {}, ignored -> {});
     }
 
     @Inject
-    public HdfsConfigurationInitializer(HiveClientConfig config, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize)
+    public HdfsConfigurationInitializer(HiveClientConfig config, MetastoreClientConfig metastoreConfig, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize)
     {
         requireNonNull(config, "config is null");
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
         checkArgument(toIntExact(config.getTextMaxLineLength().toBytes()) >= 1, "textMaxLineLength must be at least 1 byte");
 
-        this.socksProxy = config.getMetastoreSocksProxy();
+        this.socksProxy = metastoreConfig.getMetastoreSocksProxy();
         this.ipcPingInterval = config.getIpcPingInterval();
         this.dfsTimeout = config.getDfsTimeout();
         this.dfsConnectTimeout = config.getDfsConnectTimeout();
