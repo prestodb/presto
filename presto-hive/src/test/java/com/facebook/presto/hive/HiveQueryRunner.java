@@ -83,13 +83,40 @@ public final class HiveQueryRunner
         return createQueryRunner(tables, ImmutableMap.of(), Optional.empty());
     }
 
+    public static DistributedQueryRunner createQueryRunner(
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties,
+            Map<String, String> extraCoordinatorProperties,
+            Optional<Path> baseDataDir)
+            throws Exception
+    {
+        return createQueryRunner(tables, extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), baseDataDir);
+    }
+
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, Optional<Path> baseDataDir)
             throws Exception
     {
-        return createQueryRunner(tables, extraProperties, "sql-standard", ImmutableMap.of(), baseDataDir);
+        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), baseDataDir);
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, String security, Map<String, String> extraHiveProperties, Optional<Path> baseDataDir)
+    public static DistributedQueryRunner createQueryRunner(
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties,
+            String security,
+            Map<String, String> extraHiveProperties,
+            Optional<Path> baseDataDir)
+            throws Exception
+    {
+        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), security, extraHiveProperties, baseDataDir);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties,
+            Map<String, String> extraCoordinatorProperties,
+            String security,
+            Map<String, String> extraHiveProperties,
+            Optional<Path> baseDataDir)
             throws Exception
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
@@ -105,6 +132,7 @@ public final class HiveQueryRunner
                 DistributedQueryRunner.builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
                         .setNodeCount(4)
                         .setExtraProperties(systemProperties)
+                        .setCoordinatorProperties(extraCoordinatorProperties)
                         .setBaseDataDir(baseDataDir)
                         .build();
         try {
