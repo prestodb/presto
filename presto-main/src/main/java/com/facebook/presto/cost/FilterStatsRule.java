@@ -55,7 +55,7 @@ public class FilterStatsRule
             estimate = filterStatsCalculator.filterStats(sourceStats, castToExpression(node.getPredicate()), session, types);
         }
         else {
-            estimate = filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), session, types);
+            estimate = filterStatsCalculator.filterStats(sourceStats, node.getPredicate(), session);
         }
         if (isDefaultFilterFactorEnabled(session) && estimate.isOutputRowCountUnknown()) {
             estimate = sourceStats.mapOutputRowCount(sourceRowCount -> sourceStats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT);
