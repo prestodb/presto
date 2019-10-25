@@ -133,7 +133,8 @@ public class TestHiveClientConfig
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
                 .setPushdownFilterEnabled(false)
-                .setNestedColumnsFilterEnabled(false));
+                .setNestedColumnsFilterEnabled(false)
+                .setSupportOnlyOrcDwrfFiles(false));
     }
 
     @Test
@@ -231,6 +232,7 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-compression-codec", "NONE")
                 .put("hive.pushdown-filter-enabled", "true")
                 .put("hive.nested-columns-filter-enabled", "true")
+                .put("hive.support-only-rc-dwrf-files", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()

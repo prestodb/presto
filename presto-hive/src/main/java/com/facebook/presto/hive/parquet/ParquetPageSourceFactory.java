@@ -32,6 +32,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -133,6 +134,7 @@ public class ParquetPageSourceFactory
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
+            RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
             Optional<byte[]> extraFileInfo)
     {

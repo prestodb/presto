@@ -128,7 +128,7 @@ public final class HiveTestUtils
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveBatchPageSourceFactory>builder()
-                .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats, new HadoopFileOpener()))
+                .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats, new HadoopFileOpener(), ROW_EXPRESSION_SERVICE))
                 .add(new OrcBatchPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new HadoopFileOpener()))
                 .add(new DwrfBatchPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new HadoopFileOpener()))
                 .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats, new HadoopFileOpener()))

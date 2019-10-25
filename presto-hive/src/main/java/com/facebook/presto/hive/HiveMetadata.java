@@ -1895,7 +1895,7 @@ public class HiveMetadata
         boolean pushdownFilterEnabled = HiveSessionProperties.isPushdownFilterEnabled(session);
         if (pushdownFilterEnabled) {
             HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
-            if (hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.DWRF) {
+            if (hiveStorageFormat == HiveStorageFormat.RCTEXT || hiveStorageFormat == HiveStorageFormat.DWRF) {
                 return true;
             }
         }

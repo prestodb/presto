@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.rcfile.RcFileCorruptionException;
 import com.facebook.presto.rcfile.RcFileReader;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -54,6 +55,7 @@ public class RcFilePageSource
 
     private final Block[] constantBlocks;
     private final int[] hiveColumnIndexes;
+    private final ConnectorSession session;
 
     private int pageId;
     private long completedPositions;
@@ -64,7 +66,8 @@ public class RcFilePageSource
             RcFileReader rcFileReader,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            ConnectorSession session)
     {
         requireNonNull(rcFileReader, "rcReader is null");
         requireNonNull(columns, "columns is null");
@@ -77,6 +80,7 @@ public class RcFilePageSource
 
         this.constantBlocks = new Block[size];
         this.hiveColumnIndexes = new int[size];
+        this.session = session;
 
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -155,7 +159,7 @@ public class RcFilePageSource
                 }
             }
 
-            return new Page(currentPageSize, blocks);
+            return  new Page(currentPageSize, blocks);
         }
         catch (PrestoException e) {
             closeWithSuppression(e);

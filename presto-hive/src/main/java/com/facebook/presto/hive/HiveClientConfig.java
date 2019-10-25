@@ -166,6 +166,7 @@ public class HiveClientConfig
 
     private boolean pushdownFilterEnabled;
     private boolean nestedColumnsFilterEnabled;
+    private boolean supportOnlyOrcDwrfFiles;
 
     public int getMaxInitialSplits()
     {
@@ -1392,6 +1393,19 @@ public class HiveClientConfig
     public HiveClientConfig setNestedColumnsFilterEnabled(boolean nestedColumnsFilterEnabled)
     {
         this.nestedColumnsFilterEnabled = nestedColumnsFilterEnabled;
+        return this;
+    }
+
+    public boolean isSupportOnlyOrcDwrfFiles()
+    {
+        return supportOnlyOrcDwrfFiles;
+    }
+
+    @Config("hive.support-only-orc-dwrf-files")
+    @ConfigDescription("Experimental: support only orc/dwrf file formats")
+    public HiveClientConfig setSupportOnlyOrcDwrfFiles(boolean supportOnlyOrcDwrfFiles)
+    {
+        this.supportOnlyOrcDwrfFiles = supportOnlyOrcDwrfFiles;
         return this;
     }
 }

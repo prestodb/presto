@@ -91,6 +91,7 @@ public final class HiveSessionProperties
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
     public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
+    public static final String SUPPORT_ONLY_ORC_DWRF_FILES = "support_only_orc_dwrf_files";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -398,7 +399,12 @@ public final class HiveSessionProperties
                         OFFLINE_DATA_DEBUG_MODE_ENABLED,
                         "allow reading from tables or partitions that are marked as offline or not readable",
                         false,
-                        true));
+                        true),
+                booleanProperty(
+                        SUPPORT_ONLY_ORC_DWRF_FILES,
+                        "Experimental: support only orc,dwrf files",
+                        hiveClientConfig.isSupportOnlyOrcDwrfFiles(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
