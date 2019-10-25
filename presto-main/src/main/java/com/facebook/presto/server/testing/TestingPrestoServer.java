@@ -21,6 +21,7 @@ import com.facebook.airlift.discovery.client.ServiceAnnouncement;
 import com.facebook.airlift.discovery.client.ServiceSelectorManager;
 import com.facebook.airlift.discovery.client.testing.TestingDiscoveryModule;
 import com.facebook.airlift.event.client.EventModule;
+import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
 import com.facebook.airlift.jaxrs.JaxrsModule;
@@ -80,6 +81,12 @@ import com.google.inject.Scopes;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -103,6 +110,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
@@ -139,6 +147,7 @@ public class TestingPrestoServer
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
+    private final RequestBlocker requestBlocker;
     private final boolean coordinator;
 
     public static class TestShutdownAction
@@ -252,6 +261,9 @@ public class TestingPrestoServer
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
+                    binder.bind(RequestBlocker.class).in(Scopes.SINGLETON);
+                    newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
+                            .to(RequestBlocker.class).in(Scopes.SINGLETON);
                 });
 
         if (discoveryUri != null) {
@@ -324,6 +336,7 @@ public class TestingPrestoServer
         taskManager = injector.getInstance(TaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         announcer = injector.getInstance(Announcer.class);
+        requestBlocker = injector.getInstance(RequestBlocker.class);
 
         announcer.forceAnnounce();
 
@@ -512,6 +525,16 @@ public class TestingPrestoServer
         return injector.getInstance(key);
     }
 
+    public void stopResponding()
+    {
+        requestBlocker.block();
+    }
+
+    public void startResponding()
+    {
+        requestBlocker.unblock();
+    }
+
     private static void updateConnectorIdAnnouncement(Announcer announcer, ConnectorId connectorId, InternalNodeManager nodeManager)
     {
         //
@@ -554,5 +577,52 @@ public class TestingPrestoServer
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static class RequestBlocker
+            implements Filter
+    {
+        private static final Object monitor = new Object();
+        private volatile boolean blocked;
+
+        @Override
+        public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+                throws IOException, ServletException
+        {
+            synchronized (monitor) {
+                while (blocked) {
+                    try {
+                        monitor.wait();
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+
+            chain.doFilter(request, response);
+        }
+
+        public void block()
+        {
+            synchronized (monitor) {
+                blocked = true;
+            }
+        }
+
+        public void unblock()
+        {
+            synchronized (monitor) {
+                blocked = false;
+                monitor.notifyAll();
+            }
+        }
+
+        @Override
+        public void init(FilterConfig filterConfig) {}
+
+        @Override
+        public void destroy() {}
     }
 }
