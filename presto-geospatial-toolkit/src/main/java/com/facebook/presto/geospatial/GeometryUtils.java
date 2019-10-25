@@ -25,6 +25,7 @@ import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.spi.PrestoException;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateSequence;
 import org.locationtech.jts.geom.CoordinateSequenceFactory;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
@@ -241,13 +242,38 @@ public final class GeometryUtils
         return new WKTWriter().write(geometry);
     }
 
-    public static org.locationtech.jts.geom.Point makeJtsEmptyPoint()
+    public static org.locationtech.jts.geom.Point createJtsEmptyPoint()
     {
         return GEOMETRY_FACTORY.createPoint();
     }
 
-    public static org.locationtech.jts.geom.Point makeJtsPoint(Coordinate coordinate)
+    public static org.locationtech.jts.geom.Point createJtsPoint(Coordinate coordinate)
     {
         return GEOMETRY_FACTORY.createPoint(coordinate);
+    }
+
+    public static org.locationtech.jts.geom.Point createJtsPoint(double x, double y)
+    {
+        return createJtsPoint(new Coordinate(x, y));
+    }
+
+    public static org.locationtech.jts.geom.MultiPoint createJtsMultiPoint(CoordinateSequence coordinates)
+    {
+        return GEOMETRY_FACTORY.createMultiPoint(coordinates);
+    }
+
+    public static org.locationtech.jts.geom.Geometry createJtsEmptyLineString()
+    {
+        return GEOMETRY_FACTORY.createLineString();
+    }
+
+    public static org.locationtech.jts.geom.Geometry createJtsLineString(CoordinateSequence coordinates)
+    {
+        return GEOMETRY_FACTORY.createLineString(coordinates);
+    }
+
+    public static org.locationtech.jts.geom.Geometry createJtsEmptyPolygon()
+    {
+        return GEOMETRY_FACTORY.createPolygon();
     }
 }

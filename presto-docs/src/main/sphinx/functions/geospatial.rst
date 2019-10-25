@@ -395,6 +395,11 @@ Accessors
    Returns an array of geometries in the specified collection. Returns a one-element array
    if the input geometry is not a multi-geometry. Returns ``null`` if input geometry is empty.
 
+   For example, a MultiLineString will create an array of LineStrings.  A GeometryCollection
+   will produce an un-flattened array of its constituents:
+   ``GEOMETRYCOLLECTION(MULTIPOINT(0 0, 1 1), GEOMETRYCOLLECTION(MULTILINESTRING((2 2, 3 3))))``
+   would produce ``array[MULTIPOINT(0 0, 1 1), GEOMETRYCOLLECTION(MULTILINESTRING((2 2, 3 3)))]``.
+
 .. function:: ST_NumPoints(Geometry) -> bigint
 
     Returns the number of points in a geometry. This is an extension to the SQL/MM
