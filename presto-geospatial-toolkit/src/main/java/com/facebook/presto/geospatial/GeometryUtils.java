@@ -23,12 +23,19 @@ import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateSequenceFactory;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 
 import java.util.HashSet;
 import java.util.Set;
 
 public final class GeometryUtils
 {
+    private static final CoordinateSequenceFactory COORDINATE_SEQUENCE_FACTORY = new PackedCoordinateSequenceFactory();
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(COORDINATE_SEQUENCE_FACTORY);
+
     private GeometryUtils() {}
 
     /**
@@ -211,5 +218,15 @@ public final class GeometryUtils
         }
 
         return true;
+    }
+
+    public static org.locationtech.jts.geom.Point makeJtsEmptyPoint()
+    {
+        return GEOMETRY_FACTORY.createPoint();
+    }
+
+    public static org.locationtech.jts.geom.Point makeJtsPoint(Coordinate coordinate)
+    {
+        return GEOMETRY_FACTORY.createPoint(coordinate);
     }
 }

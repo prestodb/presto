@@ -409,6 +409,14 @@ Accessors
 
     Returns ``null`` if a LineString or a Point is empty or ``null``.
 
+.. function:: line_interpolate_point(LineString, double) -> Geometry
+
+    Returns the Point on the LineString at a fractional distance given by the
+    double argument.  Throws an exception if the distance is not between 0 and 1.
+
+    Returns an empty Point if the LineString is empty.  Returns ``null`` if
+    either the LineString or double is null.
+
 .. function:: geometry_invalid_reason(Geometry) -> varchar
 
     Returns the reason for why the input geometry is not valid.
