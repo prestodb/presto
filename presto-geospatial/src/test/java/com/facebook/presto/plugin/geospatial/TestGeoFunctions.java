@@ -470,6 +470,30 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testLineInterpolatePoint()
+    {
+        assertLineInterpolatePoint("LINESTRING EMPTY", 0.5, "POINT EMPTY");
+        assertLineInterpolatePoint("LINESTRING (0 0, 0 1)", 0.2, "POINT (0 0.2)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 0 1)", 0.0, "POINT (0 0)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 0 1)", 1.0, "POINT (0 1)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 0 1, 3 1)", 0.0625, "POINT (0 0.25)");
+        assertLineInterpolatePoint("LINESTRING (0 0, 0 1, 3 1)", 0.75, "POINT (2 1)");
+        assertLineInterpolatePoint("LINESTRING (1 3, 5 4)", 0.0, "POINT (1 3)");
+        assertLineInterpolatePoint("LINESTRING (1 3, 5 4)", 0.25, "POINT (2 3.25)");
+        assertLineInterpolatePoint("LINESTRING (1 3, 5 4)", 1.0, "POINT (5 4)");
+
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))'), 0.5)", "line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('MULTILINESTRING ((0 0, 0 1), (2 2, 4 2))'), 0.0)", "line_interpolate_point only applies to LINE_STRING. Input type is: MULTI_LINE_STRING");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)'), -1)", "line_interpolate_point: Fraction must be between 0 and 1, but is -1.0");
+        assertInvalidFunction("line_interpolate_point(ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)'), 1.5)", "line_interpolate_point: Fraction must be between 0 and 1, but is 1.5");
+    }
+
+    private void assertLineInterpolatePoint(String sourceWkt, double distance, String expectedWkt)
+    {
+        assertFunction(format("ST_AsText(line_interpolate_point(ST_GeometryFromText('%s'), %s))", sourceWkt, distance), VARCHAR, expectedWkt);
+    }
+
+    @Test
     public void testSTMax()
     {
         assertFunction("ST_XMax(ST_GeometryFromText('POINT (1.5 2.5)'))", DOUBLE, 1.5);

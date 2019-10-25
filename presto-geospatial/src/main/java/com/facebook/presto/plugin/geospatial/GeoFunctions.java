@@ -50,8 +50,10 @@ import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 
 import java.util.ArrayDeque;
@@ -81,6 +83,8 @@ import static com.facebook.presto.geospatial.GeometryType.MULTI_POLYGON;
 import static com.facebook.presto.geospatial.GeometryType.POINT;
 import static com.facebook.presto.geospatial.GeometryType.POLYGON;
 import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
+import static com.facebook.presto.geospatial.GeometryUtils.makeJtsEmptyPoint;
+import static com.facebook.presto.geospatial.GeometryUtils.makeJtsPoint;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType;
@@ -545,6 +549,27 @@ public final class GeoFunctions
         }
 
         return new LengthIndexedLine(line).indexOf(point.getCoordinate()) / line.getLength();
+    }
+
+    @Description("Returns the point in the line at the fractional length.")
+    @ScalarFunction("line_interpolate_point")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice lineInterpolatePoint(@SqlType(GEOMETRY_TYPE_NAME) Slice lineSlice, @SqlType(DOUBLE) double fraction)
+    {
+        if (!(0.0 <= fraction && fraction <= 1.0)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("line_interpolate_point: Fraction must be between 0 and 1, but is %s", fraction));
+        }
+
+        Geometry geometry = JtsGeometrySerde.deserialize(lineSlice);
+        validateType("line_interpolate_point", geometry, ImmutableSet.of(LINE_STRING));
+        LineString line = (LineString) geometry;
+
+        if (line.isEmpty()) {
+            return JtsGeometrySerde.serialize(makeJtsEmptyPoint());
+        }
+
+        org.locationtech.jts.geom.Coordinate coordinate = new LengthIndexedLine(line).extractPoint(fraction * line.getLength());
+        return JtsGeometrySerde.serialize(makeJtsPoint(coordinate));
     }
 
     @SqlNullable
@@ -1322,6 +1347,14 @@ public final class GeoFunctions
     private static void validateType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
     {
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        if (!validTypes.contains(type)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+        }
+    }
+
+    private static void validateType(String function, Geometry geometry, Set<GeometryType> validTypes)
+    {
+        GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!validTypes.contains(type)) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }
