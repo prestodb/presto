@@ -125,15 +125,13 @@ public class FilterStatsCalculator
                 .process(simplifiedExpression);
     }
 
-    // TODO: remove types once we have type info in PlanNodeStatsEstimate
     public PlanNodeStatsEstimate filterStats(
             PlanNodeStatsEstimate statsEstimate,
             RowExpression predicate,
-            Session session,
-            TypeProvider types)
+            Session session)
     {
         RowExpression simplifiedExpression = simplifyExpression(session, predicate);
-        return new FilterRowExpressionStatsCalculatingVisitor(statsEstimate, session, metadata.getFunctionManager(), types).process(simplifiedExpression);
+        return new FilterRowExpressionStatsCalculatingVisitor(statsEstimate, session, metadata.getFunctionManager()).process(simplifiedExpression);
     }
 
     private Expression simplifyExpression(Session session, Expression predicate, TypeProvider types)
@@ -483,14 +481,12 @@ public class FilterStatsCalculator
         private final PlanNodeStatsEstimate input;
         private final Session session;
         private final FunctionManager functionManager;
-        private final TypeProvider types;
 
-        FilterRowExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, FunctionManager functionManager, TypeProvider types)
+        FilterRowExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, FunctionManager functionManager)
         {
             this.input = requireNonNull(input, "input is null");
             this.session = requireNonNull(session, "session is null");
             this.functionManager = requireNonNull(functionManager, "functionManager is null");
-            this.types = requireNonNull(types, "types is null");
         }
 
         @Override
@@ -661,7 +657,7 @@ public class FilterStatsCalculator
 
         private FilterRowExpressionStatsCalculatingVisitor newEstimate(PlanNodeStatsEstimate input)
         {
-            return new FilterRowExpressionStatsCalculatingVisitor(input, session, functionManager, types);
+            return new FilterRowExpressionStatsCalculatingVisitor(input, session, functionManager);
         }
 
         private PlanNodeStatsEstimate process(RowExpression rowExpression)

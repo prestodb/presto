@@ -142,7 +142,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
             filteredStats = filterStatsCalculator.filterStats(semiJoinStats, castToExpression(semiJoinOutputFilter.get().getRemainingPredicate()), session, types);
         }
         else {
-            filteredStats = filterStatsCalculator.filterStats(semiJoinStats, semiJoinOutputFilter.get().getRemainingPredicate(), session, types);
+            filteredStats = filterStatsCalculator.filterStats(semiJoinStats, semiJoinOutputFilter.get().getRemainingPredicate(), session);
         }
 
         if (filteredStats.isOutputRowCountUnknown()) {
