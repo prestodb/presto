@@ -491,6 +491,46 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testNaN()
+    {
+        getQueryRunner().execute("CREATE TABLE test_nans(double_nan DOUBLE, float_nan REAL)");
+        getQueryRunner().execute("INSERT INTO test_nans values (CAST('NaN' AS DOUBLE), CAST('NaN' AS REAL)), (CAST('-Infinity' AS DOUBLE), CAST('-Infinity' AS REAL)), (CAST('Infinity' AS DOUBLE), CAST('Infinity' AS REAL)), (1.0, 1.0)");
+
+        try {
+            assertQuery("SELECT double_nan from test_nans where double_nan > 1.0", "SELECT CAST('Infinity' AS DOUBLE)");
+            assertQuery("SELECT double_nan from test_nans where double_nan < 1.0", "SELECT CAST('-Infinity' AS DOUBLE)");
+            assertQuery("SELECT double_nan from test_nans where double_nan = 1.0 ", "SELECT 1.0");
+
+            assertQuery("SELECT double_nan from test_nans where double_nan = CAST('Infinity' AS DOUBLE) ", "SELECT CAST('Infinity' AS DOUBLE)");
+            assertQueryReturnsEmptyResult("SELECT * from test_nans where double_nan > CAST('Infinity' AS DOUBLE) ");
+
+            assertQuery("SELECT double_nan from test_nans where double_nan = CAST('-Infinity' AS DOUBLE) ", "SELECT CAST('-Infinity' AS DOUBLE)");
+            assertQueryReturnsEmptyResult("SELECT double_nan from test_nans where double_nan < CAST('-Infinity' AS DOUBLE) ");
+
+            assertQueryReturnsEmptyResult("SELECT double_nan from test_nans where double_nan = CAST('NaN' AS DOUBLE)");
+            assertQueryReturnsEmptyResult("SELECT double_nan from test_nans where double_nan < CAST('NaN' AS DOUBLE)");
+            assertQueryReturnsEmptyResult("SELECT double_nan from test_nans where double_nan > CAST('NaN' AS DOUBLE)");
+
+            assertQuery("SELECT float_nan from test_nans where float_nan > 1.0", "SELECT CAST('Infinity' AS REAL)");
+            assertQuery("SELECT float_nan from test_nans where float_nan < 1.0", "SELECT CAST('-Infinity' AS REAL)");
+            assertQuery("SELECT float_nan from test_nans where float_nan = 1.0 ", "SELECT CAST(1.0 AS REAL)");
+
+            assertQuery("SELECT float_nan from test_nans where float_nan = CAST('Infinity' AS REAL) ", "SELECT CAST('Infinity' AS REAL)");
+            assertQueryReturnsEmptyResult("SELECT float_nan from test_nans where float_nan > CAST('Infinity' AS REAL) ");
+
+            assertQuery("SELECT float_nan from test_nans where float_nan = CAST('-Infinity' AS REAL) ", "SELECT CAST('-Infinity' AS REAL)");
+            assertQueryReturnsEmptyResult("SELECT float_nan from test_nans where float_nan < CAST('-Infinity' AS REAL) ");
+
+            assertQueryReturnsEmptyResult("SELECT float_nan from test_nans where float_nan = CAST('NaN' AS REAL)");
+            assertQueryReturnsEmptyResult("SELECT float_nan from test_nans where float_nan < CAST('NaN' AS REAL)");
+            assertQueryReturnsEmptyResult("SELECT float_nan from test_nans where float_nan > CAST('NaN' AS REAL)");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_nans");
+        }
+    }
+
+    @Test
     public void testStructs()
     {
         assertQueryUsingH2Cte("SELECT orderkey, info, dates FROM lineitem_ex");
@@ -604,11 +644,11 @@ public class TestHivePushdownFilterQueries
         // Tests composing two pushdowns each with a range filter and filter function.
         assertQuery(
                 "WITH data AS (" +
-                "    SELECT l.suppkey, l.linenumber, l.shipmode, MAX(o.orderdate)" +
-                "    FROM lineitem l,  orders o WHERE" +
-                "        o.orderkey = l.orderkey AND linenumber IN (2, 3, 4, 6) AND shipmode LIKE '%AIR%'" +
-                "        GROUP BY l.suppkey, l.linenumber, l.shipmode)" +
-                "SELECT COUNT(*) FROM data WHERE suppkey BETWEEN 10 AND 30 AND shipmode LIKE '%REG%'");
+                        "    SELECT l.suppkey, l.linenumber, l.shipmode, MAX(o.orderdate)" +
+                        "    FROM lineitem l,  orders o WHERE" +
+                        "        o.orderkey = l.orderkey AND linenumber IN (2, 3, 4, 6) AND shipmode LIKE '%AIR%'" +
+                        "        GROUP BY l.suppkey, l.linenumber, l.shipmode)" +
+                        "SELECT COUNT(*) FROM data WHERE suppkey BETWEEN 10 AND 30 AND shipmode LIKE '%REG%'");
     }
 
     @Test

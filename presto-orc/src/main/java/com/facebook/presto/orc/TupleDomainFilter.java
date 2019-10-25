@@ -659,7 +659,7 @@ public interface TupleDomainFilter
                     return false;
                 }
             }
-            return true;
+            return !Double.isNaN(value) && !Double.isNaN(lower) && !Double.isNaN(upper);
         }
 
         @Override
@@ -741,7 +741,7 @@ public interface TupleDomainFilter
                     return false;
                 }
             }
-            return true;
+            return !Float.isNaN(value) && !Float.isNaN(lower) && !Float.isNaN(upper);
         }
 
         @Override
