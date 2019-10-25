@@ -548,7 +548,7 @@ public final class SqlStageExecution
         return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(splitLocation, remoteSourceTaskId));
     }
 
-    private synchronized void updateTaskStatus(TaskStatus taskStatus)
+    private void updateTaskStatus(TaskStatus taskStatus)
     {
         try {
             StageExecutionState stageExecutionState = getState();
@@ -558,6 +558,9 @@ public final class SqlStageExecution
 
             TaskState taskState = taskStatus.getState();
             if (taskState == TaskState.FAILED) {
+                // no matter if it is possible to recover - the task is failed
+                failedTasks.add(taskStatus.getTaskId());
+
                 RuntimeException failure = taskStatus.getFailures().stream()
                         .findFirst()
                         .map(this::rewriteTransportFailure)
@@ -567,7 +570,6 @@ public final class SqlStageExecution
                     try {
                         stageTaskRecoveryCallback.get().recover(taskStatus.getTaskId());
                         finishedTasks.add(taskStatus.getTaskId());
-                        failedTasks.add(taskStatus.getTaskId());
                     }
                     catch (Throwable t) {
                         // In an ideal world, this exception is not supposed to happen.
@@ -589,6 +591,8 @@ public final class SqlStageExecution
                 finishedTasks.add(taskStatus.getTaskId());
             }
 
+            // The finishedTasks.add(taskStatus.getTaskId()) must happen before the getState() (see schedulingComplete)
+            stageExecutionState = getState();
             if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING) {
                 if (taskState == TaskState.RUNNING) {
                     stateMachine.transitionToRunning();
@@ -612,7 +616,7 @@ public final class SqlStageExecution
             }
         }
         return stageTaskRecoveryCallback.isPresent() &&
-                failedTasks.size() + 1 < allTasks.size() * maxFailedTaskPercentage;
+                failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
     }
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
