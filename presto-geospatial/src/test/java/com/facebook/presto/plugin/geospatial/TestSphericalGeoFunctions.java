@@ -97,13 +97,13 @@ public class TestSphericalGeoFunctions
         assertToAndFromSphericalGeography("MULTIPOINT ((-40.2 28.9), (-40.2 31.9))");
         assertToAndFromSphericalGeography("LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9)");
         assertToAndFromSphericalGeography("MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 31.9, -37.2 31.9))");
-        assertToAndFromSphericalGeography("POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9))");
-        assertToAndFromSphericalGeography("POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9), " +
-                "(-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))");
-        assertToAndFromSphericalGeography("MULTIPOLYGON (((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)), " +
-                "((-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9)))");
+        assertToAndFromSphericalGeography("POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9))");
+        assertToAndFromSphericalGeography("POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9), " +
+                "(-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9))");
+        assertToAndFromSphericalGeography("MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), " +
+                "((-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9)))");
         assertToAndFromSphericalGeography("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), " +
-                "POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))");
+                "POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))");
 
         // geometries containing invalid latitude or longitude values
         assertInvalidLongitude("POINT (-340.2 28.9)");
@@ -111,7 +111,7 @@ public class TestSphericalGeoFunctions
         assertInvalidLongitude("LINESTRING (-40.2 28.9, -40.2 31.9, 237.2 31.9)");
         assertInvalidLatitude("MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 131.9, -37.2 31.9))");
         assertInvalidLongitude("POLYGON ((-40.2 28.9, -40.2 31.9, 237.2 31.9, -37.2 28.9, -40.2 28.9))");
-        assertInvalidLatitude("POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 131.9, -37.2 28.9, -40.2 28.9), (-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))");
+        assertInvalidLatitude("POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 131.9, -37.2 28.9, -40.2 28.9), (-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9))");
         assertInvalidLongitude("MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), " +
                 "((-39.2 29.9, -39.2 30.9, 238.2 30.9, -38.2 29.9, -39.2 29.9)))");
         assertInvalidLatitude("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 131.9, -37.2 31.9), " +
@@ -157,9 +157,6 @@ public class TestSphericalGeoFunctions
     {
         // Empty polygon
         assertFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON EMPTY')))", DOUBLE, null);
-
-        // Invalid polygon (too few vertices)
-        assertInvalidFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((90 0, 0 0))')))", "Polygon is not valid: a loop contains less then 3 vertices.");
 
         // Invalid data type (point)
         assertInvalidFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))", "When applied to SphericalGeography inputs, ST_Area only supports POLYGON or MULTI_POLYGON. Input type is: POINT");
@@ -209,12 +206,6 @@ public class TestSphericalGeoFunctions
     {
         // Empty linestring returns null
         assertLength("LINESTRING EMPTY", null);
-
-        // Linestring with one point has length 0
-        assertLength("LINESTRING (0 0)", 0.0);
-
-        // Linestring with only one distinct point has length 0
-        assertLength("LINESTRING (0 0, 0 0, 0 0)", 0.0);
 
         double length = 4350866.6362;
 

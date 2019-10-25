@@ -384,7 +384,7 @@ public class TestBingTileFunctions
     @Test
     public void testBingTilePolygon()
     {
-        assertFunction("ST_AsText(bing_tile_polygon(bing_tile('123030123010121')))", VARCHAR, "POLYGON ((59.996337890625 30.11662158281937, 60.00732421875 30.11662158281937, 60.00732421875 30.12612436422458, 59.996337890625 30.12612436422458, 59.996337890625 30.11662158281937))");
+        assertFunction("ST_AsText(bing_tile_polygon(bing_tile('123030123010121')))", VARCHAR, "POLYGON ((59.996337890625 30.11662158281937, 59.996337890625 30.12612436422458, 60.00732421875 30.12612436422458, 60.00732421875 30.11662158281937, 59.996337890625 30.11662158281937))");
         assertFunction("ST_AsText(ST_Centroid(bing_tile_polygon(bing_tile('123030123010121'))))", VARCHAR, "POINT (60.0018310546875 30.121372973521975)");
 
         // Check bottom right corner of a stack of tiles at different zoom levels
