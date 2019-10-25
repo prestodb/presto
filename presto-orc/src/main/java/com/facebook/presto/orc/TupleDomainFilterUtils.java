@@ -208,6 +208,12 @@ public class TupleDomainFilterUtils
         Marker high = range.getHigh();
         double lowerDouble = low.isLowerUnbounded() ? Double.MIN_VALUE : (double) low.getValue();
         double upperDouble = high.isUpperUnbounded() ? Double.MAX_VALUE : (double) high.getValue();
+        if (!low.isLowerUnbounded() && Double.isNaN(lowerDouble)) {
+            return ALWAYS_FALSE;
+        }
+        if (!high.isUpperUnbounded() && Double.isNaN(upperDouble)) {
+            return ALWAYS_FALSE;
+        }
         return DoubleRange.of(
                 lowerDouble,
                 low.isLowerUnbounded(),
@@ -224,6 +230,12 @@ public class TupleDomainFilterUtils
         Marker high = range.getHigh();
         float lowerFloat = low.isLowerUnbounded() ? Float.MIN_VALUE : intBitsToFloat(toIntExact((long) low.getValue()));
         float upperFloat = high.isUpperUnbounded() ? Float.MAX_VALUE : intBitsToFloat(toIntExact((long) high.getValue()));
+        if (!low.isLowerUnbounded() && Float.isNaN(lowerFloat)) {
+            return ALWAYS_FALSE;
+        }
+        if (!high.isUpperUnbounded() && Float.isNaN(upperFloat)) {
+            return ALWAYS_FALSE;
+        }
         return FloatRange.of(
                 lowerFloat,
                 low.isLowerUnbounded(),

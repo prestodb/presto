@@ -35,6 +35,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestTupleDomainFilter
 {
@@ -144,6 +145,15 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testDouble(-0.3));
         assertFalse(filter.testDouble(55.6));
+        assertFalse(filter.testDouble(Double.NaN));
+
+        try {
+            DoubleRange.of(Double.NaN, false, false, Double.NaN, false, false, false);
+            fail("able to create a DoubleRange with NaN");
+        }
+        catch (IllegalArgumentException e) {
+            //expected
+        }
     }
 
     @Test
@@ -170,6 +180,15 @@ public class TestTupleDomainFilter
         assertFalse(filter.testNull());
         assertFalse(filter.testFloat(1.1f));
         assertFalse(filter.testFloat(15.632f));
+        assertFalse(filter.testFloat(Float.NaN));
+
+        try {
+            FloatRange.of(Float.NaN, false, false, Float.NaN, false, false, false);
+            fail("able to create a FloatRange with NaN");
+        }
+        catch (IllegalArgumentException e) {
+            //expected
+        }
     }
 
     @Test

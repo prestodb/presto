@@ -71,6 +71,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.orc.TupleDomainFilter.ALWAYS_FALSE;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -279,6 +280,12 @@ public class TestTupleDomainFilterUtils
                 DoubleRange.of(1.2, false, true, Double.MAX_VALUE, true, true, false)), true));
 
         assertEquals(toFilter(between(C_DOUBLE, doubleLiteral(1.2), doubleLiteral(3.4))), DoubleRange.of(1.2, false, false, 3.4, false, false, false));
+
+        assertEquals(toFilter(lessThan(C_DOUBLE, doubleLiteral(Double.NaN))), ALWAYS_FALSE);
+        assertEquals(toFilter(lessThanOrEqual(C_DOUBLE, doubleLiteral(Double.NaN))), ALWAYS_FALSE);
+        assertEquals(toFilter(greaterThanOrEqual(C_DOUBLE, doubleLiteral(Double.NaN))), ALWAYS_FALSE);
+        assertEquals(toFilter(greaterThan(C_DOUBLE, doubleLiteral(Double.NaN))), ALWAYS_FALSE);
+        assertEquals(toFilter(notEqual(C_DOUBLE, doubleLiteral(Double.NaN))), ALWAYS_FALSE);
     }
 
     @Test
@@ -294,6 +301,13 @@ public class TestTupleDomainFilterUtils
         assertEquals(toFilter(or(isNull(C_REAL), notEqual(C_REAL, realLiteral))), MultiRange.of(ImmutableList.of(
                 FloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
                 FloatRange.of(1.2f, false, true, Float.MAX_VALUE, true, true, false)), true));
+
+        Expression floatNaNLiteral = toExpression(realValue(Float.NaN), TYPES.get(C_REAL.toSymbolReference()));
+        assertEquals(toFilter(lessThan(C_REAL, floatNaNLiteral)), ALWAYS_FALSE);
+        assertEquals(toFilter(lessThanOrEqual(C_REAL, floatNaNLiteral)), ALWAYS_FALSE);
+        assertEquals(toFilter(greaterThanOrEqual(C_REAL, floatNaNLiteral)), ALWAYS_FALSE);
+        assertEquals(toFilter(greaterThan(C_REAL, floatNaNLiteral)), ALWAYS_FALSE);
+        assertEquals(toFilter(notEqual(C_REAL, floatNaNLiteral)), ALWAYS_FALSE);
     }
 
     @Test

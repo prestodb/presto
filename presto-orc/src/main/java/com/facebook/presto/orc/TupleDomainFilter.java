@@ -621,6 +621,8 @@ public interface TupleDomainFilter
         protected DoubleRange(double lower, boolean lowerUnbounded, boolean lowerExclusive, double upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
             super(lowerUnbounded, lowerExclusive, upperUnbounded, upperExclusive, nullAllowed);
+            checkArgument(lowerUnbounded || !Double.isNaN(lower));
+            checkArgument(upperUnbounded || !Double.isNaN(upper));
             this.lower = lower;
             this.upper = upper;
         }
@@ -643,6 +645,9 @@ public interface TupleDomainFilter
         @Override
         public boolean testDouble(double value)
         {
+            if (Double.isNaN(value)) {
+                return false;
+            }
             if (!lowerUnbounded) {
                 if (value < lower) {
                     return false;
@@ -713,6 +718,8 @@ public interface TupleDomainFilter
         private FloatRange(float lower, boolean lowerUnbounded, boolean lowerExclusive, float upper, boolean upperUnbounded, boolean upperExclusive, boolean nullAllowed)
         {
             super(lowerUnbounded, lowerExclusive, upperUnbounded, upperExclusive, nullAllowed);
+            checkArgument(lowerUnbounded || !Float.isNaN(lower));
+            checkArgument(upperUnbounded || !Float.isNaN(upper));
             this.lower = lower;
             this.upper = upper;
         }
@@ -725,6 +732,9 @@ public interface TupleDomainFilter
         @Override
         public boolean testFloat(float value)
         {
+            if (Float.isNaN(value)) {
+                return false;
+            }
             if (!lowerUnbounded) {
                 if (value < lower) {
                     return false;
