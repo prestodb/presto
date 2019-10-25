@@ -280,6 +280,8 @@ public class JtsGeometrySerde
                 writeMultiPoint((MultiPoint) geometry, output);
                 break;
             case "LineString":
+            case "LinearRing":
+                // LinearRings are a subclass of LineString
                 writePolyline(geometry, output, false);
                 break;
             case "MultiLineString":
