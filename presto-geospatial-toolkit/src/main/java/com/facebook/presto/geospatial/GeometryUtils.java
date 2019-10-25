@@ -23,13 +23,19 @@ import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
+import com.facebook.presto.spi.PrestoException;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.CoordinateSequenceFactory;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
+import org.locationtech.jts.io.WKTWriter;
 
 import java.util.HashSet;
 import java.util.Set;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public final class GeometryUtils
 {
@@ -218,6 +224,21 @@ public final class GeometryUtils
         }
 
         return true;
+    }
+
+    public static org.locationtech.jts.geom.Geometry jtsGeometryFromWkt(String wkt)
+    {
+        try {
+            return new WKTReader(GEOMETRY_FACTORY).read(wkt);
+        }
+        catch (ParseException | IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKT: " + e.getMessage(), e);
+        }
+    }
+
+    public static String wktFromJtsGeometry(org.locationtech.jts.geom.Geometry geometry)
+    {
+        return new WKTWriter().write(geometry);
     }
 
     public static org.locationtech.jts.geom.Point makeJtsEmptyPoint()

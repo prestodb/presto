@@ -83,8 +83,10 @@ import static com.facebook.presto.geospatial.GeometryType.MULTI_POLYGON;
 import static com.facebook.presto.geospatial.GeometryType.POINT;
 import static com.facebook.presto.geospatial.GeometryType.POLYGON;
 import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
+import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromWkt;
 import static com.facebook.presto.geospatial.GeometryUtils.makeJtsEmptyPoint;
 import static com.facebook.presto.geospatial.GeometryUtils.makeJtsPoint;
+import static com.facebook.presto.geospatial.GeometryUtils.wktFromJtsGeometry;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType;
@@ -276,7 +278,7 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stGeometryFromText(@SqlType(VARCHAR) Slice input)
     {
-        return serialize(geometryFromText(input));
+        return JtsGeometrySerde.serialize(jtsGeometryFromWkt(input.toStringUtf8()));
     }
 
     @Description("Returns a Geometry type object from Well-Known Binary representation (WKB)")
@@ -334,7 +336,7 @@ public final class GeoFunctions
     @SqlType(VARCHAR)
     public static Slice stAsText(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return utf8Slice(deserialize(input).asText());
+        return utf8Slice(wktFromJtsGeometry(JtsGeometrySerde.deserialize(input)));
     }
 
     @Description("Returns the Well-Known Binary (WKB) representation of the geometry")
@@ -1339,19 +1341,6 @@ public final class GeoFunctions
         if (Double.isNaN(longitude) || Double.isInfinite(longitude) || longitude < MIN_LONGITUDE || longitude > MAX_LONGITUDE) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Longitude must be between -180 and 180");
         }
-    }
-
-    private static OGCGeometry geometryFromText(Slice input)
-    {
-        OGCGeometry geometry;
-        try {
-            geometry = OGCGeometry.fromText(input.toStringUtf8());
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKT: " + input.toStringUtf8(), e);
-        }
-        geometry.setSpatialReference(null);
-        return geometry;
     }
 
     private static OGCGeometry geomFromBinary(Slice input)
