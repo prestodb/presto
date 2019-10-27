@@ -24,6 +24,7 @@ import com.facebook.presto.execution.buffer.PartitionedOutputBuffer;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
+import com.facebook.presto.operator.BucketPartitionFunction;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.operator.PartitionFunction;
@@ -64,6 +65,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.block.BlockAssertions.createMapType;
@@ -83,6 +85,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RowType.withDefaultFieldNames;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.HASH;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -274,7 +277,10 @@ public class BenchmarkPartitionedOutputOperator
 
         private OptimizedPartitionedOutputOperator createOptimizedPartitionedOutputOperator()
         {
-            PartitionFunction partitionFunction = new LocalPartitionGenerator(new PrecomputedHashGenerator(0), PARTITION_COUNT);
+            PartitionFunction partitionFunction = new BucketPartitionFunction(
+                    HASH.createBucketFunction(ImmutableList.of(BIGINT), true, PARTITION_COUNT),
+                    IntStream.range(0, PARTITION_COUNT).toArray());
+
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), enableCompression);
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
