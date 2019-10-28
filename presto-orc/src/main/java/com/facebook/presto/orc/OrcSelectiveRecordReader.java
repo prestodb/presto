@@ -180,7 +180,7 @@ public class OrcSelectiveRecordReader
                 // fails the whole split. Filters on prefilled columns
                 // are already evaluated, hence we only check filters
                 // for missing columns here.
-                if (containsNonNullFilter(filters.get(columnIndex))) {
+                if (columnIndex >= 0 && containsNonNullFilter(filters.get(columnIndex))) {
                     constantFilterIsFalse = true;
                     // No further initialization needed.
                     return;
@@ -190,7 +190,10 @@ public class OrcSelectiveRecordReader
         }
 
         for (Map.Entry<Integer, Object> entry : constantValues.entrySet()) {
-            this.constantValues[zeroBasedIndices.get(entry.getKey())] = entry.getValue();
+            // all included columns will be null, the constant columns should have a valid predicate or null marker so that there is no streamReader created below
+            if (entry.getValue() != null) {
+                this.constantValues[zeroBasedIndices.get(entry.getKey())] = entry.getValue();
+            }
         }
 
         // Initial order of stream readers is:

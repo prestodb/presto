@@ -627,6 +627,10 @@ public class TestHivePushdownFilterQueries
 
         assertQueryReturnsEmptyResult("SELECT * FROM test_partition_columns WHERE p = 'abc' and p='def'");
 
+        assertUpdate("INSERT into test_partition_columns values (3, 'abc', NULL)", 1);
+
+        assertQuerySucceeds(getSession(), "select * from test_partition_columns");
+
         assertUpdate("DROP TABLE test_partition_columns");
     }
 
