@@ -26,8 +26,6 @@ import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.SizeOf.sizeOfByteArray;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -62,7 +60,7 @@ public final class PagesHash
         this.channelCount = pagesHashStrategy.getChannelCount();
 
         // reserve memory for the arrays
-        int hashSize = getHashTableSize(addresses.size());
+        int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
 
         mask = hashSize - 1;
         key = new int[hashSize];
@@ -119,6 +117,7 @@ public final class PagesHash
                 key[pos] = realPosition;
             }
         }
+
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
                 sizeOf(key) + sizeOf(positionToHashes);
         hashCollisions = hashCollisionsLocal;
@@ -238,25 +237,5 @@ public final class PagesHash
         rawHash ^= rawHash >>> 33;
 
         return (int) (rawHash & mask);
-    }
-
-    /**
-     * @return Given a number of positions, how much more memory would a pagesHash use if we constructed it from a PagesIndex with this number of positions?
-     * Keep in mind that this is a *Delta*: The actual pagesHash would be larger than this -- add this number to the existing size of the PagesIndex
-     */
-    public static long getEstimatedAdditionalSize(int positionCount)
-    {
-        int hashSize = getHashTableSize(positionCount);
-
-        long predictedKeySize = sizeOfIntArray(hashSize);
-        long predictedPositionToHashesSize = sizeOfByteArray(positionCount);
-        long predictedPositionLinksSize = sizeOfIntArray(positionCount);
-
-        return predictedKeySize + predictedPositionToHashesSize + predictedPositionLinksSize;
-    }
-
-    private static int getHashTableSize(int positionCount)
-    {
-        return HashCommon.arraySize(positionCount, 0.75f);
     }
 }
