@@ -337,13 +337,17 @@ public class HashBuilderOperator
     {
         index.addPage(page);
 
+        // Why not index.getEstimatedSize.toBytes()? Because we are adding a calculation for the expected size of the PagesHash we will build soon
+        int numPositions = index.getPositionCount();
+        long estimatedSizeAfterBuild = index.getEstimatedSize().toBytes() + PagesHash.getEstimatedAdditionalSize(numPositions);
+
         if (spillEnabled) {
-            localRevocableMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+            localRevocableMemoryContext.setBytes(estimatedSizeAfterBuild);
         }
         else {
-            if (!localUserMemoryContext.trySetBytes(index.getEstimatedSize().toBytes())) {
+            if (!localUserMemoryContext.trySetBytes(estimatedSizeAfterBuild)) {
                 index.compact();
-                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
+                localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes() + PagesHash.getEstimatedAdditionalSize(numPositions));
             }
         }
         operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
@@ -483,15 +487,6 @@ public class HashBuilderOperator
             return;
         }
 
-        // reserve memory for the lookup source
-        long estimatedSizeAfterBuild = index.getEstimatedSize().toBytes() + PagesHash.getEstimatedAdditionalSize(index.getPositionCount());
-        if (spillEnabled) {
-            localRevocableMemoryContext.setBytes(estimatedSizeAfterBuild);
-        }
-        else {
-            localUserMemoryContext.setBytes(estimatedSizeAfterBuild);
-        }
-
         LookupSourceSupplier partition = buildLookupSource();
         if (spillEnabled) {
             localRevocableMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
@@ -569,10 +564,6 @@ public class HashBuilderOperator
             memoryRetainedByRemainingPages -= next.getRetainedSizeInBytes();
             localUserMemoryContext.setBytes(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes());
         }
-
-        // reserve memory for the lookup source
-        long estimatedSizeAfterBuild = index.getEstimatedSize().toBytes() + PagesHash.getEstimatedAdditionalSize(index.getPositionCount());
-        localUserMemoryContext.setBytes(estimatedSizeAfterBuild);
 
         LookupSourceSupplier partition = buildLookupSource();
         lookupSourceChecksum.ifPresent(checksum ->
