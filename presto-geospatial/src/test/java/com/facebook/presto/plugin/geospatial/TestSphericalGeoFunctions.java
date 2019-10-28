@@ -170,18 +170,18 @@ public class TestSphericalGeoFunctions
         // A polygon around the North Pole
         assertArea("POLYGON((-135 85, -45 85, 45 85, 135 85, -135 85))", 619.00E9);
 
-        assertArea("POLYGON((0 0, 0 1, 1 1, 1 0))", 123.64E8);
+        assertArea("POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))", 123.64E8);
 
-        assertArea("POLYGON((-122.150124 37.486095, -122.149201 37.486606,  -122.145725 37.486580, -122.145923 37.483961 , -122.149324 37.482480 ,  -122.150837 37.483238,  -122.150901 37.485392))", 163290.93943446054);
+        assertArea("POLYGON((-122.150124 37.486095, -122.149201 37.486606,  -122.145725 37.486580, -122.145923 37.483961, -122.149324 37.482480,  -122.150837 37.483238,  -122.150901 37.485392, -122.150124 37.486095))", 163290.93943446054);
 
         double angleOfOneKm = 0.008993201943349;
-        assertArea(format("POLYGON((0 0, %.15f 0, %.15f %.15f, 0 %.15f))", angleOfOneKm, angleOfOneKm, angleOfOneKm, angleOfOneKm), 1E6);
+        assertArea(format("POLYGON((0 0, %.15f 0, %.15f %.15f, 0 %.15f, 0 0))", angleOfOneKm, angleOfOneKm, angleOfOneKm, angleOfOneKm), 1E6);
 
         // 1/4th of an hemisphere, ie 1/8th of the planet, should be close to 4PiR2/8 = 637.58E11
-        assertArea("POLYGON((90 0, 0 0, 0 90))", 637.58E11);
+        assertArea("POLYGON((90 0, 0 0, 0 90, 90 0))", 637.58E11);
 
         //A Polygon with a large hole
-        assertArea("POLYGON((90 0, 0 0, 0 90), (89 1, 1 1, 1 89))", 348.04E10);
+        assertArea("POLYGON((90 0, 0 0, 0 90, 90 0), (89 1, 1 1, 1 89, 89 1))", 348.04E10);
 
         Path geometryPath = Paths.get(TestSphericalGeoFunctions.class.getClassLoader().getResource("us-states.tsv").getPath());
         Map<String, String> stateGeometries = Files.lines(geometryPath)
