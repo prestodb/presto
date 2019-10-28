@@ -130,6 +130,8 @@ public class BenchmarkSTArea
             sb.append(Math.sin(angle));
             separator = ",";
         }
+        sb.append(separator);
+        sb.append("1 0");
         sb.append("))");
         return sb.toString();
     }
