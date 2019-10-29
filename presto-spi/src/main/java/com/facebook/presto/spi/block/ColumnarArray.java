@@ -71,7 +71,8 @@ public class ColumnarArray
             int dictionaryId = dictionaryBlock.getId(position);
             int length = columnarArray.getLength(dictionaryId);
 
-            int startOffset = columnarArray.getOffset(dictionaryId);
+            // adjust to the element block start offset
+            int startOffset = columnarArray.getOffset(dictionaryId) - columnarArray.getOffset(0);
             for (int entryIndex = 0; entryIndex < length; entryIndex++) {
                 dictionaryIds[nextDictionaryIndex] = startOffset + entryIndex;
                 nextDictionaryIndex++;
@@ -133,12 +134,12 @@ public class ColumnarArray
 
     public int getLength(int position)
     {
-        return (offsets[position + 1 + offsetsOffset] - offsets[position + offsetsOffset]);
+        return getOffset(position + 1) - getOffset(position);
     }
 
-    public int getOffset(int position)
+    private int getOffset(int position)
     {
-        return (offsets[position + offsetsOffset] - offsets[offsetsOffset]);
+        return offsets[position + offsetsOffset];
     }
 
     public Block getElementsBlock()

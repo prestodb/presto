@@ -78,7 +78,8 @@ public class ColumnarMap
             int dictionaryId = dictionaryBlock.getId(position);
             int entryCount = columnarMap.getEntryCount(dictionaryId);
 
-            int startOffset = columnarMap.getOffset(dictionaryId);
+            // adjust to the element block start offset
+            int startOffset = columnarMap.getOffset(dictionaryId) - columnarMap.getOffset(0);
             for (int entryIndex = 0; entryIndex < entryCount; entryIndex++) {
                 dictionaryIds[nextDictionaryIndex] = startOffset + entryIndex;
                 nextDictionaryIndex++;
@@ -152,9 +153,9 @@ public class ColumnarMap
         return (offsets[position + 1 + offsetsOffset] - offsets[position + offsetsOffset]);
     }
 
-    public int getOffset(int position)
+    private int getOffset(int position)
     {
-        return (offsets[position + offsetsOffset] - offsets[offsetsOffset]);
+        return offsets[position + offsetsOffset];
     }
 
     public int getAbsoluteOffset(int position)

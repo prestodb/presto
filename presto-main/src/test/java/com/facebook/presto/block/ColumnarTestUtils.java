@@ -31,7 +31,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public final class ColumnarTestUtils
+final class ColumnarTestUtils
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
     private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager(TYPE_MANAGER);
