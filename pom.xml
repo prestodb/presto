@@ -145,6 +145,7 @@
         <module>presto-elasticsearch</module>
         <module>presto-sql-function</module>
         <module>presto-expressions</module>
+        <module>presto-benchmark-runner</module>
     </modules>
 
     <dependencyManagement>
