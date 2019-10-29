@@ -172,6 +172,7 @@ public class FileCache
         }
         else if (bytes > free + (max - total) - (500 * (1014 * 1024))) {
             log.warn("Attempting to set FileCache size above free memory - 500M: Increase by " + bytes + " while " + (free + max - total) + "available. Total = " + total + " and max = " + max);
+            targetSize = (max - total) / 2; 
             if (targetSize <= 1L << 30) {
                 targetSize += 1L << 30;
             }
@@ -959,6 +960,7 @@ public class FileCache
                         checkState(entry.buffer == null);
                         entry.softBuffer = null;
                         entry.token = null;
+                        entry.bucketIndex = -1;
                     }
                 }
             }
