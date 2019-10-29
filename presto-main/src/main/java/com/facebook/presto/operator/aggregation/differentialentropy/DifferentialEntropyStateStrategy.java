@@ -39,19 +39,19 @@ public interface DifferentialEntropyStateStrategy
 
     DifferentialEntropyStateStrategy clone();
 
-    default void validateParameters(long bucketCount, double sample, double weight, double min, double max)
+    default void validateParameters(long size, double sample, double weight, double min, double max)
     {
         throw new UnsupportedOperationException(
                 format("In differential_entropy UDF, unsupported arguments for type: %s", getClass().getSimpleName()));
     }
 
-    default void validateParameters(long bucketCount, double sample, double weight)
+    default void validateParameters(long size, double sample, double weight)
     {
         throw new UnsupportedOperationException(
                 format("In differential_entropy UDF, unsupported arguments for type: %s", getClass().getSimpleName()));
     }
 
-    default void validateParameters(long bucketCount, double sample)
+    default void validateParameters(long size, double sample)
     {
         throw new UnsupportedOperationException(
                 format("In differential_entropy UDF, unsupported arguments for type: %s", getClass().getSimpleName()));
