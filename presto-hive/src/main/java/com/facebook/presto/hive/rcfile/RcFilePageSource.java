@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.rcfile.RcFileCorruptionException;
 import com.facebook.presto.rcfile.RcFileReader;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -64,7 +65,8 @@ public class RcFilePageSource
             RcFileReader rcFileReader,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            ConnectorSession session)
     {
         requireNonNull(rcFileReader, "rcReader is null");
         requireNonNull(columns, "columns is null");

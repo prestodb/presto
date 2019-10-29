@@ -308,6 +308,7 @@ public class ListSelectiveStreamReader
             }
             else {
                 outputPositionCount = positionCount;
+                this.outputPositions = positions;
             }
         }
         else {

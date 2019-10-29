@@ -169,6 +169,12 @@ public class MapFlatSelectiveStreamReader
                 case SHORT:
                 case INT:
                 case LONG:
+                case DECIMAL:
+                case BOOLEAN:
+                case DATE:
+                case TIMESTAMP:
+                case FLOAT:
+                case DOUBLE:
                     requiredLongKeys = requiredSubfields.stream()
                             .map(Subfield::getPath)
                             .map(path -> path.get(0))
@@ -178,6 +184,7 @@ public class MapFlatSelectiveStreamReader
                     requiredStringKeys = null;
                     return;
                 case STRING:
+                case VARCHAR:
                 case BINARY:
                     requiredStringKeys = requiredSubfields.stream()
                             .map(Subfield::getPath)

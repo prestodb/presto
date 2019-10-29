@@ -36,6 +36,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -140,6 +141,7 @@ public class OrcBatchPageSourceFactory
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
+            RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
             Optional<byte[]> extraFileInfo)
     {

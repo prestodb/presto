@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.hive.rcfile;
 
+import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.orc.FilterFunction;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
 import com.facebook.presto.rcfile.RcFileCorruptionException;
@@ -30,9 +33,17 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
+import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.PredicateCompiler;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -49,19 +60,29 @@ import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
+import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
+import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
@@ -84,14 +105,16 @@ public class RcFilePageSourceFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final FileOpener fileOpener;
+    private final RowExpressionService rowExpressionService;
 
     @Inject
-    public RcFilePageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, FileOpener fileOpener)
+    public RcFilePageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, FileOpener fileOpener, RowExpressionService service)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
+        this.rowExpressionService = service;
     }
 
     @Override
@@ -106,6 +129,7 @@ public class RcFilePageSourceFactory
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
+            RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
             Optional<byte[]> extraFileInfo)
     {
@@ -152,11 +176,29 @@ public class RcFilePageSourceFactory
                     length,
                     new DataSize(8, Unit.MEGABYTE));
 
+            if (HiveSessionProperties.isPushdownFilterEnabled(session)) {
+                Map<VariableReferenceExpression, InputReferenceExpression> variableToInput = columns.stream()
+                        .collect(toImmutableMap(
+                                hiveColumnIndex -> new VariableReferenceExpression(hiveColumnIndex.getName(), hiveColumnIndex.getHiveType().getType(typeManager)),
+                                hiveColumnIndex -> new InputReferenceExpression(hiveColumnIndex.getHiveColumnIndex(), hiveColumnIndex.getHiveType().getType(typeManager))));
+
+                List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
+                return Optional.of(new RcFileSelectivePageSource(
+                        rcFileReader,
+                        columns,
+                        hiveStorageTimeZone,
+                        typeManager,
+                        session,
+                        effectivePredicate,
+                        filterFunctions));
+            }
+
             return Optional.of(new RcFilePageSource(
                     rcFileReader,
                     columns,
                     hiveStorageTimeZone,
-                    typeManager));
+                    typeManager,
+                    session));
         }
         catch (Throwable e) {
             try {
@@ -227,5 +269,50 @@ public class RcFilePageSourceFactory
                 separators,
                 escapeByte,
                 lastColumnTakesRest);
+    }
+
+    /**
+     * Split filter expression into groups of conjuncts that depend on the same set of inputs,
+     * then compile each group into FilterFunction.
+     */
+    private static List<FilterFunction> toFilterFunctions(RowExpression filter, ConnectorSession session, DeterminismEvaluator determinismEvaluator, PredicateCompiler predicateCompiler)
+    {
+        if (TRUE_CONSTANT.equals(filter)) {
+            return ImmutableList.of();
+        }
+
+        List<RowExpression> conjuncts = extractConjuncts(filter);
+        if (conjuncts.size() == 1) {
+            return ImmutableList.of(new FilterFunction(session, determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
+        }
+
+        // Use LinkedHashMap to preserve user-specified order of conjuncts. This will be the initial order in which filters are applied.
+        Map<Set<Integer>, List<RowExpression>> inputsToConjuncts = new LinkedHashMap<>();
+        for (RowExpression conjunct : conjuncts) {
+            inputsToConjuncts.computeIfAbsent(extractInputs(conjunct), k -> new ArrayList<>()).add(conjunct);
+        }
+
+        return inputsToConjuncts.values().stream()
+                .map(expressions -> binaryExpression(AND, expressions))
+                .map(predicate -> new FilterFunction(session, determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), predicate).get()))
+                .collect(toImmutableList());
+    }
+
+    private static Set<Integer> extractInputs(RowExpression expression)
+    {
+        ImmutableSet.Builder<Integer> inputs = ImmutableSet.builder();
+        expression.accept(new InputReferenceBuilderVisitor(), inputs);
+        return inputs.build();
+    }
+
+    private static class InputReferenceBuilderVisitor
+            extends DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<Integer>>
+    {
+        @Override
+        public Void visitInputReference(InputReferenceExpression input, ImmutableSet.Builder<Integer> builder)
+        {
+            builder.add(input.getField());
+            return null;
+        }
     }
 }

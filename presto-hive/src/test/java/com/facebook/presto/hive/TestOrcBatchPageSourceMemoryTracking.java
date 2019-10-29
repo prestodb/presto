@@ -494,6 +494,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     fileSplit.getLength(),
                     storage,
                     TupleDomain.all(),
+                    null,
                     columns,
                     partitionKeys,
                     DateTimeZone.UTC,
