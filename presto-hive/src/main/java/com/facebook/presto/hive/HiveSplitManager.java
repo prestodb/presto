@@ -95,6 +95,7 @@ public class HiveSplitManager
     private final int splitLoaderConcurrency;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
+    private final Optional<String> inputPathFilterClass;
 
     @Inject
     public HiveSplitManager(
@@ -120,7 +121,8 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
-                hiveClientConfig.getRecursiveDirWalkerEnabled());
+                hiveClientConfig.getRecursiveDirWalkerEnabled(),
+                Optional.ofNullable(hiveClientConfig.getInputPathFilterClass()));
     }
 
     public HiveSplitManager(
@@ -137,7 +139,8 @@ public class HiveSplitManager
             int maxPartitionBatchSize,
             int maxInitialSplits,
             int splitLoaderConcurrency,
-            boolean recursiveDfsWalkerEnabled)
+            boolean recursiveDfsWalkerEnabled,
+            Optional<String> inputPathFilterClass)
     {
         this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
@@ -154,6 +157,7 @@ public class HiveSplitManager
         this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
+        this.inputPathFilterClass = inputPathFilterClass;
     }
 
     @Override
@@ -230,7 +234,8 @@ public class HiveSplitManager
                 executor,
                 splitLoaderConcurrency,
                 recursiveDfsWalkerEnabled,
-                splitSchedulingContext.schedulerUsesHostAddresses());
+                splitSchedulingContext.schedulerUsesHostAddresses(),
+                inputPathFilterClass);
 
         HiveSplitSource splitSource;
         switch (splitSchedulingContext.getSplitSchedulingStrategy()) {

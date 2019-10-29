@@ -19,6 +19,7 @@ import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.FileNotFoundException;
@@ -27,6 +28,7 @@ import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
@@ -46,6 +48,7 @@ public class HiveFileIterator
     private final ListDirectoryOperation listDirectoryOperation;
     private final NamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
+    private final Optional<PathFilter> pathFilter;
 
     private Iterator<HiveFileInfo> remoteIterator = Collections.emptyIterator();
 
@@ -53,12 +56,14 @@ public class HiveFileIterator
             Path path,
             ListDirectoryOperation listDirectoryOperation,
             NamenodeStats namenodeStats,
-            NestedDirectoryPolicy nestedDirectoryPolicy)
+            NestedDirectoryPolicy nestedDirectoryPolicy,
+            Optional<PathFilter> pathFilter)
     {
         paths.addLast(requireNonNull(path, "path is null"));
         this.listDirectoryOperation = requireNonNull(listDirectoryOperation, "listDirectoryOperation is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.nestedDirectoryPolicy = requireNonNull(nestedDirectoryPolicy, "nestedDirectoryPolicy is null");
+        this.pathFilter = requireNonNull(pathFilter, "path filter is null");
     }
 
     @Override
@@ -92,14 +97,14 @@ public class HiveFileIterator
             if (paths.isEmpty()) {
                 return endOfData();
             }
-            remoteIterator = getLocatedFileStatusRemoteIterator(paths.removeFirst());
+            remoteIterator = getLocatedFileStatusRemoteIterator(paths.removeFirst(), pathFilter);
         }
     }
 
-    private Iterator<HiveFileInfo> getLocatedFileStatusRemoteIterator(Path path)
+    private Iterator<HiveFileInfo> getLocatedFileStatusRemoteIterator(Path path, Optional<PathFilter> pathFilter)
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
-            return new FileStatusIterator(path, listDirectoryOperation, namenodeStats);
+            return new FileStatusIterator(path, listDirectoryOperation, namenodeStats, pathFilter);
         }
     }
 
@@ -116,13 +121,35 @@ public class HiveFileIterator
         private final Path path;
         private final NamenodeStats namenodeStats;
         private final RemoteIterator<HiveFileInfo> fileStatusIterator;
+        private final Optional<PathFilter> pathFilter;
+        private HiveFileInfo next;
 
-        private FileStatusIterator(Path path, ListDirectoryOperation listDirectoryOperation, NamenodeStats namenodeStats)
+        private FileStatusIterator(Path path, ListDirectoryOperation listDirectoryOperation, NamenodeStats namenodeStats, Optional<PathFilter> pathFilter)
         {
             this.path = path;
             this.namenodeStats = namenodeStats;
+            this.pathFilter = pathFilter;
             try {
                 this.fileStatusIterator = listDirectoryOperation.list(path);
+            }
+            catch (IOException e) {
+                throw processException(e);
+            }
+        }
+
+        private void computeNext()
+        {
+            if (next != null) {
+                return;
+            }
+            try {
+                while (fileStatusIterator.hasNext()) {
+                    HiveFileInfo hiveFileInfo = fileStatusIterator.next();
+                    if (!pathFilter.isPresent() || pathFilter.get().accept(hiveFileInfo.getPath())) {
+                        next = hiveFileInfo;
+                        return;
+                    }
+                }
             }
             catch (IOException e) {
                 throw processException(e);
@@ -132,23 +159,17 @@ public class HiveFileIterator
         @Override
         public boolean hasNext()
         {
-            try {
-                return fileStatusIterator.hasNext();
-            }
-            catch (IOException e) {
-                throw processException(e);
-            }
+            computeNext();
+            return (next != null);
         }
 
         @Override
         public HiveFileInfo next()
         {
-            try {
-                return fileStatusIterator.next();
-            }
-            catch (IOException e) {
-                throw processException(e);
-            }
+            computeNext();
+            HiveFileInfo result = next;
+            next = null;
+            return result;
         }
 
         private PrestoException processException(IOException exception)

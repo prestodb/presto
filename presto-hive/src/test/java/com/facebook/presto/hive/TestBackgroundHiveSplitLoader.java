@@ -37,6 +37,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 import org.testng.annotations.Test;
@@ -257,7 +258,8 @@ public class TestBackgroundHiveSplitLoader
                 EXECUTOR,
                 2,
                 false,
-                false);
+                false,
+                Optional.empty());
     }
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
@@ -277,7 +279,8 @@ public class TestBackgroundHiveSplitLoader
                 directExecutor(),
                 2,
                 false,
-                false);
+                false,
+                Optional.empty());
     }
 
     private static Iterable<HivePartitionMetadata> createPartitionMetadataWithOfflinePartitions()
@@ -394,6 +397,12 @@ public class TestBackgroundHiveSplitLoader
 
         @Override
         public Iterator<HiveFileInfo> list(FileSystem fs, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy)
+        {
+            return files.iterator();
+        }
+
+        @Override
+        public Iterator<HiveFileInfo> list(FileSystem fs, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy, Optional<PathFilter> pathFilter)
         {
             return files.iterator();
         }

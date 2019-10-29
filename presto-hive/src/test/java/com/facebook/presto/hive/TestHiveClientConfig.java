@@ -133,7 +133,8 @@ public class TestHiveClientConfig
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
                 .setPushdownFilterEnabled(false)
-                .setNestedColumnsFilterEnabled(false));
+                .setNestedColumnsFilterEnabled(false)
+                .setInputPathFilterClass(null));
     }
 
     @Test
@@ -231,6 +232,7 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-compression-codec", "NONE")
                 .put("hive.pushdown-filter-enabled", "true")
                 .put("hive.nested-columns-filter-enabled", "true")
+                .put("hive.input-path-filter-class", "TestPathFilterClass")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -325,7 +327,8 @@ public class TestHiveClientConfig
                 .setTemporaryTableStorageFormat(DWRF)
                 .setTemporaryTableCompressionCodec(NONE)
                 .setPushdownFilterEnabled(true)
-                .setNestedColumnsFilterEnabled(true);
+                .setNestedColumnsFilterEnabled(true)
+                .setInputPathFilterClass("TestPathFilterClass");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

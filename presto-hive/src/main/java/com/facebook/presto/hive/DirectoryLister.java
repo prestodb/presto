@@ -15,12 +15,16 @@ package com.facebook.presto.hive;
 
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 
 import java.util.Iterator;
+import java.util.Optional;
 
 import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy;
 
 public interface DirectoryLister
 {
     Iterator<HiveFileInfo> list(FileSystem fileSystem, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy);
+
+    Iterator<HiveFileInfo> list(FileSystem fileSystem, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy, Optional<PathFilter> pathFilter);
 }

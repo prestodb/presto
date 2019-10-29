@@ -36,6 +36,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
@@ -111,6 +112,7 @@ public class BackgroundHiveSplitLoader
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
     private final boolean schedulerUsesHostAddresses;
+    private Optional<PathFilter> inputPathFilter;
 
     // Purpose of this lock:
     // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
@@ -144,7 +146,8 @@ public class BackgroundHiveSplitLoader
             Executor executor,
             int loaderConcurrency,
             boolean recursiveDirWalkerEnabled,
-            boolean schedulerUsesHostAddresses)
+            boolean schedulerUsesHostAddresses,
+            Optional<String> inputPathFilterClass)
     {
         this.table = requireNonNull(table, "table is null");
         this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
@@ -159,6 +162,21 @@ public class BackgroundHiveSplitLoader
         this.partitions = new ConcurrentLazyQueue<>(requireNonNull(partitions, "partitions is null"));
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
+        this.inputPathFilter = inputPathFilterClass.map(BackgroundHiveSplitLoader::createPathFilter);
+    }
+
+    private static PathFilter createPathFilter(String inputPathFilterClass)
+    {
+        try {
+            Object instance = Class.forName(inputPathFilterClass).getConstructor().newInstance();
+            if (!(instance instanceof PathFilter)) {
+                throw new RuntimeException("Invalid path filter class: " + instance.getClass().getName());
+            }
+            return (PathFilter) instance;
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Unable to create path filter: " + inputPathFilterClass, e);
+        }
     }
 
     @Override
@@ -359,9 +377,11 @@ public class BackgroundHiveSplitLoader
                         bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty()),
                 schedulerUsesHostAddresses);
 
-        // To support custom input formats, we want to call getSplits()
-        // on the input format to obtain file splits.
-        if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
+        // To support custom input formats, we want to call getSplits() on the input format to obtain file splits.
+        // Alternatively custom InputFormats can choose to provide a PathFilter implementation for getting splits.
+        // In the presence of PathFilter (set using 'hive.input-path-filter-class' config), shouldUseFileSplitsFromInputFormat
+        // will be overridden.
+        if (shouldUseFileSplitsFromInputFormat(inputFormat) && !inputPathFilter.isPresent()) {
             if (tableBucketInfo.isPresent()) {
                 throw new PrestoException(NOT_SUPPORTED, "Presto cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
             }
@@ -420,7 +440,7 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable)
     {
-        return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
+        return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, inputPathFilter))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -445,7 +465,7 @@ public class BackgroundHiveSplitLoader
         // list all files in the partition
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, path, namenodeStats, FAIL));
+            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, path, namenodeStats, FAIL, inputPathFilter));
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -513,7 +533,7 @@ public class BackgroundHiveSplitLoader
     private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
-        return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED))
+        return stream(directoryLister.list(fileSystem, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, inputPathFilter))
                 .map(fileInfo -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, fileInfo.getPath());
                     return splitFactory.createInternalHiveSplit(fileInfo, virtualBucketNumber, virtualBucketNumber, splittable);

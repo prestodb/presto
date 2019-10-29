@@ -166,6 +166,7 @@ public class HiveClientConfig
 
     private boolean pushdownFilterEnabled;
     private boolean nestedColumnsFilterEnabled;
+    private String inputPathFilterClass;
 
     public int getMaxInitialSplits()
     {
@@ -1392,6 +1393,19 @@ public class HiveClientConfig
     public HiveClientConfig setNestedColumnsFilterEnabled(boolean nestedColumnsFilterEnabled)
     {
         this.nestedColumnsFilterEnabled = nestedColumnsFilterEnabled;
+        return this;
+    }
+
+    public String getInputPathFilterClass()
+    {
+        return inputPathFilterClass;
+    }
+
+    @Config("hive.input-path-filter-class")
+    @ConfigDescription("Enable PathFilter on files listed by DirectoryLister instead of getting splits from custom InputFormats")
+    public HiveClientConfig setInputPathFilterClass(String inputPathFilterClass)
+    {
+        this.inputPathFilterClass = inputPathFilterClass;
         return this;
     }
 }
