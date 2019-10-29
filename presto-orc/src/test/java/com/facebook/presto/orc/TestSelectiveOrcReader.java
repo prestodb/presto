@@ -808,6 +808,9 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(INTEGER, VARCHAR),
                 ImmutableList.of(createList(NUM_ROWS, i -> random.nextInt(NUM_ROWS)), newArrayList(createList(NUM_ROWS, randomStrings))),
                 toSubfieldFilters(ImmutableMap.of(0, BigintRange.of(10_000, 15_000, true))));
+
+        // dataStream is null and lengths are 0
+        tester.testRoundTrip(VARCHAR, newArrayList("", null), toSubfieldFilters(stringNotEquals(true, "")));
     }
 
     @Test
@@ -955,6 +958,13 @@ public class TestSelectiveOrcReader
     private static TupleDomainFilter stringEquals(boolean nullAllowed, String value)
     {
         return BytesRange.of(value.getBytes(), false, value.getBytes(), false, nullAllowed);
+    }
+
+    private static TupleDomainFilter stringNotEquals(boolean nullAllowed, String value)
+    {
+        return TupleDomainFilter.MultiRange.of(ImmutableList.of(
+                BytesRange.of(null, false, value.getBytes(), true, nullAllowed),
+                BytesRange.of(value.getBytes(), true, null, false, nullAllowed)), nullAllowed);
     }
 
     private static TupleDomainFilter stringIn(boolean nullAllowed, String... values)

@@ -239,14 +239,16 @@ public class SliceDirectSelectiveStreamReader
                     }
                     else {
                         assert length == 0;
-                        if (outputRequired) {
-                            offsets[outputPositionCount + 1] = offset;
-                            if (nullsAllowed && isNullVector != null) {
-                                nulls[outputPositionCount] = false;
+                        if (filter.testBytes("".getBytes(), 0, 0)) {
+                            if (outputRequired) {
+                                offsets[outputPositionCount + 1] = offset;
+                                if (nullsAllowed && isNullVector != null) {
+                                    nulls[outputPositionCount] = false;
+                                }
                             }
+                            outputPositions[outputPositionCount] = position;
+                            outputPositionCount++;
                         }
-                        outputPositions[outputPositionCount] = position;
-                        outputPositionCount++;
                     }
                 }
                 else {
