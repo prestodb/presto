@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.serialize;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.createGroupByIdBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getGroupValue;

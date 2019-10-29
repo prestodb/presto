@@ -52,9 +52,9 @@ import static java.lang.Double.isNaN;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class GeometrySerde
+public class EsriGeometrySerde
 {
-    private GeometrySerde() {}
+    private EsriGeometrySerde() {}
 
     public static Slice serialize(OGCGeometry input)
     {

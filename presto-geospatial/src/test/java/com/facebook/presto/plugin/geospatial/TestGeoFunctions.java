@@ -18,7 +18,7 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
-import com.facebook.presto.geospatial.serde.GeometrySerde;
+import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -252,8 +252,8 @@ public class TestGeoFunctions
 
     private void assertApproximateCentroid(String wkt, Point expectedCentroid, double epsilon)
     {
-        OGCPoint actualCentroid = (OGCPoint) GeometrySerde.deserialize(
-                stCentroid(GeometrySerde.serialize(OGCGeometry.fromText(wkt))));
+        OGCPoint actualCentroid = (OGCPoint) EsriGeometrySerde.deserialize(
+                stCentroid(EsriGeometrySerde.serialize(OGCGeometry.fromText(wkt))));
         assertEquals(actualCentroid.X(), expectedCentroid.getX(), epsilon);
         assertEquals(actualCentroid.Y(), expectedCentroid.getY(), epsilon);
     }
