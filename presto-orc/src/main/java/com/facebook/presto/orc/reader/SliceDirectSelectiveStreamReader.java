@@ -207,7 +207,7 @@ public class SliceDirectSelectiveStreamReader
             }
 
             int offset = outputRequired ? offsets[outputPositionCount] : 0;
-            if (isNullVector != null && isNullVector[position]) {
+            if (presentStream != null && isNullVector[position]) {
                 if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                     if (outputRequired) {
                         offsets[outputPositionCount + 1] = offset;
@@ -239,14 +239,16 @@ public class SliceDirectSelectiveStreamReader
                     }
                     else {
                         assert length == 0;
-                        if (outputRequired) {
-                            offsets[outputPositionCount + 1] = offset;
-                            if (nullsAllowed && isNullVector != null) {
-                                nulls[outputPositionCount] = false;
+                        if (filter.testBytes("".getBytes(), 0, 0)) {
+                            if (outputRequired) {
+                                offsets[outputPositionCount + 1] = offset;
+                                if (nullsAllowed && isNullVector != null) {
+                                    nulls[outputPositionCount] = false;
+                                }
                             }
+                            outputPositions[outputPositionCount] = position;
+                            outputPositionCount++;
                         }
-                        outputPositions[outputPositionCount] = position;
-                        outputPositionCount++;
                     }
                 }
                 else {
