@@ -15,7 +15,7 @@ package com.facebook.presto.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.geospatial.GeometryType;
-import com.facebook.presto.geospatial.serde.GeometrySerde;
+import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -51,7 +51,7 @@ public class ConvexHullAggregation
     public static void input(@AggregationState GeometryState state,
             @SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
+        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
             state.setGeometry(geometry.convexHull(), 0);
         }
@@ -81,7 +81,7 @@ public class ConvexHullAggregation
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, GeometrySerde.serialize(state.getGeometry()));
+            GEOMETRY.writeSlice(out, EsriGeometrySerde.serialize(state.getGeometry()));
         }
     }
 

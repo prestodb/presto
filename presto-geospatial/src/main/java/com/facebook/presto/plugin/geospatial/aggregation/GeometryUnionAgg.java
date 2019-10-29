@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import com.facebook.presto.geospatial.serde.GeometrySerde;
+import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
@@ -41,7 +41,7 @@ public class GeometryUnionAgg
     @InputFunction
     public static void input(@AggregationState GeometryState state, @SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
+        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
             state.setGeometry(geometry, 0);
         }
@@ -70,7 +70,7 @@ public class GeometryUnionAgg
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, GeometrySerde.serialize(state.getGeometry()));
+            GEOMETRY.writeSlice(out, EsriGeometrySerde.serialize(state.getGeometry()));
         }
     }
 }

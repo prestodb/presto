@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.geospatial.aggregation;
 
-import com.facebook.presto.geospatial.serde.GeometrySerde;
+import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
@@ -37,7 +37,7 @@ public class GeometryStateSerializer
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, GeometrySerde.serialize(state.getGeometry()));
+            GEOMETRY.writeSlice(out, EsriGeometrySerde.serialize(state.getGeometry()));
         }
     }
 
@@ -45,6 +45,6 @@ public class GeometryStateSerializer
     public void deserialize(Block block, int index, GeometryState state)
     {
         long previousMemorySize = state.getGeometry() != null ? state.getGeometry().estimateMemorySize() : 0;
-        state.setGeometry(GeometrySerde.deserialize(GEOMETRY.getSlice(block, index)), previousMemorySize);
+        state.setGeometry(EsriGeometrySerde.deserialize(GEOMETRY.getSlice(block, index)), previousMemorySize);
     }
 }

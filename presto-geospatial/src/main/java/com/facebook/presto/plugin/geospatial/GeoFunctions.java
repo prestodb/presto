@@ -32,7 +32,7 @@ import com.esri.core.geometry.ogc.OGCLineString;
 import com.facebook.presto.geospatial.GeometryType;
 import com.facebook.presto.geospatial.KdbTree;
 import com.facebook.presto.geospatial.Rectangle;
-import com.facebook.presto.geospatial.serde.GeometrySerde;
+import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.geospatial.serde.GeometrySerializationType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -92,8 +92,8 @@ import static com.facebook.presto.geospatial.GeometryUtils.createJtsPoint;
 import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
 import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromWkt;
 import static com.facebook.presto.geospatial.GeometryUtils.wktFromJtsGeometry;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeType;
 import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
@@ -266,7 +266,7 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stGeomFromBinary(@SqlType(VARBINARY) Slice input)
     {
-        return GeometrySerde.serialize(geomFromBinary(input));
+        return EsriGeometrySerde.serialize(geomFromBinary(input));
     }
 
     @Description("Converts a Geometry object to a SphericalGeography object")
@@ -282,7 +282,7 @@ public final class GeoFunctions
             checkLongitude(envelope.getXMin());
             checkLongitude(envelope.getXMax());
         }
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
+        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
         if (geometry.is3D()) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert 3D geometry to a spherical geography");
         }
@@ -324,7 +324,7 @@ public final class GeoFunctions
     @SqlType(VARBINARY)
     public static Slice stAsBinary(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return wrappedBuffer(GeometrySerde.deserialize(input).asBinary());
+        return wrappedBuffer(EsriGeometrySerde.deserialize(input).asBinary());
     }
 
     @SqlNullable
@@ -345,11 +345,11 @@ public final class GeoFunctions
             return input;
         }
 
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
+        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return null;
         }
-        return GeometrySerde.serialize(geometry.buffer(distance));
+        return EsriGeometrySerde.serialize(geometry.buffer(distance));
     }
 
     @Description("Returns the Point value that is the mathematical centroid of a Geometry")
@@ -375,14 +375,14 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stConvexHull(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
+        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return input;
         }
         if (GeometryType.getForEsriGeometryType(geometry.geometryType()) == POINT) {
             return input;
         }
-        return GeometrySerde.serialize(geometry.convexHull());
+        return EsriGeometrySerde.serialize(geometry.convexHull());
     }
 
     @Description("Return the coordinate dimension of the Geometry")
@@ -390,7 +390,7 @@ public final class GeoFunctions
     @SqlType(TINYINT)
     public static long stCoordinateDimension(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return GeometrySerde.deserialize(input).coordinateDimension();
+        return EsriGeometrySerde.deserialize(input).coordinateDimension();
     }
 
     @Description("Returns the inherent dimension of this Geometry object, which must be less than or equal to the coordinate dimension")
@@ -434,7 +434,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static boolean stIsSimple(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
+        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
         return geometry.isEmpty() || geometry.isSimple();
     }
 
@@ -443,7 +443,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static boolean stIsValid(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        GeometryCursor cursor = GeometrySerde.deserialize(input).getEsriGeometryCursor();
+        GeometryCursor cursor = EsriGeometrySerde.deserialize(input).getEsriGeometryCursor();
         while (true) {
             com.esri.core.geometry.Geometry geometry = cursor.next();
             if (geometry == null) {
@@ -462,7 +462,7 @@ public final class GeoFunctions
     @SqlNullable
     public static Slice invalidReason(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        GeometryCursor cursor = GeometrySerde.deserialize(input).getEsriGeometryCursor();
+        GeometryCursor cursor = EsriGeometrySerde.deserialize(input).getEsriGeometryCursor();
         NonSimpleResult result = new NonSimpleResult();
         while (true) {
             com.esri.core.geometry.Geometry geometry = cursor.next();
@@ -690,7 +690,7 @@ public final class GeoFunctions
                 continue;
             }
 
-            for (OGCGeometry geometry : flattenCollection(GeometrySerde.deserialize(slice))) {
+            for (OGCGeometry geometry : flattenCollection(EsriGeometrySerde.deserialize(slice))) {
                 int dimension = geometry.dimension();
                 cursorsByDimension[dimension].tick(geometry.getEsriGeometry());
                 operatorsByDimension[dimension].tock();
@@ -706,9 +706,9 @@ public final class GeoFunctions
         }
 
         if (outputs.size() == 1) {
-            return GeometrySerde.serialize(outputs.get(0));
+            return EsriGeometrySerde.serialize(outputs.get(0));
         }
-        return GeometrySerde.serialize(new OGCConcreteGeometryCollection(outputs, null).flattenAndRemoveOverlaps().reduceFromMulti());
+        return EsriGeometrySerde.serialize(new OGCConcreteGeometryCollection(outputs, null).flattenAndRemoveOverlaps().reduceFromMulti());
     }
 
     @SqlNullable
@@ -797,7 +797,7 @@ public final class GeoFunctions
     @SqlType(BIGINT)
     public static long stNumPoints(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return getPointCount(GeometrySerde.deserialize(input));
+        return getPointCount(EsriGeometrySerde.deserialize(input));
     }
 
     @SqlNullable
@@ -806,7 +806,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stIsRing(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
+        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
         validateType("ST_IsRing", geometry, EnumSet.of(LINE_STRING));
         OGCLineString line = (OGCLineString) geometry;
         return line.isClosed() && line.isSimple();
@@ -924,7 +924,7 @@ public final class GeoFunctions
         if (envelope.isEmpty()) {
             return EMPTY_POLYGON;
         }
-        return GeometrySerde.serialize(envelope);
+        return EsriGeometrySerde.serialize(envelope);
     }
 
     @SqlNullable
@@ -962,7 +962,7 @@ public final class GeoFunctions
         if (envelope.isEmpty()) {
             return EMPTY_POLYGON;
         }
-        return GeometrySerde.serialize(new Envelope(
+        return EsriGeometrySerde.serialize(new Envelope(
                 envelope.getXMin() - distance,
                 envelope.getYMin() - distance,
                 envelope.getXMax() + distance,
@@ -974,10 +974,10 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stDifference(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
-        return GeometrySerde.serialize(leftGeometry.difference(rightGeometry));
+        return EsriGeometrySerde.serialize(leftGeometry.difference(rightGeometry));
     }
 
     @SqlNullable
@@ -986,8 +986,8 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static Double stDistance(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.isEmpty() || rightGeometry.isEmpty() ? null : leftGeometry.distance(rightGeometry);
     }
@@ -1023,22 +1023,22 @@ public final class GeoFunctions
             Envelope intersection = leftEnvelope;
             if (intersection.getXMin() == intersection.getXMax()) {
                 if (intersection.getYMin() == intersection.getYMax()) {
-                    return GeometrySerde.serialize(createFromEsriGeometry(new Point(intersection.getXMin(), intersection.getXMax()), null));
+                    return EsriGeometrySerde.serialize(createFromEsriGeometry(new Point(intersection.getXMin(), intersection.getXMax()), null));
                 }
-                return GeometrySerde.serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMin(), intersection.getYMax())), null));
+                return EsriGeometrySerde.serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMin(), intersection.getYMax())), null));
             }
 
             if (intersection.getYMin() == intersection.getYMax()) {
-                return GeometrySerde.serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMax(), intersection.getYMin())), null));
+                return EsriGeometrySerde.serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMax(), intersection.getYMin())), null));
             }
 
-            return GeometrySerde.serialize(intersection);
+            return EsriGeometrySerde.serialize(intersection);
         }
 
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
-        return GeometrySerde.serialize(leftGeometry.intersection(rightGeometry));
+        return EsriGeometrySerde.serialize(leftGeometry.intersection(rightGeometry));
     }
 
     @Description("Returns the Geometry value that represents the point set symmetric difference of two Geometries")
@@ -1046,10 +1046,10 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stSymmetricDifference(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
-        return GeometrySerde.serialize(leftGeometry.symDifference(rightGeometry));
+        return EsriGeometrySerde.serialize(leftGeometry.symDifference(rightGeometry));
     }
 
     @SqlNullable
@@ -1061,8 +1061,8 @@ public final class GeoFunctions
         if (!envelopes(left, right, Envelope::contains)) {
             return false;
         }
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.contains(rightGeometry);
     }
@@ -1076,8 +1076,8 @@ public final class GeoFunctions
         if (!envelopes(left, right, Envelope::intersect)) {
             return false;
         }
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.crosses(rightGeometry);
     }
@@ -1091,8 +1091,8 @@ public final class GeoFunctions
         if (!envelopes(left, right, Envelope::intersect)) {
             return true;
         }
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.disjoint(rightGeometry);
     }
@@ -1103,8 +1103,8 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stEquals(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.Equals(rightGeometry);
     }
@@ -1118,8 +1118,8 @@ public final class GeoFunctions
         if (!envelopes(left, right, Envelope::intersect)) {
             return false;
         }
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.intersects(rightGeometry);
     }
@@ -1133,8 +1133,8 @@ public final class GeoFunctions
         if (!envelopes(left, right, Envelope::intersect)) {
             return false;
         }
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.overlaps(rightGeometry);
     }
@@ -1145,8 +1145,8 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stRelate(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right, @SqlType(VARCHAR) Slice relation)
     {
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.relate(rightGeometry, relation.toStringUtf8());
     }
@@ -1160,8 +1160,8 @@ public final class GeoFunctions
         if (!envelopes(left, right, Envelope::intersect)) {
             return false;
         }
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.touches(rightGeometry);
     }
@@ -1175,8 +1175,8 @@ public final class GeoFunctions
         if (!envelopes(right, left, Envelope::contains)) {
             return false;
         }
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.within(rightGeometry);
     }
@@ -1186,7 +1186,7 @@ public final class GeoFunctions
     @SqlType(VARCHAR)
     public static Slice stGeometryType(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return GeometrySerde.getGeometryType(input).standardName();
+        return EsriGeometrySerde.getGeometryType(input).standardName();
     }
 
     @ScalarFunction
@@ -1363,8 +1363,8 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static Double stSphericalDistance(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice left, @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice right)
     {
-        OGCGeometry leftGeometry = GeometrySerde.deserialize(left);
-        OGCGeometry rightGeometry = GeometrySerde.deserialize(right);
+        OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
+        OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         if (leftGeometry.isEmpty() || rightGeometry.isEmpty()) {
             return null;
         }
@@ -1393,7 +1393,7 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static Double stSphericalArea(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
+        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return null;
         }
@@ -1426,7 +1426,7 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static Double stSphericalLength(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
+        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return null;
         }
