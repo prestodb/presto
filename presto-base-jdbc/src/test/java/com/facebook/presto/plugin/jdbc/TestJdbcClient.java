@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import javafx.util.Pair;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -29,6 +30,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.plugin.jdbc.BaseJdbcClient.getSplitColumn0;
+import static com.facebook.presto.plugin.jdbc.BaseJdbcClient.partition;
 import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DATE;
@@ -46,6 +49,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -180,5 +184,105 @@ public class TestJdbcClient
         finally {
             jdbcClient.dropTable(JdbcIdentity.from(session), tableHandle);
         }
+    }
+
+    @Test
+    public void testPartitionDividable()
+    {
+        List<Pair<Long, Long>> ranges = partition(1, 30, 3);
+        assertEquals(
+                ranges,
+                ImmutableList.of(
+                        new Pair(1L, 10L),
+                        new Pair(11L, 20L),
+                        new Pair(21L, 30L)));
+    }
+
+    @Test
+    public void testPartitionNotDividable()
+    {
+        List<Pair<Long, Long>> ranges = partition(1, 31, 3);
+        assertEquals(
+                ranges,
+                ImmutableList.of(
+                        new Pair(1L, 11L),
+                        new Pair(12L, 22L),
+                        new Pair(23L, 31L)));
+    }
+
+    @Test
+    public void testPartitionNotDividable1()
+    {
+        List<Pair<Long, Long>> ranges = partition(1, 28, 3);
+        assertEquals(
+                ranges,
+                ImmutableList.of(
+                        new Pair(1L, 10L),
+                        new Pair(11L, 20L),
+                        new Pair(21L, 28L)));
+    }
+
+    @Test
+    public void testPartitionTooBigPartitionCount()
+    {
+        List<Pair<Long, Long>> ranges = partition(1, 11, 10);
+        assertEquals(
+                ranges,
+                ImmutableList.of(
+                        new Pair(1L, 2L),
+                        new Pair(3L, 4L),
+                        new Pair(5L, 6L),
+                        new Pair(7L, 8L),
+                        new Pair(9L, 10L),
+                        new Pair(11L, 11L)));
+    }
+
+    @Test
+    public void testPartitionNotEnough()
+    {
+        List<Pair<Long, Long>> ranges = partition(1, 7, 10);
+        assertEquals(
+                ranges,
+                ImmutableList.of(new Pair(1L, 7L)));
+    }
+
+    @Test
+    public void testGetSplitColumnName0()
+    {
+        assertEquals(
+                getSplitColumn0(ImmutableList.of(
+                        new ColumnInfo("id", "smallint", true),
+                        new ColumnInfo("name", "varchar", false),
+                        new ColumnInfo("age", "int", false)
+                )).getName(), "id");
+
+        assertEquals(
+                getSplitColumn0(ImmutableList.of(
+                        new ColumnInfo("id", "smallint", false),
+                        new ColumnInfo("name", "varchar", false),
+                        new ColumnInfo("age", "int", false)
+                )).getName(), "age");
+
+        assertEquals(
+                getSplitColumn0(ImmutableList.of(
+                        new ColumnInfo("id", "int", false),
+                        new ColumnInfo("name", "varchar", false),
+                        new ColumnInfo("age", "int", false)
+                )).getName(),
+                "id");
+
+        assertEquals(
+                getSplitColumn0(ImmutableList.of(
+                        new ColumnInfo("id", "int", false),
+                        new ColumnInfo("name", "varchar", false),
+                        new ColumnInfo("age", "bigint", false)
+                )).getName(),
+                "age");
+
+        assertNull(
+                getSplitColumn0(ImmutableList.of(
+                        new ColumnInfo("id", "varchar", false),
+                        new ColumnInfo("name", "varchar", false),
+                        new ColumnInfo("age", "varchar", false))));
     }
 }

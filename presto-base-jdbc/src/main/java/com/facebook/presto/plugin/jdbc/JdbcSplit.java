@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -39,6 +40,8 @@ public class JdbcSplit
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<JdbcExpression> additionalPredicate;
 
+    private final RangeInfo rangeInfo;
+
     @JsonCreator
     public JdbcSplit(
             @JsonProperty("connectorId") String connectorId,
@@ -46,7 +49,8 @@ public class JdbcSplit
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
-            @JsonProperty("additionalProperty") Optional<JdbcExpression> additionalPredicate)
+            @JsonProperty("additionalProperty") Optional<JdbcExpression> additionalPredicate,
+            @JsonProperty("rangeInfo") RangeInfo rangeInfo)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
@@ -54,6 +58,7 @@ public class JdbcSplit
         this.tableName = requireNonNull(tableName, "table name is null");
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.additionalPredicate = requireNonNull(additionalPredicate, "additionalPredicate is null");
+        this.rangeInfo = rangeInfo;
     }
 
     @JsonProperty
@@ -110,5 +115,69 @@ public class JdbcSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @JsonProperty
+    public RangeInfo getRangeInfo()
+    {
+        return rangeInfo;
+    }
+
+    public static class RangeInfo
+    {
+        private String columnName;
+        private Long inclusiveMinValue;
+        private Long inclusiveMaxValue;
+
+        @JsonCreator
+        public RangeInfo(@JsonProperty("columnName") String columnName,
+                @JsonProperty("inclusiveMinValue") Long inclusiveMinValue,
+                @JsonProperty("inclusiveMaxValue") Long inclusiveMaxValue)
+        {
+            this.columnName = columnName;
+            this.inclusiveMinValue = inclusiveMinValue;
+            this.inclusiveMaxValue = inclusiveMaxValue;
+        }
+
+        @JsonProperty("columnName")
+        public String getColumnName()
+        {
+            return columnName;
+        }
+
+        @JsonProperty("inclusiveMinValue")
+        public Long getInclusiveMinValue()
+        {
+            return inclusiveMinValue;
+        }
+
+        @JsonProperty("inclusiveMaxValue")
+        public Long getInclusiveMaxValue()
+        {
+            return inclusiveMaxValue;
+        }
+
+        public boolean isNullRange()
+        {
+            return inclusiveMinValue == null && inclusiveMaxValue == null;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (obj == null || !(obj instanceof RangeInfo)) {
+                return false;
+            }
+            RangeInfo other = (RangeInfo) obj;
+            return Objects.equals(this.columnName, other.columnName) &&
+                    Objects.equals(this.inclusiveMinValue, other.inclusiveMinValue) &&
+                    Objects.equals(this.inclusiveMaxValue, other.inclusiveMaxValue);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(columnName, inclusiveMinValue, inclusiveMaxValue);
+        }
     }
 }

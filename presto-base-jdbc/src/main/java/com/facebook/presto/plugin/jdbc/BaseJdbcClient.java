@@ -36,6 +36,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import javafx.util.Pair;
 
 import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
@@ -265,14 +266,181 @@ public class BaseJdbcClient
     public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableLayoutHandle layoutHandle)
     {
         JdbcTableHandle tableHandle = layoutHandle.getTable();
-        JdbcSplit jdbcSplit = new JdbcSplit(
-                connectorId,
-                tableHandle.getCatalogName(),
-                tableHandle.getSchemaName(),
-                tableHandle.getTableName(),
-                layoutHandle.getTupleDomain(),
-                layoutHandle.getAdditionalPredicate());
-        return new FixedSplitSource(ImmutableList.of(jdbcSplit));
+        List<JdbcSplit.RangeInfo> ranges = null;
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            // determine a column to split the whole table scan
+            ColumnInfo splitColumn = getSplitColumn(metaData, tableHandle.getCatalogName(), tableHandle.getSchemaName(), tableHandle.getTableName());
+
+            if (splitColumn != null) {
+                log.info("Table: %s.%s.%s, splitColumn: %s", tableHandle.getCatalogName(), tableHandle.getSchemaName(), tableHandle.getTableName(), splitColumn);
+
+                // collect the min/max stats for the specified split column
+                String minMaxSql = format("select min(%s) AS MIN_VALUE, max(%s) AS MAX_VALUE from %s",
+                        splitColumn.getName(), splitColumn.getName(),
+                        quoted(tableHandle.getCatalogName(), tableHandle.getSchemaName(), tableHandle.getTableName()));
+                try (Statement statement = connection.createStatement()) {
+                    log.info("Execute sql: %s", minMaxSql);
+
+                    statement.execute(minMaxSql);
+                    try (ResultSet rs = statement.getResultSet()) {
+                        rs.next();
+                        long minId = rs.getLong("MIN_VALUE");
+                        long maxId = rs.getLong("MAX_VALUE");
+                        int splitCount = deducePartitionCount(maxId - minId);
+
+                        if (splitCount > 1) {
+                            List<Pair<Long, Long>> partitions = partition(minId, maxId, splitCount);
+                            ranges = new ArrayList<>();
+                            for (Pair<Long, Long> x : partitions) {
+                                ranges.add(new JdbcSplit.RangeInfo(splitColumn.getName(), x.getKey(), x.getValue()));
+                            }
+
+                            // add a null range if the column is nullable
+                            if (splitColumn.isNullable()) {
+                                ranges.add(new JdbcSplit.RangeInfo(splitColumn.getName(), null, null));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (SQLException e) {
+            log.error("getSplits failed!", e);
+        }
+
+        List<JdbcSplit> splits = new ArrayList<>();
+        if (ranges != null) {
+            for (JdbcSplit.RangeInfo range : ranges) {
+                splits.add(
+                        new JdbcSplit(
+                                connectorId,
+                                tableHandle.getCatalogName(),
+                                tableHandle.getSchemaName(),
+                                tableHandle.getTableName(),
+                                layoutHandle.getTupleDomain(),
+                                Optional.empty(),
+                                range));
+            }
+        }
+        else { // no split column
+            JdbcSplit jdbcSplit = new JdbcSplit(
+                    connectorId,
+                    tableHandle.getCatalogName(),
+                    tableHandle.getSchemaName(),
+                    tableHandle.getTableName(),
+                    layoutHandle.getTupleDomain(),
+                    Optional.empty(),
+                    null);
+            splits.add(jdbcSplit);
+        }
+
+        return new FixedSplitSource(splits);
+    }
+
+    /**
+     * Looking for the split column based on some predefined rules:
+     * 1. If there is a auto_increment column, pick it.
+     * 2. Otherwise if there is a bigint column, pick it.
+     * 3. Otherwise if there is an integer column, pick it.
+     * 4. Otherwise return null -- which means do not split
+     */
+    private ColumnInfo getSplitColumn(DatabaseMetaData metaData, String catalogName, String schemaName, String tableName)
+            throws SQLException
+    {
+        try (ResultSet resultSet = metaData.getColumns(catalogName, schemaName, tableName, null)) {
+            List<ColumnInfo> columns = new ArrayList<>();
+            while (resultSet.next()) {
+                String name = resultSet.getString("COLUMN_NAME");
+                String type = resultSet.getString("TYPE_NAME");
+                String isAutoIncrementStr = resultSet.getString("IS_AUTOINCREMENT");
+                boolean isAutoIncrement = "YES".equalsIgnoreCase(isAutoIncrementStr);
+
+                String isNullableStr = resultSet.getString("IS_NULLABLE");
+                boolean isNullable = "YES".equalsIgnoreCase(isNullableStr);
+
+                columns.add(new ColumnInfo(name, type, isAutoIncrement, isNullable));
+            }
+            return getSplitColumn0(columns);
+        }
+    }
+
+    static ColumnInfo getSplitColumn0(List<ColumnInfo> columns)
+    {
+        Optional<ColumnInfo> autoIncrColumnOp = columns.stream()
+                .filter(x -> x.isAutoIncrement())
+                .findFirst();
+
+        if (autoIncrColumnOp.isPresent()) {
+            return autoIncrColumnOp.get();
+        }
+
+        Optional<ColumnInfo> bigintColumnOp = columns.stream()
+                .filter(x -> "BIGINT".equalsIgnoreCase(x.getType()))
+                .findFirst();
+        if (bigintColumnOp.isPresent()) {
+            return bigintColumnOp.get();
+        }
+
+        Optional<ColumnInfo> intColumnOp = columns.stream()
+                .filter(x -> "INT".equalsIgnoreCase(x.getType()))
+                .findFirst();
+        if (intColumnOp.isPresent()) {
+            return intColumnOp.get();
+        }
+
+        return null;
+    }
+
+    static int deducePartitionCount(long valueRange)
+    {
+        // do not split when there are less than 1000 records
+        if (valueRange <= 1000) {
+            return 1;
+        }
+
+        // split count: 1 - 10
+        if (valueRange <= 10000) {
+            return Math.max(1, (int) (valueRange / 1000));
+        }
+
+        // split count: 10 - 20
+        if (valueRange <= 200000) {
+            return Math.max(10, (int) (valueRange / 10000));
+        }
+
+        // split count: 20 - 100
+        return Math.max(
+                20,
+                Math.min(100, (int) (valueRange / 200000)));
+    }
+
+    static List<Pair<Long, Long>> partition(long minId, long maxId, int partitionCount)
+    {
+        long range = maxId - minId + 1;
+        if (range < partitionCount) {
+            return ImmutableList.of(new Pair(minId, maxId));
+        }
+
+        List<Pair<Long, Long>> ranges = new ArrayList<>(16);
+        long step = range / partitionCount;
+        if (step * partitionCount < range) {
+            step += 1;
+        }
+
+        long currentId = minId;
+        for (int i = 0; i < partitionCount; i++) {
+            long upperBound = currentId + step - 1;
+            upperBound = Math.min(upperBound, maxId);
+
+            if (currentId > upperBound) {
+                break;
+            }
+
+            ranges.add(new Pair(currentId, upperBound));
+            currentId = currentId + step;
+        }
+        return ranges;
     }
 
     @Override
@@ -302,7 +470,8 @@ public class BaseJdbcClient
                 split.getTableName(),
                 columnHandles,
                 split.getTupleDomain(),
-                split.getAdditionalPredicate());
+                split.getAdditionalPredicate(),
+                split.getRangeInfo());
     }
 
     @Override

@@ -103,7 +103,8 @@ public class QueryBuilder
             String table,
             List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<JdbcExpression> additionalPredicate)
+            Optional<JdbcExpression> additionalPredicate,
+            JdbcSplit.RangeInfo rangeInfo)
             throws SQLException
     {
         StringBuilder sql = new StringBuilder();
@@ -145,6 +146,22 @@ public class QueryBuilder
                     .append(Joiner.on(" AND ").join(clauses));
         }
 
+        if (rangeInfo != null) {
+            if (!clauses.isEmpty()) {
+                sql.append(" AND ");
+            }
+            else {
+                sql.append(" WHERE ");
+            }
+
+            if (rangeInfo.isNullRange()) {
+                sql.append(quote(rangeInfo.getColumnName())).append(" IS NULL");
+            }
+            else {
+                sql.append(quote(rangeInfo.getColumnName())).append(" >= ").append(rangeInfo.getInclusiveMinValue())
+                        .append(" AND ").append(quote(rangeInfo.getColumnName())).append(" <= ").append(rangeInfo.getInclusiveMaxValue());
+            }
+        }
         PreparedStatement statement = client.getPreparedStatement(connection, sql.toString());
 
         for (int i = 0; i < accumulator.size(); i++) {
