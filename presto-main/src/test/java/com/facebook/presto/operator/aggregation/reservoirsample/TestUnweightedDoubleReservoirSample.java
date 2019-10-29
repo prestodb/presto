@@ -34,9 +34,9 @@ public class TestUnweightedDoubleReservoirSample
     @Test
     public void testGetMaxSamples()
     {
-        UnweightedDoubleReservoirSample sample = new UnweightedDoubleReservoirSample(200);
+        UnweightedDoubleReservoirSample reservoir = new UnweightedDoubleReservoirSample(200);
 
-        assertEquals(sample.getMaxSamples(), 200);
+        assertEquals(reservoir.getMaxSamples(), 200);
     }
 
     @Test

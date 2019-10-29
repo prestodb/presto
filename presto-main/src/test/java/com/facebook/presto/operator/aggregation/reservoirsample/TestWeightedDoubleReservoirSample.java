@@ -34,9 +34,9 @@ public class TestWeightedDoubleReservoirSample
     @Test
     public void testGetters()
     {
-        WeightedDoubleReservoirSample sample = new WeightedDoubleReservoirSample(200);
+        WeightedDoubleReservoirSample reservoir = new WeightedDoubleReservoirSample(200);
 
-        assertEquals(sample.getMaxSamples(), 200);
+        assertEquals(reservoir.getMaxSamples(), 200);
     }
 
     @Test
