@@ -2079,6 +2079,24 @@
 
     <profiles>
         <profile>
+            <id>neutrino</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>pl.project13.maven</groupId>
+                        <artifactId>git-commit-id-plugin</artifactId>
+                        <version>2.1.13</version>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+            <modules>
+                <module>presto-server-neutrino</module>
+            </modules>
+        </profile>
+        <profile>
             <id>tests-with-dependencies</id>
             <!--
                 Assembles an uber (fat) jar that includes the entire "test" scope classpath for a module.

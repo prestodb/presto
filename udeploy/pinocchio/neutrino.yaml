@@ -1,0 +1,23 @@
+schema_version: 2.0.0
+service_name: neutrino
+service_type: custom
+distribution: stretch
+debian_packages_for_runtime:
+  - name: python
+  - name: default-jdk
+  - name: maven
+  - name: sudo
+  - name: ubermon
+custom:
+  build_cmds:
+      # Assuming that the tests are already passing, the rest of exclusions are because of the super old
+      # maven version 3.3.9 in the base debian image, and that the udocker build env is so f*ing flaky
+    - RUN ./neutrino/build_for_docker.sh -Dmaven.javadoc.skip=true -Dair.check.fail-all=false -Dmaven.test.skip=true
+    - RUN chown -R udocker:udocker /home/udocker/neutrino
+applications:
+  - udeploy_app_id: 'neutrino'
+    app_type: command_line
+    health_check: neutrino/udeploy_health_check.sh
+    command_line:
+      run_cmd: './neutrino/start.sh presto-server-neutrino/target/presto-server-0.229-SNAPSHOT/presto-server-0.229-SNAPSHOT'
+

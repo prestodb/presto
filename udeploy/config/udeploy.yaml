@@ -1,0 +1,5 @@
+neutrino:
+    docker:
+        cpu_quota: 16
+        memory_limit: 20g
+
