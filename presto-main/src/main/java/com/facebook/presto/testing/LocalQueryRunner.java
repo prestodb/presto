@@ -862,7 +862,6 @@ public class LocalQueryRunner
         return new PlanOptimizers(
                 metadata,
                 sqlParser,
-                featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
                 splitManager,

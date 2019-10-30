@@ -371,7 +371,6 @@ public abstract class AbstractTestQueryFramework
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 sqlParser,
-                featuresConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
                 queryRunner.getSplitManager(),
