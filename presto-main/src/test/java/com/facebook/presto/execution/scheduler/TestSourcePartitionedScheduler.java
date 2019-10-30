@@ -463,7 +463,7 @@ public class TestSourcePartitionedScheduler
                 TupleDomain.all(),
                 TupleDomain.all());
 
-        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId(0), ImmutableList.of(), Optional.empty(), GATHER);
+        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId(0), ImmutableList.of(), false, Optional.empty(), GATHER);
         PlanFragment testFragment = new PlanFragment(
                 new PlanFragmentId(0),
                 new JoinNode(new PlanNodeId("join_id"),

@@ -598,6 +598,7 @@ public class PlanBuilder
         private ExchangeNode.Type type = ExchangeNode.Type.GATHER;
         private ExchangeNode.Scope scope = ExchangeNode.Scope.REMOTE_STREAMING;
         private PartitioningScheme partitioningScheme;
+        private boolean ensureSourceOrdering;
         private OrderingScheme orderingScheme;
         private List<PlanNode> sources = new ArrayList<>();
         private List<List<VariableReferenceExpression>> inputs = new ArrayList<>();
@@ -664,6 +665,12 @@ public class PlanBuilder
             return this;
         }
 
+        public ExchangeBuilder setEnsureSourceOrdering(boolean ensureSourceOrdering)
+        {
+            this.ensureSourceOrdering = ensureSourceOrdering;
+            return this;
+        }
+
         public ExchangeBuilder orderingScheme(OrderingScheme orderingScheme)
         {
             this.orderingScheme = orderingScheme;
@@ -672,7 +679,7 @@ public class PlanBuilder
 
         protected ExchangeNode build()
         {
-            return new ExchangeNode(idAllocator.getNextId(), type, scope, partitioningScheme, sources, inputs, Optional.ofNullable(orderingScheme));
+            return new ExchangeNode(idAllocator.getNextId(), type, scope, partitioningScheme, sources, inputs, ensureSourceOrdering, Optional.ofNullable(orderingScheme));
         }
     }
 

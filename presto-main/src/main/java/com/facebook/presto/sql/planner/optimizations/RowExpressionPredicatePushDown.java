@@ -203,6 +203,7 @@ public class RowExpressionPredicatePushDown
                         node.getPartitioningScheme(),
                         builder.build(),
                         node.getInputs(),
+                        node.isEnsureSourceOrdering(),
                         node.getOrderingScheme());
             }
 
