@@ -26,11 +26,11 @@ import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
@@ -306,7 +306,7 @@ public class AggregationImplementation
         private AggregationImplementation get()
         {
             Signature signature = new Signature(
-                    FullyQualifiedName.of(DEFAULT_NAMESPACE, header.getName()),
+                    QualifiedFunctionName.of(DEFAULT_NAMESPACE, header.getName()),
                     FunctionKind.AGGREGATE,
                     typeVariableConstraints,
                     longVariableConstraints,

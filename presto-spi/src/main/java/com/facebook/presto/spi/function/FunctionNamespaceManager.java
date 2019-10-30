@@ -14,7 +14,6 @@
 package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.api.Experimental;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -53,7 +52,7 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
      */
     Collection<F> listFunctions();
 
-    Collection<F> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, FullyQualifiedName functionName);
+    Collection<F> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName);
 
     FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature);
 

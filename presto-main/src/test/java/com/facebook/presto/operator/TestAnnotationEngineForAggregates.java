@@ -44,11 +44,11 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -111,7 +111,7 @@ public class TestAnnotationEngineForAggregates
     public void testSimpleExactAggregationParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "simple_exact_aggregate"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "simple_exact_aggregate"),
                 FunctionKind.AGGREGATE,
                 DoubleType.DOUBLE.getTypeSignature(),
                 ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
@@ -163,7 +163,7 @@ public class TestAnnotationEngineForAggregates
     public void testStateOnDifferentThanFirstPositionAggregationParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "simple_exact_aggregate_aggregation_state_moved"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "simple_exact_aggregate_aggregation_state_moved"),
                 FunctionKind.AGGREGATE,
                 DoubleType.DOUBLE.getTypeSignature(),
                 ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
@@ -306,7 +306,7 @@ public class TestAnnotationEngineForAggregates
     public void testNotDecomposableAggregationParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "custom_decomposable_aggregate"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "custom_decomposable_aggregate"),
                 FunctionKind.AGGREGATE,
                 DoubleType.DOUBLE.getTypeSignature(),
                 ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
@@ -381,7 +381,7 @@ public class TestAnnotationEngineForAggregates
     public void testSimpleGenericAggregationFunctionParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "simple_generic_implementations"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "simple_generic_implementations"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
@@ -457,7 +457,7 @@ public class TestAnnotationEngineForAggregates
     public void testSimpleBlockInputAggregationParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "block_input_aggregate"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "block_input_aggregate"),
                 FunctionKind.AGGREGATE,
                 DoubleType.DOUBLE.getTypeSignature(),
                 ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
@@ -541,7 +541,7 @@ public class TestAnnotationEngineForAggregates
     public void testSimpleImplicitSpecializedAggregationParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "implicit_specialized_aggregate"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "implicit_specialized_aggregate"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
@@ -633,7 +633,7 @@ public class TestAnnotationEngineForAggregates
     public void testSimpleExplicitSpecializedAggregationParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "explicit_specialized_aggregate"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "explicit_specialized_aggregate"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
@@ -708,13 +708,13 @@ public class TestAnnotationEngineForAggregates
     public void testMultiOutputAggregationParse()
     {
         Signature expectedSignature1 = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "multi_output_aggregate_1"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "multi_output_aggregate_1"),
                 FunctionKind.AGGREGATE,
                 DoubleType.DOUBLE.getTypeSignature(),
                 ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
 
         Signature expectedSignature2 = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "multi_output_aggregate_2"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "multi_output_aggregate_2"),
                 FunctionKind.AGGREGATE,
                 DoubleType.DOUBLE.getTypeSignature(),
                 ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
@@ -794,7 +794,7 @@ public class TestAnnotationEngineForAggregates
     public void testInjectOperatorAggregateParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "inject_operator_aggregate"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "inject_operator_aggregate"),
                 FunctionKind.AGGREGATE,
                 DoubleType.DOUBLE.getTypeSignature(),
                 ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()));
@@ -874,7 +874,7 @@ public class TestAnnotationEngineForAggregates
     public void testInjectTypeAggregateParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "inject_type_aggregate"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "inject_type_aggregate"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
@@ -958,7 +958,7 @@ public class TestAnnotationEngineForAggregates
     public void testInjectLiteralAggregateParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "inject_literal_aggregate"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "inject_literal_aggregate"),
                 FunctionKind.AGGREGATE,
                 parseTypeSignature("varchar(x)", ImmutableSet.of("x")),
                 ImmutableList.of(parseTypeSignature("varchar(x)", ImmutableSet.of("x"))));
@@ -1031,7 +1031,7 @@ public class TestAnnotationEngineForAggregates
     public void testLongConstraintAggregateFunctionParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "parametric_aggregate_long_constraint"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "parametric_aggregate_long_constraint"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(),
                 ImmutableList.of(new LongVariableConstraint("z", "x + y")),
@@ -1108,7 +1108,7 @@ public class TestAnnotationEngineForAggregates
     public void testFixedTypeParameterInjectionAggregateFunctionParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "fixed_type_parameter_injection"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "fixed_type_parameter_injection"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -1174,7 +1174,7 @@ public class TestAnnotationEngineForAggregates
     public void testPartiallyFixedTypeParameterInjectionAggregateFunctionParse()
     {
         Signature expectedSignature = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "partially_fixed_type_parameter_injection"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "partially_fixed_type_parameter_injection"),
                 FunctionKind.AGGREGATE,
                 ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
                 ImmutableList.of(),

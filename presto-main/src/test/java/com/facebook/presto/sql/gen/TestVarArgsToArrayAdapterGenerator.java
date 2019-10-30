@@ -20,8 +20,8 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -79,7 +79,7 @@ public class TestVarArgsToArrayAdapterGenerator
         private TestVarArgsSum()
         {
             super(new Signature(
-                    FullyQualifiedName.of(DEFAULT_NAMESPACE, "var_args_sum"),
+                    QualifiedFunctionName.of(DEFAULT_NAMESPACE, "var_args_sum"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(),
                     ImmutableList.of(),

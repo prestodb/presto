@@ -14,7 +14,7 @@
 package com.facebook.presto.sqlfunction;
 
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,13 +28,13 @@ import static java.util.stream.Collectors.joining;
 public class SqlInvokedRegularFunctionHandle
         implements FunctionHandle
 {
-    private final FullyQualifiedName name;
+    private final QualifiedFunctionName name;
     private final List<TypeSignature> argumentTypes;
     private final long version;
 
     @JsonCreator
     public SqlInvokedRegularFunctionHandle(
-            @JsonProperty("name") FullyQualifiedName name,
+            @JsonProperty("name") QualifiedFunctionName name,
             @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
             @JsonProperty("version") long version)
     {
@@ -44,7 +44,7 @@ public class SqlInvokedRegularFunctionHandle
     }
 
     @JsonProperty
-    public FullyQualifiedName getName()
+    public QualifiedFunctionName getName()
     {
         return name;
     }
@@ -62,7 +62,7 @@ public class SqlInvokedRegularFunctionHandle
     }
 
     @Override
-    public FullyQualifiedName.Prefix getFunctionNamespace()
+    public QualifiedFunctionName.Prefix getFunctionNamespace()
     {
         return name.getPrefix();
     }

@@ -18,8 +18,8 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
@@ -45,7 +45,7 @@ public class StatefulSleepingSum
     private StatefulSleepingSum()
     {
         super(new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "stateful_sleeping_sum"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "stateful_sleeping_sum"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("bigint")),
                 ImmutableList.of(),

@@ -15,9 +15,9 @@ package com.facebook.presto.operator.scalar.annotations;
 
 import com.facebook.presto.operator.scalar.ScalarHeader;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.AnnotatedElement;
@@ -34,13 +34,13 @@ import static java.util.Objects.requireNonNull;
 
 public class ScalarImplementationHeader
 {
-    private final FullyQualifiedName name;
+    private final QualifiedFunctionName name;
     private final Optional<OperatorType> operatorType;
     private final ScalarHeader header;
 
     private ScalarImplementationHeader(String name, ScalarHeader header)
     {
-        this.name = FullyQualifiedName.of(DEFAULT_NAMESPACE, requireNonNull(name));
+        this.name = QualifiedFunctionName.of(DEFAULT_NAMESPACE, requireNonNull(name));
         this.operatorType = Optional.empty();
         this.header = requireNonNull(header);
     }
@@ -95,7 +95,7 @@ public class ScalarImplementationHeader
         return result;
     }
 
-    public FullyQualifiedName getName()
+    public QualifiedFunctionName getName()
     {
         return name;
     }

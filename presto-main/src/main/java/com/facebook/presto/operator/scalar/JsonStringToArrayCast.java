@@ -16,8 +16,8 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -37,7 +37,7 @@ public final class JsonStringToArrayCast
     private JsonStringToArrayCast()
     {
         super(new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ARRAY_NAME),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ARRAY_NAME),
                 SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),

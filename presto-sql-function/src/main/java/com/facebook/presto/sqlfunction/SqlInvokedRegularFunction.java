@@ -14,9 +14,9 @@
 package com.facebook.presto.sqlfunction;
 
 import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableMap;
 
@@ -50,7 +50,7 @@ public class SqlInvokedRegularFunction
     private final Optional<SqlInvokedRegularFunctionHandle> functionHandle;
 
     public SqlInvokedRegularFunction(
-            FullyQualifiedName functionName,
+            QualifiedFunctionName functionName,
             List<SqlParameter> parameters,
             TypeSignature returnType,
             Optional<String> comment,

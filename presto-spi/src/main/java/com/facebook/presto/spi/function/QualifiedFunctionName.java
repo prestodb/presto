@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.relation;
+package com.facebook.presto.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -24,13 +24,13 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class FullyQualifiedName
+public class QualifiedFunctionName
 {
     private final List<String> parts;
     private final List<String> originalParts;
 
     @JsonCreator
-    public static FullyQualifiedName of(String dottedName)
+    public static QualifiedFunctionName of(String dottedName)
     {
         String[] parts = dottedName.split("\\.");
         if (parts.length < 3) {
@@ -39,7 +39,7 @@ public class FullyQualifiedName
         return of(asList(parts));
     }
 
-    public static FullyQualifiedName of(String part1, String part2, String part3, String... rest)
+    public static QualifiedFunctionName of(String part1, String part2, String part3, String... rest)
     {
         List<String> parts = new ArrayList<>(rest.length + 3);
         parts.add(part1);
@@ -49,7 +49,7 @@ public class FullyQualifiedName
         return of(parts);
     }
 
-    public static FullyQualifiedName of(List<String> originalParts)
+    public static QualifiedFunctionName of(List<String> originalParts)
     {
         requireNonNull(originalParts, "originalParts is null");
         if (originalParts.size() < 3) {
@@ -61,17 +61,17 @@ public class FullyQualifiedName
             parts.add(originalPart.toLowerCase(ENGLISH));
         }
 
-        return new FullyQualifiedName(originalParts, parts);
+        return new QualifiedFunctionName(originalParts, parts);
     }
 
-    public static FullyQualifiedName of(FullyQualifiedName.Prefix prefix, String name)
+    public static QualifiedFunctionName of(QualifiedFunctionName.Prefix prefix, String name)
     {
         List<String> parts = new ArrayList<>(prefix.parts);
         parts.add(name);
         return of(parts);
     }
 
-    private FullyQualifiedName(List<String> originalParts, List<String> parts)
+    private QualifiedFunctionName(List<String> originalParts, List<String> parts)
     {
         this.originalParts = unmodifiableList(originalParts);
         this.parts = unmodifiableList(parts);
@@ -113,7 +113,7 @@ public class FullyQualifiedName
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        return parts.equals(((FullyQualifiedName) o).parts);
+        return parts.equals(((QualifiedFunctionName) o).parts);
     }
 
     @Override
@@ -168,7 +168,7 @@ public class FullyQualifiedName
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            return parts.equals(((FullyQualifiedName.Prefix) o).parts);
+            return parts.equals(((QualifiedFunctionName.Prefix) o).parts);
         }
 
         @Override

@@ -23,8 +23,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -61,7 +61,7 @@ public final class MapConcatFunction
     private MapConcatFunction()
     {
         super(new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, FUNCTION_NAME),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, FUNCTION_NAME),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),

@@ -15,10 +15,10 @@ package com.facebook.presto.expressions.translator;
 
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -204,7 +204,7 @@ class TranslatorAnnotationParser
 
     private static class ScalarTranslationHeader
     {
-        private final FullyQualifiedName name;
+        private final QualifiedFunctionName name;
         private final Optional<OperatorType> operatorType;
         private final boolean deterministic;
         private final boolean calledOnNullInput;
@@ -237,7 +237,7 @@ class TranslatorAnnotationParser
         private ScalarTranslationHeader(String name, boolean deterministic, boolean calledOnNullInput)
         {
             // TODO This is a hack. Engine should provide an API for connectors to overwrite functions. Connector should not hard code the builtin function namespace.
-            this.name = requireNonNull(FullyQualifiedName.of("presto", "default", name));
+            this.name = requireNonNull(QualifiedFunctionName.of("presto", "default", name));
             this.operatorType = Optional.empty();
             this.deterministic = deterministic;
             this.calledOnNullInput = calledOnNullInput;
@@ -268,7 +268,7 @@ class TranslatorAnnotationParser
             return LOWER_CAMEL.to(LOWER_UNDERSCORE, name);
         }
 
-        FullyQualifiedName getName()
+        QualifiedFunctionName getName()
         {
             return name;
         }

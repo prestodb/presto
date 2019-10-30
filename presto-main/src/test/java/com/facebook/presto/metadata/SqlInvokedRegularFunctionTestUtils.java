@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.relation.FullyQualifiedName;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.sqlfunction.RoutineCharacteristics;
 import com.facebook.presto.sqlfunction.SqlInvokedRegularFunction;
 import com.facebook.presto.sqlfunction.SqlParameter;
@@ -35,7 +35,7 @@ public class SqlInvokedRegularFunctionTestUtils
     {
     }
 
-    public static final FullyQualifiedName POWER_TOWER = FullyQualifiedName.of("unittest.memory.power_tower");
+    public static final QualifiedFunctionName POWER_TOWER = QualifiedFunctionName.of("unittest.memory.power_tower");
 
     public static final SqlInvokedRegularFunction FUNCTION_POWER_TOWER_DOUBLE = new SqlInvokedRegularFunction(
             POWER_TOWER,

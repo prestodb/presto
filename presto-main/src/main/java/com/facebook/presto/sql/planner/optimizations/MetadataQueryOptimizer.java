@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
@@ -66,10 +66,10 @@ import static java.util.stream.Collectors.toList;
 public class MetadataQueryOptimizer
         implements PlanOptimizer
 {
-    private static final Set<FullyQualifiedName> ALLOWED_FUNCTIONS = ImmutableSet.of(
-            FullyQualifiedName.of(DEFAULT_NAMESPACE, "max"),
-            FullyQualifiedName.of(DEFAULT_NAMESPACE, "min"),
-            FullyQualifiedName.of(DEFAULT_NAMESPACE, "approx_distinct"));
+    private static final Set<QualifiedFunctionName> ALLOWED_FUNCTIONS = ImmutableSet.of(
+            QualifiedFunctionName.of(DEFAULT_NAMESPACE, "max"),
+            QualifiedFunctionName.of(DEFAULT_NAMESPACE, "min"),
+            QualifiedFunctionName.of(DEFAULT_NAMESPACE, "approx_distinct"));
 
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
@@ -112,7 +112,7 @@ public class MetadataQueryOptimizer
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
-                FullyQualifiedName functionName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
+                QualifiedFunctionName functionName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
                 if (!ALLOWED_FUNCTIONS.contains(functionName) && !aggregation.isDistinct()) {
                     return context.defaultRewrite(node);
                 }

@@ -17,8 +17,8 @@ import com.facebook.presto.block.BlockSerdeUtil;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.CharType;
@@ -294,7 +294,7 @@ public final class LiteralEncoder
     {
         TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
 
-        return new Signature(FullyQualifiedName.of(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature()),
+        return new Signature(QualifiedFunctionName.of(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature()),
                 SCALAR,
                 type.getTypeSignature(),
                 argumentType);
