@@ -41,7 +41,7 @@ public class SqlInvokedRegularFunction
     private static final Map<RoutineCharacteristics.Language, FunctionImplementationType> LANGUAGE_TO_IMPLEMENTATION_MAP = ImmutableMap.of(RoutineCharacteristics.Language.SQL, FunctionImplementationType.SQL);
 
     private final List<SqlParameter> parameters;
-    private final Optional<String> comment;
+    private final String description;
     private final RoutineCharacteristics routineCharacteristics;
     private final String body;
 
@@ -53,13 +53,13 @@ public class SqlInvokedRegularFunction
             QualifiedFunctionName functionName,
             List<SqlParameter> parameters,
             TypeSignature returnType,
-            Optional<String> comment,
+            String description,
             RoutineCharacteristics routineCharacteristics,
             String body,
             Optional<Long> version)
     {
         this.parameters = requireNonNull(parameters, "parameters is null");
-        this.comment = requireNonNull(comment, "comment is null");
+        this.description = requireNonNull(description, "description is null");
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
         this.body = requireNonNull(body, "body is null");
 
@@ -80,7 +80,7 @@ public class SqlInvokedRegularFunction
                 function.getSignature().getName(),
                 function.getParameters(),
                 function.getSignature().getReturnType(),
-                function.comment,
+                function.getDescription(),
                 function.getRoutineCharacteristics(),
                 function.getBody(),
                 Optional.of(version));
@@ -113,7 +113,7 @@ public class SqlInvokedRegularFunction
     @Override
     public String getDescription()
     {
-        return comment.orElse("");
+        return description;
     }
 
     public List<SqlParameter> getParameters()
@@ -124,11 +124,6 @@ public class SqlInvokedRegularFunction
     public List<String> getParameterNames()
     {
         return parameters.stream().map(SqlParameter::getName).collect(toImmutableList());
-    }
-
-    public Optional<String> getComment()
-    {
-        return comment;
     }
 
     public RoutineCharacteristics getRoutineCharacteristics()
@@ -174,7 +169,7 @@ public class SqlInvokedRegularFunction
         }
         SqlInvokedRegularFunction o = (SqlInvokedRegularFunction) obj;
         return Objects.equals(parameters, o.parameters)
-                && Objects.equals(comment, o.comment)
+                && Objects.equals(description, o.description)
                 && Objects.equals(routineCharacteristics, o.routineCharacteristics)
                 && Objects.equals(body, o.body)
                 && Objects.equals(signature, o.signature)
@@ -185,7 +180,7 @@ public class SqlInvokedRegularFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(parameters, comment, routineCharacteristics, body, signature, functionId, functionHandle);
+        return Objects.hash(parameters, description, routineCharacteristics, body, signature, functionId, functionHandle);
     }
 
     @Override
