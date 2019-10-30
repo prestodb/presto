@@ -557,6 +557,7 @@ public class HashGenerationOptimizer
                             partitioningScheme,
                             newSources.build(),
                             newInputs.build(),
+                            node.isEnsureSourceOrdering(),
                             node.getOrderingScheme()),
                     newHashVariables);
         }

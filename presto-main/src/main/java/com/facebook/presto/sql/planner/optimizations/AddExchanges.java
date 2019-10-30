@@ -124,6 +124,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MAT
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.ensureSourceOrderingGatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.mergingExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
@@ -643,20 +644,29 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableFinish(TableFinishNode node, PreferredProperties preferredProperties)
         {
-            PlanWithProperties child = planChild(node, PreferredProperties.any());
+            PlanNode child = planChild(node, PreferredProperties.any()).getNode();
 
-            // if the child is already a gathering exchange, don't add another
-            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType().equals(GATHER)) {
-                return rebaseAndDeriveProperties(node, child);
+            ExchangeNode gather;
+            // in case the input is a union (see PushTableWriteThroughUnion), don't add another exchange
+            if (child instanceof ExchangeNode) {
+                ExchangeNode exchangeNode = (ExchangeNode) child;
+                gather = new ExchangeNode(
+                        idAllocator.getNextId(),
+                        GATHER,
+                        REMOTE_STREAMING,
+                        new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeNode.getOutputVariables()),
+                        exchangeNode.getSources(),
+                        exchangeNode.getInputs(),
+                        true,
+                        Optional.empty());
+            }
+            else {
+                gather = ensureSourceOrderingGatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child);
             }
 
-            if (!child.getProperties().isCoordinatorOnly()) {
-                child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
-                        child.getProperties());
-            }
-
-            return rebaseAndDeriveProperties(node, child);
+            return withDerivedProperties(
+                    ChildReplacer.replaceChildren(node, ImmutableList.of(gather)),
+                    ImmutableList.of());
         }
 
         private <T> SetMultimap<T, T> createMapping(List<T> keys, List<T> values)
@@ -1180,6 +1190,7 @@ public class AddExchanges
                         new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
                         distributedChildren,
                         distributedOutputLayouts,
+                        false,
                         Optional.empty());
             }
             else if (!singleNodeChildren.isEmpty()) {
@@ -1198,6 +1209,7 @@ public class AddExchanges
                             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeOutputLayout),
                             distributedChildren,
                             distributedOutputLayouts,
+                            false,
                             Optional.empty());
 
                     singleNodeChildren.add(result);
@@ -1250,6 +1262,7 @@ public class AddExchanges
                                 new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
                                 distributedChildren,
                                 distributedOutputLayouts,
+                                false,
                                 Optional.empty()));
             }
         }
@@ -1285,6 +1298,11 @@ public class AddExchanges
                             .map(PlanWithProperties::getNode)
                             .collect(toList()));
             return new PlanWithProperties(result, deriveProperties(result, children.stream().map(PlanWithProperties::getProperties).collect(toList())));
+        }
+
+        private PlanWithProperties withDerivedProperties(PlanNode node, List<ActualProperties> inputProperties)
+        {
+            return new PlanWithProperties(node, deriveProperties(node, inputProperties));
         }
 
         private PlanWithProperties withDerivedProperties(PlanNode node, ActualProperties inputProperties)

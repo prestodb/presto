@@ -111,6 +111,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MAT
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.ensureSourceOrderingGatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
@@ -500,7 +501,7 @@ public class PlanFragmenter
                     .map(PlanFragment::getId)
                     .collect(toImmutableList());
 
-            return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputVariables(), exchange.getOrderingScheme(), exchange.getType());
+            return new RemoteSourceNode(exchange.getId(), childrenIds, exchange.getOutputVariables(), exchange.isEnsureSourceOrdering(), exchange.getOrderingScheme(), exchange.getType());
         }
 
         private PlanNode createRemoteMaterializedExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
@@ -715,6 +716,7 @@ public class PlanFragmenter
                     partitioningScheme,
                     sources,
                     inputs,
+                    false,
                     Optional.empty());
 
             ExchangeNode writerSource;
@@ -760,13 +762,10 @@ public class PlanFragmenter
 
             return new TableFinishNode(
                     idAllocator.getNextId(),
-                    gatheringExchange(
+                    ensureSourceOrderingGatheringExchange(
                             idAllocator.getNextId(),
-                            LOCAL,
-                            gatheringExchange(
-                                    idAllocator.getNextId(),
-                                    REMOTE_STREAMING,
-                                    tableWriterMerge)),
+                            REMOTE_STREAMING,
+                            tableWriterMerge),
                     Optional.of(insertReference),
                     variableAllocator.newVariable("rows", BIGINT),
                     Optional.empty(),

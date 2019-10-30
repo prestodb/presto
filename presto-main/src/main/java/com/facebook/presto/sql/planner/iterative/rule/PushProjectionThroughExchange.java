@@ -160,6 +160,7 @@ public class PushProjectionThroughExchange
                 partitioningScheme,
                 newSourceBuilder.build(),
                 inputsBuilder.build(),
+                exchange.isEnsureSourceOrdering(),
                 exchange.getOrderingScheme());
 
         // we need to strip unnecessary symbols (hash, partitioning columns).

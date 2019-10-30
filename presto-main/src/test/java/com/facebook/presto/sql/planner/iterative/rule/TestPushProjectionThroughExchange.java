@@ -175,6 +175,7 @@ public class TestPushProjectionThroughExchange
                                     .addInputsSet(a, b, h, sortVariable)
                                     .singleDistributionPartitioningScheme(
                                             ImmutableList.of(a, b, h, sortVariable))
+                                    .setEnsureSourceOrdering(true)
                                     .orderingScheme(orderingScheme)));
                 })
                 .matches(

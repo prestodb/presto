@@ -159,6 +159,7 @@ public class TestPhasedExecutionSchedule
                         .map(PlanFragment::getId)
                         .collect(toImmutableList()),
                 fragments[0].getPartitioningScheme().getOutputLayout(),
+                false,
                 Optional.empty(),
                 REPARTITION);
 
@@ -174,6 +175,7 @@ public class TestPhasedExecutionSchedule
                                 new PlanNodeId(fragment.getId().toString()),
                                 fragment.getId(),
                                 fragment.getPartitioningScheme().getOutputLayout(),
+                                false,
                                 Optional.empty(),
                                 REPARTITION))
                         .collect(toImmutableList()),
@@ -198,7 +200,7 @@ public class TestPhasedExecutionSchedule
                 TupleDomain.all(),
                 TupleDomain.all());
 
-        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPLICATE);
+        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPLICATE);
         PlanNode join = new JoinNode(
                 new PlanNodeId(name + "_id"),
                 INNER,
@@ -219,8 +221,8 @@ public class TestPhasedExecutionSchedule
 
     private static PlanFragment createJoinPlanFragment(JoinNode.Type joinType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
     {
-        RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION);
-        RemoteSourceNode build = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION);
+        RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPARTITION);
+        RemoteSourceNode build = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPARTITION);
         PlanNode planNode = new JoinNode(
                 new PlanNodeId(name + "_id"),
                 joinType,

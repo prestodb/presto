@@ -306,6 +306,32 @@ public class TestHiveRecoverableGroupedExecution
                         "DROP TABLE IF EXISTS test_failure"));
     }
 
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
+    public void testUnionAll(int writerConcurrency)
+            throws Exception
+    {
+        testRecoverableGroupedExecution(
+                writerConcurrency,
+                ImmutableList.of(
+                        "CREATE TABLE test_table AS\n" +
+                                "SELECT t.comment\n" +
+                                "FROM orders\n" +
+                                "CROSS JOIN UNNEST(REPEAT(comment, 10)) AS t (comment)"),
+                "CREATE TABLE test_success AS\n" +
+                        "SELECT comment value1 FROM test_table " +
+                        "UNION ALL " +
+                        "SELECT comment value1 FROM test_table",
+                "CREATE TABLE test_failure AS\n" +
+                        "SELECT comment value1 FROM test_table " +
+                        "UNION ALL " +
+                        "SELECT comment value1 FROM test_table",
+                30000 * 10,
+                ImmutableList.of(
+                        "DROP TABLE IF EXISTS test_table",
+                        "DROP TABLE IF EXISTS test_success",
+                        "DROP TABLE IF EXISTS test_failure"));
+    }
+
     private void testRecoverableGroupedExecution(
             int writerConcurrency,
             List<String> preQueries,

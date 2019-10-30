@@ -298,7 +298,7 @@ public final class StreamPropertyDerivations
         @Override
         public StreamProperties visitExchange(ExchangeNode node, List<StreamProperties> inputProperties)
         {
-            if (node.getOrderingScheme().isPresent()) {
+            if (node.isEnsureSourceOrdering() || node.getOrderingScheme().isPresent()) {
                 return StreamProperties.ordered();
             }
 

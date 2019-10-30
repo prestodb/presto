@@ -784,7 +784,10 @@ public class LocalExecutionPlanner
 
         private PhysicalOperation createRemoteSource(RemoteSourceNode node, LocalExecutionPlanContext context)
         {
-            if (!context.getDriverInstanceCount().isPresent()) {
+            if (node.isEnsureSourceOrdering()) {
+                context.setDriverInstanceCount(1);
+            }
+            else if (!context.getDriverInstanceCount().isPresent()) {
                 context.setDriverInstanceCount(getTaskConcurrency(session));
             }
 

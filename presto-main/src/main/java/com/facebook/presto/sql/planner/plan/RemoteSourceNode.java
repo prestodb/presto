@@ -35,6 +35,7 @@ public class RemoteSourceNode
 {
     private final List<PlanFragmentId> sourceFragmentIds;
     private final List<VariableReferenceExpression> outputVariables;
+    private final boolean ensureSourceOrdering;
     private final Optional<OrderingScheme> orderingScheme;
     private final ExchangeNode.Type exchangeType; // This is needed to "unfragment" to compute stats correctly.
 
@@ -43,6 +44,7 @@ public class RemoteSourceNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("ensureSourceOrdering") boolean ensureSourceOrdering,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
             @JsonProperty("exchangeType") ExchangeNode.Type exchangeType)
     {
@@ -50,6 +52,7 @@ public class RemoteSourceNode
 
         this.sourceFragmentIds = sourceFragmentIds;
         this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
+        this.ensureSourceOrdering = ensureSourceOrdering;
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
     }
@@ -58,10 +61,11 @@ public class RemoteSourceNode
             PlanNodeId id,
             PlanFragmentId sourceFragmentId,
             List<VariableReferenceExpression> outputVariables,
+            boolean ensureSourceOrdering,
             Optional<OrderingScheme> orderingScheme,
             ExchangeNode.Type exchangeType)
     {
-        this(id, ImmutableList.of(sourceFragmentId), outputVariables, orderingScheme, exchangeType);
+        this(id, ImmutableList.of(sourceFragmentId), outputVariables, ensureSourceOrdering, orderingScheme, exchangeType);
     }
 
     @Override
@@ -81,6 +85,12 @@ public class RemoteSourceNode
     public List<PlanFragmentId> getSourceFragmentIds()
     {
         return sourceFragmentIds;
+    }
+
+    @JsonProperty
+    public boolean isEnsureSourceOrdering()
+    {
+        return ensureSourceOrdering;
     }
 
     @JsonProperty
