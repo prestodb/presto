@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -42,9 +42,9 @@ public class BuiltInFunctionHandle
     }
 
     @Override
-    public QualifiedFunctionName.Prefix getFunctionNamespace()
+    public CatalogSchemaName getFunctionNamespace()
     {
-        return signature.getName().getPrefix();
+        return signature.getName().getFunctionNamespace();
     }
 
     @Override

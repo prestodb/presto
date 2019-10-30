@@ -1317,7 +1317,7 @@ public class RowExpressionPredicatePushDown
         private static CallExpression buildEqualsExpression(FunctionManager functionManager, RowExpression left, RowExpression right)
         {
             return call(
-                    EQUAL.getFunctionName().getSuffix(),
+                    EQUAL.getFunctionName().getFunctionName(),
                     functionManager.resolveOperator(EQUAL, fromTypes(left.getType(), right.getType())),
                     BOOLEAN,
                     left,

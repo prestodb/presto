@@ -16,8 +16,10 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.function.CatalogSchemaPrefix;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -91,7 +93,7 @@ public class FunctionManager
     private final FunctionInvokerProvider functionInvokerProvider;
     private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
     private final HandleResolver handleResolver;
-    private final Map<QualifiedFunctionName.Prefix, FunctionNamespaceManager<?>> functionNamespaces = new ConcurrentHashMap<>();
+    private final Map<CatalogSchemaPrefix, FunctionNamespaceManager<?>> functionNamespaces = new ConcurrentHashMap<>();
 
     @Inject
     public FunctionManager(
@@ -104,7 +106,7 @@ public class FunctionManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.builtInFunctionNamespaceManager = new BuiltInFunctionNamespaceManager(typeManager, blockEncodingSerde, featuresConfig, this);
-        this.functionNamespaces.put(DEFAULT_NAMESPACE, builtInFunctionNamespaceManager);
+        this.functionNamespaces.put(DEFAULT_NAMESPACE.asCatalogSchemaPrefix(), builtInFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = handleResolver;
         if (typeManager instanceof TypeRegistry) {
@@ -121,7 +123,7 @@ public class FunctionManager
         this(typeManager, createTestTransactionManager(), blockEncodingSerde, featuresConfig, new HandleResolver());
     }
 
-    public void loadFunctionNamespaces(String functionNamespaceManagerName, List<String> functionNamespacePrefixes, Map<String, String> properties)
+    public void loadFunctionNamespaces(String functionNamespaceManagerName, List<String> catalogSchemaPrefixes, Map<String, String> properties)
     {
         requireNonNull(functionNamespaceManagerName, "connectorName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
@@ -129,9 +131,9 @@ public class FunctionManager
         FunctionNamespaceManager<?> functionNamespaceManager = factory.create(properties);
 
         transactionManager.registerFunctionNamespaceManager(functionNamespaceManagerName, functionNamespaceManager);
-        for (String functionNamespacePrefix : functionNamespacePrefixes) {
-            if (functionNamespaces.putIfAbsent(QualifiedFunctionName.Prefix.of(functionNamespacePrefix), functionNamespaceManager) != null) {
-                throw new IllegalArgumentException(format("Function namespace manager '%s' already registered to handle function namespace '%s'", factory.getName(), functionNamespacePrefix));
+        for (String catalogSchemaPrefix : catalogSchemaPrefixes) {
+            if (functionNamespaces.putIfAbsent(CatalogSchemaPrefix.of(catalogSchemaPrefix), functionNamespaceManager) != null) {
+                throw new IllegalArgumentException(format("Function namespace manager '%s' already registered to handle function namespace '%s'", factory.getName(), catalogSchemaPrefix));
             }
         }
     }
@@ -176,12 +178,20 @@ public class FunctionManager
             functionName = QualifiedFunctionName.of(DEFAULT_NAMESPACE, name.getSuffix());
         }
         else {
-            functionName = QualifiedFunctionName.of(name.getOriginalParts());
+            if (name.getOriginalParts().size() != 3) {
+                throw new PrestoException(FUNCTION_NOT_FOUND, format("Non-builtin functions must be reference by three parts: catalog.schema.function_name, found: %s", name.toString()));
+            }
+            functionName = QualifiedFunctionName.of(new CatalogSchemaName(name.getOriginalParts().get(0), name.getOriginalParts().get(1)), name.getOriginalParts().get(2));
         }
 
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName);
+        return resolveFunction(transactionId, functionName, parameterTypes);
+    }
+
+    public FunctionHandle resolveFunction(Optional<TransactionId> transactionId, QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace());
         if (!functionNamespaceManager.isPresent()) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, format("Cannot find function namespace for function %s", name));
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Cannot find function namespace for function %s", functionName));
         }
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
@@ -202,9 +212,9 @@ public class FunctionManager
             return functionNamespaceManager.get().getFunctionHandle(transactionHandle, match.get());
         }
 
-        if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
-            // extract type from function name
-            String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
+        if (functionName.getFunctionName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
+            // extract type from function functionName
+            String typeName = functionName.getFunctionName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
             Type type = typeManager.getType(parseTypeSignature(typeName));
@@ -221,7 +231,9 @@ public class FunctionManager
     @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
-        return functionNamespaces.get(functionHandle.getFunctionNamespace()).getFunctionMetadata(functionHandle);
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getFunctionNamespace());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getFunctionNamespace());
+        return functionNamespaceManager.get().getFunctionMetadata(functionHandle);
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
@@ -259,7 +271,7 @@ public class FunctionManager
     public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         try {
-            return resolveFunction(Optional.empty(), QualifiedName.of(operatorType.getFunctionName().getParts()), argumentTypes);
+            return resolveFunction(Optional.empty(), operatorType.getFunctionName(), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -332,20 +344,20 @@ public class FunctionManager
         throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
     }
 
-    private Optional<FunctionNamespaceManager<?>> getServingFunctionNamespaceManager(QualifiedFunctionName functionName)
+    private Optional<FunctionNamespaceManager<?>> getServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)
     {
-        QualifiedFunctionName.Prefix functionPrefix = functionName.getPrefix();
-        if (functionPrefix.equals(DEFAULT_NAMESPACE)) {
+        if (functionNamespace.equals(DEFAULT_NAMESPACE)) {
             return Optional.of(builtInFunctionNamespaceManager);
         }
 
-        QualifiedFunctionName.Prefix bestMatchNamespace = null;
+        CatalogSchemaPrefix bestMatch = null;
         FunctionNamespaceManager<?> servingFunctionNamespaceManager = null;
 
-        for (Map.Entry<QualifiedFunctionName.Prefix, FunctionNamespaceManager<?>> functionNamespace : functionNamespaces.entrySet()) {
-            if (functionNamespace.getKey().contains(functionPrefix) && (bestMatchNamespace == null || bestMatchNamespace.contains(functionNamespace.getKey()))) {
-                bestMatchNamespace = functionNamespace.getKey();
-                servingFunctionNamespaceManager = functionNamespace.getValue();
+        for (Map.Entry<CatalogSchemaPrefix, FunctionNamespaceManager<?>> entry : functionNamespaces.entrySet()) {
+            CatalogSchemaPrefix prefix = entry.getKey();
+            if (prefix.includes(functionNamespace) && (bestMatch == null || bestMatch.includes(prefix))) {
+                bestMatch = prefix;
+                servingFunctionNamespaceManager = entry.getValue();
             }
         }
         return Optional.ofNullable(servingFunctionNamespaceManager);
@@ -372,8 +384,8 @@ public class FunctionManager
 
     private String toConciseFunctionName(QualifiedFunctionName functionName)
     {
-        if (functionName.getPrefix().equals(DEFAULT_NAMESPACE)) {
-            return functionName.getSuffix();
+        if (functionName.getFunctionNamespace().equals(DEFAULT_NAMESPACE)) {
+            return functionName.getFunctionName();
         }
         return functionName.toString();
     }

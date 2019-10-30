@@ -483,7 +483,7 @@ final class RowExpressionVerifier
         }
         CallExpression actualFunction = (CallExpression) actual;
 
-        if (!expected.getName().getSuffix().equals(metadata.getFunctionManager().getFunctionMetadata(actualFunction.getFunctionHandle()).getName().getSuffix())) {
+        if (!expected.getName().getSuffix().equals(metadata.getFunctionManager().getFunctionMetadata(actualFunction.getFunctionHandle()).getName().getFunctionName())) {
             return false;
         }
 

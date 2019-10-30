@@ -71,7 +71,7 @@ public class AggregationFunctionMatcher
 
     private static boolean verifyAggregation(FunctionManager functionManager, Aggregation aggregation, FunctionCall expectedCall)
     {
-        return functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName().getSuffix().equalsIgnoreCase(expectedCall.getName().getSuffix()) &&
+        return functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName().getFunctionName().equalsIgnoreCase(expectedCall.getName().getSuffix()) &&
                 aggregation.getArguments().size() == expectedCall.getArguments().size() &&
                 Streams.zip(
                         aggregation.getArguments().stream(),

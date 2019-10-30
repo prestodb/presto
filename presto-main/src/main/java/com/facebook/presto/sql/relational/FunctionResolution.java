@@ -110,7 +110,7 @@ public final class FunctionResolution
     @Override
     public FunctionHandle betweenFunction(Type valueType, Type lowerBoundType, Type upperBoundType)
     {
-        return functionManager.lookupFunction(BETWEEN.getFunctionName().getSuffix(), fromTypes(valueType, lowerBoundType, upperBoundType));
+        return functionManager.lookupFunction(BETWEEN.getFunctionName().getFunctionName(), fromTypes(valueType, lowerBoundType, upperBoundType));
     }
 
     @Override
@@ -161,7 +161,7 @@ public final class FunctionResolution
     @Override
     public FunctionHandle negateFunction(Type type)
     {
-        return functionManager.lookupFunction(NEGATION.getFunctionName().getSuffix(), fromTypes(type));
+        return functionManager.lookupFunction(NEGATION.getFunctionName().getFunctionName(), fromTypes(type));
     }
 
     @Override
@@ -225,7 +225,7 @@ public final class FunctionResolution
     @Override
     public FunctionHandle subscriptFunction(Type baseType, Type indexType)
     {
-        return functionManager.lookupFunction(SUBSCRIPT.getFunctionName().getSuffix(), fromTypes(baseType, indexType));
+        return functionManager.lookupFunction(SUBSCRIPT.getFunctionName().getFunctionName(), fromTypes(baseType, indexType));
     }
 
     @Override

@@ -79,7 +79,7 @@ public final class Signature
 
     public String getNameSuffix()
     {
-        return name.getSuffix();
+        return name.getFunctionName();
     }
 
     @JsonProperty

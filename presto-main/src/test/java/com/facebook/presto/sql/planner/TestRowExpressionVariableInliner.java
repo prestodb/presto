@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -31,9 +32,9 @@ public class TestRowExpressionVariableInliner
             implements FunctionHandle
     {
         @Override
-        public QualifiedFunctionName.Prefix getFunctionNamespace()
+        public CatalogSchemaName getFunctionNamespace()
         {
-            return QualifiedFunctionName.of("a.b.c").getPrefix();
+            return QualifiedFunctionName.of("a.b.c").getFunctionNamespace();
         }
     }
 

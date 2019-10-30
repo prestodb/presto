@@ -481,7 +481,7 @@ public class TestRowExpressionEqualityInference
     private static CallExpression compare(OperatorType type, RowExpression left, RowExpression right)
     {
         return call(
-                type.getFunctionName().getSuffix(),
+                type.getFunctionName().getFunctionName(),
                 METADATA.getFunctionManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
                 BOOLEAN,
                 left,
@@ -503,7 +503,7 @@ public class TestRowExpressionEqualityInference
     private static CallExpression arithmeticOperation(OperatorType type, RowExpression left, RowExpression right)
     {
         return call(
-                type.getFunctionName().getSuffix(),
+                type.getFunctionName().getFunctionName(),
                 METADATA.getFunctionManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
                 left.getType(),
                 left,
