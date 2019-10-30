@@ -21,7 +21,7 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.testng.annotations.Test;
 
-import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
+import static com.facebook.presto.geospatial.serde.GeometrySerde.createFromEsriGeometry;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType;
@@ -133,6 +133,7 @@ public class TestGeometrySerialization
     @Test
     public void testEnvelope()
     {
+        testEnvelopeSerialization(new Envelope());
         testEnvelopeSerialization(new Envelope(0, 0, 1, 1));
         testEnvelopeSerialization(new Envelope(1, 2, 3, 4));
         testEnvelopeSerialization(new Envelope(10101, -2.05, -3e5, 0));
@@ -140,9 +141,9 @@ public class TestGeometrySerialization
 
     private void testEnvelopeSerialization(Envelope envelope)
     {
-        assertEquals(deserialize(serialize(envelope)), createFromEsriGeometry(envelope, null));
+        assertEquals(deserialize(serialize(envelope)), createFromEsriGeometry(envelope, false));
         assertEquals(deserializeEnvelope(serialize(envelope)), envelope);
-        assertEquals(JtsGeometrySerde.serialize(JtsGeometrySerde.deserialize(serialize(envelope))), serialize(createFromEsriGeometry(envelope, null)));
+        assertEquals(JtsGeometrySerde.serialize(JtsGeometrySerde.deserialize(serialize(envelope))), serialize(createFromEsriGeometry(envelope, false)));
     }
 
     @Test
