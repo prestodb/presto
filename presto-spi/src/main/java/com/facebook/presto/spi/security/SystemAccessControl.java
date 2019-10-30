@@ -54,6 +54,12 @@ public interface SystemAccessControl
     void checkCanSetUser(Optional<Principal> principal, String userName);
 
     /**
+     * Check if the query is unexpectedly modified compared to token provided in Identity.
+     * @throws AccessDeniedException if query is modified.
+     */
+    void checkQueryIntegrity(Identity identity, String query);
+
+    /**
      * Check if identity is allowed to set the specified system property.
      *
      * @throws AccessDeniedException if not allowed
