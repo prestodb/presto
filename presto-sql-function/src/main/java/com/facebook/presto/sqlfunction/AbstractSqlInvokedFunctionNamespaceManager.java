@@ -152,6 +152,11 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         return implementationByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
     }
 
+    protected void refreshFunctionsCache(QualifiedFunctionName functionName)
+    {
+        functions.refresh(functionName);
+    }
+
     protected static FunctionMetadata sqlInvokedFunctionToMetadata(SqlInvokedFunction function)
     {
         return new FunctionMetadata(
