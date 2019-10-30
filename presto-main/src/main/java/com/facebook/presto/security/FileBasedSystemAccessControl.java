@@ -158,6 +158,11 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkQueryIntegrity(Identity identity, String query)
+    {
+    }
+
+    @Override
     public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
     }

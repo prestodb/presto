@@ -56,6 +56,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkQueryIntegrity(Identity identity, String query)
+    {
+    }
+
+    @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
     }

@@ -35,6 +35,12 @@ public interface AccessControl
     void checkCanSetUser(Optional<Principal> principal, String userName);
 
     /**
+     * Check if the query is unexpectedly modified using the credentials passed in the identity.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if query is modified.
+     */
+    void checkQueryIntegrity(Identity identity, String query);
+
+    /**
      * Filter the list of catalogs to those visible to the identity.
      */
     Set<String> filterCatalogs(Identity identity, Set<String> catalogs);
