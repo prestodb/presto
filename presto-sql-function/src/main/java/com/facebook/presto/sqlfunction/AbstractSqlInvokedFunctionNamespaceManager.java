@@ -29,6 +29,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
+import javax.annotation.ParametersAreNonnullByDefault;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Collection;
@@ -60,6 +61,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 .build(new CacheLoader<QualifiedFunctionName, Collection<SqlInvokedFunction>>()
                 {
                     @Override
+                    @ParametersAreNonnullByDefault
                     public Collection<SqlInvokedFunction> load(QualifiedFunctionName functionName)
                     {
                         Collection<SqlInvokedFunction> functions = fetchFunctionsDirect(functionName);
@@ -74,6 +76,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 .build(new CacheLoader<SqlFunctionHandle, FunctionMetadata>()
                 {
                     @Override
+                    @ParametersAreNonnullByDefault
                     public FunctionMetadata load(SqlFunctionHandle functionHandle)
                     {
                         return fetchFunctionMetadataDirect(functionHandle);
