@@ -30,8 +30,8 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -82,7 +82,7 @@ public final class MapFilterFunction
     private MapFilterFunction()
     {
         super(new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "map_filter"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "map_filter"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V")),
                 ImmutableList.of(),

@@ -16,8 +16,8 @@ package com.facebook.presto.metadata;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeDeserializer;
@@ -41,7 +41,7 @@ public class TestSignature
         JsonCodec<Signature> codec = new JsonCodecFactory(objectMapperProvider, true).jsonCodec(Signature.class);
 
         Signature expected = new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "function"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "function"),
                 SCALAR,
                 parseTypeSignature(StandardTypes.BIGINT),
                 ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.VARCHAR)));

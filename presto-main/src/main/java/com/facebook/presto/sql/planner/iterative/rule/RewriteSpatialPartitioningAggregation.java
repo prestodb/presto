@@ -16,12 +16,12 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
@@ -68,7 +68,7 @@ public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
     private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
-    private static final FullyQualifiedName NAME = FullyQualifiedName.of(DEFAULT_NAMESPACE, "spatial_partitioning");
+    private static final QualifiedFunctionName NAME = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "spatial_partitioning");
     private final Pattern<AggregationNode> pattern = aggregation().matching(this::hasSpatialPartitioningAggregation);
 
     private final Metadata metadata;
@@ -99,7 +99,7 @@ public class RewriteSpatialPartitioningAggregation
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> envelopeAssignments = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            FullyQualifiedName name = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
+            QualifiedFunctionName name = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
             Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
                 RowExpression geometry = getOnlyElement(aggregation.getArguments());

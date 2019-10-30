@@ -16,8 +16,8 @@ package com.facebook.presto.sql.relational;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -88,7 +88,7 @@ public final class FunctionResolution
 
     public boolean isLikeFunction(FunctionHandle functionHandle)
     {
-        return functionManager.getFunctionMetadata(functionHandle).getName().equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "LIKE"));
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "LIKE"));
     }
 
     public FunctionHandle likePatternFunction()
@@ -104,7 +104,7 @@ public final class FunctionResolution
 
     public boolean isArrayConstructor(FunctionHandle functionHandle)
     {
-        return functionManager.getFunctionMetadata(functionHandle).getName().equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, ARRAY_CONSTRUCTOR));
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, ARRAY_CONSTRUCTOR));
     }
 
     @Override
@@ -246,13 +246,13 @@ public final class FunctionResolution
 
     public boolean isFailFunction(FunctionHandle functionHandle)
     {
-        return functionManager.getFunctionMetadata(functionHandle).getName().equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "fail"));
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "fail"));
     }
 
     @Override
     public boolean isCountFunction(FunctionHandle functionHandle)
     {
-        return functionManager.getFunctionMetadata(functionHandle).getName().equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "count"));
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "count"));
     }
 
     @Override
@@ -270,7 +270,7 @@ public final class FunctionResolution
     @Override
     public boolean isMaxFunction(FunctionHandle functionHandle)
     {
-        return functionManager.getFunctionMetadata(functionHandle).getName().equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "max"));
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "max"));
     }
 
     @Override
@@ -282,7 +282,7 @@ public final class FunctionResolution
     @Override
     public boolean isMinFunction(FunctionHandle functionHandle)
     {
-        return functionManager.getFunctionMetadata(functionHandle).getName().equals(FullyQualifiedName.of(DEFAULT_NAMESPACE, "min"));
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "min"));
     }
 
     @Override

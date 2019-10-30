@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.WindowFunction;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.Lists;
 
@@ -35,7 +35,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
 
     public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
     {
-        this(new Signature(FullyQualifiedName.of(DEFAULT_NAMESPACE, name), WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), type);
+        this(new Signature(QualifiedFunctionName.of(DEFAULT_NAMESPACE, name), WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), type);
     }
 
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)

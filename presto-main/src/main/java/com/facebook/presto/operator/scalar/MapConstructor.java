@@ -26,8 +26,8 @@ import com.facebook.presto.spi.block.DuplicateMapKeyException;
 import com.facebook.presto.spi.block.MapBlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -76,7 +76,7 @@ public final class MapConstructor
     public MapConstructor()
     {
         super(new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "map"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "map"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),

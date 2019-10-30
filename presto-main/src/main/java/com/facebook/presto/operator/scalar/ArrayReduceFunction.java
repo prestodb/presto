@@ -18,8 +18,8 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
@@ -49,7 +49,7 @@ public final class ArrayReduceFunction
     private ArrayReduceFunction()
     {
         super(new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "reduce"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "reduce"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("S"), typeVariable("R")),
                 ImmutableList.of(),

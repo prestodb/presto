@@ -17,8 +17,8 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
@@ -45,7 +45,7 @@ public final class GenericLongFunction
 
     GenericLongFunction(String suffix, LongUnaryOperator longUnaryOperator)
     {
-        super(new Signature(FullyQualifiedName.of(DEFAULT_NAMESPACE, "generic_long_" + requireNonNull(suffix, "suffix is null")), SCALAR,
+        super(new Signature(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "generic_long_" + requireNonNull(suffix, "suffix is null")), SCALAR,
                 emptyList(), emptyList(), parseTypeSignature(BIGINT), singletonList(parseTypeSignature(BIGINT)), false));
         this.longUnaryOperator = longUnaryOperator;
     }

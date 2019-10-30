@@ -21,8 +21,8 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -56,7 +56,7 @@ public final class MapZipWithFunction
     private MapZipWithFunction()
     {
         super(new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "map_zip_with"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "map_zip_with"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2"), typeVariable("V3")),
                 ImmutableList.of(),

@@ -18,9 +18,9 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -143,7 +143,7 @@ public class ExpressionEquivalence
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
 
-            FullyQualifiedName callName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
+            QualifiedFunctionName callName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
 
             if (callName.equals(EQUAL.getFunctionName()) || callName.equals(NOT_EQUAL.getFunctionName()) || callName.equals(IS_DISTINCT_FROM.getFunctionName())) {
                 // sort arguments

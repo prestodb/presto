@@ -29,8 +29,8 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -76,7 +76,7 @@ public final class ArrayTransformFunction
     private ArrayTransformFunction()
     {
         super(new Signature(
-                FullyQualifiedName.of(DEFAULT_NAMESPACE, "transform"),
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "transform"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("U")),
                 ImmutableList.of(),

@@ -14,7 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.relation.FullyQualifiedName;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
@@ -27,21 +27,21 @@ public enum CastType
 {
     CAST(OperatorType.CAST.getFunctionName(), true),
     SATURATED_FLOOR_CAST(OperatorType.SATURATED_FLOOR_CAST.getFunctionName(), true),
-    TRY_CAST(FullyQualifiedName.of(DEFAULT_NAMESPACE, TRY_CAST_NAME), false),
-    JSON_TO_ARRAY_CAST(FullyQualifiedName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ARRAY_NAME), false),
-    JSON_TO_MAP_CAST(FullyQualifiedName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_MAP_NAME), false),
-    JSON_TO_ROW_CAST(FullyQualifiedName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ROW_NAME), false);
+    TRY_CAST(QualifiedFunctionName.of(DEFAULT_NAMESPACE, TRY_CAST_NAME), false),
+    JSON_TO_ARRAY_CAST(QualifiedFunctionName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ARRAY_NAME), false),
+    JSON_TO_MAP_CAST(QualifiedFunctionName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_MAP_NAME), false),
+    JSON_TO_ROW_CAST(QualifiedFunctionName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ROW_NAME), false);
 
-    private final FullyQualifiedName castName;
+    private final QualifiedFunctionName castName;
     private final boolean isOperatorType;
 
-    CastType(FullyQualifiedName castName, boolean isOperatorType)
+    CastType(QualifiedFunctionName castName, boolean isOperatorType)
     {
         this.castName = castName;
         this.isOperatorType = isOperatorType;
     }
 
-    public FullyQualifiedName getCastName()
+    public QualifiedFunctionName getCastName()
     {
         return castName;
     }
