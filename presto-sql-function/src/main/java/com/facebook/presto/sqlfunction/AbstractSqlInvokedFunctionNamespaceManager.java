@@ -116,7 +116,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     }
 
     @Override
-    public final void rollback(FunctionNamespaceTransactionHandle transactionHandle)
+    public final void abort(FunctionNamespaceTransactionHandle transactionHandle)
     {
         // Transactional rollback is not supported yet.
         transactions.remove(transactionHandle);
