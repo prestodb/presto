@@ -11,35 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sqlfunction;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.function.FunctionImplementationType;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
-import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
-public class SqlInvokedRegularFunction
+@Experimental
+public class SqlInvokedFunction
         implements SqlFunction
 {
-    private static final Map<RoutineCharacteristics.Language, FunctionImplementationType> LANGUAGE_TO_IMPLEMENTATION_MAP = ImmutableMap.of(RoutineCharacteristics.Language.SQL, FunctionImplementationType.SQL);
-
     private final List<SqlParameter> parameters;
     private final String description;
     private final RoutineCharacteristics routineCharacteristics;
@@ -47,9 +39,9 @@ public class SqlInvokedRegularFunction
 
     private final Signature signature;
     private final SqlFunctionId functionId;
-    private final Optional<SqlInvokedRegularFunctionHandle> functionHandle;
+    private final Optional<SqlFunctionHandle> functionHandle;
 
-    public SqlInvokedRegularFunction(
+    public SqlInvokedFunction(
             QualifiedFunctionName functionName,
             List<SqlParameter> parameters,
             TypeSignature returnType,
@@ -68,21 +60,21 @@ public class SqlInvokedRegularFunction
                 .collect(collectingAndThen(toList(), Collections::unmodifiableList));
         this.signature = new Signature(functionName, SCALAR, returnType, argumentTypes);
         this.functionId = new SqlFunctionId(functionName, argumentTypes);
-        this.functionHandle = version.map(v -> new SqlInvokedRegularFunctionHandle(functionName, argumentTypes, v));
+        this.functionHandle = version.map(v -> new SqlFunctionHandle(this.functionId, v));
     }
 
-    public static SqlInvokedRegularFunction versioned(SqlInvokedRegularFunction function, long version)
+    public SqlInvokedFunction withVersion(long version)
     {
-        if (function.getVersion().isPresent()) {
-            throw new IllegalArgumentException(format("function %s is already versioned", function.getVersion().get()));
+        if (getVersion().isPresent()) {
+            throw new IllegalArgumentException(format("function %s is already with version %s", signature.getName(), getVersion().get()));
         }
-        return new SqlInvokedRegularFunction(
-                function.getSignature().getName(),
-                function.getParameters(),
-                function.getSignature().getReturnType(),
-                function.getDescription(),
-                function.getRoutineCharacteristics(),
-                function.getBody(),
+        return new SqlInvokedFunction(
+                signature.getName(),
+                parameters,
+                signature.getReturnType(),
+                description,
+                routineCharacteristics,
+                body,
                 Optional.of(version));
     }
 
@@ -121,20 +113,9 @@ public class SqlInvokedRegularFunction
         return parameters;
     }
 
-    public List<String> getParameterNames()
-    {
-        return parameters.stream().map(SqlParameter::getName).collect(toImmutableList());
-    }
-
     public RoutineCharacteristics getRoutineCharacteristics()
     {
         return routineCharacteristics;
-    }
-
-    public FunctionImplementationType getFunctionImplementationType()
-    {
-        checkState(LANGUAGE_TO_IMPLEMENTATION_MAP.containsKey(routineCharacteristics.getLanguage()), "Language is not supported: %s", routineCharacteristics.getLanguage());
-        return LANGUAGE_TO_IMPLEMENTATION_MAP.get(routineCharacteristics.getLanguage());
     }
 
     public String getBody()
@@ -147,15 +128,37 @@ public class SqlInvokedRegularFunction
         return functionId;
     }
 
-    public SqlInvokedRegularFunctionHandle getRequiredFunctionHandle()
+    public Optional<SqlFunctionHandle> getFunctionHandle()
     {
-        checkState(functionHandle.isPresent(), "missing function handle");
-        return functionHandle.get();
+        return functionHandle;
     }
 
     public Optional<Long> getVersion()
     {
-        return functionHandle.map(SqlInvokedRegularFunctionHandle::getVersion);
+        return functionHandle.map(SqlFunctionHandle::getVersion);
+    }
+
+    public FunctionImplementationType getFunctionImplementationType()
+    {
+        return FunctionImplementationType.SQL;
+    }
+
+    public SqlFunctionHandle getRequiredFunctionHandle()
+    {
+        Optional<? extends SqlFunctionHandle> functionHandle = getFunctionHandle();
+        if (!functionHandle.isPresent()) {
+            throw new IllegalStateException("missing functionHandle");
+        }
+        return functionHandle.get();
+    }
+
+    public long getRequiredVersion()
+    {
+        Optional<Long> version = getVersion();
+        if (!version.isPresent()) {
+            throw new IllegalStateException("missing version");
+        }
+        return version.get();
     }
 
     @Override
@@ -167,7 +170,7 @@ public class SqlInvokedRegularFunction
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        SqlInvokedRegularFunction o = (SqlInvokedRegularFunction) obj;
+        SqlInvokedFunction o = (SqlInvokedFunction) obj;
         return Objects.equals(parameters, o.parameters)
                 && Objects.equals(description, o.description)
                 && Objects.equals(routineCharacteristics, o.routineCharacteristics)

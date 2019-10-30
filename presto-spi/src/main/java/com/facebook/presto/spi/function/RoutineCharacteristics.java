@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sqlfunction;
+package com.facebook.presto.spi.function;
 
 import java.util.Objects;
 
-import static com.facebook.presto.sqlfunction.RoutineCharacteristics.Determinism.DETERMINISTIC;
-import static com.facebook.presto.sqlfunction.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

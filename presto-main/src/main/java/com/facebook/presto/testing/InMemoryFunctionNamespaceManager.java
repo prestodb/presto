@@ -17,11 +17,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.SqlFunctionHandle;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sqlfunction.AbstractSqlInvokedFunctionNamespaceManager;
-import com.facebook.presto.sqlfunction.SqlFunctionId;
 import com.facebook.presto.sqlfunction.SqlInvokedFunctionNamespaceManagerConfig;
-import com.facebook.presto.sqlfunction.SqlInvokedRegularFunction;
-import com.facebook.presto.sqlfunction.SqlInvokedRegularFunctionHandle;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
@@ -40,7 +39,8 @@ public class InMemoryFunctionNamespaceManager
         extends AbstractSqlInvokedFunctionNamespaceManager
 {
     private static final String NAME = "_in_memory";
-    private final Map<SqlFunctionId, SqlInvokedRegularFunction> latestFunctions = new ConcurrentHashMap<>();
+
+    private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
 
     public InMemoryFunctionNamespaceManager(SqlInvokedFunctionNamespaceManagerConfig config)
     {
@@ -54,31 +54,29 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
-    public synchronized void createFunction(SqlInvokedRegularFunction function, boolean replace)
+    public synchronized void createFunction(SqlInvokedFunction function, boolean replace)
     {
-        SqlFunctionId functionId = new SqlFunctionId(function.getSignature().getName(), function.getSignature().getArgumentTypes());
-        if (!replace && latestFunctions.containsKey(functionId)) {
-            throw new PrestoException(GENERIC_USER_ERROR, format("Function '%s' already exists", functionId.getName()));
+        SqlFunctionId functionId = function.getFunctionId();
+        if (!replace && latestFunctions.containsKey(function.getFunctionId())) {
+            throw new PrestoException(GENERIC_USER_ERROR, format("Function '%s' already exists", functionId.getId()));
         }
 
-        SqlInvokedRegularFunction replacedFunction = latestFunctions.get(functionId);
+        SqlInvokedFunction replacedFunction = latestFunctions.get(functionId);
         long version = 1;
         if (replacedFunction != null) {
-            checkArgument(replacedFunction.getVersion().isPresent(), "missing version in replaced function");
-            version = replacedFunction.getVersion().get() + 1;
+            version = replacedFunction.getRequiredVersion() + 1;
         }
-        function = SqlInvokedRegularFunction.versioned(function, version);
-        latestFunctions.put(functionId, function);
+        latestFunctions.put(functionId, function.withVersion(version));
     }
 
     @Override
-    public Collection<SqlInvokedRegularFunction> listFunctions()
+    public Collection<SqlInvokedFunction> listFunctions()
     {
         return latestFunctions.values();
     }
 
     @Override
-    public Collection<SqlInvokedRegularFunction> fetchFunctionsDirect(QualifiedFunctionName name)
+    public Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedFunctionName name)
     {
         return latestFunctions.values().stream()
                 .filter(function -> function.getSignature().getName().equals(name))
@@ -87,26 +85,26 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
-    public FunctionMetadata fetchFunctionMetadataDirect(SqlInvokedRegularFunctionHandle functionHandle)
+    public FunctionMetadata fetchFunctionMetadataDirect(SqlFunctionHandle functionHandle)
     {
-        return fetchFunctionsDirect(functionHandle.getName()).stream()
+        return fetchFunctionsDirect(functionHandle.getFunctionId().getFunctionName()).stream()
                 .filter(function -> function.getRequiredFunctionHandle().equals(functionHandle))
                 .map(AbstractSqlInvokedFunctionNamespaceManager::sqlInvokedFunctionToMetadata)
                 .collect(onlyElement());
     }
 
     @Override
-    protected ScalarFunctionImplementation fetchFunctionImplementationDirect(SqlInvokedRegularFunctionHandle functionHandle)
+    protected ScalarFunctionImplementation fetchFunctionImplementationDirect(SqlFunctionHandle functionHandle)
     {
-        return fetchFunctionsDirect(functionHandle.getName()).stream()
+        return fetchFunctionsDirect(functionHandle.getFunctionId().getFunctionName()).stream()
                 .filter(function -> function.getRequiredFunctionHandle().equals(functionHandle))
                 .map(AbstractSqlInvokedFunctionNamespaceManager::sqlInvokedFunctionToImplementation)
                 .collect(onlyElement());
     }
 
-    private static SqlInvokedRegularFunction copyFunction(SqlInvokedRegularFunction function)
+    private static SqlInvokedFunction copyFunction(SqlInvokedFunction function)
     {
-        return new SqlInvokedRegularFunction(
+        return new SqlInvokedFunction(
                 function.getSignature().getName(),
                 function.getParameters(),
                 function.getSignature().getReturnType(),

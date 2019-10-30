@@ -20,7 +20,11 @@ import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionHandle;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
+import com.facebook.presto.spi.function.SqlParameter;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -36,29 +40,30 @@ import java.util.concurrent.ConcurrentMap;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public abstract class AbstractSqlInvokedFunctionNamespaceManager
-        implements FunctionNamespaceManager<SqlInvokedRegularFunction>
+        implements FunctionNamespaceManager<SqlInvokedFunction>
 {
     private final ConcurrentMap<FunctionNamespaceTransactionHandle, FunctionCollection> transactions = new ConcurrentHashMap<>();
 
-    private final LoadingCache<QualifiedFunctionName, Collection<SqlInvokedRegularFunction>> functions;
-    private final LoadingCache<SqlInvokedRegularFunctionHandle, FunctionMetadata> metadataByHandle;
-    private final LoadingCache<SqlInvokedRegularFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
+    private final LoadingCache<QualifiedFunctionName, Collection<SqlInvokedFunction>> functions;
+    private final LoadingCache<SqlFunctionHandle, FunctionMetadata> metadataByHandle;
+    private final LoadingCache<SqlFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
 
     public AbstractSqlInvokedFunctionNamespaceManager(SqlInvokedFunctionNamespaceManagerConfig config)
     {
         this.functions = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getFunctionCacheExpiration().toMillis(), MILLISECONDS)
-                .build(new CacheLoader<QualifiedFunctionName, Collection<SqlInvokedRegularFunction>>()
+                .build(new CacheLoader<QualifiedFunctionName, Collection<SqlInvokedFunction>>()
                 {
                     @Override
-                    public Collection<SqlInvokedRegularFunction> load(QualifiedFunctionName functionName)
+                    public Collection<SqlInvokedFunction> load(QualifiedFunctionName functionName)
                     {
-                        Collection<SqlInvokedRegularFunction> functions = fetchFunctionsDirect(functionName);
-                        for (SqlInvokedRegularFunction function : functions) {
+                        Collection<SqlInvokedFunction> functions = fetchFunctionsDirect(functionName);
+                        for (SqlInvokedFunction function : functions) {
                             metadataByHandle.put(function.getRequiredFunctionHandle(), sqlInvokedFunctionToMetadata(function));
                         }
                         return functions;
@@ -66,31 +71,31 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 });
         this.metadataByHandle = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getFunctionInstanceCacheExpiration().toMillis(), MILLISECONDS)
-                .build(new CacheLoader<SqlInvokedRegularFunctionHandle, FunctionMetadata>()
+                .build(new CacheLoader<SqlFunctionHandle, FunctionMetadata>()
                 {
                     @Override
-                    public FunctionMetadata load(SqlInvokedRegularFunctionHandle functionHandle)
+                    public FunctionMetadata load(SqlFunctionHandle functionHandle)
                     {
                         return fetchFunctionMetadataDirect(functionHandle);
                     }
                 });
         this.implementationByHandle = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getFunctionInstanceCacheExpiration().toMillis(), MILLISECONDS)
-                .build(new CacheLoader<SqlInvokedRegularFunctionHandle, ScalarFunctionImplementation>()
+                .build(new CacheLoader<SqlFunctionHandle, ScalarFunctionImplementation>()
                 {
                     @Override
-                    public ScalarFunctionImplementation load(SqlInvokedRegularFunctionHandle functionHandle)
+                    public ScalarFunctionImplementation load(SqlFunctionHandle functionHandle)
                     {
                         return fetchFunctionImplementationDirect(functionHandle);
                     }
                 });
     }
 
-    protected abstract Collection<SqlInvokedRegularFunction> fetchFunctionsDirect(QualifiedFunctionName functionName);
+    protected abstract Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedFunctionName functionName);
 
-    protected abstract FunctionMetadata fetchFunctionMetadataDirect(SqlInvokedRegularFunctionHandle functionHandle);
+    protected abstract FunctionMetadata fetchFunctionMetadataDirect(SqlFunctionHandle functionHandle);
 
-    protected abstract ScalarFunctionImplementation fetchFunctionImplementationDirect(SqlInvokedRegularFunctionHandle functionHandle);
+    protected abstract ScalarFunctionImplementation fetchFunctionImplementationDirect(SqlFunctionHandle functionHandle);
 
     @Override
     public final FunctionNamespaceTransactionHandle beginTransaction()
@@ -115,7 +120,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     }
 
     @Override
-    public final Collection<SqlInvokedRegularFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
+    public final Collection<SqlInvokedFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
     {
         checkArgument(transactionHandle.isPresent(), "missing transactionHandle");
         return transactions.get(transactionHandle.get()).loadAndGetFunctionsTransactional(functionName);
@@ -125,6 +130,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     public final FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
         checkArgument(transactionHandle.isPresent(), "missing transactionHandle");
+        // This is the only assumption in this class that we're dealing with sql-invoked regular function.
         SqlFunctionId functionId = new SqlFunctionId(signature.getName(), signature.getArgumentTypes());
         return transactions.get(transactionHandle.get()).getFunctionHandle(functionId);
     }
@@ -132,23 +138,25 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     @Override
     public final FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
-        checkArgument(functionHandle instanceof SqlInvokedRegularFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
-        return metadataByHandle.getUnchecked((SqlInvokedRegularFunctionHandle) functionHandle);
+        checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
+        return metadataByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
     }
 
     @Override
     public final ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        checkArgument(functionHandle instanceof SqlInvokedRegularFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
-        return implementationByHandle.getUnchecked((SqlInvokedRegularFunctionHandle) functionHandle);
+        checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
+        return implementationByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
     }
 
-    protected static FunctionMetadata sqlInvokedFunctionToMetadata(SqlInvokedRegularFunction function)
+    protected static FunctionMetadata sqlInvokedFunctionToMetadata(SqlInvokedFunction function)
     {
         return new FunctionMetadata(
                 function.getSignature().getName(),
                 function.getSignature().getArgumentTypes(),
-                function.getParameterNames(),
+                function.getParameters().stream()
+                        .map(SqlParameter::getName)
+                        .collect(toImmutableList()),
                 function.getSignature().getReturnType(),
                 SCALAR,
                 function.getFunctionImplementationType(),
@@ -156,13 +164,13 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 function.isCalledOnNullInput());
     }
 
-    protected static ScalarFunctionImplementation sqlInvokedFunctionToImplementation(SqlInvokedRegularFunction function)
+    protected static ScalarFunctionImplementation sqlInvokedFunctionToImplementation(SqlInvokedFunction function)
     {
         checkArgument(function.getFunctionImplementationType().equals(SQL));
         return new SqlInvokedScalarFunctionImplementation(function.getBody());
     }
 
-    private Collection<SqlInvokedRegularFunction> fetchFunctions(QualifiedFunctionName functionName)
+    private Collection<SqlInvokedFunction> fetchFunctions(QualifiedFunctionName functionName)
     {
         return functions.getUnchecked(functionName);
     }
@@ -170,15 +178,15 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     private class FunctionCollection
     {
         @GuardedBy("this")
-        private final Map<QualifiedFunctionName, Collection<SqlInvokedRegularFunction>> functions = new ConcurrentHashMap<>();
+        private final Map<QualifiedFunctionName, Collection<SqlInvokedFunction>> functions = new ConcurrentHashMap<>();
 
         @GuardedBy("this")
-        private final Map<SqlFunctionId, SqlInvokedRegularFunctionHandle> functionHandles = new ConcurrentHashMap<>();
+        private final Map<SqlFunctionId, SqlFunctionHandle> functionHandles = new ConcurrentHashMap<>();
 
-        public synchronized Collection<SqlInvokedRegularFunction> loadAndGetFunctionsTransactional(QualifiedFunctionName functionName)
+        public synchronized Collection<SqlInvokedFunction> loadAndGetFunctionsTransactional(QualifiedFunctionName functionName)
         {
-            Collection<SqlInvokedRegularFunction> functions = this.functions.computeIfAbsent(functionName, AbstractSqlInvokedFunctionNamespaceManager.this::fetchFunctions);
-            functionHandles.putAll(functions.stream().collect(toImmutableMap(SqlInvokedRegularFunction::getFunctionId, SqlInvokedRegularFunction::getRequiredFunctionHandle)));
+            Collection<SqlInvokedFunction> functions = this.functions.computeIfAbsent(functionName, AbstractSqlInvokedFunctionNamespaceManager.this::fetchFunctions);
+            functionHandles.putAll(functions.stream().collect(toImmutableMap(SqlInvokedFunction::getFunctionId, SqlInvokedFunction::getRequiredFunctionHandle)));
             return functions;
         }
 
