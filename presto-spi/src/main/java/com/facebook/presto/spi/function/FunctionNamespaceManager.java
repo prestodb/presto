@@ -30,7 +30,7 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
 
     /**
      * Commit the transaction. Will be called at most once and will not be called if
-     * {@link #rollback(FunctionNamespaceTransactionHandle)} is called.
+     * {@link #abort(FunctionNamespaceTransactionHandle)} is called.
      */
     void commit(FunctionNamespaceTransactionHandle transactionHandle);
 
@@ -38,7 +38,7 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
      * Rollback the transaction. Will be called at most once and will not be called if
      * {@link #commit(FunctionNamespaceTransactionHandle)} is called.
      */
-    void rollback(FunctionNamespaceTransactionHandle transactionHandle);
+    void abort(FunctionNamespaceTransactionHandle transactionHandle);
 
     /**
      * Create or replace the specified function.

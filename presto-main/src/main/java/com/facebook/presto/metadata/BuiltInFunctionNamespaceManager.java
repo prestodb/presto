@@ -706,7 +706,7 @@ public class BuiltInFunctionNamespaceManager
     }
 
     @Override
-    public void rollback(FunctionNamespaceTransactionHandle transactionHandle)
+    public void abort(FunctionNamespaceTransactionHandle transactionHandle)
     {
     }
 
