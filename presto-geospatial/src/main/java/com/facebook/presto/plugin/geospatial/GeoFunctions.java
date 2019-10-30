@@ -979,6 +979,30 @@ public final class GeoFunctions
         return blockBuilder.build();
     }
 
+    @Description("Returns the bounding rectangle of a Geometry expanded by distance.")
+    @ScalarFunction("expand_envelope")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice expandEnvelope(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(DOUBLE) double distance)
+    {
+        if (isNaN(distance)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "expand_envelope: distance is NaN");
+        }
+
+        if (distance < 0) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("expand_envelope: distance %s is negative", distance));
+        }
+
+        Envelope envelope = deserializeEnvelope(input);
+        if (envelope.isEmpty()) {
+            return EMPTY_POLYGON;
+        }
+        return serialize(new Envelope(
+                envelope.getXMin() - distance,
+                envelope.getYMin() - distance,
+                envelope.getXMax() + distance,
+                envelope.getYMax() + distance));
+    }
+
     @Description("Returns the Geometry value that represents the point set difference of two geometries")
     @ScalarFunction("ST_Difference")
     @SqlType(GEOMETRY_TYPE_NAME)
