@@ -661,6 +661,24 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testExpandEnvelope()
+    {
+        assertFunction("ST_IsEmpty(expand_envelope(ST_GeometryFromText('POINT EMPTY'), 1))", BOOLEAN, true);
+        assertFunction("ST_IsEmpty(expand_envelope(ST_GeometryFromText('POLYGON EMPTY'), 1))", BOOLEAN, true);
+        assertFunction("ST_AsText(expand_envelope(ST_Envelope(ST_Point(1, 10)), 3))", VARCHAR, "POLYGON ((-2 7, 4 7, 4 13, -2 13, -2 7))");
+        assertFunction("ST_AsText(expand_envelope(ST_Point(1, 10), 3))", VARCHAR, "POLYGON ((-2 7, 4 7, 4 13, -2 13, -2 7))");
+        assertFunction("ST_AsText(expand_envelope(ST_GeometryFromText('LINESTRING (1 10, 3 15)'), 2))", VARCHAR, "POLYGON ((-1 8, 5 8, 5 17, -1 17, -1 8))");
+        assertFunction("ST_AsText(expand_envelope(ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))'), 1))", VARCHAR, "POLYGON ((2 0, 6 0, 6 5, 2 5, 2 0))");
+        // JTS has an envelope expanded by infinity to be empty, which is weird.
+        // PostGIS returns an infinite envelope, which is a tricky concept.
+        // We'll leave it like this until it becomes a problem.
+        assertFunction("ST_AsText(expand_envelope(ST_Point(0, 0), infinity()))", VARCHAR, "POLYGON EMPTY");
+        assertInvalidFunction("ST_AsText(expand_envelope(ST_Point(0, 0), nan()))", "expand_envelope: distance is NaN");
+        assertInvalidFunction("ST_AsText(expand_envelope(ST_Point(0, 0), -1))", "expand_envelope: distance -1.0 is negative");
+        assertInvalidFunction("ST_AsText(expand_envelope(ST_Point(0, 0), -infinity()))", "expand_envelope: distance -Infinity is negative");
+    }
+
+    @Test
     public void testSTDifference()
     {
         assertFunction("ST_AsText(ST_Difference(ST_GeometryFromText('POINT (50 100)'), ST_GeometryFromText('POINT (150 150)')))", VARCHAR, "POINT (50 100)");

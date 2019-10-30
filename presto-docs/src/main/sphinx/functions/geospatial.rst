@@ -205,6 +205,13 @@ Operations
     the bounding rectangular polygon of a geometry. Returns ``null`` if input
     geometry is empty.
 
+.. function:: expand_envelope(Geometry, double) -> Geometry
+
+    Returns the bounding rectangular polygon of a geometry, expanded by a
+    distance. Empty geometries will return an empty polygon.  Negative or NaN
+    distances will return an error.  Positive infinity distances may lead to
+    undefined results.
+
 .. function:: ST_ExteriorRing(Geometry) -> Geometry
 
     Returns a line string representing the exterior ring of the input polygon.
