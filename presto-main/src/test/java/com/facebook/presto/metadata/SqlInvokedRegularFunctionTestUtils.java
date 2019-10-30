@@ -41,7 +41,7 @@ public class SqlInvokedRegularFunctionTestUtils
             POWER_TOWER,
             ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
             parseTypeSignature(DOUBLE),
-            Optional.of("power tower"),
+            "power tower",
             new RoutineCharacteristics(SQL, DETERMINISTIC, CALLED_ON_NULL_INPUT),
             "pow(x, x)",
             Optional.empty());
@@ -50,7 +50,7 @@ public class SqlInvokedRegularFunctionTestUtils
             POWER_TOWER,
             ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
             parseTypeSignature(DOUBLE),
-            Optional.of("power tower"),
+            "power tower",
             new RoutineCharacteristics(SQL, DETERMINISTIC, RETURNS_NULL_ON_NULL_INPUT),
             "pow(x, x)",
             Optional.empty());
@@ -59,7 +59,7 @@ public class SqlInvokedRegularFunctionTestUtils
             POWER_TOWER,
             ImmutableList.of(new SqlParameter("x", parseTypeSignature(INTEGER))),
             parseTypeSignature(INTEGER),
-            Optional.of("power tower"),
+            "power tower",
             new RoutineCharacteristics(SQL, DETERMINISTIC, RETURNS_NULL_ON_NULL_INPUT),
             "pow(x, x)",
             Optional.empty());

@@ -110,7 +110,7 @@ public class InMemoryFunctionNamespaceManager
                 function.getSignature().getName(),
                 function.getParameters(),
                 function.getSignature().getReturnType(),
-                function.getComment(),
+                function.getDescription(),
                 function.getRoutineCharacteristics(),
                 function.getBody(),
                 function.getVersion());
