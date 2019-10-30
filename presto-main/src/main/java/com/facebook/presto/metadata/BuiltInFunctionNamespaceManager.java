@@ -163,6 +163,7 @@ import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -683,7 +684,7 @@ public class BuiltInFunctionNamespaceManager
     }
 
     @Override
-    public void createFunction(BuiltInFunction function, boolean replace)
+    public void createFunction(SqlInvokedFunction function, boolean replace)
     {
         throw new PrestoException(GENERIC_USER_ERROR, format("Cannot create function in built-in function namespace: %s", function.getSignature().getName()));
     }

@@ -44,7 +44,7 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
      * Create or replace the specified function.
      * TODO: Support transaction
      */
-    void createFunction(F function, boolean replace);
+    void createFunction(SqlInvokedFunction function, boolean replace);
 
     /**
      * List all functions managed by the {@link FunctionNamespaceManager}.

@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sqlfunction;
+package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.type.TypeSignature;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
@@ -24,17 +26,22 @@ public class SqlParameter
     private final String name;
     private final TypeSignature type;
 
-    public SqlParameter(String name, TypeSignature type)
+    @JsonCreator
+    public SqlParameter(
+            @JsonProperty("name") String name,
+            @JsonProperty("type") TypeSignature type)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
     }
 
+    @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @JsonProperty
     public TypeSignature getType()
     {
         return type;

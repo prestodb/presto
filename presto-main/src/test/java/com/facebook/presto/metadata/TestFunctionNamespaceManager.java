@@ -17,8 +17,8 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sqlfunction.SqlInvokedFunctionNamespaceManagerConfig;
-import com.facebook.presto.sqlfunction.SqlInvokedRegularFunction;
 import com.facebook.presto.testing.InMemoryFunctionNamespaceManager;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -32,7 +32,6 @@ import static com.facebook.presto.metadata.SqlInvokedRegularFunctionTestUtils.FU
 import static com.facebook.presto.metadata.SqlInvokedRegularFunctionTestUtils.FUNCTION_POWER_TOWER_INT;
 import static com.facebook.presto.metadata.SqlInvokedRegularFunctionTestUtils.POWER_TOWER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.sqlfunction.SqlInvokedRegularFunction.versioned;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -49,17 +48,17 @@ public class TestFunctionNamespaceManager
     {
         InMemoryFunctionNamespaceManager functionNamespaceManager = createFunctionNamespaceManager();
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
-        assertEquals(functionNamespaceManager.listFunctions(), ImmutableSet.of(versioned(FUNCTION_POWER_TOWER_DOUBLE, 1)));
+        assertEquals(functionNamespaceManager.listFunctions(), ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1)));
 
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_INT, false);
         assertEquals(
                 ImmutableSet.copyOf(functionNamespaceManager.listFunctions()),
-                ImmutableSet.of(versioned(FUNCTION_POWER_TOWER_DOUBLE, 1), versioned(FUNCTION_POWER_TOWER_INT, 1)));
+                ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1), FUNCTION_POWER_TOWER_INT.withVersion(1)));
 
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, true);
         assertEquals(
                 ImmutableSet.copyOf(functionNamespaceManager.listFunctions()),
-                ImmutableSet.of(versioned(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, 2), versioned(FUNCTION_POWER_TOWER_INT, 1)));
+                ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1)));
 
         System.out.println(FUNCTION_POWER_TOWER_DOUBLE);
     }
@@ -72,7 +71,7 @@ public class TestFunctionNamespaceManager
         assertPrestoException(
                 () -> functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, false),
                 GENERIC_USER_ERROR,
-                ".*Function 'unittest.memory.power_tower' already exists");
+                ".*Function 'unittest.memory.power_tower\\(double\\)' already exists");
     }
 
     @Test
@@ -93,21 +92,21 @@ public class TestFunctionNamespaceManager
 
         // second transaction sees newly created function
         FunctionNamespaceTransactionHandle transaction2 = functionNamespaceManager.beginTransaction();
-        Collection<SqlInvokedRegularFunction> functions2 = functionNamespaceManager.getFunctions(Optional.of(transaction2), POWER_TOWER);
+        Collection<SqlInvokedFunction> functions2 = functionNamespaceManager.getFunctions(Optional.of(transaction2), POWER_TOWER);
         assertEquals(functions2.size(), 1);
-        assertEquals(getOnlyElement(functions2), versioned(FUNCTION_POWER_TOWER_DOUBLE, 1));
+        assertEquals(getOnlyElement(functions2), FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
 
         // update the function, second transaction still sees the old functions
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, true);
         functions2 = functionNamespaceManager.getFunctions(Optional.of(transaction2), POWER_TOWER);
         assertEquals(functions2.size(), 1);
-        assertEquals(getOnlyElement(functions2), versioned(FUNCTION_POWER_TOWER_DOUBLE, 1));
+        assertEquals(getOnlyElement(functions2), FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
 
         // third transaction sees the updated function
         FunctionNamespaceTransactionHandle transaction3 = functionNamespaceManager.beginTransaction();
-        Collection<SqlInvokedRegularFunction> functions3 = functionNamespaceManager.getFunctions(Optional.of(transaction3), POWER_TOWER);
+        Collection<SqlInvokedFunction> functions3 = functionNamespaceManager.getFunctions(Optional.of(transaction3), POWER_TOWER);
         assertEquals(functions3.size(), 1);
-        assertEquals(getOnlyElement(functions3), versioned(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, 2));
+        assertEquals(getOnlyElement(functions3), FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2));
 
         functionNamespaceManager.commit(transaction1);
         functionNamespaceManager.commit(transaction2);
@@ -121,8 +120,8 @@ public class TestFunctionNamespaceManager
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
 
         // fetchFunctionsDirect does not produce the same function reference
-        SqlInvokedRegularFunction function1 = getOnlyElement(functionNamespaceManager.fetchFunctionsDirect(POWER_TOWER));
-        SqlInvokedRegularFunction function2 = getOnlyElement(functionNamespaceManager.fetchFunctionsDirect(POWER_TOWER));
+        SqlInvokedFunction function1 = getOnlyElement(functionNamespaceManager.fetchFunctionsDirect(POWER_TOWER));
+        SqlInvokedFunction function2 = getOnlyElement(functionNamespaceManager.fetchFunctionsDirect(POWER_TOWER));
         assertEquals(function1, function2);
         assertNotSame(function1, function2);
 
@@ -141,8 +140,8 @@ public class TestFunctionNamespaceManager
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_INT, false);
         FunctionNamespaceTransactionHandle transaction1 = functionNamespaceManager.beginTransaction();
         FunctionNamespaceTransactionHandle transaction2 = functionNamespaceManager.beginTransaction();
-        Collection<SqlInvokedRegularFunction> functions1 = functionNamespaceManager.getFunctions(Optional.of(transaction1), POWER_TOWER);
-        Collection<SqlInvokedRegularFunction> functions2 = functionNamespaceManager.getFunctions(Optional.of(transaction2), POWER_TOWER);
+        Collection<SqlInvokedFunction> functions1 = functionNamespaceManager.getFunctions(Optional.of(transaction1), POWER_TOWER);
+        Collection<SqlInvokedFunction> functions2 = functionNamespaceManager.getFunctions(Optional.of(transaction2), POWER_TOWER);
         assertEquals(functions1.size(), 2);
         assertSame(functions1, functions2);
     }

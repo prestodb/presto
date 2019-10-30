@@ -11,61 +11,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sqlfunction;
+package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.type.TypeSignature;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Objects;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-public class SqlInvokedRegularFunctionHandle
-        implements FunctionHandle
+@Experimental
+public class SqlFunctionId
 {
-    private final QualifiedFunctionName name;
+    private final QualifiedFunctionName functionName;
     private final List<TypeSignature> argumentTypes;
-    private final long version;
 
-    @JsonCreator
-    public SqlInvokedRegularFunctionHandle(
-            @JsonProperty("name") QualifiedFunctionName name,
-            @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
-            @JsonProperty("version") long version)
+    public SqlFunctionId(
+            QualifiedFunctionName functionName,
+            List<TypeSignature> argumentTypes)
     {
-        this.name = requireNonNull(name, "name is null");
+        this.functionName = requireNonNull(functionName, "functionName is null");
         this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
-        this.version = version;
     }
 
-    @JsonProperty
-    public QualifiedFunctionName getName()
+    public QualifiedFunctionName getFunctionName()
     {
-        return name;
+        return functionName;
     }
 
-    @JsonProperty
     public List<TypeSignature> getArgumentTypes()
     {
         return argumentTypes;
     }
 
-    @JsonProperty
-    public long getVersion()
+    public String getId()
     {
-        return version;
-    }
-
-    @Override
-    public CatalogSchemaName getFunctionNamespace()
-    {
-        return name.getFunctionNamespace();
+        return toString();
     }
 
     @Override
@@ -77,16 +61,15 @@ public class SqlInvokedRegularFunctionHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        SqlInvokedRegularFunctionHandle o = (SqlInvokedRegularFunctionHandle) obj;
-        return Objects.equals(name, o.name)
-                && Objects.equals(argumentTypes, o.argumentTypes)
-                && Objects.equals(version, o.version);
+        SqlFunctionId o = (SqlFunctionId) obj;
+        return Objects.equals(functionName, o.functionName)
+                && Objects.equals(argumentTypes, o.argumentTypes);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, argumentTypes, version);
+        return Objects.hash(functionName, argumentTypes);
     }
 
     @Override
@@ -95,6 +78,6 @@ public class SqlInvokedRegularFunctionHandle
         String arguments = argumentTypes.stream()
                 .map(Object::toString)
                 .collect(joining(", "));
-        return String.format("%s(%s):%s", name, arguments, version);
+        return format("%s(%s)", functionName, arguments);
     }
 }
