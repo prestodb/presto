@@ -377,7 +377,7 @@ public class OrcSelectiveRecordReader
         for (int i = 0; i < outputColumns.size(); i++) {
             int columnIndex = outputColumns.get(i);
             if (constantValues[columnIndex] != null) {
-                blocks[i] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex] == NULL_MARKER ? null : constantValues[columnIndex], batchSize);
+                blocks[i] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex] == NULL_MARKER ? null : constantValues[columnIndex], positionCount);
             }
             else {
                 Block block = getStreamReader(columnIndex).getBlock(positionsToRead, positionCount);
