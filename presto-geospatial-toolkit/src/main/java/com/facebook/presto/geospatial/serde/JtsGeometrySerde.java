@@ -31,6 +31,7 @@ import org.locationtech.jts.geom.Polygon;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
 import static com.facebook.presto.geospatial.GeometryUtils.translateToAVNaN;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -215,6 +216,10 @@ public class JtsGeometrySerde
         double yMin = input.readDouble();
         double xMax = input.readDouble();
         double yMax = input.readDouble();
+
+        if (isEsriNaN(xMin) || isEsriNaN(yMin) || isEsriNaN(xMax) || isEsriNaN(yMax)) {
+            return GEOMETRY_FACTORY.createPolygon();
+        }
 
         Coordinate[] coordinates = new Coordinate[5];
         coordinates[0] = new Coordinate(xMin, yMin);

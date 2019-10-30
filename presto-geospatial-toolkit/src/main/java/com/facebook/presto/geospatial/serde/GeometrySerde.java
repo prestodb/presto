@@ -31,6 +31,7 @@ import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -66,7 +67,6 @@ public class GeometrySerde
     public static Slice serialize(Envelope envelope)
     {
         requireNonNull(envelope, "envelope is null");
-        verify(!envelope.isEmpty());
         DynamicSliceOutput output = new DynamicSliceOutput(100);
         output.appendByte(GeometrySerializationType.ENVELOPE.code());
         writeEnvelopeCoordinates(output, envelope);
@@ -215,7 +215,8 @@ public class GeometrySerde
         return createFromEsriGeometry(esriGeometry, type.geometryType().isMultitype());
     }
 
-    private static OGCGeometry createFromEsriGeometry(Geometry geometry, boolean multiType)
+    @VisibleForTesting
+    static OGCGeometry createFromEsriGeometry(Geometry geometry, boolean multiType)
     {
         Geometry.Type type = geometry.getType();
         switch (type) {
