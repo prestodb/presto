@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.sqlfunction.testing;
 
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -29,9 +29,9 @@ import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
-public class SqlInvokedRegularFunctionTestUtils
+public class SqlInvokedFunctionTestUtils
 {
-    private SqlInvokedRegularFunctionTestUtils()
+    private SqlInvokedFunctionTestUtils()
     {
     }
 
