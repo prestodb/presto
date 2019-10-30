@@ -411,6 +411,9 @@ public class SliceDictionarySelectiveReader
         checkState(positionCount <= outputPositionCount, "Not enough values");
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
+        if (allNulls) {
+            return newLease(new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount));
+        }
         if (positionCount < outputPositionCount) {
             compactValues(positions, positionCount);
         }
