@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static com.facebook.presto.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
@@ -241,7 +242,7 @@ public class InMemoryTransactionManager
     @Override
     public FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerName)
     {
-        return getTransactionMetadata(transactionId).getFunctionNamespaceTransaction(functionNamespaceManagerName);
+        return getTransactionMetadata(transactionId).getFunctionNamespaceTransaction(functionNamespaceManagerName).getTransactionHandle();
     }
 
     private void checkConnectorWrite(TransactionId transactionId, ConnectorId connectorId)
@@ -342,7 +343,7 @@ public class InMemoryTransactionManager
 
         private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers;
         @GuardedBy("this")
-        private final Map<String, FunctionNamespaceTransactionHandle> functionNamespaceTransactions = new ConcurrentHashMap<>();
+        private final Map<String, FunctionNamespaceTransactionMetadata> functionNamespaceTransactions = new ConcurrentHashMap<>();
 
         public TransactionMetadata(
                 TransactionId transactionId,
@@ -460,11 +461,17 @@ public class InMemoryTransactionManager
             return catalogMetadata;
         }
 
-        private synchronized FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(String functionNamespaceManagerName)
+        private synchronized FunctionNamespaceTransactionMetadata getFunctionNamespaceTransaction(String functionNamespaceManagerName)
         {
             checkOpenTransaction();
 
-            return functionNamespaceTransactions.computeIfAbsent(functionNamespaceManagerName, name -> functionNamespaceManagers.get(name).beginTransaction());
+            return functionNamespaceTransactions.computeIfAbsent(
+                    functionNamespaceManagerName, name -> {
+                        verify(name != null, "Unknown function namespace manager: %s", name);
+                        FunctionNamespaceManager<?> functionNamespaceManager = functionNamespaceManagers.get(name);
+                        FunctionNamespaceTransactionHandle transactionHandle = functionNamespaceManager.beginTransaction();
+                        return new FunctionNamespaceTransactionMetadata(functionNamespaceManager, transactionHandle);
+                    });
         }
 
         public synchronized ConnectorTransactionMetadata createConnectorTransactionMetadata(ConnectorId connectorId, Catalog catalog)
@@ -512,16 +519,23 @@ public class InMemoryTransactionManager
                 return immediateFailedFuture(new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
             }
 
+            ListenableFuture<?> functionNamespaceFuture = Futures.allAsList(functionNamespaceTransactions.values().stream()
+                    .map(transactionMetadata -> finishingExecutor.submit(transactionMetadata::commit))
+                    .collect(toImmutableList()));
+
             ConnectorId writeConnectorId = this.writtenConnectorId.get();
             if (writeConnectorId == null) {
-                ListenableFuture<?> future = Futures.allAsList(connectorIdToMetadata.values().stream()
-                        .map(transactionMetadata -> finishingExecutor.submit(transactionMetadata::commit))
-                        .collect(toList()));
-                addExceptionCallback(future, throwable -> {
-                    abortInternal();
-                    log.error(throwable, "Read-only connector should not throw exception on commit");
-                });
-                return nonCancellationPropagating(future);
+                Supplier<ListenableFuture<?>> commitReadOnlyConnectors = () -> {
+                    ListenableFuture<? extends List<?>> future = Futures.allAsList(connectorIdToMetadata.values().stream()
+                            .map(transactionMetadata -> finishingExecutor.submit(transactionMetadata::commit))
+                            .collect(toList()));
+                    addExceptionCallback(future, throwable -> log.error(throwable, "Read-only connector should not throw exception on commit"));
+                    return future;
+                };
+
+                ListenableFuture<?> readOnlyCommitFuture = Futures.transformAsync(functionNamespaceFuture, ignored -> commitReadOnlyConnectors.get(), directExecutor());
+                addExceptionCallback(readOnlyCommitFuture, this::abortInternal);
+                return nonCancellationPropagating(readOnlyCommitFuture);
             }
 
             Supplier<ListenableFuture<?>> commitReadOnlyConnectors = () -> {
@@ -535,9 +549,11 @@ public class InMemoryTransactionManager
             };
 
             ConnectorTransactionMetadata writeConnector = connectorIdToMetadata.get(writeConnectorId);
-            ListenableFuture<?> commitFuture = finishingExecutor.submit(writeConnector::commit);
+            Supplier<ListenableFuture> commitFunctionNamespaceTransactions = () -> functionNamespaceFuture;
+            ListenableFuture<?> commitFuture = Futures.transformAsync(finishingExecutor.submit(writeConnector::commit), ignored -> commitFunctionNamespaceTransactions.get(), directExecutor());
             ListenableFuture<?> readOnlyCommitFuture = Futures.transformAsync(commitFuture, ignored -> commitReadOnlyConnectors.get(), directExecutor());
             addExceptionCallback(readOnlyCommitFuture, this::abortInternal);
+
             return nonCancellationPropagating(readOnlyCommitFuture);
         }
 
@@ -557,8 +573,11 @@ public class InMemoryTransactionManager
         private synchronized ListenableFuture<?> abortInternal()
         {
             // the callbacks in statement performed on another thread so are safe
-            return nonCancellationPropagating(Futures.allAsList(connectorIdToMetadata.values().stream()
-                    .map(connection -> finishingExecutor.submit(() -> safeAbort(connection)))
+            return nonCancellationPropagating(Futures.allAsList(Stream.concat(
+                    functionNamespaceTransactions.values().stream()
+                            .map(transactionMetadata -> finishingExecutor.submit(() -> safeAbort(transactionMetadata))),
+                    connectorIdToMetadata.values().stream()
+                            .map(connection -> finishingExecutor.submit(() -> safeAbort(connection))))
                     .collect(toList())));
         }
 
@@ -569,6 +588,16 @@ public class InMemoryTransactionManager
             }
             catch (Exception e) {
                 log.error(e, "Connector threw exception on abort");
+            }
+        }
+
+        private static void safeAbort(FunctionNamespaceTransactionMetadata transactionMetadata)
+        {
+            try {
+                transactionMetadata.abort();
+            }
+            catch (Exception e) {
+                log.error(e, "Function namespace transaction threw exception on abort");
             }
         }
 
@@ -636,6 +665,43 @@ public class InMemoryTransactionManager
             {
                 if (finished.compareAndSet(false, true)) {
                     connector.rollback(transactionHandle);
+                }
+            }
+        }
+
+        private static class FunctionNamespaceTransactionMetadata
+        {
+            private final FunctionNamespaceManager<?> functionNamespaceManager;
+            private final FunctionNamespaceTransactionHandle transactionHandle;
+            private final AtomicBoolean finished = new AtomicBoolean();
+
+            public FunctionNamespaceTransactionMetadata(FunctionNamespaceManager<?> functionNamespaceManager, FunctionNamespaceTransactionHandle transactionHandle)
+            {
+                this.functionNamespaceManager = requireNonNull(functionNamespaceManager, "functionNamespaceManager is null");
+                this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+            }
+
+            public FunctionNamespaceManager<?> getFunctionNamespaceManager()
+            {
+                return functionNamespaceManager;
+            }
+
+            public FunctionNamespaceTransactionHandle getTransactionHandle()
+            {
+                return transactionHandle;
+            }
+
+            public void commit()
+            {
+                if (finished.compareAndSet(false, true)) {
+                    functionNamespaceManager.commit(transactionHandle);
+                }
+            }
+
+            public void abort()
+            {
+                if (finished.compareAndSet(false, true)) {
+                    functionNamespaceManager.abort(transactionHandle);
                 }
             }
         }
