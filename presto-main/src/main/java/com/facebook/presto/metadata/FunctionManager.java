@@ -249,7 +249,9 @@ public class FunctionManager
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        return functionNamespaces.get(functionHandle.getFunctionNamespace()).getScalarFunctionImplementation(functionHandle);
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getFunctionNamespace());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getFunctionNamespace());
+        return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
