@@ -151,6 +151,15 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkQueryIntegrity(Identity identity, String query)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(query, "query is null");
+
+        authenticationCheck(() -> systemAccessControl.get().checkQueryIntegrity(identity, query));
+    }
+
+    @Override
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
         requireNonNull(identity, "identity is null");
@@ -753,6 +762,12 @@ public class AccessControlManager
     private static class InitializingSystemAccessControl
             implements SystemAccessControl
     {
+        @Override
+        public void checkQueryIntegrity(Identity identity, String query)
+        {
+            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+        }
+
         @Override
         public void checkCanSetUser(Optional<Principal> principal, String userName)
         {

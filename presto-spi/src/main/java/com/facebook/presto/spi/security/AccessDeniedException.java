@@ -36,6 +36,11 @@ public class AccessDeniedException
         denySetUser(principal, userName, null);
     }
 
+    public static void denyQueryIntegrityCheck()
+    {
+        throw new AccessDeniedException("Query integrity check failed.");
+    }
+
     public static void denySetUser(Optional<Principal> principal, String userName, String extraInfo)
     {
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));

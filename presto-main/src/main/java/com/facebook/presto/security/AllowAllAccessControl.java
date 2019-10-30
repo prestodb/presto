@@ -34,6 +34,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkQueryIntegrity(Identity identity, String query)
+    {
+    }
+
+    @Override
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
     {
         return catalogs;

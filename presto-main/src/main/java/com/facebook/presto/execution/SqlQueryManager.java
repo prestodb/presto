@@ -335,6 +335,7 @@ public class SqlQueryManager
 
             // decode session
             session = sessionSupplier.createSession(queryId, sessionContext);
+            accessControl.checkQueryIntegrity(session.getIdentity(), query);
 
             WarningCollector warningCollector = warningCollectorFactory.create();
 
