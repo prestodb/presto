@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sqlfunction;
 
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -62,9 +63,9 @@ public class SqlInvokedRegularFunctionHandle
     }
 
     @Override
-    public QualifiedFunctionName.Prefix getFunctionNamespace()
+    public CatalogSchemaName getFunctionNamespace()
     {
-        return name.getPrefix();
+        return name.getFunctionNamespace();
     }
 
     @Override

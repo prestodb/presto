@@ -332,7 +332,7 @@ public class PushAggregationThroughOuterJoin
                     aggregation.isDistinct(),
                     aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getName(), x.getType())));
             QualifiedFunctionName functionName = functionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
-            VariableReferenceExpression overNull = variableAllocator.newVariable(functionName.getSuffix(), aggregationVariable.getType());
+            VariableReferenceExpression overNull = variableAllocator.newVariable(functionName.getFunctionName(), aggregationVariable.getType());
             aggregationsOverNullBuilder.put(overNull, overNullAggregation);
             aggregationsVariableMappingBuilder.put(aggregationVariable, overNull);
         }

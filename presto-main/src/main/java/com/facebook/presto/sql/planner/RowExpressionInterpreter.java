@@ -776,7 +776,7 @@ public class RowExpressionInterpreter
                 if (callExpression.getArguments().get(0) instanceof CallExpression) {
                     // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW), solves https://github.com/prestodb/presto/issues/12829
                     CallExpression innerCall = (CallExpression) callExpression.getArguments().get(0);
-                    if (functionManager.getFunctionMetadata(innerCall.getFunctionHandle()).getName().getSuffix().equals("json_parse")) {
+                    if (functionManager.getFunctionMetadata(innerCall.getFunctionHandle()).getName().getFunctionName().equals("json_parse")) {
                         checkArgument(innerCall.getType().equals(JSON));
                         checkArgument(innerCall.getArguments().size() == 1);
                         TypeSignature returnType = functionManager.getFunctionMetadata(callExpression.getFunctionHandle()).getReturnType();

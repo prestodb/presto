@@ -755,7 +755,7 @@ public class TestRowExpressionPredicateExtractor
     private RowExpression compare(OperatorType type, RowExpression left, RowExpression right)
     {
         return call(
-                type.getFunctionName().getSuffix(),
+                type.getFunctionName().getFunctionName(),
                 metadata.getFunctionManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
                 BOOLEAN,
                 left,

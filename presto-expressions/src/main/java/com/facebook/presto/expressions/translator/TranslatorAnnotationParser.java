@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.expressions.translator;
 
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
@@ -237,7 +238,7 @@ class TranslatorAnnotationParser
         private ScalarTranslationHeader(String name, boolean deterministic, boolean calledOnNullInput)
         {
             // TODO This is a hack. Engine should provide an API for connectors to overwrite functions. Connector should not hard code the builtin function namespace.
-            this.name = requireNonNull(QualifiedFunctionName.of("presto", "default", name));
+            this.name = requireNonNull(QualifiedFunctionName.of(new CatalogSchemaName("presto", "default"), name));
             this.operatorType = Optional.empty();
             this.deterministic = deterministic;
             this.calledOnNullInput = calledOnNullInput;

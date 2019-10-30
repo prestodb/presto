@@ -150,6 +150,7 @@ import com.facebook.presto.operator.window.RankFunction;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -354,7 +355,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 public class BuiltInFunctionNamespaceManager
         implements FunctionNamespaceManager<BuiltInFunction>
 {
-    public static final QualifiedFunctionName.Prefix DEFAULT_NAMESPACE = QualifiedFunctionName.of("presto.default.foo").getPrefix();
+    public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
     public static final String NAME = "_builtin";
 
     private final TypeManager typeManager;

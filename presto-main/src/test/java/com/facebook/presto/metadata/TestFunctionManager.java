@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CustomFunctions;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
@@ -109,7 +110,7 @@ public class TestFunctionManager
 
         TypeRegistry typeManager = new TypeRegistry();
         FunctionManager functionManager = createFunctionManager(typeManager);
-        BuiltInFunctionHandle functionHandle = (BuiltInFunctionHandle) functionManager.resolveFunction(TEST_SESSION.getTransactionId(), QualifiedName.of(signature.getName().getParts()), fromTypeSignatures(signature.getArgumentTypes()));
+        BuiltInFunctionHandle functionHandle = (BuiltInFunctionHandle) functionManager.resolveFunction(TEST_SESSION.getTransactionId(), signature.getName(), fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(functionManager.getFunctionMetadata(functionHandle).getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
@@ -170,6 +171,22 @@ public class TestFunctionManager
         assertTrue(functionManager.getFunctionMetadata(functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT)).getOperatorType().map(OperatorType::isComparisonOperator).orElse(false));
         assertFalse(functionManager.getFunctionMetadata(functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT)).getOperatorType().map(OperatorType::isArithmeticOperator).orElse(true));
         assertFalse(functionManager.getFunctionMetadata(functionResolution.notFunction()).getOperatorType().isPresent());
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*Non-builtin functions must be reference by three parts: catalog\\.schema\\.function_name, found: a\\.b")
+    public void testSqlFunctionReferenceTooShort()
+    {
+        TypeRegistry typeManager = new TypeRegistry();
+        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        functionManager.resolveFunction(TEST_SESSION.getTransactionId(), QualifiedName.of("a", "b"), ImmutableList.of());
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*Non-builtin functions must be reference by three parts: catalog\\.schema\\.function_name, found: a\\.b\\.c\\.d")
+    public void testSqlFunctionReferenceTooLong()
+    {
+        TypeRegistry typeManager = new TypeRegistry();
+        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        functionManager.resolveFunction(TEST_SESSION.getTransactionId(), QualifiedName.of("a", "b", "c", "d"), ImmutableList.of());
     }
 
     @Test
