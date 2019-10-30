@@ -27,11 +27,11 @@ import org.testng.annotations.Test;
 import java.util.Collection;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.SqlInvokedRegularFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE;
-import static com.facebook.presto.metadata.SqlInvokedRegularFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE_UPDATED;
-import static com.facebook.presto.metadata.SqlInvokedRegularFunctionTestUtils.FUNCTION_POWER_TOWER_INT;
-import static com.facebook.presto.metadata.SqlInvokedRegularFunctionTestUtils.POWER_TOWER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.sqlfunction.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE;
+import static com.facebook.presto.sqlfunction.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE_UPDATED;
+import static com.facebook.presto.sqlfunction.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_INT;
+import static com.facebook.presto.sqlfunction.testing.SqlInvokedFunctionTestUtils.POWER_TOWER;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
