@@ -102,6 +102,7 @@ public final class HiveSessionProperties
     public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
     public static final String USE_LIST_DIRECTORY_CACHE = "use_list_directory_cache";
     private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
+    private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -462,6 +463,11 @@ public final class HiveSessionProperties
                         PARQUET_BATCH_READ_OPTIMIZATION_ENABLED,
                         "Is Parquet batch read optimization enabled",
                         hiveClientConfig.isParquetBatchReadOptimizationEnabled(),
+                        false),
+                booleanProperty(
+                        PARQUET_BATCH_READER_VERIFICATION_ENABLED,
+                        "Is Parquet batch reader verification enabled? This is for testing purposes only, not to be used in production",
+                        hiveClientConfig.isParquetBatchReaderVerificationEnabled(),
                         false));
     }
 
@@ -769,6 +775,11 @@ public final class HiveSessionProperties
     public static boolean isParquetBatchReadsEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParquetBatchReaderVerificationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_BATCH_READER_VERIFICATION_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

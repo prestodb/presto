@@ -168,6 +168,7 @@ public class HiveClientConfig
 
     private DataSize pageFileStripeMaxSize = new DataSize(24, MEGABYTE);
     private boolean parquetBatchReadOptimizationEnabled;
+    private boolean parquetEnableBatchReaderVerification;
 
     public int getMaxInitialSplits()
     {
@@ -1379,5 +1380,18 @@ public class HiveClientConfig
     public boolean isParquetBatchReadOptimizationEnabled()
     {
         return this.parquetBatchReadOptimizationEnabled;
+    }
+
+    @Config("hive.enable-parquet-batch-reader-verification")
+    @ConfigDescription("enable optimized parquet reader")
+    public HiveClientConfig setParquetBatchReaderVerificationEnabled(boolean parquetEnableBatchReaderVerification)
+    {
+        this.parquetEnableBatchReaderVerification = parquetEnableBatchReaderVerification;
+        return this;
+    }
+
+    public boolean isParquetBatchReaderVerificationEnabled()
+    {
+        return this.parquetEnableBatchReaderVerification;
     }
 }
