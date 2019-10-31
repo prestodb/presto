@@ -28,6 +28,7 @@ import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.GroupField;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
+import com.facebook.presto.parquet.ParquetResultVerifierUtils;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import io.airlift.units.DataSize;
@@ -71,6 +72,7 @@ public class ParquetReader
     private final ParquetDataSource dataSource;
     private final AggregatedMemoryContext systemMemoryContext;
     private final boolean batchReadEnabled;
+    private final boolean enableVerification;
 
     private int currentBlock;
     private BlockMetaData currentBlockMetadata;
@@ -81,6 +83,7 @@ public class ParquetReader
 
     private int nextBatchSize = INITIAL_BATCH_SIZE;
     private final ColumnReader[] columnReaders;
+    protected final ColumnReader[] verificationColumnReaders;
     private long[] maxBytesPerCell;
     private long maxCombinedBytesPerRow;
     private final long maxReadBlockBytes;
@@ -94,7 +97,8 @@ public class ParquetReader
             ParquetDataSource dataSource,
             AggregatedMemoryContext systemMemoryContext,
             DataSize maxReadBlockSize,
-            boolean batchReadEnabled)
+            boolean batchReadEnabled,
+            boolean enableVerification)
     {
         this.blocks = blocks;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -104,6 +108,8 @@ public class ParquetReader
         this.batchReadEnabled = batchReadEnabled;
         columns = messageColumnIO.getLeaves();
         columnReaders = new ColumnReader[columns.size()];
+        this.enableVerification = enableVerification;
+        verificationColumnReaders = enableVerification ? new ColumnReader[columns.size()] : null;
         maxBytesPerCell = new long[columns.size()];
     }
 
@@ -134,6 +140,12 @@ public class ParquetReader
         currentPosition += batchSize;
         Arrays.stream(columnReaders)
                 .forEach(reader -> reader.prepareNextRead(batchSize));
+
+        if (enableVerification) {
+            Arrays.stream(verificationColumnReaders)
+                    .forEach(reader -> reader.prepareNextRead(batchSize));
+        }
+
         return batchSize;
     }
 
@@ -228,9 +240,22 @@ public class ParquetReader
             ColumnChunkDescriptor descriptor = new ColumnChunkDescriptor(columnDescriptor, metadata, totalSize);
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.init(columnChunk.readAllPages(), field);
+
+            if (enableVerification) {
+                ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
+                ParquetColumnChunk columnChunkVerfication = new ParquetColumnChunk(descriptor, buffer, 0);
+                verificationColumnReader.init(columnChunkVerfication.readAllPages(), field);
+            }
         }
 
         ColumnChunk columnChunk = columnReader.readNext();
+
+        if (enableVerification) {
+            ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
+            ColumnChunk expected = verificationColumnReader.readNext();
+            ParquetResultVerifierUtils.verifyColumnChunks(columnChunk, expected, columnDescriptor.getPath().length > 1, field, dataSource.getId());
+        }
+
         // update max size per primitive column chunk
         long bytesPerCell = columnChunk.getBlock().getSizeInBytes() / batchSize;
         if (maxBytesPerCell[fieldId] < bytesPerCell) {
@@ -266,6 +291,10 @@ public class ParquetReader
         for (PrimitiveColumnIO columnIO : columns) {
             RichColumnDescriptor column = new RichColumnDescriptor(columnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
             columnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, batchReadEnabled);
+
+            if (enableVerification) {
+                verificationColumnReaders[columnIO.getId()] = ColumnReaderFactory.createReader(column, false);
+            }
         }
     }
 
