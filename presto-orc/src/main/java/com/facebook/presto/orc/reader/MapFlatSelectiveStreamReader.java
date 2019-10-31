@@ -254,6 +254,8 @@ public class MapFlatSelectiveStreamReader
         }
         else {
             outputPositionCount = positionCount;
+            outputPositions = positions;
+            outputPositionsReadOnly = true;
         }
     }
 
@@ -263,7 +265,9 @@ public class MapFlatSelectiveStreamReader
         int streamPosition = 0;
 
         int[] nonNullPositions = new int[positionCount];
+        int[] nullPositions = new int[positionCount];
         int nonNullPositionCount = 0;
+        int nullPositionCount = 0;
         int nonNullSkipped = 0;
 
         if (presentStream == null) {
@@ -313,6 +317,8 @@ public class MapFlatSelectiveStreamReader
                 else {
                     if (nullsAllowed) {
                         nulls[i] = true;
+                        nullPositions[nullPositionCount] = positions[i];
+                        nullPositionCount++;
                     }
                 }
             }
@@ -321,8 +327,10 @@ public class MapFlatSelectiveStreamReader
         readOffset = offset + streamPosition;
 
         if (!nonNullsAllowed) {
-            outputPositionCount = positionCount - nonNullPositionCount;
+            checkState(nullPositionCount == (positionCount - nonNullPositionCount), "nullPositionCount should be equal to postitionCount - nonNullPositionCount");
+            outputPositionCount = nullPositionCount;
             allNulls = true;
+            System.arraycopy(nullPositions, 0, outputPositions, 0, nullPositionCount);
         }
         else {
             nestedLengths = ensureCapacity(nestedLengths, nonNullPositionCount);

@@ -293,11 +293,12 @@ public class ListSelectiveStreamReader
             throws IOException
     {
         presentStream.skip(positions[positionCount - 1]);
-
         if (nullsAllowed) {
             if (nullsFilter != null) {
+                outputPositionCount = 0;
                 for (int i = 0; i < positionCount; i++) {
                     if (nullsFilter.testNull()) {
+                        outputPositions[outputPositionCount] = positions[i];
                         outputPositionCount++;
                     }
                     else {
@@ -308,6 +309,8 @@ public class ListSelectiveStreamReader
             }
             else {
                 outputPositionCount = positionCount;
+                outputPositions = positions;
+                outputPositionsReadOnly = true;
             }
         }
         else {
