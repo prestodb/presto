@@ -281,33 +281,33 @@ public class TestGeoFunctions
         assertConvexHull("POLYGON ((0 0, 0 3, 2 4, 4 2, 3 0, 0 0))", "POLYGON ((0 0, 0 3, 2 4, 4 2, 3 0, 0 0))");
 
         // non-convex geometry
-        assertConvexHull("LINESTRING (1 1, 1 9, 2 2, 1 1, 4 0)", "POLYGON ((1 1, 1 9, 4 0, 1 1))");
+        assertConvexHull("LINESTRING (1 1, 1 9, 2 2, 1 1, 4 0)", "POLYGON ((4 0, 1 1, 1 9, 4 0))");
         assertConvexHull("POLYGON ((0 0, 0 3, 4 4, 1 1, 3 0, 0 0))", "POLYGON ((0 0, 0 3, 4 4, 3 0, 0 0))");
 
         // all points are on the same line
         assertConvexHull("LINESTRING (20 20, 30 30)", "LINESTRING (20 20, 30 30)");
         assertConvexHull("MULTILINESTRING ((0 0, 3 3), (1 1, 2 2), (2 2, 4 4), (5 5, 8 8))", "LINESTRING (0 0, 8 8)");
         assertConvexHull("MULTIPOINT (0 1, 1 2, 2 3, 3 4, 4 5, 5 6)", "LINESTRING (0 1, 5 6)");
-        assertConvexHull("GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (1 1, 4 4, 2 2), POINT (10 10), POLYGON ((5 5, 7 7, 6 6, 5 5)), POINT (2 2), LINESTRING (6 6, 9 9))", "LINESTRING (0 0, 10 10)");
-        assertConvexHull("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 2), POINT (1 1)), POINT (3 3))", "LINESTRING (3 3, 1 1)");
+        assertConvexHull("GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (1 1, 2 2, 4 4), POINT (10 10), LINESTRING (5 5, 6 6, 7 7), POINT (2 2), LINESTRING (6 6, 9 9))", "LINESTRING (0 0, 10 10)");
+        assertConvexHull("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 2), POINT (1 1)), POINT (3 3))", "LINESTRING (1 1, 3 3)");
 
         // not all points are on the same line
-        assertConvexHull("MULTILINESTRING ((1 1, 5 1, 6 6), (2 4, 4 0), (2 -4, 4 4), (3 -2, 4 -3))", "POLYGON ((1 1, 2 4, 6 6, 5 1, 4 -3, 2 -4, 1 1))");
-        assertConvexHull("MULTIPOINT (0 2, 1 0, 3 0, 4 0, 4 2, 2 2, 2 4)", "POLYGON ((0 2, 2 4, 4 2, 4 0, 1 0, 0 2))");
-        assertConvexHull("MULTIPOLYGON (((0 3, 2 0, 3 6, 0 3), (2 1, 2 3, 5 3, 5 1, 2 1), (1 7, 2 4, 4 2, 5 6, 3 8, 1 7)))", "POLYGON ((0 3, 1 7, 3 8, 5 6, 5 1, 2 0, 0 3))");
-        assertConvexHull("GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 8, 7 10), POINT (8 10), POLYGON ((4 4, 4 8, 9 8, 6 6, 6 4, 8 3, 6 1, 4 4)), POINT (4 2), LINESTRING (3 6, 5 5), POLYGON ((7 5, 7 6, 8 6, 8 5, 7 5)))", "POLYGON ((2 3, 2 8, 7 10, 8 10, 9 8, 8 3, 6 1, 2 3))");
-        assertConvexHull("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 8, 7 10), GEOMETRYCOLLECTION (POINT (8 10))), POLYGON ((4 4, 4 8, 9 8, 6 6, 6 4, 8 3, 6 1, 4 4)), POINT (4 2), LINESTRING (3 6, 5 5), POLYGON ((7 5, 7 6, 8 6, 8 5, 7 5)))", "POLYGON ((2 3, 2 8, 7 10, 8 10, 9 8, 8 3, 6 1, 2 3))");
+        assertConvexHull("MULTILINESTRING ((1 1, 5 1, 6 6), (2 4, 4 0), (2 -4, 4 4), (3 -2, 4 -3))", "POLYGON ((2 -4, 1 1, 2 4, 6 6, 5 1, 4 -3, 2 -4))");
+        assertConvexHull("MULTIPOINT (0 2, 1 0, 3 0, 4 0, 4 2, 2 2, 2 4)", "POLYGON ((1 0, 0 2, 2 4, 4 2, 4 0, 1 0))");
+        assertConvexHull("MULTIPOLYGON (((0 3, 2 0, 3 6, 0 3), (2 1, 2 3, 5 3, 5 1, 2 1), (1 7, 2 4, 4 2, 5 6, 3 8, 1 7)))", "POLYGON ((2 0, 0 3, 1 7, 3 8, 5 6, 5 1, 2 0))");
+        assertConvexHull("GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 8, 7 10), POINT (8 10), POLYGON ((4 4, 4 8, 9 8, 6 6, 6 4, 8 3, 6 1, 4 4)), POINT (4 2), LINESTRING (3 6, 5 5), POLYGON ((7 5, 7 6, 8 6, 8 5, 7 5)))", "POLYGON ((6 1, 2 3, 2 8, 7 10, 8 10, 9 8, 8 3, 6 1))");
+        assertConvexHull("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 8, 7 10), GEOMETRYCOLLECTION (POINT (8 10))), POLYGON ((4 4, 4 8, 9 8, 6 6, 6 4, 8 3, 6 1, 4 4)), POINT (4 2), LINESTRING (3 6, 5 5), POLYGON ((7 5, 7 6, 8 6, 8 5, 7 5)))", "POLYGON ((6 1, 2 3, 2 8, 7 10, 8 10, 9 8, 8 3, 6 1))");
 
         // single-element multi-geometries and geometry collections
         assertConvexHull("MULTILINESTRING ((1 1, 5 1, 6 6))", "POLYGON ((1 1, 6 6, 5 1, 1 1))");
         assertConvexHull("MULTILINESTRING ((1 1, 5 1, 1 4, 5 4))", "POLYGON ((1 1, 1 4, 5 4, 5 1, 1 1))");
         assertConvexHull("MULTIPOINT (0 2)", "POINT (0 2)");
-        assertConvexHull("MULTIPOLYGON (((0 3, 3 6, 2 0, 0 3)))", "POLYGON ((0 3, 3 6, 2 0, 0 3))");
+        assertConvexHull("MULTIPOLYGON (((0 3, 3 6, 2 0, 0 3)))", "POLYGON ((2 0, 0 3, 3 6, 2 0))");
         assertConvexHull("MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 2 2, 0 0)))", "POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))");
         assertConvexHull("GEOMETRYCOLLECTION (POINT (2 3))", "POINT (2 3)");
         assertConvexHull("GEOMETRYCOLLECTION (LINESTRING (1 1, 5 1, 6 6))", "POLYGON ((1 1, 6 6, 5 1, 1 1))");
         assertConvexHull("GEOMETRYCOLLECTION (LINESTRING (1 1, 5 1, 1 4, 5 4))", "POLYGON ((1 1, 1 4, 5 4, 5 1, 1 1))");
-        assertConvexHull("GEOMETRYCOLLECTION (POLYGON ((0 3, 3 6, 2 0, 0 3)))", "POLYGON ((0 3, 3 6, 2 0, 0 3))");
+        assertConvexHull("GEOMETRYCOLLECTION (POLYGON ((0 3, 3 6, 2 0, 0 3)))", "POLYGON ((2 0, 0 3, 3 6, 2 0))");
         assertConvexHull("GEOMETRYCOLLECTION (POLYGON ((0 0, 4 0, 4 4, 0 4, 2 2, 0 0)))", "POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))");
     }
 

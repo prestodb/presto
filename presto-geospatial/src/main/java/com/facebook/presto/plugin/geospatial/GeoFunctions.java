@@ -375,14 +375,14 @@ public final class GeoFunctions
     @SqlType(GEOMETRY_TYPE_NAME)
     public static Slice stConvexHull(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
+        Geometry geometry = deserialize(input);
         if (geometry.isEmpty()) {
             return input;
         }
-        if (GeometryType.getForEsriGeometryType(geometry.geometryType()) == POINT) {
+        if (GeometryType.getForJtsGeometryType(geometry.getGeometryType()) == POINT) {
             return input;
         }
-        return EsriGeometrySerde.serialize(geometry.convexHull());
+        return serialize(geometry.convexHull());
     }
 
     @Description("Return the coordinate dimension of the Geometry")
