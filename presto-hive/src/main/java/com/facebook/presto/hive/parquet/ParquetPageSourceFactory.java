@@ -86,6 +86,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
+import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
@@ -154,6 +155,7 @@ public class ParquetPageSourceFactory
                 isFailOnCorruptedParquetStatistics(session),
                 getParquetMaxReadBlockSize(session),
                 isParquetBatchReadsEnabled(session),
+                isParquetBatchReaderVerificationEnabled(session),
                 typeManager,
                 effectivePredicate,
                 stats,
@@ -173,6 +175,7 @@ public class ParquetPageSourceFactory
             boolean failOnCorruptedParquetStatistics,
             DataSize maxReadBlockSize,
             boolean batchReaderEnabled,
+            boolean verificationEnabled,
             TypeManager typeManager,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             FileFormatDataSourceStats stats,
@@ -223,7 +226,8 @@ public class ParquetPageSourceFactory
                     dataSource,
                     systemMemoryContext,
                     maxReadBlockSize,
-                    batchReaderEnabled);
+                    batchReaderEnabled,
+                    verificationEnabled);
 
             return new ParquetPageSource(
                     parquetReader,
