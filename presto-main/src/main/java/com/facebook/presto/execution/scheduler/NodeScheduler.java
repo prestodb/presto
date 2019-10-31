@@ -36,7 +36,6 @@ import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -202,12 +201,14 @@ public class NodeScheduler
     {
         checkArgument(limit > 0, "limit must be at least 1");
 
-        List<InternalNode> selected = new ArrayList<>(min(limit, candidates.size()));
-        while (selected.size() < limit && candidates.hasNext()) {
-            selected.add(candidates.next());
+        ImmutableList.Builder<InternalNode> selectedNodes = ImmutableList.builderWithExpectedSize(min(limit, candidates.size()));
+        int selectedCount = 0;
+        while (selectedCount < limit && candidates.hasNext()) {
+            selectedNodes.add(candidates.next());
+            selectedCount++;
         }
 
-        return selected;
+        return selectedNodes.build();
     }
 
     public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)

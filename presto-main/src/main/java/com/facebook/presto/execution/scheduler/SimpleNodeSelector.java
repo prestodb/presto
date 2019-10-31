@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -39,6 +40,7 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactN
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -176,9 +178,11 @@ public class SimpleNodeSelector
     {
         List<InternalNode> existingNodes = existingTasks.stream()
                 .map(remoteTask -> nodeMap.getNodesByNodeId().get(remoteTask.getNodeId()))
+                // nodes may sporadically disappear from the nodeMap if the announcement is delayed
+                .filter(Objects::nonNull)
                 .collect(toList());
 
-        int alreadySelectedNodeCount = existingTasks.size();
+        int alreadySelectedNodeCount = existingNodes.size();
         int nodeCount = nodeMap.getNodesByNodeId().size();
 
         if (alreadySelectedNodeCount < limit && alreadySelectedNodeCount < nodeCount) {
@@ -186,6 +190,7 @@ public class SimpleNodeSelector
                     selectNodes(limit - alreadySelectedNodeCount, randomizedNodes(nodeMap, includeCoordinator, newHashSet(existingNodes)));
             existingNodes.addAll(moreNodes);
         }
+        verify(existingNodes.stream().allMatch(Objects::nonNull), "existingNodes list must not contain any nulls");
         return new ResettableRandomizedIterator<>(existingNodes);
     }
 
