@@ -51,6 +51,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createStreamReader;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -354,6 +355,7 @@ public class OrcSelectiveRecordReader
             }
 
             positionsToRead = streamReader.getReadPositions();
+            verify(positionCount == 1 || positionsToRead[positionCount - 1] - positionsToRead[0] >= positionCount - 1, "positions must monotonically increase");
         }
 
         if (positionCount > 0 && !filterFunctionsApplied) {
