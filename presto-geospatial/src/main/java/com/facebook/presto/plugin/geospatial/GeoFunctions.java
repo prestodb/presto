@@ -345,11 +345,11 @@ public final class GeoFunctions
             return input;
         }
 
-        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
+        Geometry geometry = deserialize(input);
         if (geometry.isEmpty()) {
             return null;
         }
-        return EsriGeometrySerde.serialize(geometry.buffer(distance));
+        return serialize(geometry.buffer(distance));
     }
 
     @Description("Returns the Point value that is the mathematical centroid of a Geometry")

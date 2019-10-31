@@ -129,20 +129,15 @@ public class BenchmarkSTBuffer
         {
             point = GeoFunctions.stPoint(0, 0);
             multiPointSparse = stGeometryFromText(utf8Slice(
-                    "MULTIPOINT " + GeometryBenchmarkUtils.createCoordinateString(GeometryBenchmarkUtils.createRandomCoordinates(50))
-            ));
+                    "MULTIPOINT " + GeometryBenchmarkUtils.createCoordinateString(GeometryBenchmarkUtils.createRandomCoordinates(50))));
             multiPointDense = stGeometryFromText(utf8Slice(
-                    "MULTIPOINT " + GeometryBenchmarkUtils.createCoordinateString(GeometryBenchmarkUtils.createRandomCoordinates(500))
-            ));
+                    "MULTIPOINT " + GeometryBenchmarkUtils.createCoordinateString(GeometryBenchmarkUtils.createRandomCoordinates(500))));
             multiPointReallyDense = stGeometryFromText(utf8Slice(
-                    "MULTIPOINT " + GeometryBenchmarkUtils.createCoordinateString(GeometryBenchmarkUtils.createRandomCoordinates(5000))
-            ));
+                    "MULTIPOINT " + GeometryBenchmarkUtils.createCoordinateString(GeometryBenchmarkUtils.createRandomCoordinates(5000))));
             lineStringCircle = stGeometryFromText(utf8Slice(
-                    "LINESTRING " + GeometryBenchmarkUtils.createCoordinateString(GeometryBenchmarkUtils.createCircleCoordinates(1000))
-            ));
+                    "LINESTRING " + GeometryBenchmarkUtils.createCoordinateString(GeometryBenchmarkUtils.createCircleCoordinates(1000))));
             lineStringDense = stGeometryFromText(utf8Slice(
-                    "LINESTRING " + GeometryBenchmarkUtils.createCoordinateString(GeometryBenchmarkUtils.createAccordionCoordinates(1000))
-            ));
+                    "LINESTRING " + GeometryBenchmarkUtils.createCoordinateString(GeometryBenchmarkUtils.createAccordionCoordinates(1000))));
             polygonSimple = stGeometryFromText(utf8Slice(GeometryBenchmarkUtils.createCirclePolygon(8)));
             polygonNormal = stGeometryFromText(utf8Slice(loadPolygon("large_polygon.txt")));
             polygonComplex = stGeometryFromText(utf8Slice(GeometryBenchmarkUtils.createCirclePolygon(500000)));
