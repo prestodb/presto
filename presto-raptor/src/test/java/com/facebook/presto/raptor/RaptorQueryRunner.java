@@ -74,6 +74,9 @@ public final class RaptorQueryRunner
 
         if (useHdfs) {
             builder.put("storage.file-system", "hdfs")
+                    .put("cache.base-directory", "file://" + new File(baseDir, "cache").getAbsolutePath())
+                    .put("cache.max-in-memory-cache-size", "100MB")
+                    .put("cache.validation-enabled", "true")
                     .put("storage.data-directory", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile().toURI().toString());
         }
         else {
