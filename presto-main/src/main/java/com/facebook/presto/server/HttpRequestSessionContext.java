@@ -190,7 +190,7 @@ public final class HttpRequestSessionContext
 
     private static Map<String, String> parseExtraCredentials(HttpServletRequest servletRequest)
     {
-        return parseProperty(servletRequest, PRESTO_EXTRA_CREDENTIAL);
+        return parseCredentialProperty(servletRequest, PRESTO_EXTRA_CREDENTIAL);
     }
 
     private static Map<String, String> parseProperty(HttpServletRequest servletRequest, String headerName)
@@ -200,6 +200,17 @@ public final class HttpRequestSessionContext
             List<String> nameValue = Splitter.on('=').trimResults().splitToList(header);
             assertRequest(nameValue.size() == 2, "Invalid %s header", headerName);
             properties.put(nameValue.get(0), nameValue.get(1));
+        }
+        return properties;
+    }
+
+    private static Map<String, String> parseCredentialProperty(HttpServletRequest servletRequest, String headerName)
+    {
+        Map<String, String> properties = new HashMap<>();
+        for (String header : splitSessionHeader(servletRequest.getHeaders(headerName))) {
+            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
+            assertRequest(nameValue.size() == 2, "Invalid %s header", headerName);
+            properties.put(nameValue.get(0), urlDecode(nameValue.get(1)));
         }
         return properties;
     }
