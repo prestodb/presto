@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
+import com.facebook.presto.hadoop.HadoopFileSystemCache;
+import com.facebook.presto.hadoop.HadoopNative;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
@@ -47,6 +49,11 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
 public class RaptorHiveHdfsConfiguration
         implements RaptorHdfsConfiguration
 {
+    static {
+        HadoopNative.requireHadoopNative();
+        HadoopFileSystemCache.initialize();
+    }
+
     private static final Configuration INITIAL_CONFIGURATION = getInitialConfiguration();
 
     @SuppressWarnings("ThreadLocalNotStaticFinal")
