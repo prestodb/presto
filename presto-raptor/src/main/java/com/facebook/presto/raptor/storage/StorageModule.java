@@ -100,6 +100,7 @@ public class StorageModule
         binder.bind(AssignmentLimiter.class).in(Scopes.SINGLETON);
         binder.bind(TemporalFunction.class).in(Scopes.SINGLETON);
 
+        newExporter(binder).export(DatabaseShardManager.class).as(generatedNameOf(DatabaseShardManager.class, connectorId));
         newExporter(binder).export(ShardRecoveryManager.class).as(generatedNameOf(ShardRecoveryManager.class, connectorId));
         newExporter(binder).export(BackupManager.class).as(generatedNameOf(BackupManager.class, connectorId));
         newExporter(binder).export(StorageManager.class).as(generatedNameOf(OrcStorageManager.class, connectorId));
