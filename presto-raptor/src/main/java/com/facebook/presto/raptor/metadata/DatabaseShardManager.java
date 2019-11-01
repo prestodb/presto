@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizerDao;
@@ -41,6 +42,8 @@ import org.skife.jdbi.v2.ResultIterator;
 import org.skife.jdbi.v2.exceptions.DBIException;
 import org.skife.jdbi.v2.tweak.HandleConsumer;
 import org.skife.jdbi.v2.util.ByteArrayMapper;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
@@ -107,6 +110,7 @@ public class DatabaseShardManager
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
     private static final int MAX_ADD_COLUMN_ATTEMPTS = 100;
 
+    private final DeltaDeleteStats deltaDeleteStats = new DeltaDeleteStats();
     private final IDBI dbi;
     private final DaoSupplier<ShardDao> shardDaoSupplier;
     private final ShardDao dao;
@@ -621,6 +625,8 @@ public class DatabaseShardManager
             if (!newDeltas.isEmpty() || !oldDeltaUuids.isEmpty() || shardsToUpdate.isEmpty() || !shardsMapToDelete.isEmpty()) {
                 updateStatsAndVersion(handle, tableId, shardCountChange, deltaCountChange, rowCount, compressedSize, uncompressedSize, updateTime);
             }
+            deltaDeleteStats.deletedShards.update(shardsMapToDelete.size());
+            deltaDeleteStats.updatedShards.update(shardsToUpdate.size());
         });
     }
 
@@ -1375,5 +1381,18 @@ public class DatabaseShardManager
         {
             return newDeltaUuid;
         }
+    }
+
+    private static class DeltaDeleteStats
+    {
+        private final CounterStat updatedShards = new CounterStat();
+        private final CounterStat deletedShards = new CounterStat();
+    }
+
+    @Managed
+    @Flatten
+    public DeltaDeleteStats getDeltaDeleteStats()
+    {
+        return deltaDeleteStats;
     }
 }
