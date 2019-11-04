@@ -188,7 +188,8 @@ public class MapFlatSelectiveStreamReader
                     requiredLongKeys = null;
                     return;
                 default:
-                    throw new IllegalArgumentException("Unsupported flat map key type: " + keyOrcTypeKind);
+                    requiredStringKeys = null;
+                    requiredLongKeys = null;
             }
         }
     }
