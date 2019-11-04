@@ -25,6 +25,7 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -63,9 +64,12 @@ import static java.lang.String.format;
 public class BingTileFunctions
 {
     private static final int TILE_PIXELS = 256;
-    private static final double MAX_LATITUDE = 85.05112878;
+
+    @VisibleForTesting
+    static final double MAX_LATITUDE = 85.05112878;
     private static final double MIN_LATITUDE = -85.05112878;
-    private static final double MIN_LONGITUDE = -180;
+    @VisibleForTesting
+    static final double MIN_LONGITUDE = -180;
     private static final double MAX_LONGITUDE = 180;
     private static final double EARTH_RADIUS_KM = 6371.01;
     private static final int OPTIMIZED_TILING_MIN_ZOOM_LEVEL = 10;
@@ -366,7 +370,22 @@ public class BingTileFunctions
         boolean pointOrRectangle = isPointOrRectangle(ogcGeometry, envelope);
 
         BingTile leftUpperTile = latitudeLongitudeToTile(envelope.getYMax(), envelope.getXMin(), zoomLevel);
-        BingTile rightLowerTile = getTileCoveringLowerRightCorner(envelope, zoomLevel);
+        BingTile rightLowerTile = latitudeLongitudeToTile(envelope.getYMin(), envelope.getXMax(), zoomLevel);
+
+        // If the tile covering the lower right corner of the envelope overlaps the envelope only
+        // at the border then return a tile shifted to the left and/or top
+        int deltaX = 0;
+        int deltaY = 0;
+        Point upperLeftCorner = tileXYToLatitudeLongitude(rightLowerTile.getX(), rightLowerTile.getY(), rightLowerTile.getZoomLevel());
+        if (rightLowerTile.getX() > leftUpperTile.getX() && upperLeftCorner.getX() == envelope.getXMax()) {
+            deltaX = -1;
+        }
+        if (rightLowerTile.getY() > leftUpperTile.getY() && upperLeftCorner.getY() == envelope.getYMin()) {
+            deltaY = -1;
+        }
+        if (deltaX != 0 || deltaY != 0) {
+            rightLowerTile = BingTile.fromCoordinates(rightLowerTile.getX() + deltaX, rightLowerTile.getY() + deltaY, rightLowerTile.getZoomLevel());
+        }
 
         // XY coordinates start at (0,0) in the left upper corner and increase left to right and top to bottom
         long tileCount = (long) (rightLowerTile.getX() - leftUpperTile.getX() + 1) * (rightLowerTile.getY() - leftUpperTile.getY() + 1);
@@ -402,29 +421,6 @@ public class BingTileFunctions
         }
 
         return blockBuilder.build();
-    }
-
-    private static BingTile getTileCoveringLowerRightCorner(Envelope envelope, int zoomLevel)
-    {
-        BingTile tile = latitudeLongitudeToTile(envelope.getYMin(), envelope.getXMax(), zoomLevel);
-
-        // If the tile covering the lower right corner of the envelope overlaps the envelope only
-        // at the border then return a tile shifted to the left and/or top
-        int deltaX = 0;
-        int deltaY = 0;
-        Point upperLeftCorner = tileXYToLatitudeLongitude(tile.getX(), tile.getY(), tile.getZoomLevel());
-        if (upperLeftCorner.getX() == envelope.getXMax()) {
-            deltaX = -1;
-        }
-        if (upperLeftCorner.getY() == envelope.getYMin()) {
-            deltaY = -1;
-        }
-
-        if (deltaX != 0 || deltaY != 0) {
-            return BingTile.fromCoordinates(tile.getX() + deltaX, tile.getY() + deltaY, tile.getZoomLevel());
-        }
-
-        return tile;
     }
 
     private static void checkGeometryToBingTilesLimits(OGCGeometry ogcGeometry, Envelope envelope, boolean pointOrRectangle, long tileCount, int zoomLevel)
