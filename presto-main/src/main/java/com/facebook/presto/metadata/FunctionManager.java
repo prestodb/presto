@@ -174,6 +174,17 @@ public class FunctionManager
         functionNamespaceManager.get().createFunction(function, replace);
     }
 
+    public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace());
+        if (functionNamespaceManager.isPresent()) {
+            functionNamespaceManager.get().dropFunction(functionName, parameterTypes, exists);
+        }
+        else if (!exists) {
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Found not found: %s", functionName.getFunctionNamespace()));
+        }
+    }
+
     /**
      * Resolves a function using implicit type coercions. We enforce explicit naming for dynamic function namespaces.
      * All unqualified function names will only be resolved against the built-in static function namespace. While it is

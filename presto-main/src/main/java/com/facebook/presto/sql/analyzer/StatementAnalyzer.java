@@ -60,6 +60,7 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -173,6 +174,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PARAMETER_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
@@ -583,6 +585,13 @@ class StatementAnalyzer
 
             // TODO: Check body contains no SQL invoked functions
 
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropFunction(DropFunction node, Optional<Scope> scope)
+        {
+            checkFunctionName(node, node.getFunctionName());
             return createAndAssignScope(node, scope);
         }
 
@@ -1541,6 +1550,13 @@ class StatementAnalyzer
             }
 
             return assignments.build();
+        }
+
+        private void checkFunctionName(Statement node, QualifiedName functionName)
+        {
+            if (functionName.getParts().size() != 3) {
+                throw new SemanticException(INVALID_FUNCTION_NAME, node, format("Function name should be in the form of catalog.schema.function_name, found: %s", functionName));
+            }
         }
 
         private class OrderByExpressionRewriter
