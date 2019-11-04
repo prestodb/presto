@@ -15,6 +15,11 @@ package com.facebook.presto.verifier.framework;
 
 public enum SkippedReason
 {
+    SYNTAX_ERROR,
+    UNSUPPORTED_QUERY_TYPE,
+    MISMATCHED_QUERY_TYPE,
+    CUSTOM_FILTER,
+
     CONTROL_QUERY_FAILED,
     CONTROL_SETUP_QUERY_FAILED,
     CONTROL_QUERY_TIMED_OUT,

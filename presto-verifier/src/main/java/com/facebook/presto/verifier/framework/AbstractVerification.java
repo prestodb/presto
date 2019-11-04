@@ -270,20 +270,20 @@ public abstract class AbstractVerification
                 skippedReason,
                 determinismAnalysis,
                 resolveMessage,
-                buildQueryInfo(
+                Optional.of(buildQueryInfo(
                         sourceQuery.getControlConfiguration(),
                         sourceQuery.getControlQuery(),
                         verificationResult.map(VerificationResult::getControlChecksumQueryId),
                         verificationResult.map(VerificationResult::getControlChecksumQuery),
                         control,
-                        controlStats),
-                buildQueryInfo(
+                        controlStats)),
+                Optional.of(buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
                         verificationResult.map(VerificationResult::getTestChecksumQueryId),
                         verificationResult.map(VerificationResult::getTestChecksumQuery),
                         test,
-                        testStats),
+                        testStats)),
                 errorCode,
                 Optional.ofNullable(errorMessage),
                 queryException.map(QueryException::toQueryFailure),
