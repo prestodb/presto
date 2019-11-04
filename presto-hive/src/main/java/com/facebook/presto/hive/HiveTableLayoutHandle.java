@@ -48,6 +48,7 @@ public final class HiveTableLayoutHandle
     private final TupleDomain<ColumnHandle> partitionColumnPredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
+    private final boolean pushdownFilterEnabled;
     private final String layoutString;
 
     // coordinator-only properties
@@ -66,6 +67,7 @@ public final class HiveTableLayoutHandle
             @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate,
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
+            @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
             @JsonProperty("layoutString") String layoutString)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
@@ -79,6 +81,7 @@ public final class HiveTableLayoutHandle
         this.partitions = null;
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
+        this.pushdownFilterEnabled = pushdownFilterEnabled;
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
     }
 
@@ -94,6 +97,7 @@ public final class HiveTableLayoutHandle
             TupleDomain<ColumnHandle> partitionColumnPredicate,
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
+            boolean pushdownFilterEnabled,
             String layoutString)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
@@ -107,6 +111,7 @@ public final class HiveTableLayoutHandle
         this.partitionColumnPredicate = requireNonNull(partitionColumnPredicate, "partitionColumnPredicate is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
+        this.pushdownFilterEnabled = pushdownFilterEnabled;
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
     }
 
@@ -179,6 +184,12 @@ public final class HiveTableLayoutHandle
     public Optional<HiveBucketFilter> getBucketFilter()
     {
         return bucketFilter;
+    }
+
+    @JsonProperty
+    public boolean isPushdownFilterEnabled()
+    {
+        return pushdownFilterEnabled;
     }
 
     @JsonProperty

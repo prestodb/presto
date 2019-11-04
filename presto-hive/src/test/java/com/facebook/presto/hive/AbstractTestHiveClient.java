@@ -679,6 +679,7 @@ public abstract class AbstractTestHiveClient
                 TupleDomain.all(),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 "layout");
 
         int partitionColumnIndex = MAX_PARTITION_KEY_COLUMN_INDEX;
@@ -744,6 +745,7 @@ public abstract class AbstractTestHiveClient
                         tupleDomain,
                         Optional.empty(),
                         Optional.empty(),
+                        false,
                         "layout"),
                 Optional.empty(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -785,6 +787,7 @@ public abstract class AbstractTestHiveClient
                 TupleDomain.all(),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 "layout"));
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
@@ -1834,6 +1837,7 @@ public abstract class AbstractTestHiveClient
                     layoutHandle.getPartitionColumnPredicate(),
                     Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), 2)),
                     layoutHandle.getBucketFilter(),
+                    false,
                     "layout");
 
             List<ConnectorSplit> splits = getAllSplits(session, transaction, modifiedReadBucketCountLayoutHandle);
