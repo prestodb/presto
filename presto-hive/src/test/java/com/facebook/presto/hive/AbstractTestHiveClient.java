@@ -3654,7 +3654,7 @@ public abstract class AbstractTestHiveClient
 
             if (pageSinkProperties.isPartitionCommitRequired()) {
                 assertValidPartitionCommitFragments(fragments);
-                metadata.commitPartition(session, outputHandle, fragments);
+                metadata.commitPartitionAsync(session, outputHandle, fragments).get();
             }
 
             // verify all new files start with the unique prefix
@@ -3823,7 +3823,7 @@ public abstract class AbstractTestHiveClient
             Collection<Slice> fragments = getFutureValue(sink.finish());
             if (pageSinkProperties.isPartitionCommitRequired()) {
                 assertValidPartitionCommitFragments(fragments);
-                metadata.commitPartition(session, insertTableHandle, fragments);
+                metadata.commitPartitionAsync(session, insertTableHandle, fragments).get();
             }
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
 
@@ -4046,7 +4046,7 @@ public abstract class AbstractTestHiveClient
             Collection<Slice> fragments = getFutureValue(sink.finish());
             if (pageSinkProperties.isPartitionCommitRequired()) {
                 assertValidPartitionCommitFragments(fragments);
-                metadata.commitPartition(session, insertTableHandle, fragments);
+                metadata.commitPartitionAsync(session, insertTableHandle, fragments).get();
             }
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
 
@@ -4165,7 +4165,7 @@ public abstract class AbstractTestHiveClient
             Collection<Slice> fragments = getFutureValue(sink.finish());
             if (pageSinkProperties.isPartitionCommitRequired()) {
                 assertValidPartitionCommitFragments(fragments);
-                metadata.commitPartition(session, insertTableHandle, fragments);
+                metadata.commitPartitionAsync(session, insertTableHandle, fragments).get();
             }
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
 

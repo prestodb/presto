@@ -73,6 +73,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import javax.inject.Inject;
@@ -92,6 +93,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
@@ -1157,25 +1159,25 @@ public class MetadataManager
     }
 
     @Override
-    public void commitPartition(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
+    public ListenableFuture<Void> commitPartitionAsync(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-        metadata.commitPartition(connectorSession, tableHandle.getConnectorHandle(), fragments);
+        return toListenableFuture(metadata.commitPartitionAsync(connectorSession, tableHandle.getConnectorHandle(), fragments));
     }
 
     @Override
-    public void commitPartition(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
+    public ListenableFuture<Void> commitPartitionAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-        metadata.commitPartition(connectorSession, tableHandle.getConnectorHandle(), fragments);
+        return toListenableFuture(metadata.commitPartitionAsync(connectorSession, tableHandle.getConnectorHandle(), fragments));
     }
 
     @Override
