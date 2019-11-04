@@ -15,6 +15,7 @@ package com.facebook.presto.execution.executor;
 
 import com.facebook.presto.execution.SplitConcurrencyController;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.spi.session.SessionLogger;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
@@ -38,6 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class TaskHandle
 {
     private final TaskId taskId;
+    private final SessionLogger sessionLogger;
     protected final DoubleSupplier utilizationSupplier;
 
     @GuardedBy("this")
@@ -65,7 +67,8 @@ public class TaskHandle
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
-            OptionalInt maxDriversPerTask)
+            OptionalInt maxDriversPerTask,
+            SessionLogger sessionLogger)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.splitQueue = requireNonNull(splitQueue, "splitQueue is null");
@@ -74,6 +77,7 @@ public class TaskHandle
         this.concurrencyController = new SplitConcurrencyController(
                 initialSplitConcurrency,
                 requireNonNull(splitConcurrencyAdjustFrequency, "splitConcurrencyAdjustFrequency is null"));
+        this.sessionLogger = sessionLogger;
     }
 
     public synchronized Priority addScheduledNanos(long durationNanos)
@@ -191,5 +195,10 @@ public class TaskHandle
         return toStringHelper(this)
                 .add("taskId", taskId)
                 .toString();
+    }
+
+    public SessionLogger getSessionLogger()
+    {
+        return sessionLogger;
     }
 }

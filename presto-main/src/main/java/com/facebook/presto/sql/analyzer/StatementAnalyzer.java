@@ -2005,6 +2005,7 @@ class StatementAnalyzer
                         .setUserAgent(session.getUserAgent().orElse(null))
                         .setClientInfo(session.getClientInfo().orElse(null))
                         .setStartTime(session.getStartTime())
+                        .setSessionLogger(session.getSessionLogger())
                         .build();
 
                 StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, WarningCollector.NOOP);

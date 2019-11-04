@@ -263,6 +263,7 @@ public class SqlTaskExecution
                 outputBuffer::getUtilization,
                 getInitialSplitsPerNode(taskContext.getSession()),
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
+                taskContext.getSession().getSessionLogger(),
                 getMaxDriversPerTask(taskContext.getSession()));
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {

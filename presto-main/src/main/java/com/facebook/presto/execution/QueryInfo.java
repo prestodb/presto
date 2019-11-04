@@ -23,6 +23,7 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.spi.session.SessionLogger;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -37,6 +38,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -81,6 +83,7 @@ public class QueryInfo
     private final Optional<QueryType> queryType;
     // failedTasks is only available for final query info because the construction is expensive.
     private final Optional<List<TaskId>> failedTasks;
+    private Optional<Queue<SessionLogger.Entry>> sessionLogEntries = Optional.empty();
 
     @JsonCreator
     public QueryInfo(
@@ -408,5 +411,16 @@ public class QueryInfo
     public boolean isCompleteInfo()
     {
         return completeInfo;
+    }
+
+    public void setSessionLogEntries(Queue<SessionLogger.Entry> sessionLogEntries)
+    {
+        this.sessionLogEntries = Optional.of(sessionLogEntries);
+    }
+
+    @JsonProperty
+    public Optional<Queue<SessionLogger.Entry>> getSessionLogEntries()
+    {
+        return sessionLogEntries;
     }
 }

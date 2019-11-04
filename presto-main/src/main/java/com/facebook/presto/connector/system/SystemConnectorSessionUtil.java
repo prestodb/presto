@@ -44,6 +44,7 @@ public final class SystemConnectorSessionUtil
                 .setTimeZoneKey(session.getTimeZoneKey())
                 .setLocale(session.getLocale())
                 .setStartTime(session.getStartTime())
+                .setSessionLogger(session.getSessionLogger())
                 .build();
     }
 }

@@ -74,6 +74,7 @@ public class QuerySessionSupplier
                 .setClientInfo(context.getClientInfo())
                 .setClientTags(context.getClientTags())
                 .setTraceToken(context.getTraceToken())
+                .setQueryLoggingSize(context.getQueryLoggingSize())
                 .setResourceEstimates(context.getResourceEstimates());
 
         if (forcedSessionTimeZone.isPresent()) {

@@ -977,6 +977,7 @@ public class QueryStateMachine
     {
         QueryInfo queryInfo = getQueryInfo(stageInfo);
         if (queryInfo.isFinalQueryInfo()) {
+            queryInfo.setSessionLogEntries(session.getSessionLogger().getEntries());
             finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo));
         }
         return queryInfo;

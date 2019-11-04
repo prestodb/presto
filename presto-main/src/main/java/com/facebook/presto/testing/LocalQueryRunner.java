@@ -430,7 +430,9 @@ public class LocalQueryRunner
                 defaultSession.getConnectorProperties(),
                 defaultSession.getUnprocessedCatalogProperties(),
                 metadata.getSessionPropertyManager(),
-                defaultSession.getPreparedStatements());
+                defaultSession.getQueryLoggingSize(),
+                defaultSession.getPreparedStatements(),
+                Optional.of(defaultSession.getSessionLogger()));
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())

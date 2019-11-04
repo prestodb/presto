@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStatus;
@@ -68,6 +69,7 @@ class ContinuousTaskStatusFetcher
     private final HttpClient httpClient;
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
+    private final Session session;
     private final boolean isBinaryTransportEnabled;
 
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
@@ -88,7 +90,8 @@ class ContinuousTaskStatusFetcher
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
-            boolean isBinaryTransportEnabled)
+            boolean isBinaryTransportEnabled,
+            Session session)
     {
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
@@ -105,6 +108,7 @@ class ContinuousTaskStatusFetcher
         this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;
+        this.session = requireNonNull(session, "session is null");
     }
 
     public synchronized void start()

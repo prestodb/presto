@@ -24,6 +24,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.session.SessionLogger;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -253,6 +254,7 @@ public class TaskExecutor
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
+            SessionLogger sessionLogger,
             OptionalInt maxDriversPerTask)
     {
         requireNonNull(taskId, "taskId is null");
@@ -262,7 +264,7 @@ public class TaskExecutor
 
         log.debug("Task scheduled " + taskId);
 
-        TaskHandle taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask);
+        TaskHandle taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask, sessionLogger);
 
         tasks.add(taskHandle);
         return taskHandle;

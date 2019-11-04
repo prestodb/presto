@@ -268,7 +268,7 @@ public final class HttpRemoteTask
                     .map(outputId -> new BufferInfo(outputId, false, 0, 0, PageBufferInfo.empty()))
                     .collect(toImmutableList());
 
-            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
+            TaskInfo initialTask = createInitialTask(session, taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
 
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::failTask,
@@ -280,7 +280,8 @@ public final class HttpRemoteTask
                     maxErrorDuration,
                     errorScheduledExecutor,
                     stats,
-                    isBinaryTransportEnabled);
+                    isBinaryTransportEnabled,
+                    session);
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,

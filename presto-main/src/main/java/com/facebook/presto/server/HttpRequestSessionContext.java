@@ -51,6 +51,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_QUERY_LOGGING_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
@@ -97,6 +98,7 @@ public final class HttpRequestSessionContext
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final String clientInfo;
+    private final int queryLoggingSize;
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest)
             throws WebApplicationException
@@ -122,6 +124,15 @@ public final class HttpRequestSessionContext
         clientInfo = servletRequest.getHeader(PRESTO_CLIENT_INFO);
         clientTags = parseClientTags(servletRequest);
         resourceEstimates = parseResourceEstimate(servletRequest);
+        queryLoggingSize = Optional.ofNullable(trimEmptyToNull(servletRequest.getHeader(PRESTO_QUERY_LOGGING_SIZE))).flatMap(s -> {
+                    try {
+                        return Optional.of(Integer.valueOf(s));
+                    }
+                    catch (NumberFormatException ne) {
+                        return Optional.empty();
+                    }
+                }
+        ).orElse(0);
 
         // parse session properties
         ImmutableMap.Builder<String, String> systemProperties = ImmutableMap.builder();
@@ -429,5 +440,11 @@ public final class HttpRequestSessionContext
         }
 
         return builder.build();
+    }
+
+    @Override
+    public int getQueryLoggingSize()
+    {
+        return queryLoggingSize;
     }
 }

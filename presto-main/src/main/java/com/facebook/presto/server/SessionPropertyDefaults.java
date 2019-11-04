@@ -106,6 +106,6 @@ public class SessionPropertyDefaults
 
         Map<String, String> systemPropertyOverrides = configurationManager.getSystemSessionProperties(context);
         Map<String, Map<String, String>> catalogPropertyOverrides = configurationManager.getCatalogSessionProperties(context);
-        return session.withDefaultProperties(systemPropertyOverrides, catalogPropertyOverrides);
+        return session.withDefaultProperties(systemPropertyOverrides, catalogPropertyOverrides, session.getSessionLogger());
     }
 }

@@ -65,4 +65,6 @@ public interface SessionContext
     Optional<String> getTraceToken();
 
     boolean supportClientTransaction();
+
+    int getQueryLoggingSize();
 }

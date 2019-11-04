@@ -35,6 +35,7 @@ import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
+import static com.facebook.presto.spi.session.SessionLogger.NOOP_SESSION_LOGGER;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -56,7 +57,7 @@ public class TestTaskExecutor
 
         try {
             TaskId taskId = new TaskId("test", 0, 0, 0);
-            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), NOOP_SESSION_LOGGER, OptionalInt.empty());
 
             Phaser beginPhase = new Phaser();
             beginPhase.register();
@@ -149,8 +150,8 @@ public class TestTaskExecutor
         ticker.increment(20, MILLISECONDS);
 
         try {
-            TaskHandle shortQuantaTaskHandle = taskExecutor.addTask(new TaskId("short_quanta", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
-            TaskHandle longQuantaTaskHandle = taskExecutor.addTask(new TaskId("long_quanta", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle shortQuantaTaskHandle = taskExecutor.addTask(new TaskId("short_quanta", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), NOOP_SESSION_LOGGER, OptionalInt.empty());
+            TaskHandle longQuantaTaskHandle = taskExecutor.addTask(new TaskId("long_quanta", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), NOOP_SESSION_LOGGER, OptionalInt.empty());
 
             Phaser globalPhaser = new Phaser();
 
@@ -183,7 +184,7 @@ public class TestTaskExecutor
         ticker.increment(20, MILLISECONDS);
 
         try {
-            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), NOOP_SESSION_LOGGER, OptionalInt.empty());
 
             Phaser globalPhaser = new Phaser();
             globalPhaser.bulkRegister(3);
@@ -224,9 +225,9 @@ public class TestTaskExecutor
         try {
             for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
                 TaskHandle[] taskHandles = {
-                        taskExecutor.addTask(new TaskId("test1", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty()),
-                        taskExecutor.addTask(new TaskId("test2", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty()),
-                        taskExecutor.addTask(new TaskId("test3", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty())
+                        taskExecutor.addTask(new TaskId("test1", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), NOOP_SESSION_LOGGER, OptionalInt.empty()),
+                        taskExecutor.addTask(new TaskId("test2", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), NOOP_SESSION_LOGGER, OptionalInt.empty()),
+                        taskExecutor.addTask(new TaskId("test3", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), NOOP_SESSION_LOGGER, OptionalInt.empty())
                 };
 
                 // move task 0 to next level
@@ -306,7 +307,7 @@ public class TestTaskExecutor
 
         try {
             TaskId taskId = new TaskId("test", 0, 0, 0);
-            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), NOOP_SESSION_LOGGER, OptionalInt.empty());
 
             Phaser beginPhase = new Phaser();
             beginPhase.register();
@@ -337,8 +338,8 @@ public class TestTaskExecutor
     public void testLevelContributionCap()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
-        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
-        TaskHandle handle1 = new TaskHandle(new TaskId("test1", 0, 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty(), NOOP_SESSION_LOGGER);
+        TaskHandle handle1 = new TaskHandle(new TaskId("test1", 0, 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty(), NOOP_SESSION_LOGGER);
 
         for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
             long levelAdvanceTime = SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i]);
@@ -357,7 +358,7 @@ public class TestTaskExecutor
     public void testUpdateLevelWithCap()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
-        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TaskHandle handle0 = new TaskHandle(new TaskId("test0", 0, 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty(), NOOP_SESSION_LOGGER);
 
         long quantaNanos = MINUTES.toNanos(10);
         handle0.addScheduledNanos(quantaNanos);
@@ -379,7 +380,7 @@ public class TestTaskExecutor
         TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, splitQueue, ticker);
         taskExecutor.start();
         try {
-            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), NOOP_SESSION_LOGGER, OptionalInt.empty());
 
             // enqueue all batches of splits
             int batchCount = 4;
@@ -420,7 +421,7 @@ public class TestTaskExecutor
         taskExecutor.start();
         try {
             // overwrite the max drivers per task to be 1
-            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.of(1));
+            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId("test", 0, 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), NOOP_SESSION_LOGGER, OptionalInt.of(1));
 
             // enqueue all batches of splits
             int batchCount = 4;

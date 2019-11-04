@@ -143,4 +143,10 @@ public class TestingSessionContext
     {
         return session.isClientTransactionSupport();
     }
+
+    @Override
+    public int getQueryLoggingSize()
+    {
+        return session.getQueryLoggingSize();
+    }
 }

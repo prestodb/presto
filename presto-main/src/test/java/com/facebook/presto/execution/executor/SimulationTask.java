@@ -23,6 +23,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.spi.session.SessionLogger.NOOP_SESSION_LOGGER;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 abstract class SimulationTask
@@ -40,7 +41,7 @@ abstract class SimulationTask
     {
         this.specification = specification;
         this.taskId = taskId;
-        taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS), OptionalInt.empty());
+        taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS), NOOP_SESSION_LOGGER, OptionalInt.empty());
     }
 
     public void setKilled()

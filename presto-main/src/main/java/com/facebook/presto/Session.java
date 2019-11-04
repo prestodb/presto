@@ -23,6 +23,7 @@ import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
+import com.facebook.presto.spi.session.SessionLogger;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
@@ -50,6 +51,7 @@ import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiterals
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.session.SessionLogger.NOOP_SESSION_LOGGER;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,6 +81,8 @@ public final class Session
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
+    private final int queryLoggingSize;
+    private final SessionLogger sessionLogger;
 
     public Session(
             QueryId queryId,
@@ -101,7 +105,9 @@ public final class Session
             Map<ConnectorId, Map<String, String>> connectorProperties,
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
-            Map<String, String> preparedStatements)
+            int queryLoggingSize,
+            Map<String, String> preparedStatements,
+            Optional<SessionLogger> sessionLogger)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -122,6 +128,7 @@ public final class Session
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
+        this.queryLoggingSize = queryLoggingSize;
 
         ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         connectorProperties.entrySet().stream()
@@ -138,6 +145,7 @@ public final class Session
         checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
+        this.sessionLogger = sessionLogger.orElse(this.queryLoggingSize > 0 ? new SizeLimitedSessionLogger(this.queryId, this.queryLoggingSize) : NOOP_SESSION_LOGGER);
     }
 
     public QueryId getQueryId()
@@ -356,10 +364,12 @@ public final class Session
                 connectorProperties.build(),
                 ImmutableMap.of(),
                 sessionPropertyManager,
-                preparedStatements);
+                queryLoggingSize,
+                preparedStatements,
+                Optional.of(sessionLogger));
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
+    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, SessionLogger sessionLogger)
     {
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
@@ -405,7 +415,9 @@ public final class Session
                 ImmutableMap.of(),
                 connectorProperties,
                 sessionPropertyManager,
-                preparedStatements);
+                queryLoggingSize,
+                preparedStatements,
+                Optional.of(sessionLogger));
     }
 
     public ConnectorSession toConnectorSession()
@@ -460,7 +472,18 @@ public final class Session
                 connectorProperties,
                 unprocessedCatalogProperties,
                 identity.getRoles(),
+                queryLoggingSize,
                 preparedStatements);
+    }
+
+    public int getQueryLoggingSize()
+    {
+        return queryLoggingSize;
+    }
+
+    public SessionLogger getSessionLogger()
+    {
+        return sessionLogger;
     }
 
     @Override
@@ -483,6 +506,8 @@ public final class Session
                 .add("clientTags", clientTags)
                 .add("resourceEstimates", resourceEstimates)
                 .add("startTime", startTime)
+                .add("queryLoggingSize", queryLoggingSize)
+                .add("sessionLogger", sessionLogger)
                 .omitNullValues()
                 .toString();
     }
@@ -513,9 +538,11 @@ public final class Session
         private String remoteUserAddress;
         private String userAgent;
         private String clientInfo;
+        private int queryLoggingSize;
         private Set<String> clientTags = ImmutableSet.of();
         private ResourceEstimates resourceEstimates;
         private long startTime = System.currentTimeMillis();
+        private Optional<SessionLogger> sessionLoggerOptional = Optional.empty();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
@@ -548,7 +575,9 @@ public final class Session
             this.startTime = session.startTime;
             this.systemProperties.putAll(session.systemProperties);
             session.unprocessedCatalogProperties.forEach((key, value) -> this.catalogSessionProperties.put(key, new HashMap<>(value)));
+            this.queryLoggingSize = session.queryLoggingSize;
             this.preparedStatements.putAll(session.preparedStatements);
+            this.sessionLoggerOptional = Optional.of(session.sessionLogger);
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -561,6 +590,12 @@ public final class Session
         {
             checkArgument(catalogSessionProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
             this.transactionId = transactionId;
+            return this;
+        }
+
+        public SessionBuilder setQueryLoggingSize(int queryLoggingSize)
+        {
+            this.queryLoggingSize = queryLoggingSize;
             return this;
         }
 
@@ -675,6 +710,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setSessionLogger(SessionLogger sessionLogger)
+        {
+            this.sessionLoggerOptional = Optional.of(sessionLogger);
+            return this;
+        }
+
         public Session build()
         {
             return new Session(
@@ -698,7 +739,9 @@ public final class Session
                     ImmutableMap.of(),
                     catalogSessionProperties,
                     sessionPropertyManager,
-                    preparedStatements);
+                    queryLoggingSize,
+                    preparedStatements,
+                    sessionLoggerOptional);
         }
     }
 

@@ -32,6 +32,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.session.SessionLogger;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +48,7 @@ import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -341,6 +343,7 @@ public class SqlTask
                 outputBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
+                taskHolder.getSessionLogEntries(),
                 needsPlan.get());
     }
 
@@ -528,6 +531,19 @@ public class SqlTask
         public TaskInfo getFinalTaskInfo()
         {
             return finalTaskInfo;
+        }
+
+        public Optional<Queue<SessionLogger.Entry>> getSessionLogEntries()
+        {
+            if (finalTaskInfo != null) {
+                return finalTaskInfo.getSessionLogEntries();
+            }
+            else if (taskExecution != null) {
+                return Optional.of(taskExecution.getTaskContext().getSession().getSessionLogger().getEntries());
+            }
+            else {
+                return Optional.empty();
+            }
         }
 
         public SqlTaskIoStats getIoStats()

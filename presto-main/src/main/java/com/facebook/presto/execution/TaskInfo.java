@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.session.SessionLogger;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +28,8 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 
 import static com.facebook.presto.execution.TaskStatus.initialTaskStatus;
@@ -43,6 +47,7 @@ public class TaskInfo
     private final TaskStats stats;
 
     private final boolean needsPlan;
+    private Optional<Queue<SessionLogger.Entry>> sessionLogEntries;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskStatus") TaskStatus taskStatus,
@@ -50,6 +55,7 @@ public class TaskInfo
             @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
+            @JsonProperty("sessionLogEntries") Optional<Queue<SessionLogger.Entry>> sessionLogEntries,
             @JsonProperty("needsPlan") boolean needsPlan)
     {
         this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
@@ -57,6 +63,7 @@ public class TaskInfo
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
         this.noMoreSplits = requireNonNull(noMoreSplits, "noMoreSplits is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.sessionLogEntries = requireNonNull(sessionLogEntries, "session log entries is null");
 
         this.needsPlan = needsPlan;
     }
@@ -97,12 +104,18 @@ public class TaskInfo
         return needsPlan;
     }
 
+    @JsonProperty
+    public Optional<Queue<SessionLogger.Entry>> getSessionLogEntries()
+    {
+        return sessionLogEntries;
+    }
+
     public TaskInfo summarize()
     {
         if (taskStatus.getState().isDone()) {
-            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan);
+            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), sessionLogEntries, needsPlan);
         }
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan);
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), sessionLogEntries, needsPlan);
     }
 
     @Override
@@ -114,7 +127,7 @@ public class TaskInfo
                 .toString();
     }
 
-    public static TaskInfo createInitialTask(TaskId taskId, URI location, String nodeId, List<BufferInfo> bufferStates, TaskStats taskStats)
+    public static TaskInfo createInitialTask(Session session, TaskId taskId, URI location, String nodeId, List<BufferInfo> bufferStates, TaskStats taskStats)
     {
         return new TaskInfo(
                 initialTaskStatus(taskId, location, nodeId),
@@ -122,11 +135,17 @@ public class TaskInfo
                 new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),
                 taskStats,
+                Optional.of(session.getSessionLogger().getEntries()),
                 true);
     }
 
     public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan);
+        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, sessionLogEntries, needsPlan);
+    }
+
+    public void setSessionLogEntries(Optional<Queue<SessionLogger.Entry>> sessionLogEntries)
+    {
+        this.sessionLogEntries = sessionLogEntries;
     }
 }

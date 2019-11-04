@@ -460,6 +460,7 @@ public class TestHttpRemoteTask
                     initialTaskInfo.getOutputBuffers(),
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),
+                    initialTaskInfo.getSessionLogEntries(),
                     initialTaskInfo.isNeedsPlan());
         }
 

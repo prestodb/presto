@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.facebook.presto.spi.session.SessionLogger;
 import com.facebook.presto.spi.type.TimeZoneKey;
 
 import java.util.Locale;
@@ -47,6 +48,8 @@ public interface ConnectorSession
     Optional<String> getClientInfo();
 
     long getStartTime();
+
+    SessionLogger getSessionLogger();
 
     /**
      * @deprecated In favor of {@link com.facebook.presto.spi.function.SqlFunctionProperties#isLegacyTimestamp()}
