@@ -39,7 +39,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -51,6 +50,7 @@ import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -88,7 +88,6 @@ public class StructSelectiveStreamReader
     private boolean[] nulls;
     private int[] outputPositions;
     private int outputPositionCount;
-    private boolean outputPositionsReadOnly;
     private boolean allNulls;
     private int[] nestedPositions;
     private int[] nestedOutputPositions;
@@ -209,13 +208,7 @@ public class StructSelectiveStreamReader
 
         allNulls = false;
 
-        if (!nullsAllowed || !nonNullsAllowed) {
-            outputPositions = ensureCapacity(outputPositions, positionCount);
-        }
-        else {
-            outputPositions = positions;
-            outputPositionsReadOnly = true;
-        }
+        outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
@@ -223,9 +216,7 @@ public class StructSelectiveStreamReader
             // no nulls
             if (nonNullsAllowed) {
                 if (nestedReaders.isEmpty()) {
-                    outputPositions = positions;
                     outputPositionCount = positionCount;
-                    outputPositionsReadOnly = true;
                 }
                 else {
                     readNestedStreams(offset, positions, positionCount);
@@ -310,11 +301,6 @@ public class StructSelectiveStreamReader
         }
 
         if (nestedOutputPositionCount < nestedPositionCount) {
-            if (outputPositionsReadOnly) {
-                outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
-                outputPositionsReadOnly = false;
-            }
-
             int nestedIndex = 0;
             int skipped = 0;
             int nestedOutputIndex = 0;
@@ -492,11 +478,6 @@ public class StructSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
-        if (outputPositionsReadOnly) {
-            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
-            outputPositionsReadOnly = false;
-        }
-
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         int nestedIndex = 0;

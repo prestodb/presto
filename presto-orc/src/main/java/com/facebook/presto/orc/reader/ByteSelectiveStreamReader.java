@@ -31,13 +31,13 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -76,7 +76,6 @@ public class ByteSelectiveStreamReader
     @Nullable
     private int[] outputPositions;
     private int outputPositionCount;
-    private boolean outputPositionsReadOnly;
     private boolean allNulls;
     private boolean valuesInUse;
 
@@ -148,13 +147,7 @@ public class ByteSelectiveStreamReader
             ensureValuesCapacity(positionCount, nullsAllowed && presentStream != null);
         }
 
-        if (filter != null) {
-            outputPositions = ensureCapacity(outputPositions, positionCount);
-        }
-        else {
-            outputPositions = positions;
-            outputPositionsReadOnly = true;
-        }
+        outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
         // account memory used by values, nulls and outputPositions
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
@@ -251,10 +244,6 @@ public class ByteSelectiveStreamReader
         }
         else if (nullsAllowed) {
             outputPositionCount = positionCount;
-            if (filter != null) {
-                outputPositions = positions;
-                outputPositionsReadOnly = true;
-            }
         }
         else {
             outputPositionCount = 0;
@@ -405,11 +394,6 @@ public class ByteSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
-        if (outputPositionsReadOnly) {
-            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
-            outputPositionsReadOnly = false;
-        }
-
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         for (int i = 0; i < outputPositionCount; i++) {

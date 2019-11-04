@@ -52,6 +52,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
+import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.reader.SliceSelectiveStreamReader.computeTruncatedLength;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -121,7 +122,6 @@ public class SliceDictionarySelectiveReader
     private boolean allNulls;
     private int[] outputPositions;
     private int outputPositionCount;
-    private boolean outputPositionsReadOnly;
     private boolean valuesInUse;
 
     public SliceDictionarySelectiveReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, LocalMemoryContext systemMemoryContext)
@@ -153,13 +153,7 @@ public class SliceDictionarySelectiveReader
             values = ensureCapacity(values, positionCount);
         }
 
-        if (filter != null) {
-            outputPositions = ensureCapacity(outputPositions, positionCount);
-        }
-        else {
-            outputPositions = positions;
-            outputPositionsReadOnly = true;
-        }
+        outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
@@ -326,10 +320,6 @@ public class SliceDictionarySelectiveReader
         }
         else if (nullsAllowed) {
             outputPositionCount = positionCount;
-            if (filter != null) {
-                outputPositions = positions;
-                outputPositionsReadOnly = true;
-            }
         }
         else {
             outputPositionCount = 0;
@@ -422,10 +412,6 @@ public class SliceDictionarySelectiveReader
 
     private void compactValues(int[] positions, int positionCount)
     {
-        if (outputPositionsReadOnly) {
-            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
-            outputPositionsReadOnly = false;
-        }
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         for (int i = 0; i < outputPositionCount; i++) {

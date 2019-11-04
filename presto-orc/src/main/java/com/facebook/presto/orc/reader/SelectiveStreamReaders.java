@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -156,5 +157,12 @@ public final class SelectiveStreamReaders
             default:
                 throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getOrcTypeKind());
         }
+    }
+
+    public static int[] initializeOutputPositions(int[] outputPositions, int[] positions, int positionCount)
+    {
+        outputPositions = ensureCapacity(outputPositions, positionCount);
+        System.arraycopy(positions, 0, outputPositions, 0, positionCount);
+        return outputPositions;
     }
 }
