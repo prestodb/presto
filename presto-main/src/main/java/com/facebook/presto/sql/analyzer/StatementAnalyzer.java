@@ -554,6 +554,9 @@ class StatementAnalyzer
         {
             analysis.setUpdateType("CREATE FUNCTION");
 
+            // Check function name
+            checkFunctionName(node, node.getFunctionName());
+
             // Check parameter
             List<String> duplicateParameters = node.getParameters().stream()
                     .map(SqlParameterDeclaration::getName)
