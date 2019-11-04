@@ -32,7 +32,9 @@ import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,6 +52,10 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
+import static com.facebook.presto.verifier.framework.SkippedReason.CUSTOM_FILTER;
+import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QUERY_TYPE;
+import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
+import static com.facebook.presto.verifier.framework.SkippedReason.UNSUPPORTED_QUERY_TYPE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier.shouldResubmit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -70,6 +76,8 @@ public class VerificationManager
 
     private final QueryConfigurationOverrides controlOverrides;
     private final QueryConfigurationOverrides testOverrides;
+
+    private final String testId;
 
     private final Optional<Set<String>> whitelist;
     private final Optional<Set<String>> blacklist;
@@ -103,6 +111,8 @@ public class VerificationManager
 
         this.controlOverrides = requireNonNull(controlOverrides, "controlOverrides is null");
         this.testOverrides = requireNonNull(testOverrides, "testOverride is null");
+
+        this.testId = requireNonNull(config.getTestId(), "testId is null");
 
         this.whitelist = requireNonNull(config.getWhitelist(), "whitelist is null");
         this.blacklist = requireNonNull(config.getBlacklist(), "blacklist is null");
@@ -219,14 +229,23 @@ public class VerificationManager
             try {
                 QueryType controlQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
                 QueryType testQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getTestQuery(), PARSING_OPTIONS));
-                if (controlQueryType == testQueryType && controlQueryType.getCategory() == DATA_PRODUCING) {
+
+                if (controlQueryType != testQueryType) {
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery.getName(), MISMATCHED_QUERY_TYPE));
+                }
+                else if (controlQueryType.getCategory() != DATA_PRODUCING) {
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery.getName(), UNSUPPORTED_QUERY_TYPE));
+                }
+                else {
                     selected.add(sourceQuery);
                 }
             }
             catch (ParsingException e) {
                 log.warn("Failed to parse query: %s", sourceQuery.getName());
+                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery.getName(), SYNTAX_ERROR));
             }
             catch (UnsupportedQueryTypeException ignored) {
+                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery.getName(), UNSUPPORTED_QUERY_TYPE));
             }
         }
         List<SourceQuery> selectQueries = selected.build();
@@ -241,10 +260,16 @@ public class VerificationManager
         }
 
         log.info("Applying custom query filters");
+        sourceQueries = new ArrayList<>(sourceQueries);
         for (Predicate<SourceQuery> filter : customQueryFilters) {
-            sourceQueries = sourceQueries.stream()
-                    .filter(filter::test)
-                    .collect(toImmutableList());
+            Iterator<SourceQuery> iterator = sourceQueries.iterator();
+            while (iterator.hasNext()) {
+                SourceQuery sourceQuery = iterator.next();
+                if (!filter.test(sourceQuery)) {
+                    iterator.remove();
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery.getName(), CUSTOM_FILTER));
+                }
+            }
             log.info("Applying custom filter %s... Remaining queries: %s", filter.getClass().getSimpleName(), sourceQueries.size());
         }
         return sourceQueries;
@@ -280,9 +305,7 @@ public class VerificationManager
                 }
                 else {
                     statusCount.compute(EventStatus.valueOf(event.get().getStatus()), (status, count) -> count == null ? 1 : count + 1);
-                    for (EventClient eventClient : eventClients) {
-                        eventClient.post(event.get());
-                    }
+                    postEvent(event.get());
                 }
 
                 double progress = ((double) completed) / queriesSubmitted.get() * 100;
@@ -304,6 +327,13 @@ public class VerificationManager
             catch (ExecutionException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    private void postEvent(VerifierQueryEvent event)
+    {
+        for (EventClient eventClient : eventClients) {
+            eventClient.post(event);
         }
     }
 }

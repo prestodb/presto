@@ -24,6 +24,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -66,8 +67,8 @@ public class VerifierQueryEvent
             Optional<SkippedReason> skippedReason,
             Optional<DeterminismAnalysis> determinismAnalysis,
             Optional<String> resolveMessage,
-            QueryInfo controlQueryInfo,
-            QueryInfo testQueryInfo,
+            Optional<QueryInfo> controlQueryInfo,
+            Optional<QueryInfo> testQueryInfo,
             Optional<String> errorCode,
             Optional<String> errorMessage,
             Optional<QueryFailure> finalQueryFailure,
@@ -81,12 +82,34 @@ public class VerifierQueryEvent
         this.deterministic = determinismAnalysis.filter(d -> !d.isUnknown()).map(DeterminismAnalysis::isDeterministic).orElse(null);
         this.determinismAnalysis = determinismAnalysis.map(DeterminismAnalysis::name).orElse(null);
         this.resolveMessage = resolveMessage.orElse(null);
-        this.controlQueryInfo = requireNonNull(controlQueryInfo, "controlQueryInfo is null");
-        this.testQueryInfo = requireNonNull(testQueryInfo, "testQueryInfo is null");
+        this.controlQueryInfo = controlQueryInfo.orElse(null);
+        this.testQueryInfo = testQueryInfo.orElse(null);
         this.errorCode = errorCode.orElse(null);
         this.errorMessage = errorMessage.orElse(null);
         this.finalQueryFailure = finalQueryFailure.orElse(null);
         this.queryFailures = ImmutableList.copyOf(queryFailures);
+    }
+
+    public static VerifierQueryEvent skipped(
+            String suite,
+            String testId,
+            String name,
+            SkippedReason skippedReason)
+    {
+        return new VerifierQueryEvent(
+                suite,
+                testId,
+                name,
+                SKIPPED,
+                Optional.of(skippedReason),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     @EventField
