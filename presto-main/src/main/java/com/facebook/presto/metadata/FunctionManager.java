@@ -181,7 +181,7 @@ public class FunctionManager
             functionNamespaceManager.get().dropFunction(functionName, parameterTypes, exists);
         }
         else if (!exists) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, format("Found not found: %s", functionName.getFunctionNamespace()));
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName.getFunctionNamespace()));
         }
     }
 

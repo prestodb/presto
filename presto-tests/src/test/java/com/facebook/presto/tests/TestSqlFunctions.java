@@ -29,7 +29,7 @@ public class TestSqlFunctions
     {
         assertQueryFails(
                 "CREATE FUNCTION testing.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' RETURN sin(x) / cos(x)",
-                "Invalid function name: testing\\.tan, require exactly 3 parts");
+                ".*Function name should be in the form of catalog\\.schema\\.function_name, found: testing\\.tan");
         assertQueryFails(
                 "CREATE FUNCTION presto.default.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' RETURN sin(x) / cos(x)",
                 "Cannot create function in built-in function namespace: presto\\.default\\.tan");
