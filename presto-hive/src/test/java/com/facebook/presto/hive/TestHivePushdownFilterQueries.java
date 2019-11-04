@@ -600,11 +600,11 @@ public class TestHivePushdownFilterQueries
         // Tests composing two pushdowns each with a range filter and filter function.
         assertQuery(
                 "WITH data AS (" +
-                "    SELECT l.suppkey, l.linenumber, l.shipmode, MAX(o.orderdate)" +
-                "    FROM lineitem l,  orders o WHERE" +
-                "        o.orderkey = l.orderkey AND linenumber IN (2, 3, 4, 6) AND shipmode LIKE '%AIR%'" +
-                "        GROUP BY l.suppkey, l.linenumber, l.shipmode)" +
-                "SELECT COUNT(*) FROM data WHERE suppkey BETWEEN 10 AND 30 AND shipmode LIKE '%REG%'");
+                    "    SELECT l.suppkey, l.linenumber, l.shipmode, MAX(o.orderdate)" +
+                    "    FROM lineitem l,  orders o WHERE" +
+                    "        o.orderkey = l.orderkey AND linenumber IN (2, 3, 4, 6) AND shipmode LIKE '%AIR%'" +
+                    "        GROUP BY l.suppkey, l.linenumber, l.shipmode)" +
+                    "SELECT COUNT(*) FROM data WHERE suppkey BETWEEN 10 AND 30 AND shipmode LIKE '%REG%'");
     }
 
     @Test
@@ -652,6 +652,16 @@ public class TestHivePushdownFilterQueries
         Session session = getQueryRunner().getDefaultSession();
         assertQuerySucceeds(session, "SELECT linenumber, \"$path\" FROM lineitem");
         assertQuerySucceeds(session, "SELECT linenumber, \"$path\" FROM lineitem WHERE length(\"$path\") % 2 = linenumber % 2");
+    }
+
+    @Test
+    public void testTextfileFormatWithPushdown()
+    {
+        assertUpdate("CREATE TABLE textfile (id BIGINT) WITH (format = 'TEXTFILE')");
+        assertUpdate("INSERT INTO textfile VALUES (1), (2), (3)", 3);
+        assertQuery("SELECT id FROM textfile WHERE id = 1", "SELECT 1");
+        assertQuery("SELECT id FROM textfile", "SELECT 1 UNION SELECT 2 UNION SELECT 3 ");
+        assertUpdate("DROP TABLE textfile");
     }
 
     @Test
