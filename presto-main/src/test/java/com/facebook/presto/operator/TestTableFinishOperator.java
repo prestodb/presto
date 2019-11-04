@@ -33,6 +33,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.AfterClass;
@@ -60,6 +61,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -304,9 +306,10 @@ public class TestTableFinishOperator
         private List<Collection<Slice>> fragmentsList = new ArrayList<>();
 
         @Override
-        public void commitLifespan(Collection<Slice> fragments)
+        public ListenableFuture<Void> commitLifespan(Collection<Slice> fragments)
         {
             fragmentsList.add(fragments);
+            return immediateFuture(null);
         }
 
         public List<Collection<Slice>> getCommittedFragments()

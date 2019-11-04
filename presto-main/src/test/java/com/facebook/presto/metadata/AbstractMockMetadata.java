@@ -39,6 +39,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -471,13 +472,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void commitPartition(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
+    public ListenableFuture<Void> commitPartitionAsync(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void commitPartition(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
+    public ListenableFuture<Void> commitPartitionAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }

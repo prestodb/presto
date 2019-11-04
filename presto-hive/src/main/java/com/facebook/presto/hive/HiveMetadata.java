@@ -129,12 +129,14 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
@@ -2418,17 +2420,17 @@ public class HiveMetadata
     }
 
     @Override
-    public void commitPartition(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public CompletableFuture<Void> commitPartitionAsync(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
-        stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments));
+        return toCompletableFuture(stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments)));
     }
 
     @Override
-    public void commitPartition(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
+    public CompletableFuture<Void> commitPartitionAsync(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
-        stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments));
+        return toCompletableFuture(stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments)));
     }
 
     private List<GrantInfo> buildGrants(SchemaTableName tableName, PrestoPrincipal principal)

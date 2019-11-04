@@ -2869,10 +2869,10 @@ public class LocalExecutionPlanner
     {
         return fragments -> {
             if (target instanceof CreateHandle) {
-                metadata.commitPartition(session, ((CreateHandle) target).getHandle(), fragments);
+                return metadata.commitPartitionAsync(session, ((CreateHandle) target).getHandle(), fragments);
             }
             else if (target instanceof InsertHandle) {
-                metadata.commitPartition(session, ((InsertHandle) target).getHandle(), fragments);
+                return metadata.commitPartitionAsync(session, ((InsertHandle) target).getHandle(), fragments);
             }
             else {
                 throw new AssertionError("Unhandled target type: " + target.getClass().getName());

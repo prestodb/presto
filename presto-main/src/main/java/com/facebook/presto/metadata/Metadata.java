@@ -43,6 +43,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.PartitioningHandle;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -418,13 +419,13 @@ public interface Metadata
      * Commits partition for table creation.
      */
     @Experimental
-    void commitPartition(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+    ListenableFuture<Void> commitPartitionAsync(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Commits partition for table insertion.
      */
     @Experimental
-    void commitPartition(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
+    ListenableFuture<Void> commitPartitionAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
     FunctionManager getFunctionManager();
 

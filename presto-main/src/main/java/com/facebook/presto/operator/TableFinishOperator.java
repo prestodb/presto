@@ -20,6 +20,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -31,12 +32,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.isStatisticsCpuTimerEnabled;
@@ -48,9 +51,13 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.whenAllSucceed;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.Duration.succinctNanos;
+import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
 
 public class TableFinishOperator
@@ -241,6 +248,7 @@ public class TableFinishOperator
         }
         state = State.FINISHED;
 
+        lifespanAndStageStateTracker.waitForAllLifespanCommitted();
         outputMetadata = tableFinisher.finishTable(lifespanAndStageStateTracker.getFinalFragments(), computedStatisticsBuilder.build());
 
         // output page will only be constructed once,
@@ -293,7 +301,7 @@ public class TableFinishOperator
 
     public interface LifespanCommitter
     {
-        void commitLifespan(Collection<Slice> fragments);
+        ListenableFuture<Void> commitLifespan(Collection<Slice> fragments);
     }
 
     // A lifespan in a stage defines the unit for commit and recovery in recoverable grouped execution
@@ -307,10 +315,29 @@ public class TableFinishOperator
         private final Map<LifespanAndStage, LifespanAndStageState> committedRecoverableLifespanAndStages = new HashMap<>();
 
         private final LifespanCommitter lifespanCommitter;
+        private final List<ListenableFuture<Void>> commitFutures = new ArrayList<>();
 
         LifespanAndStageStateTracker(LifespanCommitter lifespanCommitter)
         {
             this.lifespanCommitter = requireNonNull(lifespanCommitter, "lifespanCommitter is null");
+        }
+
+        public void waitForAllLifespanCommitted()
+        {
+            ListenableFuture<Void> future = whenAllSucceed(commitFutures).call(() -> null, directExecutor());
+            try {
+                future.get();
+            }
+            catch (InterruptedException e) {
+                future.cancel(true);
+                currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+            catch (ExecutionException e) {
+                future.cancel(true);
+                propagateIfPossible(e.getCause(), PrestoException.class);
+                throw new RuntimeException(e.getCause());
+            }
         }
 
         public void update(Page page, TableCommitContext tableCommitContext)
@@ -336,7 +363,7 @@ public class TableFinishOperator
                 LifespanAndStageState lifespanAndStageState = lifespanStageStatesPerTask.get(tableCommitContext.getTaskId());
                 committedRecoverableLifespanAndStages.put(lifespanAndStage, lifespanAndStageState);
                 uncommittedRecoverableLifespanAndStageStates.remove(lifespanAndStage);
-                lifespanCommitter.commitLifespan(lifespanAndStageState.getFragments());
+                commitFutures.add(lifespanCommitter.commitLifespan(lifespanAndStageState.getFragments()));
             }
         }
 
