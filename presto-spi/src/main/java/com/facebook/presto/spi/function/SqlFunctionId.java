@@ -15,6 +15,8 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,19 +31,22 @@ public class SqlFunctionId
     private final QualifiedFunctionName functionName;
     private final List<TypeSignature> argumentTypes;
 
+    @JsonCreator
     public SqlFunctionId(
-            QualifiedFunctionName functionName,
-            List<TypeSignature> argumentTypes)
+            @JsonProperty("functionName") QualifiedFunctionName functionName,
+            @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes)
     {
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
     }
 
+    @JsonProperty
     public QualifiedFunctionName getFunctionName()
     {
         return functionName;
     }
 
+    @JsonProperty
     public List<TypeSignature> getArgumentTypes()
     {
         return argumentTypes;
