@@ -36,6 +36,8 @@ import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
+import static com.facebook.presto.plugin.geospatial.BingTileFunctions.MAX_LATITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileFunctions.MIN_LONGITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -457,6 +459,12 @@ public class TestBingTileFunctions
         assertGeometryToBingTiles("POINT EMPTY", 10, emptyList());
         assertGeometryToBingTiles("POLYGON EMPTY", 10, emptyList());
         assertGeometryToBingTiles("GEOMETRYCOLLECTION EMPTY", 10, emptyList());
+
+        // Geometries at MIN_LONGITUDE/MAX_LATITUDE
+        assertGeometryToBingTiles("LINESTRING (-180 -79.19245, -180 -79.17133464081945)", 8, ImmutableList.of("22200000"));
+        assertGeometryToBingTiles(format("POINT (%s 0)", MIN_LONGITUDE), 5, ImmutableList.of("20000"));
+        assertGeometryToBingTiles(format("POINT (0 %s)", MAX_LATITUDE), 5, ImmutableList.of("10000"));
+        assertGeometryToBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MAX_LATITUDE), 5, ImmutableList.of("00000"));
 
         // Invalid input
         // Longitude out of range
