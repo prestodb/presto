@@ -64,6 +64,7 @@ import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -222,13 +223,7 @@ public class MapFlatSelectiveStreamReader
             nulls = ensureCapacity(nulls, positionCount);
         }
 
-        if (!nullsAllowed || !nonNullsAllowed) {
-            outputPositions = ensureCapacity(outputPositions, positionCount);
-        }
-        else {
-            outputPositions = positions;
-            outputPositionsReadOnly = true;
-        }
+        outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
         if (presentStream != null && keyCount == 0) {
             readAllNulls(positions, positionCount);

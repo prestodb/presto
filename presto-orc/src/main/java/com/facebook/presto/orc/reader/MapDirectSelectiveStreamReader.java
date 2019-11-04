@@ -44,7 +44,6 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,6 +53,7 @@ import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -97,7 +97,6 @@ public class MapDirectSelectiveStreamReader
     private boolean[] nulls;
     private int[] outputPositions;
     private int outputPositionCount;
-    private boolean outputPositionsReadOnly;
     private boolean allNulls;
     private int[] nestedLengths;
     private int[] nestedOffsets;
@@ -239,13 +238,7 @@ public class MapDirectSelectiveStreamReader
 
         allNulls = false;
 
-        if (!nullsAllowed || !nonNullsAllowed) {
-            outputPositions = ensureCapacity(outputPositions, positionCount);
-        }
-        else {
-            outputPositions = positions;
-            outputPositionsReadOnly = true;
-        }
+        outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
         offsets = ensureCapacity(offsets, positionCount + 1);
         offsets[0] = 0;
@@ -272,8 +265,6 @@ public class MapDirectSelectiveStreamReader
     {
         if (nullsAllowed) {
             outputPositionCount = positionCount;
-            outputPositions = positions;
-            outputPositionsReadOnly = true;
         }
         else {
             outputPositionCount = 0;
@@ -314,9 +305,7 @@ public class MapDirectSelectiveStreamReader
             nestedOffset += length;
         }
 
-        outputPositions = positions;
         outputPositionCount = positionCount;
-        outputPositionsReadOnly = true;
         readOffset = offset + streamPosition;
 
         if (outputRequired) {
@@ -602,11 +591,6 @@ public class MapDirectSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
-        if (outputPositionsReadOnly) {
-            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
-            outputPositionsReadOnly = false;
-        }
-
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         int nestedSkipped = 0;

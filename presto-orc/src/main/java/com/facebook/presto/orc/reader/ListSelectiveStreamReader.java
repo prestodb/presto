@@ -40,7 +40,6 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,6 +50,7 @@ import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createNestedStreamReader;
+import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.block.ClosingBlockLease.newLease;
@@ -100,7 +100,6 @@ public class ListSelectiveStreamReader
     @Nullable
     private int[] outputPositions;
     private int outputPositionCount;
-    private boolean outputPositionsReadOnly;
     private boolean[] indexOutOfBounds;
     private boolean allNulls;
 
@@ -238,13 +237,7 @@ public class ListSelectiveStreamReader
             nulls = ensureCapacity(nulls, positionCount);
         }
 
-        if (!(nullsAllowed && nonNullsAllowed) || nullsFilter != null || listFilter != null) {
-            outputPositions = ensureCapacity(outputPositions, positionCount);
-        }
-        else {
-            outputPositions = positions;
-            outputPositionsReadOnly = true;
-        }
+        outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
@@ -309,8 +302,6 @@ public class ListSelectiveStreamReader
             }
             else {
                 outputPositionCount = positionCount;
-                outputPositions = positions;
-                outputPositionsReadOnly = true;
             }
         }
         else {
@@ -644,11 +635,6 @@ public class ListSelectiveStreamReader
 
     private void compactValues(int[] positions, int positionCount, boolean compactNulls)
     {
-        if (outputPositionsReadOnly) {
-            outputPositions = Arrays.copyOf(outputPositions, outputPositionCount);
-            outputPositionsReadOnly = false;
-        }
-
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         int skippedElements = 0;
