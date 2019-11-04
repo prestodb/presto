@@ -60,6 +60,7 @@ statement
         RETURNS returnType=type
         (COMMENT string)?
         routineCharacteristics routineBody                             #createFunction
+    | DROP FUNCTION (IF EXISTS)? qualifiedName types?                  #dropFunction
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?                                          #createRole
@@ -392,6 +393,10 @@ intervalField
 
 normalForm
     : NFD | NFC | NFKD | NFKC
+    ;
+
+types
+    : '(' (type (',' type)*)? ')'
     ;
 
 type
