@@ -56,7 +56,6 @@ import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -148,7 +147,7 @@ public class ShardOrganizationManager
         discoveryService.scheduleWithFixedDelay(() -> {
             try {
                 // jitter to avoid overloading database and overloading the backup store
-                SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, organizationDiscoveryIntervalMillis));
+                MILLISECONDS.sleep(ThreadLocalRandom.current().nextLong(1, organizationDiscoveryIntervalMillis));
 
                 log.info("Running shard organizer...");
                 submitJobs(discoverAndInitializeTablesToOrganize());
