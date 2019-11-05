@@ -17,26 +17,16 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
-
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongDecimalsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
-import static com.facebook.presto.block.BlockAssertions.createMapVarcharBigintBlock;
-import static com.facebook.presto.block.BlockAssertions.createRowVarcharBigintBlock;
 import static com.facebook.presto.block.BlockAssertions.createShortDecimalsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
@@ -47,10 +37,8 @@ import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.util.Arrays.asList;
-import static org.testng.Assert.assertNotEquals;
 
 public class TestChecksumAggregation
 {
@@ -120,62 +108,6 @@ public class TestChecksumAggregation
         InternalAggregationFunction stringAgg = getAggregation(arrayType);
         Block block = createArrayBigintBlock(asList(null, asList(1L, 2L), asList(3L, 4L), asList(5L, 6L)));
         assertAggregation(stringAgg, expectedChecksum(arrayType, block), block);
-    }
-
-    @Test
-    public void testStructuralChecksumCollision()
-    {
-        ArrayType arrayType = new ArrayType(BigintType.BIGINT);
-        for (int i = 0; i < 100; i++) {
-            long a1 = ThreadLocalRandom.current().nextLong();
-            long b1 = ThreadLocalRandom.current().nextLong();
-            long a2 = ThreadLocalRandom.current().nextLong();
-            long b2 = ThreadLocalRandom.current().nextLong();
-
-            Block arrayBlock1 = createArrayBigintBlock(ImmutableList.of(
-                    ImmutableList.of(a1, b1),
-                    ImmutableList.of(a2, b2)));
-            Block arrayBlock2 = createArrayBigintBlock(ImmutableList.of(
-                    ImmutableList.of(a1, b2),
-                    ImmutableList.of(a2, b1)));
-            assertNotEquals(expectedChecksum(arrayType, arrayBlock1), expectedChecksum(arrayType, arrayBlock2), "unexpected checksum collision");
-        }
-
-        MapType mapType = mapType(VarcharType.VARCHAR, BigintType.BIGINT);
-        for (int i = 0; i < 100; i++) {
-            String k1 = Long.valueOf(ThreadLocalRandom.current().nextLong()).toString();
-            long v1 = ThreadLocalRandom.current().nextLong();
-            String k2 = Long.valueOf(ThreadLocalRandom.current().nextLong()).toString();
-            long v2 = ThreadLocalRandom.current().nextLong();
-            String k3 = Long.valueOf(ThreadLocalRandom.current().nextLong()).toString();
-            long v3 = ThreadLocalRandom.current().nextLong();
-            String k4 = Long.valueOf(ThreadLocalRandom.current().nextLong()).toString();
-            long v4 = ThreadLocalRandom.current().nextLong();
-
-            Block mapBlock1 = createMapVarcharBigintBlock(ImmutableList.of(
-                    ImmutableMap.of(k1, v1, k2, v2),
-                    ImmutableMap.of(k3, v3, k4, v4)));
-            Block mapBlock2 = createMapVarcharBigintBlock(ImmutableList.of(
-                    ImmutableMap.of(k1, v1, k4, v4),
-                    ImmutableMap.of(k3, v3, k2, v2)));
-            assertNotEquals(expectedChecksum(mapType, mapBlock1), expectedChecksum(mapType, mapBlock2), "unexpected checksum collision");
-        }
-
-        RowType rowType = RowType.anonymous(ImmutableList.of(VarcharType.VARCHAR, BigintType.BIGINT));
-        for (int i = 0; i < 100; i++) {
-            String a1 = Long.valueOf(ThreadLocalRandom.current().nextLong()).toString();
-            long b1 = ThreadLocalRandom.current().nextLong();
-            String a2 = Long.valueOf(ThreadLocalRandom.current().nextLong()).toString();
-            long b2 = ThreadLocalRandom.current().nextLong();
-
-            Block rowBlock1 = createRowVarcharBigintBlock(ImmutableList.of(
-                    ImmutableList.of(a1, b1),
-                    ImmutableList.of(a2, b2)));
-            Block rowBlock2 = createRowVarcharBigintBlock(ImmutableList.of(
-                    ImmutableList.of(a1, b2),
-                    ImmutableList.of(a2, b1)));
-            assertNotEquals(expectedChecksum(rowType, rowBlock1), expectedChecksum(rowType, rowBlock2), "unexpected checksum collision");
-        }
     }
 
     private static SqlVarbinary expectedChecksum(Type type, Block block)

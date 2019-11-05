@@ -120,8 +120,7 @@ public class MapType
         for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
             result += hashPosition(keyType, mapBlock, i) ^ hashPosition(valueType, mapBlock, i + 1);
         }
-
-        return HashUtil.shuffle(result);
+        return result;
     }
 
     @Override

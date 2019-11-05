@@ -275,8 +275,7 @@ public class RowType
             Type elementType = fields.get(i).getType();
             result = 31 * result + TypeUtils.hashPosition(elementType, arrayBlock, i);
         }
-
-        return HashUtil.shuffle(result);
+        return result;
     }
 
     private static void checkElementNotNull(boolean isNull)
