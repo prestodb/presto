@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.JAVA;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
@@ -35,6 +36,7 @@ public class SqlInvokedFunctionTestUtils
     }
 
     public static final QualifiedFunctionName POWER_TOWER = QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "power_tower");
+    public static final QualifiedFunctionName REMOTE_FOO = QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "remote_foo");
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_DOUBLE = new SqlInvokedFunction(
             POWER_TOWER,
@@ -61,5 +63,41 @@ public class SqlInvokedFunctionTestUtils
             "power tower",
             RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
             "pow(x, x)",
+            Optional.empty());
+
+    public static final SqlInvokedFunction FUNCTION_REMOTE_FOO_0 = new SqlInvokedFunction(
+            REMOTE_FOO,
+            ImmutableList.of(),
+            parseTypeSignature(INTEGER),
+            "remote_foo()",
+            RoutineCharacteristics.builder().setLanguage(JAVA).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+            "",
+            Optional.empty());
+
+    public static final SqlInvokedFunction FUNCTION_REMOTE_FOO_1 = new SqlInvokedFunction(
+            REMOTE_FOO,
+            ImmutableList.of(new SqlParameter("x", parseTypeSignature(INTEGER))),
+            parseTypeSignature(INTEGER),
+            "remote_foo(x)",
+            RoutineCharacteristics.builder().setLanguage(JAVA).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+            "",
+            Optional.empty());
+
+    public static final SqlInvokedFunction FUNCTION_REMOTE_FOO_2 = new SqlInvokedFunction(
+            REMOTE_FOO,
+            ImmutableList.of(new SqlParameter("x", parseTypeSignature(INTEGER)), new SqlParameter("y", parseTypeSignature(INTEGER))),
+            parseTypeSignature(INTEGER),
+            "remote_foo(x, y)",
+            RoutineCharacteristics.builder().setLanguage(JAVA).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+            "",
+            Optional.empty());
+
+    public static final SqlInvokedFunction FUNCTION_REMOTE_FOO_3 = new SqlInvokedFunction(
+            REMOTE_FOO,
+            ImmutableList.of(new SqlParameter("x", parseTypeSignature(INTEGER)), new SqlParameter("y", parseTypeSignature(INTEGER)), new SqlParameter("z", parseTypeSignature(DOUBLE))),
+            parseTypeSignature(INTEGER),
+            "remote_foo(x, y, z)",
+            RoutineCharacteristics.builder().setLanguage(JAVA).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+            "",
             Optional.empty());
 }

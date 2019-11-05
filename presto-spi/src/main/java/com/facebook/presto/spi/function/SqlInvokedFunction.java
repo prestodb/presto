@@ -140,7 +140,14 @@ public class SqlInvokedFunction
 
     public FunctionImplementationType getFunctionImplementationType()
     {
-        return FunctionImplementationType.SQL;
+        switch (routineCharacteristics.getLanguage()) {
+            case SQL:
+                return FunctionImplementationType.SQL;
+            case JAVA:
+                return FunctionImplementationType.REMOTE;
+            default:
+                throw new UnsupportedOperationException(format("Unsupported language %s", routineCharacteristics.getLanguage()));
+        }
     }
 
     public SqlFunctionHandle getRequiredFunctionHandle()

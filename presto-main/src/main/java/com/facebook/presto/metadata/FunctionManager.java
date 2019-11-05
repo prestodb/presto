@@ -153,6 +153,18 @@ public class FunctionManager
         }
     }
 
+    @VisibleForTesting
+    public void addTestFunctionNamespace(String functionNamespaceManagerId, FunctionNamespaceManager functionNamespaceManager, String catalogSchemaPrefix)
+    {
+        transactionManager.registerFunctionNamespaceManager(functionNamespaceManagerId, functionNamespaceManager);
+        if (functionNamespaceManagers.putIfAbsent(functionNamespaceManagerId, functionNamespaceManager) != null) {
+            throw new IllegalArgumentException(format("Function namespace manager [%s] is already registered", functionNamespaceManagerId));
+        }
+        if (functionNamespaces.putIfAbsent(CatalogSchemaPrefix.of(catalogSchemaPrefix), functionNamespaceManagerId) != null) {
+            throw new IllegalArgumentException(format("Function namespace [%s] is already registered to function namespace manager [%s]", catalogSchemaPrefix, functionNamespaceManagerId));
+        }
+    }
+
     public FunctionInvokerProvider getFunctionInvokerProvider()
     {
         return functionInvokerProvider;
