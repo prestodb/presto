@@ -295,6 +295,11 @@ public class RowExpressionInterpreter
             if (optimizationLevel.ordinal() < EVALUATED.ordinal()) {
                 // TODO: enable optimization related to lambda expression
                 // Currently, we are not able to determine if lambda is deterministic.
+                // context is passed down as null here since lambda argument can only be resolved under the evaluation context.
+                RowExpression rewrittenBody = toRowExpression(processWithExceptionHandling(node.getBody(), null), node.getBody());
+                if (!rewrittenBody.equals(node.getBody())) {
+                    return new LambdaDefinitionExpression(node.getArgumentTypes(), node.getArguments(), rewrittenBody);
+                }
                 return node;
             }
             RowExpression body = node.getBody();

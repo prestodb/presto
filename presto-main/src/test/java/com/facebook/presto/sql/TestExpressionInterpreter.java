@@ -1329,6 +1329,14 @@ public class TestExpressionInterpreter
         assertDoNotOptimize("transform(unbound_array, x -> x + x)", OPTIMIZED);
         assertOptimizedEquals("transform(ARRAY[1, 5], x -> x + x)", "transform(ARRAY[1, 5], x -> x + x)");
         assertOptimizedEquals("transform(sequence(1, 5), x -> x + x)", "transform(sequence(1, 5), x -> x + x)");
+        assertRowExpressionOptimizedEquals(
+                OPTIMIZED,
+                "transform(sequence(1, unbound_long), x -> cast(json_parse('[1, 2]') AS ARRAY<INTEGER>)[1] + x)",
+                "transform(sequence(1, unbound_long), x -> 1 + x)");
+        assertRowExpressionOptimizedEquals(
+                OPTIMIZED,
+                "transform(sequence(1, unbound_long), x -> cast(json_parse('[1, 2]') AS ARRAY<INTEGER>)[1] + 1)",
+                "transform(sequence(1, unbound_long), x -> 2)");
         assertEquals(evaluate("reduce(ARRAY[1, 5], 0, (x, y) -> x + y, x -> x)", true), 6L);
     }
 
