@@ -40,6 +40,24 @@ public final class FailureFunction
         throw new PrestoException(StandardErrorCode.GENERIC_USER_ERROR, failureInfo.toException());
     }
 
+    // This function is only used to propagate optimization failures.
+    @Description("Decodes json to an exception and throws it with supplied errorCode")
+    @ScalarFunction(value = "fail", hidden = true)
+    @SqlType("unknown")
+    public static boolean failWithException(
+            @SqlType(StandardTypes.INTEGER) long errorCode,
+            @SqlType(StandardTypes.JSON) Slice failureInfoSlice)
+    {
+        FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getBytes());
+        // wrap the failure in a new exception to append the current stack trace
+        for (StandardErrorCode standardErrorCode : StandardErrorCode.values()) {
+            if (standardErrorCode.toErrorCode().getCode() == errorCode) {
+                throw new PrestoException(standardErrorCode, failureInfo.toException());
+            }
+        }
+        throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Unable to find error for code: " + errorCode, failureInfo.toException());
+    }
+
     @Description("Throws an exception with a given message")
     @ScalarFunction(value = "fail", hidden = true)
     @SqlType("unknown")
