@@ -408,6 +408,7 @@
                                 <exclude>**/TestHiveDistributedQueriesWithExchangeMaterialization.java</exclude>
                                 <exclude>**/TestHiveRecoverableGroupedExecution.java</exclude>
                                 <exclude>**/TestHivePushdownFilterQueries.java</exclude>
+                                <exclude>**/TestHivePushdownIntegrationSmokeTest.java</exclude>
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
                             </excludes>
                         </configuration>
@@ -474,6 +475,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHivePushdownFilterQueries.java</include>
+                                <include>**/TestHivePushdownIntegrationSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
