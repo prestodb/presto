@@ -39,6 +39,7 @@ import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.orc.OrcBatchPageSource;
+import com.facebook.presto.hive.orc.OrcSelectivePageSource;
 import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.metadata.MetadataManager;
@@ -49,6 +50,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorPushdownFilterResult;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -119,6 +121,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -2239,6 +2242,13 @@ public abstract class AbstractTestHiveClient
 
     private static ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorMetadata metadata, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
+        if (HiveSessionProperties.isPushdownFilterEnabled(session)) {
+            assertTrue(constraint.getSummary().isAll());
+
+            ConnectorPushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, tableHandle, TRUE_CONSTANT, Optional.empty());
+            return pushdownFilterResult.getLayout();
+        }
+
         List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
         return getOnlyElement(tableLayoutResults).getTableLayout();
     }
@@ -2289,13 +2299,22 @@ public abstract class AbstractTestHiveClient
     public void testEmptyTextFile()
             throws Exception
     {
+        checkSupportedStorageFormat(TEXTFILE);
         assertEmptyFile(TEXTFILE);
+    }
+
+    private void checkSupportedStorageFormat(HiveStorageFormat storageFormat)
+    {
+        if (!createTableFormats.contains(storageFormat)) {
+            throw new SkipException(storageFormat + " format is not supported");
+        }
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .*SequenceFile.*EOFException")
     public void testEmptySequenceFile()
             throws Exception
     {
+        checkSupportedStorageFormat(SEQUENCEFILE);
         assertEmptyFile(SEQUENCEFILE);
     }
 
@@ -2303,6 +2322,7 @@ public abstract class AbstractTestHiveClient
     public void testEmptyRcTextFile()
             throws Exception
     {
+        checkSupportedStorageFormat(RCTEXT);
         assertEmptyFile(RCTEXT);
     }
 
@@ -2310,6 +2330,7 @@ public abstract class AbstractTestHiveClient
     public void testEmptyRcBinaryFile()
             throws Exception
     {
+        checkSupportedStorageFormat(RCBINARY);
         assertEmptyFile(RCBINARY);
     }
 
@@ -2317,6 +2338,7 @@ public abstract class AbstractTestHiveClient
     public void testEmptyOrcFile()
             throws Exception
     {
+        checkSupportedStorageFormat(ORC);
         assertEmptyFile(ORC);
     }
 
@@ -2324,6 +2346,7 @@ public abstract class AbstractTestHiveClient
     public void testEmptyDwrfFile()
             throws Exception
     {
+        checkSupportedStorageFormat(DWRF);
         assertEmptyFile(DWRF);
     }
 
@@ -4673,7 +4696,10 @@ public abstract class AbstractTestHiveClient
 
     private static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
     {
-        if (pageSource instanceof RecordPageSource) {
+        if (pageSource instanceof OrcSelectivePageSource) {
+            assertTrue(hiveStorageFormat == ORC || hiveStorageFormat == DWRF);
+        }
+        else if (pageSource instanceof RecordPageSource) {
             RecordCursor hiveRecordCursor = ((RecordPageSource) pageSource).getCursor();
             hiveRecordCursor = ((HiveRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
             if (hiveRecordCursor instanceof HiveCoercionRecordCursor) {

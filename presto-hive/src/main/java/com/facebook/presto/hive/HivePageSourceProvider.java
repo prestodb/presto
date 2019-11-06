@@ -63,6 +63,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -182,6 +183,8 @@ public class HivePageSourceProvider
         Optional<BucketAdaptation> bucketAdaptation = split.getBucketConversion().map(conversion -> toBucketAdaptation(conversion, columnMappings, split.getTableBucketNumber()));
         checkArgument(!bucketAdaptation.isPresent(), "Bucket conversion is not supported yet");
 
+        checkArgument(columnMappings.stream().allMatch(columnMapping -> !columnMapping.getCoercionFrom().isPresent()), "Coercions are not supported yet");
+
         Map<Integer, String> prefilledValues = columnMappings.stream()
                 .filter(mapping -> mapping.getKind() == ColumnMappingKind.PREFILLED)
                 .collect(toImmutableMap(mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(), ColumnMapping::getPrefilledValue));
@@ -213,7 +216,7 @@ public class HivePageSourceProvider
             }
         }
 
-        throw new IllegalStateException("Could not find a file reader for split " + split);
+        throw new IllegalStateException(format("Could not find a reader for file type %s for split %s", split.getStorage().getStorageFormat().getSerDe(), split));
     }
 
     public static Optional<ConnectorPageSource> createHivePageSource(
