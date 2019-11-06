@@ -40,6 +40,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -184,6 +185,7 @@ public class OrcSelectivePageSourceFactory
             Storage storage,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
+            Map<Integer, Function<Block, Block>> coercers,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
@@ -210,6 +212,7 @@ public class OrcSelectivePageSourceFactory
                 fileSize,
                 columns,
                 prefilledValues,
+                coercers,
                 outputColumns,
                 domainPredicate,
                 remainingPredicate,
@@ -238,6 +241,7 @@ public class OrcSelectivePageSourceFactory
             long fileSize,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
+            Map<Integer, Function<Block, Block>> coercers,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
@@ -326,6 +330,8 @@ public class OrcSelectivePageSourceFactory
 
             List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
 
+            Map<Integer, Function<Block, Block>> mappedCoercers = coercers.entrySet().stream().collect(toImmutableMap(entry -> indexMapping.get(entry.getKey()), Map.Entry::getValue));
+
             OrcSelectiveRecordReader recordReader = reader.createSelectiveRecordReader(
                     columnTypes,
                     outputIndices,
@@ -334,6 +340,7 @@ public class OrcSelectivePageSourceFactory
                     inputs.inverse(),
                     requiredSubfields,
                     typedPrefilledValues,
+                    mappedCoercers,
                     orcPredicate,
                     start,
                     length,

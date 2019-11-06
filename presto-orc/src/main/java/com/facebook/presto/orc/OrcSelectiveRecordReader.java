@@ -67,6 +67,7 @@ public class OrcSelectiveRecordReader
     private final List<Integer> outputColumns;                        // elements are hive column indices
     private final Map<Integer, Type> columnTypes;                     // key: index into hiveColumnIndices array
     private final Object[] constantValues;                            // aligned with hiveColumnIndices array
+    private final Function<Block, Block>[] coercers;                   // aligned with hiveColumnIndices array
     private final List<FilterFunction> filterFunctions;
     private final Map<Integer, Integer> filterFunctionInputMapping;   // channel-to-index-into-hiveColumnIndices-array mapping
     private final Set<Integer> filterFunctionInputs;                  // channels
@@ -94,6 +95,7 @@ public class OrcSelectiveRecordReader
             Map<Integer, Integer> filterFunctionInputMapping,   // channel-to-hiveColumnIndex mapping for all filter function inputs
             Map<Integer, List<Subfield>> requiredSubfields,     // key: hiveColumnIndex
             Map<Integer, Object> constantValues,                // key: hiveColumnIndex
+            Map<Integer, Function<Block, Block>> coercers,      // key: hiveColumnIndex
             OrcPredicate predicate,
             long numberOfRows,
             List<StripeInformation> fileStripes,
@@ -174,6 +176,13 @@ public class OrcSelectiveRecordReader
                 .entrySet()
                 .stream()
                 .collect(toImmutableMap(entry -> zeroBasedIndices.get(entry.getKey()), entry -> scoreFilter(entry.getValue())));
+
+        requireNonNull(coercers, "coercers is null");
+        this.coercers = new Function[this.hiveColumnIndices.length];
+        for (Map.Entry<Integer, Function<Block, Block>> entry : coercers.entrySet()) {
+            checkArgument(!filters.containsKey(entry.getKey()), "Coercions for columns with range filters are not supported yet");
+            this.coercers[zeroBasedIndices.get(entry.getKey())] = entry.getValue();
+        }
 
         requireNonNull(constantValues, "constantValues is null");
         this.constantValues = new Object[this.hiveColumnIndices.length];
@@ -384,6 +393,11 @@ public class OrcSelectiveRecordReader
             else {
                 Block block = getStreamReader(columnIndex).getBlock(positionsToRead, positionCount);
                 updateMaxCombinedBytesPerRow(columnIndex, block);
+
+                if (coercers[columnIndex] != null) {
+                    block = coercers[columnIndex].apply(block);
+                }
+
                 blocks[i] = block;
             }
         }
@@ -425,7 +439,11 @@ public class OrcSelectiveRecordReader
             }
             else {
                 blockLeases[columnIndex] = getStreamReader(columnIndex).getBlockView(positions, positionCount);
-                blocks[columnIndex] = blockLeases[columnIndex].get();
+                Block block = blockLeases[columnIndex].get();
+                if (coercers[columnIndex] != null) {
+                    block = coercers[columnIndex].apply(block);
+                }
+                blocks[columnIndex] = block;
             }
         }
 

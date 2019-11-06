@@ -24,6 +24,7 @@ import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -34,6 +35,7 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -200,6 +202,7 @@ public class OrcReader
             Map<Integer, Integer> filterFunctionInputs,
             Map<Integer, List<Subfield>> requiredSubfields,
             Map<Integer, Object> constantValues,
+            Map<Integer, Function<Block, Block>> coercers,
             OrcPredicate predicate,
             long offset,
             long length,
@@ -216,6 +219,7 @@ public class OrcReader
                 filterFunctionInputs,
                 requiredSubfields,
                 constantValues,
+                coercers,
                 predicate,
                 footer.getNumberOfRows(),
                 footer.getStripes(),

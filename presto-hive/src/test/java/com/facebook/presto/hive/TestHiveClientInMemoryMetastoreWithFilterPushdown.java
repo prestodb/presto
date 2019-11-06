@@ -63,10 +63,4 @@ public class TestHiveClientInMemoryMetastoreWithFilterPushdown
     {
         throw new SkipException("TODO Add support for bucket conversion");
     }
-
-    @Override
-    public void testMismatchSchemaTable()
-    {
-        throw new SkipException("TODO Add support for coercions");
-    }
 }

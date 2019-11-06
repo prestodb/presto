@@ -26,6 +26,7 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -48,7 +49,9 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveCoercers.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
@@ -113,7 +116,7 @@ public class HivePageSourceProvider
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
         if (hiveLayout.isPushdownFilterEnabled()) {
-            return createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, hiveStorageTimeZone, rowExpressionService);
+            return createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, hiveStorageTimeZone, rowExpressionService, typeManager);
         }
 
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
@@ -157,7 +160,8 @@ public class HivePageSourceProvider
             HiveTableLayoutHandle layout,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            RowExpressionService rowExpressionService)
+            RowExpressionService rowExpressionService,
+            TypeManager typeManager)
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
                 .addAll(layout.getPredicateColumns().values())
@@ -183,11 +187,15 @@ public class HivePageSourceProvider
         Optional<BucketAdaptation> bucketAdaptation = split.getBucketConversion().map(conversion -> toBucketAdaptation(conversion, columnMappings, split.getTableBucketNumber()));
         checkArgument(!bucketAdaptation.isPresent(), "Bucket conversion is not supported yet");
 
-        checkArgument(columnMappings.stream().allMatch(columnMapping -> !columnMapping.getCoercionFrom().isPresent()), "Coercions are not supported yet");
-
         Map<Integer, String> prefilledValues = columnMappings.stream()
                 .filter(mapping -> mapping.getKind() == ColumnMappingKind.PREFILLED)
                 .collect(toImmutableMap(mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(), ColumnMapping::getPrefilledValue));
+
+        Map<Integer, Function<Block, Block>> coercers = columnMappings.stream()
+                .filter(mapping -> mapping.getCoercionFrom().isPresent())
+                .collect(toImmutableMap(
+                        mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(),
+                        mapping -> createCoercer(typeManager, mapping.getCoercionFrom().get(), mapping.getHiveColumnHandle().getHiveType())));
 
         List<Integer> outputColumns = columns.stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
@@ -206,6 +214,7 @@ public class HivePageSourceProvider
                     split.getStorage(),
                     toColumnHandles(columnMappings, true),
                     prefilledValues,
+                    coercers,
                     outputColumns,
                     layout.getDomainPredicate(),
                     optimizedRemainingPredicate,
