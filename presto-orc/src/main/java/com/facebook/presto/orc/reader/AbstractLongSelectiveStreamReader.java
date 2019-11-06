@@ -210,7 +210,10 @@ abstract class AbstractLongSelectiveStreamReader
     private Block getIntArrayBlock(int[] positions, int positionCount, boolean includeNulls)
     {
         if (intValuesPopulated && positionCount == outputPositionCount) {
-            return new IntArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), intValues);
+            Block block = new IntArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), intValues);
+            intValues = null;
+            nulls = null;
+            return block;
         }
 
         int[] valuesCopy = new int[positionCount];
@@ -247,7 +250,10 @@ abstract class AbstractLongSelectiveStreamReader
     private Block getShortArrayBlock(int[] positions, int positionCount, boolean includeNulls)
     {
         if (shortValuesPopulated && positionCount == outputPositionCount) {
-            return new ShortArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), shortValues);
+            Block block = new ShortArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), shortValues);
+            shortValues = null;
+            nulls = null;
+            return block;
         }
 
         short[] valuesCopy = new short[positionCount];
