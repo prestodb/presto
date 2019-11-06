@@ -2579,8 +2579,8 @@ public abstract class AbstractTestHiveClient
         SchemaTableName table = temporaryTable("create_sorted");
         SchemaTableName tableWithTempPath = temporaryTable("create_sorted_with_temp_path");
         try {
-            doTestBucketSortedTables(table, false);
-            doTestBucketSortedTables(tableWithTempPath, true);
+            doTestBucketSortedTables(table, false, ORC);
+            doTestBucketSortedTables(tableWithTempPath, true, ORC);
         }
         finally {
             dropTable(table);
@@ -2588,7 +2588,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void doTestBucketSortedTables(SchemaTableName table, boolean useTempPath)
+    private void doTestBucketSortedTables(SchemaTableName table, boolean useTempPath, HiveStorageFormat storageFormat)
             throws IOException
     {
         int bucketCount = 3;
@@ -2608,7 +2608,7 @@ public abstract class AbstractTestHiveClient
                             .add(new ColumnMetadata("ds", VARCHAR))
                             .build(),
                     ImmutableMap.<String, Object>builder()
-                            .put(STORAGE_FORMAT_PROPERTY, RCBINARY)
+                            .put(STORAGE_FORMAT_PROPERTY, storageFormat)
                             .put(PARTITIONED_BY_PROPERTY, ImmutableList.of("ds"))
                             .put(BUCKETED_BY_PROPERTY, ImmutableList.of("id"))
                             .put(BUCKET_COUNT_PROPERTY, bucketCount)
