@@ -19,7 +19,9 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
+import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
+import com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -133,6 +135,16 @@ public final class HiveTestUtils
                 .add(new OrcBatchPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()))
                 .add(new DwrfBatchPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()))
                 .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats, new HadoopFileOpener()))
+                .build();
+    }
+
+    public static Set<HiveSelectivePageSourceFactory> getDefaultHiveSelectivePageSourceFactories(HiveClientConfig hiveClientConfig)
+    {
+        FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        return ImmutableSet.<HiveSelectivePageSourceFactory>builder()
+                .add(new OrcSelectivePageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()))
+                .add(new DwrfSelectivePageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()))
                 .build();
     }
 
