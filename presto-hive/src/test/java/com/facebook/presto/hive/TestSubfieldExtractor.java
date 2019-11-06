@@ -23,8 +23,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -36,7 +34,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
-import static com.facebook.presto.hive.HiveTestUtils.rowType;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
@@ -89,39 +86,6 @@ public class TestSubfieldExtractor
         assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 4), constant(Slices.utf8Slice("foo"), VARCHAR)), "c_struct.e[\"foo\"]");
 
         assertEquals(subfieldExtractor.extract(constant(2L, INTEGER)), Optional.empty());
-    }
-
-    @Test
-    public void testToRowExpression()
-    {
-        Subfield subfield = new Subfield("a");
-        assertEquals(subfield , subfieldExtractor.extract(subfieldExtractor.toRowExpression(subfield, BIGINT)).get());
-
-        subfield = new Subfield("a[1]");
-        assertEquals(subfield, subfieldExtractor.extract(subfieldExtractor.toRowExpression(subfield, new ArrayType(BIGINT))).get());
-
-        subfield = new Subfield("a.b");
-        assertEquals(subfield, subfieldExtractor.extract(subfieldExtractor.toRowExpression(subfield,
-                rowType(ImmutableList.of(
-                new NamedTypeSignature(Optional.of(new RowFieldName("b", false)), BIGINT.getTypeSignature()),
-                new NamedTypeSignature(Optional.of(new RowFieldName("c", false)), BIGINT.getTypeSignature()))))).get());
-
-        subfield = new Subfield("a[1]");
-        assertEquals(subfield, subfieldExtractor.extract(subfieldExtractor.toRowExpression(subfield, mapType(BIGINT, BIGINT))).get());
-
-        subfield = new Subfield("a[\"hello\"]");
-        assertEquals(subfield, subfieldExtractor.extract(subfieldExtractor.toRowExpression(subfield, mapType(VARCHAR, BIGINT))).get());
-
-        subfield = new Subfield("a[\"hello\"].b");
-        assertEquals(subfield, subfieldExtractor.extract(subfieldExtractor.toRowExpression(subfield, mapType(VARCHAR, easyStruct("b", BIGINT)))).get());
-
-        subfield = new Subfield("a[\"hello\"].b.c");
-        assertEquals(subfield, subfieldExtractor.extract(subfieldExtractor.toRowExpression(subfield, mapType(VARCHAR, easyStruct("b", easyStruct("c", BIGINT))))).get());
-    }
-
-    private RowType easyStruct(String name, Type type){
-        return rowType(ImmutableList.of(
-                new NamedTypeSignature(Optional.of(new RowFieldName(name, false)), type.getTypeSignature())));
     }
 
     private void assertSubfieldExtract(RowExpression expression, String subfield)
