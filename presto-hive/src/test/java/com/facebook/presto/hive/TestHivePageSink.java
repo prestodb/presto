@@ -40,7 +40,6 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.slice.Slices;
 import io.airlift.tpch.LineItem;
@@ -71,6 +70,7 @@ import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveSelectivePageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
@@ -259,7 +259,7 @@ public class TestHivePageSink
                         Optional.empty(),
                         false,
                         "layout")));
-        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveBatchPageSourceFactories(config), ImmutableSet.of(), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
+        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config), getDefaultHiveRecordCursorProvider(config), getDefaultHiveBatchPageSourceFactories(config), getDefaultHiveSelectivePageSourceFactories(config), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
         return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()));
     }
 

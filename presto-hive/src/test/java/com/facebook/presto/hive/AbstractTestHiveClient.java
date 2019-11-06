@@ -199,6 +199,7 @@ import static com.facebook.presto.hive.HiveTestUtils.arrayType;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveSelectivePageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFactory;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
@@ -876,7 +877,7 @@ public abstract class AbstractTestHiveClient
                 new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(hiveClientConfig));
-        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveBatchPageSourceFactories(hiveClientConfig), ImmutableSet.of(), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
+        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveBatchPageSourceFactories(hiveClientConfig), getDefaultHiveSelectivePageSourceFactories(hiveClientConfig), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
     }
 
     /**
