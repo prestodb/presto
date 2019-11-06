@@ -124,7 +124,7 @@ public final class HiveTestUtils
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
-    public static Set<HiveBatchPageSourceFactory> getDefaultHiveDataStreamFactories(HiveClientConfig hiveClientConfig)
+    public static Set<HiveBatchPageSourceFactory> getDefaultHiveBatchPageSourceFactories(HiveClientConfig hiveClientConfig)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
