@@ -207,6 +207,7 @@ public class BenchmarkSelectiveStreamReaders
                     ImmutableMap.of(),
                     ImmutableMap.of(),
                     ImmutableMap.of(),
+                    ImmutableMap.of(),
                     OrcPredicate.TRUE,
                     0,
                     dataSource.getSize(),

@@ -1385,6 +1385,7 @@ public class OrcTester
                 filterFunctionInputMapping,
                 requiredSubfields,
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 predicate,
                 0,
                 orcDataSource.getSize(),
