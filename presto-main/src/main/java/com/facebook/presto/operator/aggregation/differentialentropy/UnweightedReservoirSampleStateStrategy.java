@@ -87,14 +87,15 @@ public class UnweightedReservoirSampleStateStrategy
     }
 
     @Override
-    public void add(double value, double weight)
+    public void add(double value)
     {
-        if (weight != 1.0) {
-            throw new PrestoException(
-                    INVALID_FUNCTION_ARGUMENT,
-                    format("In differential_entropy UDF, weight should be 1.0: %s", weight));
-        }
         reservoir.add(value);
+    }
+
+    @Override
+    public double getTotalPopulationWeight()
+    {
+        return (double) reservoir.getTotalPopulationCount();
     }
 
     @Override
@@ -110,7 +111,7 @@ public class UnweightedReservoirSampleStateStrategy
     }
 
     @Override
-    public int getRequiredBytesForSerialization()
+    public int getRequiredBytesForSpecificSerialization()
     {
         return reservoir.getRequiredBytesForSerialization();
     }

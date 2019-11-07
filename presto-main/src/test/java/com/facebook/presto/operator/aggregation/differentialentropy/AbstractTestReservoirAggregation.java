@@ -32,7 +32,7 @@ abstract class AbstractTestReservoirAggregation
     @Override
     public Double getExpectedValue(int start, int length)
     {
-        assertTrue(length < MAX_SAMPLES);
+        assertTrue(2 * length < MAX_SAMPLES);
         double[] samples = new double[2 * length];
         for (int i = 0; i < length; i++) {
             samples[i] = (double) (start + i);

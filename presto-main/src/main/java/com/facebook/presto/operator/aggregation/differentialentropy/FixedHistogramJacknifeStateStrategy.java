@@ -19,8 +19,8 @@ import io.airlift.slice.SliceOutput;
 
 import java.util.Map;
 
+import static com.facebook.presto.operator.aggregation.differentialentropy.EntropyCalculations.calculateEntropyFromHistogramAggregates;
 import static com.facebook.presto.operator.aggregation.differentialentropy.FixedHistogramStateStrategyUtils.getXLogX;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.groupingBy;
@@ -82,6 +82,14 @@ public class FixedHistogramJacknifeStateStrategy
     }
 
     @Override
+    public double getTotalPopulationWeight()
+    {
+        return stream(histogram.iterator())
+                .mapToDouble(FixedDoubleBreakdownHistogram.Bucket::getWeight)
+                .sum();
+    }
+
+    @Override
     public double calculateEntropy()
     {
         Map<Double, Double> bucketWeights = stream(histogram.iterator()).collect(
@@ -98,7 +106,7 @@ public class FixedHistogramJacknifeStateStrategy
         double sumWeightLogWeight =
                 bucketWeights.values().stream().mapToDouble(w -> w == 0.0 ? 0.0 : w * Math.log(w)).sum();
 
-        double entropy = n * calculateEntropy(histogram.getWidth(), sumWeight, sumWeightLogWeight);
+        double entropy = n * calculateEntropyFromHistogramAggregates(histogram.getWidth(), sumWeight, sumWeightLogWeight);
         for (FixedDoubleBreakdownHistogram.Bucket bucketWeight : histogram) {
             double weight = bucketWeights.get(bucketWeight.getLeft());
             if (weight > 0.0) {
@@ -130,15 +138,9 @@ public class FixedHistogramJacknifeStateStrategy
         double holdoutSumWeightLogWeight =
                 sumWeightLogWeight - getXLogX(bucketWeight) + getXLogX(holdoutBucketWeight);
         double holdoutEntropy = entryMultiplicity * (n - 1) *
-                calculateEntropy(width, holdoutSumWeight, holdoutSumWeightLogWeight) /
+                calculateEntropyFromHistogramAggregates(width, holdoutSumWeight, holdoutSumWeightLogWeight) /
                 n;
         return holdoutEntropy;
-    }
-
-    private static double calculateEntropy(double width, double sumWeight, double sumWeightLogWeight)
-    {
-        verify(sumWeight > 0.0);
-        return Math.max((Math.log(width * sumWeight) - sumWeightLogWeight / sumWeight) / Math.log(2.0), 0.0);
     }
 
     @Override
@@ -148,7 +150,7 @@ public class FixedHistogramJacknifeStateStrategy
     }
 
     @Override
-    public int getRequiredBytesForSerialization()
+    public int getRequiredBytesForSpecificSerialization()
     {
         return histogram.getRequiredBytesForSerialization();
     }

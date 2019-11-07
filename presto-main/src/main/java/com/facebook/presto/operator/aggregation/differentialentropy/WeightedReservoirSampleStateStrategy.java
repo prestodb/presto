@@ -86,6 +86,12 @@ public class WeightedReservoirSampleStateStrategy
     }
 
     @Override
+    public double getTotalPopulationWeight()
+    {
+        return reservoir.getTotalPopulationWeight();
+    }
+
+    @Override
     public double calculateEntropy()
     {
         return calculateFromSamplesUsingVasicek(reservoir.getSamples());
@@ -98,7 +104,7 @@ public class WeightedReservoirSampleStateStrategy
     }
 
     @Override
-    public int getRequiredBytesForSerialization()
+    public int getRequiredBytesForSpecificSerialization()
     {
         return reservoir.getRequiredBytesForSerialization();
     }

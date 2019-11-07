@@ -29,7 +29,7 @@ public class TestFixedHistogramMleAggregation
 {
     public TestFixedHistogramMleAggregation()
     {
-        super(DifferentialEntropyAggregation.FIXED_HISTOGRAM_MLE_METHOD_NAME);
+        super(DifferentialEntropyStateStrategy.FIXED_HISTOGRAM_MLE_METHOD_NAME);
     }
 
     @Test(
