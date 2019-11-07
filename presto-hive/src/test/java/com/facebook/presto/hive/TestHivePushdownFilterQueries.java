@@ -453,6 +453,69 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testArraySubfieldPruning()
+    {
+        Function<String, String> rewriter = query -> query.replaceAll("cardinality", "array_length");
+
+        // filter uses full column; that column is projected in full, partially or not at all
+
+        // always-false filter
+        assertQueryUsingH2Cte("SELECT keys FROM lineitem_ex WHERE cardinality(keys) = 1", rewriter);
+
+        assertQueryUsingH2Cte("SELECT keys[1] FROM lineitem_ex WHERE cardinality(keys) = 1", rewriter);
+
+        assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE cardinality(keys) = 1", rewriter);
+
+        // some rows pass the filter
+        assertQueryUsingH2Cte("SELECT keys FROM lineitem_ex WHERE cardinality(keys) = 3", rewriter);
+
+        assertQueryUsingH2Cte("SELECT keys[1] FROM lineitem_ex WHERE cardinality(keys) = 3", rewriter);
+
+        assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE cardinality(keys) = 3", rewriter);
+
+        assertQueryUsingH2Cte("SELECT keys FROM lineitem_ex WHERE cardinality(keys) = 3 AND keys[1] < 1000", rewriter);
+
+        assertQueryUsingH2Cte("SELECT keys[1] FROM lineitem_ex WHERE cardinality(keys) = 3 AND keys[1] < 1000", rewriter);
+
+        assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE cardinality(keys) = 3 AND keys[1] < 1000", rewriter);
+
+        // range filter
+        assertQueryUsingH2Cte("SELECT keys FROM lineitem_ex WHERE keys is NOT NULL");
+
+        assertQueryUsingH2Cte("SELECT keys[1] FROM lineitem_ex WHERE keys is NOT NULL");
+
+        assertQueryUsingH2Cte("SELECT linenumber FROM lineitem_ex WHERE keys is NOT NULL");
+
+        // filter uses partial column; that column is projected in full, partially or not at all
+        assertQueryUsingH2Cte("SELECT keys FROM lineitem_ex WHERE keys[1] < 1000");
+        assertQueryUsingH2Cte("SELECT keys FROM lineitem_ex WHERE keys[1] % 2 = 0");
+        assertQueryUsingH2Cte("SELECT keys FROM lineitem_ex WHERE keys[1] < 1000 AND keys[2] % 2 = 0");
+
+        assertQueryUsingH2Cte("SELECT keys[1] FROM lineitem_ex WHERE keys[1] < 1000");
+        assertQueryUsingH2Cte("SELECT keys[1] FROM lineitem_ex WHERE keys[1] % 2 = 0");
+        assertQueryUsingH2Cte("SELECT keys[1] FROM lineitem_ex WHERE keys[1] < 1000 AND keys[2] % 2 = 0");
+
+        assertQueryUsingH2Cte("SELECT keys[2] FROM lineitem_ex WHERE keys[1] < 1000");
+        assertQueryUsingH2Cte("SELECT keys[2] FROM lineitem_ex WHERE keys[1] % 2 = 0");
+        assertQueryUsingH2Cte("SELECT keys[2] FROM lineitem_ex WHERE keys[1] < 1000 AND keys[2] % 2 = 0");
+
+        assertQueryUsingH2Cte("SELECT keys[1], keys[2] FROM lineitem_ex WHERE keys[1] < 1000");
+        assertQueryUsingH2Cte("SELECT keys[1], keys[2] FROM lineitem_ex WHERE keys[1] % 2 = 0");
+        assertQueryUsingH2Cte("SELECT keys[1], keys[2] FROM lineitem_ex WHERE keys[1] < 1000 AND keys[2] % 2 = 0");
+
+        assertQueryUsingH2Cte("SELECT linenumber FROM lineitem_ex WHERE keys[1] < 1000");
+        assertQueryUsingH2Cte("SELECT linenumber FROM lineitem_ex WHERE keys[1] % 2 = 0");
+        assertQueryUsingH2Cte("SELECT linenumber FROM lineitem_ex WHERE keys[1] < 1000 AND keys[2] % 2 = 0");
+
+        // no filter on array column; column is projected in full or partially
+        assertQueryUsingH2Cte("SELECT keys FROM lineitem_ex WHERE orderkey < 1000");
+
+        assertQueryUsingH2Cte("SELECT keys[1] FROM lineitem_ex WHERE orderkey < 1000");
+
+        assertQueryUsingH2Cte("SELECT keys[2], keys[3] FROM lineitem_ex WHERE orderkey < 1000");
+    }
+
+    @Test
     public void testArrayOfMaps()
     {
         getQueryRunner().execute("CREATE TABLE test_arrays_of_maps AS\n" +

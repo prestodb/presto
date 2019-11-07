@@ -71,6 +71,7 @@ import javax.inject.Inject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -78,6 +79,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -103,6 +105,7 @@ import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -376,55 +379,84 @@ public class OrcSelectivePageSourceFactory
          * - columns used for filtering only are updated to prune subfields if filters don't use full column
          */
 
-        Map<Integer, Set<Subfield>> requiredSubfields = new HashMap<>();
+        Map<Integer, Set<Subfield>> outputSubfields = new HashMap<>();
         physicalColumns.stream()
                 .filter(column -> outputColumns.contains(column.getHiveColumnIndex()))
-                .forEach(column -> requiredSubfields.put(column.getHiveColumnIndex(), new HashSet<>(column.getRequiredSubfields())));
+                .forEach(column -> outputSubfields.put(column.getHiveColumnIndex(), new HashSet<>(column.getRequiredSubfields())));
 
-        for (int index : outputColumns) {
-            requiredSubfields.computeIfAbsent(index, v -> new HashSet<>());
-        }
-
-        ImmutableSet.Builder<Subfield> predicateSubfields = ImmutableSet.builder();
-        remainingPredicate.accept(new RequiredSubfieldsExtractor(new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session)), predicateSubfields);
-
-        for (Subfield subfield : predicateSubfields.build()) {
-            int index = columnIndices.get(subfield.getRootName());
-            updateRequiredSubfields(requiredSubfields, index, subfield);
-        }
+        Map<Integer, Set<Subfield>> predicateSubfields = new HashMap<>();
+        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session);
+        remainingPredicate.accept(
+                new RequiredSubfieldsExtractor(subfieldExtractor),
+                subfield -> predicateSubfields.computeIfAbsent(columnIndices.get(subfield.getRootName()), v -> new HashSet<>()).add(subfield));
 
         for (Map.Entry<Integer, Map<Subfield, TupleDomainFilter>> entry : tupleDomainFilters.entrySet()) {
-            int index = entry.getKey();
-            for (Subfield subfield : entry.getValue().keySet()) {
-                updateRequiredSubfields(requiredSubfields, index, subfield);
-            }
+            predicateSubfields.computeIfAbsent(entry.getKey(), v -> new HashSet<>()).addAll(entry.getValue().keySet());
         }
 
-        return requiredSubfields.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> (List) ImmutableList.copyOf(entry.getValue())));
+        Map<Integer, List<Subfield>> allSubfields = new HashMap<>();
+        for (Map.Entry<Integer, Set<Subfield>> entry : outputSubfields.entrySet()) {
+            int columnIndex = entry.getKey();
+            if (entry.getValue().isEmpty()) {
+                // entire column is projected out
+                continue;
+            }
+
+            if (!predicateSubfields.containsKey(columnIndex)) {
+                // column is not used in filters
+                allSubfields.put(columnIndex, ImmutableList.copyOf(entry.getValue()));
+                continue;
+            }
+
+            List<Subfield> prunedSubfields = pruneSubfields(ImmutableSet.<Subfield>builder()
+                    .addAll(entry.getValue())
+                    .addAll(predicateSubfields.get(columnIndex)).build());
+
+            if (prunedSubfields.size() == 1 && isEntireColumn(prunedSubfields.get(0))) {
+                // entire column is used in a filter
+                continue;
+            }
+
+            allSubfields.put(columnIndex, prunedSubfields);
+        }
+
+        for (Map.Entry<Integer, Set<Subfield>> entry : predicateSubfields.entrySet()) {
+            int columnIndex = entry.getKey();
+            if (outputSubfields.containsKey(columnIndex)) {
+                // this column has been already processed (in the previous loop)
+                continue;
+            }
+
+            List<Subfield> prunedSubfields = pruneSubfields(entry.getValue());
+            if (prunedSubfields.size() == 1 && isEntireColumn(prunedSubfields.get(0))) {
+                // entire column is used in a filter
+                continue;
+            }
+
+            allSubfields.put(columnIndex, prunedSubfields);
+        }
+
+        return allSubfields;
     }
 
-    private static void updateRequiredSubfields(Map<Integer, Set<Subfield>> requiredSubfields, int index, Subfield subfield)
+    // Prunes subfields: if one subfield is a prefix of another subfield, keeps the shortest one.
+    // Example: {a.b.c, a.b} -> {a.b}
+    private static List<Subfield> pruneSubfields(Set<Subfield> subfields)
     {
-        if (isEntireColumn(subfield)) {
-            if (requiredSubfields.containsKey(index)) {
-                requiredSubfields.get(index).clear();
-            }
+        verify(!subfields.isEmpty());
 
-            return;
-        }
+        return subfields.stream()
+                .filter(subfield -> !prefixExists(subfield, subfields))
+                .collect(toImmutableList());
+    }
 
-        if (requiredSubfields.containsKey(index)) {
-            if (!requiredSubfields.get(index).isEmpty()) {
-                requiredSubfields.get(index).add(subfield);
-            }
-            return;
-        }
-
-        requiredSubfields.computeIfAbsent(index, v -> new HashSet<>()).add(subfield);
+    private static boolean prefixExists(Subfield subfield, Collection<Subfield> subfields)
+    {
+        return subfields.stream().anyMatch(path -> path.isPrefix(subfield));
     }
 
     private static final class RequiredSubfieldsExtractor
-            extends DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<Subfield>>
+            extends DefaultRowExpressionTraversalVisitor<Consumer<Subfield>>
     {
         private final SubfieldExtractor subfieldExtractor;
 
@@ -434,13 +466,11 @@ public class OrcSelectivePageSourceFactory
         }
 
         @Override
-        public Void visitCall(CallExpression call, ImmutableSet.Builder<Subfield> context)
+        public Void visitCall(CallExpression call, Consumer<Subfield> context)
         {
             Optional<Subfield> subfield = subfieldExtractor.extract(call);
             if (subfield.isPresent()) {
-                if (!isEntireColumn(subfield)) {
-                    context.add(subfield.get());
-                }
+                context.accept(subfield.get());
                 return null;
             }
 
@@ -449,24 +479,29 @@ public class OrcSelectivePageSourceFactory
         }
 
         @Override
-        public Void visitSpecialForm(SpecialFormExpression specialForm, ImmutableSet.Builder<Subfield> context)
+        public Void visitSpecialForm(SpecialFormExpression specialForm, Consumer<Subfield> context)
         {
             Optional<Subfield> subfield = subfieldExtractor.extract(specialForm);
             if (subfield.isPresent()) {
-                if (!isEntireColumn(subfield)) {
-                    context.add(subfield.get());
-                }
+                context.accept(subfield.get());
                 return null;
             }
 
             specialForm.getArguments().forEach(argument -> argument.accept(this, context));
             return null;
         }
-    }
 
-    private static boolean isEntireColumn(Optional<Subfield> subfield)
-    {
-        return subfield.get().getPath().isEmpty();
+        @Override
+        public Void visitVariableReference(VariableReferenceExpression reference, Consumer<Subfield> context)
+        {
+            Optional<Subfield> subfield = subfieldExtractor.extract(reference);
+            if (subfield.isPresent()) {
+                context.accept(subfield.get());
+                return null;
+            }
+
+            return null;
+        }
     }
 
     private static Map<Integer, Map<Subfield, TupleDomainFilter>> toTupleDomainFilters(TupleDomain<Subfield> domainPredicate, Map<String, Integer> columnIndices)
