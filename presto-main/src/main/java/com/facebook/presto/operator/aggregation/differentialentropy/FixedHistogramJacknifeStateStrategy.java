@@ -170,4 +170,10 @@ public class FixedHistogramJacknifeStateStrategy
     {
         return new FixedHistogramJacknifeStateStrategy(this);
     }
+
+    @Override
+    public DifferentialEntropyStateStrategy cloneEmpty()
+    {
+        return new FixedHistogramJacknifeStateStrategy(histogram.getBucketCount(), histogram.getMin(), histogram.getMax());
+    }
 }
