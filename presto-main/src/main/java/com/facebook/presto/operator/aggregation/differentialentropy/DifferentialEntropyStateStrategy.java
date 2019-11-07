@@ -56,4 +56,6 @@ public interface DifferentialEntropyStateStrategy
         throw new UnsupportedOperationException(
                 format("In differential_entropy UDF, unsupported arguments for type: %s", getClass().getSimpleName()));
     }
+
+    DifferentialEntropyStateStrategy cloneEmpty();
 }

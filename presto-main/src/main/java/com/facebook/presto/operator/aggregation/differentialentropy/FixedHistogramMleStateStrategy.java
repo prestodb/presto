@@ -128,4 +128,10 @@ public class FixedHistogramMleStateStrategy
     {
         return new FixedHistogramMleStateStrategy(this);
     }
+
+    @Override
+    public DifferentialEntropyStateStrategy cloneEmpty()
+    {
+        return new FixedHistogramMleStateStrategy(histogram.getBucketCount(), histogram.getMin(), histogram.getMax());
+    }
 }

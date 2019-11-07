@@ -119,4 +119,10 @@ public class WeightedReservoirSampleStateStrategy
     {
         return new WeightedReservoirSampleStateStrategy(this);
     }
+
+    @Override
+    public DifferentialEntropyStateStrategy cloneEmpty()
+    {
+        return new WeightedReservoirSampleStateStrategy(reservoir.getMaxSamples());
+    }
 }
