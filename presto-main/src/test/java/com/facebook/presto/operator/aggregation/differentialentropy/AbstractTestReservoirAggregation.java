@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation.differentialentropy;
 
 import com.facebook.presto.operator.aggregation.AbstractTestAggregationFunction;
 
-import static com.facebook.presto.operator.aggregation.differentialentropy.EntropyCalculations.calculateFromSamples;
+import static com.facebook.presto.operator.aggregation.differentialentropy.EntropyCalculations.calculateFromSamplesUsingVasicek;
 import static org.testng.Assert.assertTrue;
 
 abstract class AbstractTestReservoirAggregation
@@ -38,6 +38,6 @@ abstract class AbstractTestReservoirAggregation
             samples[i] = (double) (start + i);
             samples[i + length] = (double) (start + i);
         }
-        return calculateFromSamples(samples);
+        return calculateFromSamplesUsingVasicek(samples);
     }
 }
