@@ -37,6 +37,7 @@ public class TestWeightedDoubleReservoirSample
         WeightedDoubleReservoirSample reservoir = new WeightedDoubleReservoirSample(200);
 
         assertEquals(reservoir.getMaxSamples(), 200);
+        assertEquals(reservoir.getTotalPopulationWeight(), 0.0);
     }
 
     @Test
@@ -49,6 +50,7 @@ public class TestWeightedDoubleReservoirSample
         reservoir.add(3.0, 0.5);
 
         assertEquals(Arrays.stream(reservoir.getSamples()).sorted().toArray(), new double[] {1.0, 2.0, 3.0});
+        assertEquals(reservoir.getTotalPopulationWeight(), 2.5);
     }
 
     @Test
@@ -58,6 +60,7 @@ public class TestWeightedDoubleReservoirSample
 
         long streamLength = 1_000_000;
         for (int i = 0; i < streamLength; ++i) {
+            assertEquals(reservoir.getTotalPopulationWeight(), (double) i);
             reservoir.add(i, 1.0);
         }
 
@@ -81,8 +84,10 @@ public class TestWeightedDoubleReservoirSample
         WeightedDoubleReservoirSample reservoir = new WeightedDoubleReservoirSample(200);
 
         long streamLength = 1_000_000;
+        double epsilon = 0.00000001;
         for (int i = 0; i < streamLength; ++i) {
-            reservoir.add(3, 0.00000001);
+            assertEquals(reservoir.getTotalPopulationWeight(), epsilon * i, epsilon / 100);
+            reservoir.add(3, epsilon);
         }
         for (int i = 0; i < streamLength; ++i) {
             reservoir.add(i, 9999999999.0);
