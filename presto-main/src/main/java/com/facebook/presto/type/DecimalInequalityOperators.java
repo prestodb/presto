@@ -202,8 +202,8 @@ public class DecimalInequalityOperators
 
         long leftLow = left.getLong(leftPosition, 0);
         long leftHigh = left.getLong(leftPosition, SIZE_OF_LONG);
-        long rightLow = left.getLong(rightPosition, 0);
-        long rightHigh = left.getLong(rightPosition, SIZE_OF_LONG);
+        long rightLow = right.getLong(rightPosition, 0);
+        long rightHigh = right.getLong(rightPosition, SIZE_OF_LONG);
         return UnscaledDecimal128Arithmetic.compare(leftLow, leftHigh, rightLow, rightHigh) != 0;
     }
 

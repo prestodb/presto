@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.Int128ArrayBlock;
 import com.facebook.presto.spi.block.Int128ArrayBlockBuilder;
@@ -23,7 +24,9 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.block.Int128ArrayBlock.INT128_BYTES;
+import static com.facebook.presto.type.DecimalInequalityOperators.distinctBlockPositionLongLong;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestInt128ArrayBlock
@@ -80,6 +83,16 @@ public class TestInt128ArrayBlock
         testCompactBlock(new Int128ArrayBlock(0, Optional.empty(), new long[0]));
         testCompactBlock(new Int128ArrayBlock(valueIsNull.length, Optional.of(valueIsNull), longArray));
         testIncompactBlock(new Int128ArrayBlock(valueIsNull.length - 2, Optional.of(valueIsNull), longArray));
+    }
+
+    @Test
+    public void testIsDistinctFrom()
+    {
+        Block left = new Int128ArrayBlock(1, Optional.empty(), new long[]{112L, 0L});
+        Block right = new Int128ArrayBlock(1, Optional.empty(), new long[]{185L, 0L});
+
+        assertFalse(distinctBlockPositionLongLong(left, 0, left, 0));
+        assertTrue(distinctBlockPositionLongLong(left, 0, right, 0));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)
