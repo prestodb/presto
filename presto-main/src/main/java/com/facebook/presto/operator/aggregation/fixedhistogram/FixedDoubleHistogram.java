@@ -37,9 +37,9 @@ public class FixedDoubleHistogram
 {
     public static class Bucket
     {
-        private final double left;
-        private final double right;
-        private final double weight;
+        private double left;
+        private double right;
+        private double weight;
 
         public double getLeft()
         {

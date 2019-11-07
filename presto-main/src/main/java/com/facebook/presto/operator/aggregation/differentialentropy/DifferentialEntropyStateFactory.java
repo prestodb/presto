@@ -104,10 +104,7 @@ public class DifferentialEntropyStateFactory
         @Override
         public long getEstimatedSize()
         {
-            if (strategy == null) {
-                return 0;
-            }
-            return strategy.getEstimatedSize();
+            return strategy == null ? 0 : strategy.getEstimatedSize();
         }
     }
 }

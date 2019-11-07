@@ -18,6 +18,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.operator.aggregation.differentialentropy.FixedHistogramStateStrategyUtils.getXLogX;
+import static com.google.common.collect.Streams.stream;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -75,6 +76,14 @@ public class FixedHistogramMleStateStrategy
     }
 
     @Override
+    public double getTotalPopulationWeight()
+    {
+        return stream(histogram.iterator())
+                .mapToDouble(FixedDoubleHistogram.Bucket::getWeight)
+                .sum();
+    }
+
+    @Override
     public double calculateEntropy()
     {
         double sum = 0;
@@ -99,7 +108,7 @@ public class FixedHistogramMleStateStrategy
     }
 
     @Override
-    public int getRequiredBytesForSerialization()
+    public int getRequiredBytesForSpecificSerialization()
     {
         return histogram.getRequiredBytesForSerialization();
     }
