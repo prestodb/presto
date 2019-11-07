@@ -23,13 +23,14 @@ import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.aggregation;
+import static com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyStateStrategy.FIXED_HISTOGRAM_JACKNIFE_METHOD_NAME;
 
 public class TestFixedHistogramJacknifeAggregation
         extends AbstractTestFixedHistogramAggregation
 {
     public TestFixedHistogramJacknifeAggregation()
     {
-        super(DifferentialEntropyStateStrategy.FIXED_HISTOGRAM_JACKNIFE_METHOD_NAME);
+        super(FIXED_HISTOGRAM_JACKNIFE_METHOD_NAME);
     }
 
     @Test(

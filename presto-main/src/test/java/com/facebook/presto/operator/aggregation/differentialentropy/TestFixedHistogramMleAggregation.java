@@ -23,13 +23,14 @@ import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.aggregation;
+import static com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyStateStrategy.FIXED_HISTOGRAM_MLE_METHOD_NAME;
 
 public class TestFixedHistogramMleAggregation
         extends AbstractTestFixedHistogramAggregation
 {
     public TestFixedHistogramMleAggregation()
     {
-        super(DifferentialEntropyStateStrategy.FIXED_HISTOGRAM_MLE_METHOD_NAME);
+        super(FIXED_HISTOGRAM_MLE_METHOD_NAME);
     }
 
     @Test(

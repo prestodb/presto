@@ -95,7 +95,7 @@ public class UnweightedReservoirSampleStateStrategy
     @Override
     public double getTotalPopulationWeight()
     {
-        return (double) reservoir.getTotalPopulationCount();
+        return reservoir.getTotalPopulationCount();
     }
 
     @Override
