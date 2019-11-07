@@ -60,7 +60,7 @@ public class TestWeightedDoubleReservoirSample
 
         long streamLength = 1_000_000;
         for (int i = 0; i < streamLength; ++i) {
-            assertEquals(reservoir.getTotalPopulationWeight(), i);
+            assertEquals(reservoir.getTotalPopulationWeight(), i, 0.0001);
             reservoir.add(i, 1.0);
         }
 

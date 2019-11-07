@@ -45,9 +45,9 @@ public class FixedDoubleBreakdownHistogram
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedDoubleBreakdownHistogram.class).instanceSize();
 
-    private int bucketCount;
-    private double min;
-    private double max;
+    private final int bucketCount;
+    private final double min;
+    private final double max;
 
     private int[] indices;
     private double[] weights;
