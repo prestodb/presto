@@ -51,7 +51,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.hive.HiveCoercers.createCoercer;
+import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;

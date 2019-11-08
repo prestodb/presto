@@ -37,7 +37,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
-import static com.facebook.presto.hive.HiveCoercers.createCoercer;
+import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;

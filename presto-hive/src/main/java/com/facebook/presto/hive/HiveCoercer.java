@@ -58,9 +58,10 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public interface HiveCoercers
+public interface HiveCoercer
+        extends Function<Block, Block>
 {
-    static Function<Block, Block> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+    static HiveCoercer createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
     {
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
         Type toType = typeManager.getType(toHiveType.getTypeSignature());
@@ -96,7 +97,7 @@ public interface HiveCoercers
     }
 
     class IntegerNumberUpscaleCoercer
-            implements Function<Block, Block>
+            implements HiveCoercer
     {
         private final Type fromType;
         private final Type toType;
@@ -123,7 +124,7 @@ public interface HiveCoercers
     }
 
     class IntegerNumberToVarcharCoercer
-            implements Function<Block, Block>
+            implements HiveCoercer
     {
         private final Type fromType;
         private final Type toType;
@@ -150,7 +151,7 @@ public interface HiveCoercers
     }
 
     class VarcharToIntegerNumberCoercer
-            implements Function<Block, Block>
+            implements HiveCoercer
     {
         private final Type fromType;
         private final Type toType;
@@ -211,7 +212,7 @@ public interface HiveCoercers
     }
 
     class FloatToDoubleCoercer
-            implements Function<Block, Block>
+            implements HiveCoercer
     {
         @Override
         public Block apply(Block block)
@@ -229,9 +230,9 @@ public interface HiveCoercers
     }
 
     class ListCoercer
-            implements Function<Block, Block>
+            implements HiveCoercer
     {
-        private final Function<Block, Block> elementCoercer;
+        private final HiveCoercer elementCoercer;
 
         public ListCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
         {
@@ -262,11 +263,11 @@ public interface HiveCoercers
     }
 
     class MapCoercer
-            implements Function<Block, Block>
+            implements HiveCoercer
     {
         private final Type toType;
-        private final Function<Block, Block> keyCoercer;
-        private final Function<Block, Block> valueCoercer;
+        private final HiveCoercer keyCoercer;
+        private final HiveCoercer valueCoercer;
 
         public MapCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
         {
@@ -299,9 +300,9 @@ public interface HiveCoercers
     }
 
     class StructCoercer
-            implements Function<Block, Block>
+            implements HiveCoercer
     {
-        private final Function<Block, Block>[] coercers;
+        private final HiveCoercer[] coercers;
         private final Block[] nullBlocks;
 
         public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
@@ -311,7 +312,7 @@ public interface HiveCoercers
             requireNonNull(toHiveType, "toHiveType is null");
             List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
             List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
-            this.coercers = new Function[toFieldTypes.size()];
+            this.coercers = new HiveCoercer[toFieldTypes.size()];
             this.nullBlocks = new Block[toFieldTypes.size()];
             for (int i = 0; i < coercers.length; i++) {
                 if (i >= fromFieldTypes.size()) {
