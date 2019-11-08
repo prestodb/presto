@@ -137,7 +137,7 @@ public class TestTpchMetadata
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(tpchMetadata.getColumnHandles(session, tableHandle).values());
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, columnHandles, constraint);
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, Optional.empty(), columnHandles, constraint);
 
         double actualRowCountValue = tableStatistics.getRowCount().getValue();
         assertEquals(tableStatistics.getRowCount(), Estimate.of(actualRowCountValue));
@@ -148,7 +148,7 @@ public class TestTpchMetadata
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(tpchMetadata.getColumnHandles(session, tableHandle).values());
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, columnHandles, alwaysTrue());
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, Optional.empty(), columnHandles, alwaysTrue());
         assertTrue(tableStatistics.getRowCount().isUnknown());
     }
 
@@ -240,7 +240,7 @@ public class TestTpchMetadata
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(tpchMetadata.getColumnHandles(session, tableHandle).values());
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, columnHandles, constraint);
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, Optional.empty(), columnHandles, constraint);
         ColumnHandle columnHandle = tpchMetadata.getColumnHandles(session, tableHandle).get(column.getSimplifiedColumnName());
 
         ColumnStatistics actual = tableStatistics.getColumnStatistics().get(columnHandle);
