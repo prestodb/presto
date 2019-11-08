@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Subfield;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -27,7 +28,9 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,8 +38,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveSessionProperties.isNestedColumnsFilterEnabled;
+import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.google.common.base.Verify.verify;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -157,5 +164,91 @@ public final class SubfieldExtractor
 
             return Optional.empty();
         }
+    }
+
+    public RowExpression toRowExpression(Subfield subfield, Type columnType)
+    {
+        List<Subfield.PathElement> path = subfield.getPath();
+        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        types.add(columnType);
+        Type type = columnType;
+        for (int i = 0; i < path.size(); i++) {
+            if (type instanceof RowType) {
+                type = getFieldType((RowType) type, ((Subfield.NestedField) path.get(i)).getName());
+                types.add(type);
+            }
+            else if (type instanceof ArrayType) {
+                type = ((ArrayType) type).getElementType();
+                types.add(type);
+            }
+            else if (type instanceof MapType) {
+                type = ((MapType) type).getValueType();
+                types.add(type);
+            }
+            else {
+                verify(false, "Unexpected type: " + type);
+            }
+        }
+
+        return toRowExpression(subfield, types.build());
+    }
+
+    private RowExpression toRowExpression(Subfield subfield, List<Type> types)
+    {
+        List<Subfield.PathElement> path = subfield.getPath();
+        if (path.isEmpty()) {
+            return new VariableReferenceExpression(subfield.getRootName(), types.get(0));
+        }
+
+        RowExpression base = toRowExpression(new Subfield(subfield.getRootName(), path.subList(0, path.size() - 1)), types.subList(0, types.size() - 1));
+        Type baseType = types.get(types.size() - 2);
+        Subfield.PathElement pathElement = path.get(path.size() - 1);
+        if (pathElement instanceof Subfield.LongSubscript) {
+            Type indexType = baseType instanceof MapType ? ((MapType) baseType).getKeyType() : BIGINT;
+            FunctionHandle functionHandle = functionResolution.subscriptFunction(baseType, indexType);
+            ConstantExpression index = new ConstantExpression(((Subfield.LongSubscript) pathElement).getIndex(), indexType);
+            return new CallExpression(SUBSCRIPT.name(), functionHandle, types.get(types.size() - 1), ImmutableList.of(base, index));
+        }
+
+        if (pathElement instanceof Subfield.StringSubscript) {
+            Type indexType = ((MapType) baseType).getKeyType();
+            FunctionHandle functionHandle = functionResolution.subscriptFunction(baseType, indexType);
+            ConstantExpression index = new ConstantExpression(Slices.utf8Slice(((Subfield.StringSubscript) pathElement).getIndex()), indexType);
+            return new CallExpression(SUBSCRIPT.name(), functionHandle, types.get(types.size() - 1), ImmutableList.of(base, index));
+        }
+
+        if (pathElement instanceof Subfield.NestedField) {
+            Subfield.NestedField nestedField = (Subfield.NestedField) pathElement;
+            return new SpecialFormExpression(DEREFERENCE, types.get(types.size() - 1), base, new ConstantExpression(getFieldIndex((RowType) baseType, nestedField.getName()), INTEGER));
+        }
+
+        verify(false, "Unexpected path element: " + pathElement);
+        return null;
+    }
+
+    private static Type getFieldType(RowType rowType, String fieldName)
+    {
+        for (RowType.Field field : rowType.getFields()) {
+            verify(field.getName().isPresent());
+            if (field.getName().get().equals(fieldName)) {
+                return field.getType();
+            }
+        }
+        verify(false, "Unexpected field name: " + fieldName);
+        return null;
+    }
+
+    private static long getFieldIndex(RowType rowType, String fieldName)
+    {
+        List<RowType.Field> fields = rowType.getFields();
+        for (int i = 0; i < fields.size(); i++) {
+            RowType.Field field = fields.get(i);
+            verify(field.getName().isPresent());
+            if (field.getName().get().equals(fieldName)) {
+                return i;
+            }
+        }
+        verify(false, "Unexpected field name: " + fieldName);
+        return -1;
     }
 }
