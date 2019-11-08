@@ -16,6 +16,7 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -91,6 +92,11 @@ public class ScalarStatsCalculator
 
     public VariableStatsEstimate calculate(RowExpression scalarExpression, PlanNodeStatsEstimate inputStatistics, Session session)
     {
+        return scalarExpression.accept(new RowExpressionStatsVisitor(inputStatistics, session.toConnectorSession()), null);
+    }
+
+    public VariableStatsEstimate calculate(RowExpression scalarExpression, PlanNodeStatsEstimate inputStatistics, ConnectorSession session)
+    {
         return scalarExpression.accept(new RowExpressionStatsVisitor(inputStatistics, session), null);
     }
 
@@ -98,10 +104,10 @@ public class ScalarStatsCalculator
             implements RowExpressionVisitor<VariableStatsEstimate, Void>
     {
         private final PlanNodeStatsEstimate input;
-        private final Session session;
+        private final ConnectorSession session;
         private final FunctionResolution resolution = new FunctionResolution(metadata.getFunctionManager());
 
-        public RowExpressionStatsVisitor(PlanNodeStatsEstimate input, Session session)
+        public RowExpressionStatsVisitor(PlanNodeStatsEstimate input, ConnectorSession session)
         {
             this.input = requireNonNull(input, "input is null");
             this.session = requireNonNull(session, "session is null");
@@ -119,7 +125,7 @@ public class ScalarStatsCalculator
                 return computeArithmeticBinaryStatistics(call, context);
             }
 
-            RowExpression value = new RowExpressionOptimizer(metadata).optimize(call, OPTIMIZED, session.toConnectorSession());
+            RowExpression value = new RowExpressionOptimizer(metadata).optimize(call, OPTIMIZED, session);
 
             if (isNull(value)) {
                 return nullStatsEstimate();
@@ -149,7 +155,7 @@ public class ScalarStatsCalculator
                 return nullStatsEstimate();
             }
 
-            OptionalDouble doubleValue = toStatsRepresentation(metadata, session, literal.getType(), literal.getValue());
+            OptionalDouble doubleValue = toStatsRepresentation(metadata.getFunctionManager(), session, literal.getType(), literal.getValue());
             VariableStatsEstimate.Builder estimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1);

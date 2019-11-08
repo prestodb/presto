@@ -19,6 +19,7 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -34,6 +35,7 @@ public class ConnectorContextInstance
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final RowExpressionService rowExpressionService;
+    private final FilterStatsCalculatorService filterStatsCalculatorService;
 
     public ConnectorContextInstance(
             NodeManager nodeManager,
@@ -42,7 +44,8 @@ public class ConnectorContextInstance
             StandardFunctionResolution functionResolution,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            RowExpressionService rowExpressionService)
+            RowExpressionService rowExpressionService,
+            FilterStatsCalculatorService filterStatsCalculatorService)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -51,6 +54,7 @@ public class ConnectorContextInstance
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
+        this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
     }
 
     @Override
@@ -93,5 +97,11 @@ public class ConnectorContextInstance
     public RowExpressionService getRowExpressionService()
     {
         return rowExpressionService;
+    }
+
+    @Override
+    public FilterStatsCalculatorService getFilterStatsCalculatorService()
+    {
+        return filterStatsCalculatorService;
     }
 }

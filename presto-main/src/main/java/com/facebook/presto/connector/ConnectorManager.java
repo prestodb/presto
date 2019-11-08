@@ -21,6 +21,8 @@ import com.facebook.presto.connector.system.MetadataBasedSystemTablesProvider;
 import com.facebook.presto.connector.system.StaticSystemTablesProvider;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.connector.system.SystemTablesProvider;
+import com.facebook.presto.cost.ConnectorFilterStatsCalculatorService;
+import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -109,6 +111,7 @@ public class ConnectorManager
     private final DomainTranslator domainTranslator;
     private final PredicateCompiler predicateCompiler;
     private final DeterminismEvaluator determinismEvaluator;
+    private final FilterStatsCalculator filterStatsCalculator;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -138,7 +141,8 @@ public class ConnectorManager
             TransactionManager transactionManager,
             DomainTranslator domainTranslator,
             PredicateCompiler predicateCompiler,
-            DeterminismEvaluator determinismEvaluator)
+            DeterminismEvaluator determinismEvaluator,
+            FilterStatsCalculator filterStatsCalculator)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -159,6 +163,7 @@ public class ConnectorManager
         this.domainTranslator = domainTranslator;
         this.predicateCompiler = predicateCompiler;
         this.determinismEvaluator = determinismEvaluator;
+        this.filterStatsCalculator = filterStatsCalculator;
     }
 
     @PreDestroy
@@ -352,7 +357,8 @@ public class ConnectorManager
                         new RowExpressionOptimizer(metadataManager),
                         predicateCompiler,
                         determinismEvaluator,
-                        new RowExpressionFormatter(metadataManager.getFunctionManager())));
+                        new RowExpressionFormatter(metadataManager.getFunctionManager())),
+                new ConnectorFilterStatsCalculatorService(filterStatsCalculator));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);

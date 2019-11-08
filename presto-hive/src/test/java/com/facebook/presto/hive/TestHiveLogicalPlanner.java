@@ -619,6 +619,18 @@ public class TestHiveLogicalPlanner
                     anyTree(join(INNER, ImmutableList.of(equiJoinClause("l_orderkey", "o_orderkey")),
                             anyTree(PlanMatchPattern.tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))),
                             anyTree(PlanMatchPattern.tableScan("orders_ex", ImmutableMap.of("o_orderkey", "orderkey"))))));
+
+            assertPlan(joinReorderingOff, "SELECT l.discount, l.orderkey, o.totalprice FROM lineitem l, orders o WHERE l.orderkey = o.orderkey AND l.quantity < 2 AND o.totalprice BETWEEN 0 AND 200000",
+                    anyTree(
+                            node(JoinNode.class,
+                                    anyTree(tableScan("lineitem", ImmutableMap.of())),
+                                    anyTree(tableScan("orders", ImmutableMap.of())))));
+
+            assertPlan(joinReorderingOn, "SELECT l.discount, l.orderkey, o.totalprice FROM lineitem l, orders o WHERE l.orderkey = o.orderkey AND l.quantity < 2 AND o.totalprice BETWEEN 0 AND 200000",
+                    anyTree(
+                            node(JoinNode.class,
+                                    anyTree(tableScan("orders", ImmutableMap.of())),
+                                    anyTree(tableScan("lineitem", ImmutableMap.of())))));
         }
         finally {
             assertUpdate("DROP TABLE orders_ex");

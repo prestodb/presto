@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -56,6 +57,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -104,6 +106,7 @@ public class FilterStatsCalculator
     private final LiteralEncoder literalEncoder;
     private final FunctionResolution functionResolution;
 
+    @Inject
     public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -128,10 +131,18 @@ public class FilterStatsCalculator
     public PlanNodeStatsEstimate filterStats(
             PlanNodeStatsEstimate statsEstimate,
             RowExpression predicate,
-            Session session)
+            ConnectorSession session)
     {
         RowExpression simplifiedExpression = simplifyExpression(session, predicate);
         return new FilterRowExpressionStatsCalculatingVisitor(statsEstimate, session, metadata.getFunctionManager()).process(simplifiedExpression);
+    }
+
+    public PlanNodeStatsEstimate filterStats(
+            PlanNodeStatsEstimate statsEstimate,
+            RowExpression predicate,
+            Session session)
+    {
+        return filterStats(statsEstimate, predicate, session.toConnectorSession());
     }
 
     private Expression simplifyExpression(Session session, Expression predicate, TypeProvider types)
@@ -149,9 +160,9 @@ public class FilterStatsCalculator
         return literalEncoder.toExpression(value, BOOLEAN);
     }
 
-    private RowExpression simplifyExpression(Session session, RowExpression predicate)
+    private RowExpression simplifyExpression(ConnectorSession session, RowExpression predicate)
     {
-        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(predicate, metadata, session.toConnectorSession(), OPTIMIZED);
+        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(predicate, metadata, session, OPTIMIZED);
         Object value = interpreter.optimize();
 
         if (value == null) {
@@ -479,10 +490,10 @@ public class FilterStatsCalculator
             implements RowExpressionVisitor<PlanNodeStatsEstimate, Void>
     {
         private final PlanNodeStatsEstimate input;
-        private final Session session;
+        private final ConnectorSession session;
         private final FunctionManager functionManager;
 
-        FilterRowExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, Session session, FunctionManager functionManager)
+        FilterRowExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, ConnectorSession session, FunctionManager functionManager)
         {
             this.input = requireNonNull(input, "input is null");
             this.session = requireNonNull(session, "session is null");
@@ -572,7 +583,7 @@ public class FilterStatsCalculator
                     if (rightValue == null) {
                         return visitConstant(constantNull(BOOLEAN), null);
                     }
-                    OptionalDouble literal = toStatsRepresentation(metadata, session, right.getType(), rightValue);
+                    OptionalDouble literal = toStatsRepresentation(metadata.getFunctionManager(), session, right.getType(), rightValue);
                     return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, getComparisonOperator(operatorType));
                 }
 

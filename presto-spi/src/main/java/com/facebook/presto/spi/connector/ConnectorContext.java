@@ -18,6 +18,7 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -54,6 +55,11 @@ public interface ConnectorContext
     }
 
     default RowExpressionService getRowExpressionService()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default FilterStatsCalculatorService getFilterStatsCalculatorService()
     {
         throw new UnsupportedOperationException();
     }
