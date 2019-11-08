@@ -63,7 +63,7 @@ public class TableScanStatsRule
 
         for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
             Optional<ColumnStatistics> columnStatistics = Optional.ofNullable(tableStatistics.getColumnStatistics().get(entry.getValue()));
-            outputVariableStats.put(entry.getKey(), columnStatistics.map(statistics -> StatsUtil.toSymbolStatistics(tableStatistics, statistics)).orElse(VariableStatsEstimate.unknown()));
+            outputVariableStats.put(entry.getKey(), columnStatistics.map(statistics -> StatsUtil.toVariableStatsEstimate(tableStatistics, statistics)).orElse(VariableStatsEstimate.unknown()));
         }
 
         return Optional.of(PlanNodeStatsEstimate.builder()

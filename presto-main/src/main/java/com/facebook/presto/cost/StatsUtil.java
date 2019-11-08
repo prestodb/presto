@@ -77,7 +77,7 @@ final class StatsUtil
                 || BooleanType.BOOLEAN.equals(type);
     }
 
-    public static VariableStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics)
+    public static VariableStatsEstimate toVariableStatsEstimate(TableStatistics tableStatistics, ColumnStatistics columnStatistics)
     {
         double nullsFraction = columnStatistics.getNullsFraction().getValue();
         double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - nullsFraction);
