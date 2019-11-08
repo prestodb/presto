@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
@@ -43,6 +44,8 @@ import static com.facebook.presto.hive.HiveUtil.extractStructFieldTypes;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
+import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
 import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
@@ -61,6 +64,8 @@ import static java.util.Objects.requireNonNull;
 public interface HiveCoercer
         extends Function<Block, Block>
 {
+    TupleDomainFilter toCoercingFilter(TupleDomainFilter filter);
+
     static HiveCoercer createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
     {
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
@@ -121,6 +126,12 @@ public interface HiveCoercer
             }
             return blockBuilder.build();
         }
+
+        @Override
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        {
+            return filter;
+        }
     }
 
     class IntegerNumberToVarcharCoercer
@@ -147,6 +158,37 @@ public interface HiveCoercer
                 toType.writeSlice(blockBuilder, utf8Slice(String.valueOf(fromType.getLong(block, i))));
             }
             return blockBuilder.build();
+        }
+
+        @Override
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        {
+            return new CoercingFilter(filter);
+        }
+
+        private static final class CoercingFilter
+                extends TupleDomainFilter.AbstractTupleDomainFilter
+        {
+            private final TupleDomainFilter delegate;
+
+            public CoercingFilter(TupleDomainFilter delegate)
+            {
+                super(delegate.isDeterministic(), !delegate.isDeterministic() || delegate.testNull());
+                this.delegate = requireNonNull(delegate, "delegate is null");
+            }
+
+            @Override
+            public boolean testNull()
+            {
+                return delegate.testNull();
+            }
+
+            @Override
+            public boolean testLong(long value)
+            {
+                byte[] bytes = String.valueOf(value).getBytes();
+                return delegate.testBytes(bytes, 0, bytes.length);
+            }
         }
     }
 
@@ -209,6 +251,59 @@ public interface HiveCoercer
             }
             return blockBuilder.build();
         }
+
+        @Override
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        {
+            return new CoercingFilter(filter, minValue, maxValue);
+        }
+
+        private static final class CoercingFilter
+                extends TupleDomainFilter.AbstractTupleDomainFilter
+        {
+            private final TupleDomainFilter delegate;
+            private final long minValue;
+            private final long maxValue;
+
+            public CoercingFilter(TupleDomainFilter delegate, long minValue, long maxValue)
+            {
+                super(delegate.isDeterministic(), !delegate.isDeterministic() || delegate.testNull());
+                this.delegate = requireNonNull(delegate, "delegate is null");
+                this.minValue = minValue;
+                this.maxValue = maxValue;
+            }
+
+            @Override
+            public boolean testNull()
+            {
+                return delegate.testNull();
+            }
+
+            @Override
+            public boolean testLength(int length)
+            {
+                return true;
+            }
+
+            @Override
+            public boolean testBytes(byte[] buffer, int offset, int length)
+            {
+                long value;
+                try {
+                    value = Long.valueOf(new String(buffer, offset, length));
+                }
+                catch (NumberFormatException e) {
+                    return delegate.testNull();
+                }
+
+                if (minValue <= value && value <= maxValue) {
+                    return delegate.testLong(value);
+                }
+                else {
+                    return delegate.testNull();
+                }
+            }
+        }
     }
 
     class FloatToDoubleCoercer
@@ -226,6 +321,12 @@ public interface HiveCoercer
                 DOUBLE.writeDouble(blockBuilder, intBitsToFloat((int) REAL.getLong(block, i)));
             }
             return blockBuilder.build();
+        }
+
+        @Override
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        {
+            return filter;
         }
     }
 
@@ -259,6 +360,16 @@ public interface HiveCoercer
                 offsets[i + 1] = offsets[i] + arrayBlock.getLength(i);
             }
             return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), Optional.of(valueIsNull), offsets, elementsBlock);
+        }
+
+        @Override
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        {
+            if (filter == IS_NULL || filter == IS_NOT_NULL) {
+                return filter;
+            }
+
+            throw new UnsupportedOperationException("Range filers on array types are not supported");
         }
     }
 
@@ -296,6 +407,16 @@ public interface HiveCoercer
                 offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
             }
             return ((MapType) toType).createBlockFromKeyValue(positionCount, Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
+        }
+
+        @Override
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        {
+            if (filter == IS_NULL || filter == IS_NOT_NULL) {
+                return filter;
+            }
+
+            throw new UnsupportedOperationException("Range filers on array types are not supported");
         }
     }
 
@@ -346,6 +467,16 @@ public interface HiveCoercer
                 valueIsNull[i] = rowBlock.isNull(i);
             }
             return RowBlock.fromFieldBlocks(valueIsNull.length, Optional.of(valueIsNull), fields);
+        }
+
+        @Override
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        {
+            if (filter == IS_NULL || filter == IS_NOT_NULL) {
+                return filter;
+            }
+
+            throw new UnsupportedOperationException("Range filers on array types are not supported");
         }
     }
 }
