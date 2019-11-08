@@ -58,6 +58,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.NESTED_COLUMNS_FILT
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteExchangesCount;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -109,12 +110,12 @@ public class TestHiveLogicalPlanner
         assertPlan(pushdownFilterEnabled, "SELECT linenumber FROM lineitem WHERE partkey = 10",
                 output(exchange(
                         strictTableScan("lineitem", identityMap("linenumber")))),
-                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), Domain.singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
+                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
 
         assertPlan(pushdownFilterEnabled, "SELECT partkey, linenumber FROM lineitem WHERE partkey = 10",
                 output(exchange(
                         strictTableScan("lineitem", identityMap("partkey", "linenumber")))),
-                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), Domain.singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
+                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
 
         // Only remaining predicate
         assertPlan("SELECT linenumber FROM lineitem WHERE mod(orderkey, 2) = 1",
@@ -155,12 +156,12 @@ public class TestHiveLogicalPlanner
         assertPlan(pushdownFilterEnabled, "SELECT linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
                 output(exchange(
                         strictTableScan("lineitem", identityMap("linenumber")))),
-                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), Domain.singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
+                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
 
         assertPlan(pushdownFilterEnabled, "SELECT partkey, orderkey, linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
                 output(exchange(
                         strictTableScan("lineitem", identityMap("partkey", "orderkey", "linenumber")))),
-                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), Domain.singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
+                plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
     }
 
     @Test
@@ -178,34 +179,34 @@ public class TestHiveLogicalPlanner
                              "e map(varchar, bigint)))");
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE a[1] = 1",
-                        ImmutableMap.of(new Subfield("a[1]"), Domain.singleValue(BIGINT, 1L)));
+                        ImmutableMap.of(new Subfield("a[1]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields where a[1 + 1] = 1",
-                        ImmutableMap.of(new Subfield("a[2]"), Domain.singleValue(BIGINT, 1L)));
+                        ImmutableMap.of(new Subfield("a[2]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT *  FROM test_pushdown_filter_on_subfields WHERE b['foo'] = 1",
-                        ImmutableMap.of(new Subfield("b[\"foo\"]"), Domain.singleValue(BIGINT, 1L)));
+                        ImmutableMap.of(new Subfield("b[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE b[concat('f','o', 'o')] = 1",
-                        ImmutableMap.of(new Subfield("b[\"foo\"]"), Domain.singleValue(BIGINT, 1L)));
+                        ImmutableMap.of(new Subfield("b[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.a = 1",
-                        ImmutableMap.of(new Subfield("c.a"), Domain.singleValue(BIGINT, 1L)));
+                        ImmutableMap.of(new Subfield("c.a"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.b.x = 1",
-                        ImmutableMap.of(new Subfield("c.b.x"), Domain.singleValue(BIGINT, 1L)));
+                        ImmutableMap.of(new Subfield("c.b.x"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.c[5] = 1",
-                        ImmutableMap.of(new Subfield("c.c[5]"), Domain.singleValue(BIGINT, 1L)));
+                        ImmutableMap.of(new Subfield("c.c[5]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.d[5] = 1",
-                        ImmutableMap.of(new Subfield("c.d[5]"), Domain.singleValue(BIGINT, 1L)));
+                        ImmutableMap.of(new Subfield("c.d[5]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.e[concat('f', 'o', 'o')] = 1",
-                        ImmutableMap.of(new Subfield("c.e[\"foo\"]"), Domain.singleValue(BIGINT, 1L)));
+                        ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.e['foo'] = 1",
-                        ImmutableMap.of(new Subfield("c.e[\"foo\"]"), Domain.singleValue(BIGINT, 1L)));
+                        ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
 
         assertUpdate("DROP TABLE test_pushdown_filter_on_subfields");
     }
