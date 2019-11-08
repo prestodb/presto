@@ -97,7 +97,7 @@ public interface TupleDomainFilter
         protected final boolean nullAllowed;
         private final boolean deterministic;
 
-        private AbstractTupleDomainFilter(boolean deterministic, boolean nullAllowed)
+        protected AbstractTupleDomainFilter(boolean deterministic, boolean nullAllowed)
         {
             this.nullAllowed = nullAllowed;
             this.deterministic = deterministic;
