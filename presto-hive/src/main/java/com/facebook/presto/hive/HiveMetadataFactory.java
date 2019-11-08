@@ -20,6 +20,7 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -50,6 +51,7 @@ public class HiveMetadataFactory
     private final LocationService locationService;
     private final StandardFunctionResolution functionResolution;
     private final RowExpressionService rowExpressionService;
+    private final FilterStatsCalculatorService filterStatsCalculatorService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final ListeningExecutorService fileRenameExecutor;
@@ -71,6 +73,7 @@ public class HiveMetadataFactory
             LocationService locationService,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
+            FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
@@ -94,6 +97,7 @@ public class HiveMetadataFactory
                 locationService,
                 functionResolution,
                 rowExpressionService,
+                filterStatsCalculatorService,
                 tableParameterCodec,
                 partitionUpdateCodec,
                 fileRenameExecutor,
@@ -119,6 +123,7 @@ public class HiveMetadataFactory
             LocationService locationService,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
+            FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ListeningExecutorService fileRenameExecutor,
@@ -143,6 +148,7 @@ public class HiveMetadataFactory
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
+        this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.fileRenameExecutor = requireNonNull(fileRenameExecutor, "fileRenameExecutor is null");
@@ -182,6 +188,7 @@ public class HiveMetadataFactory
                 locationService,
                 functionResolution,
                 rowExpressionService,
+                filterStatsCalculatorService,
                 tableParameterCodec,
                 partitionUpdateCodec,
                 typeTranslator,

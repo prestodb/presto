@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 
 import javax.inject.Singleton;
 
@@ -27,16 +28,19 @@ public class StatsCalculatorModule
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(ScalarStatsCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(StatsNormalizer.class).in(Scopes.SINGLETON);
+        binder.bind(FilterStatsCalculator.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
-    public static StatsCalculator createNewStatsCalculator(Metadata metadata)
+    public static StatsCalculator createNewStatsCalculator(
+            Metadata metadata,
+            ScalarStatsCalculator scalarStatsCalculator,
+            StatsNormalizer normalizer,
+            FilterStatsCalculator filterStatsCalculator)
     {
-        StatsNormalizer normalizer = new StatsNormalizer();
-        ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata);
-        FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, normalizer);
-
         ImmutableList.Builder<ComposableStatsCalculator.Rule<?>> rules = ImmutableList.builder();
         rules.add(new OutputStatsRule());
         rules.add(new TableScanStatsRule(metadata, normalizer));

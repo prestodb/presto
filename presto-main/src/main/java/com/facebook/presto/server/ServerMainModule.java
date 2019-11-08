@@ -27,6 +27,9 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
+import com.facebook.presto.cost.FilterStatsCalculator;
+import com.facebook.presto.cost.ScalarStatsCalculator;
+import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
@@ -409,6 +412,9 @@ public class ServerMainModule
         binder.install(new HandleJsonModule());
 
         // connector
+        binder.bind(ScalarStatsCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(StatsNormalizer.class).in(Scopes.SINGLETON);
+        binder.bind(FilterStatsCalculator.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
 
         // system connector
