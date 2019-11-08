@@ -928,8 +928,8 @@ public class TestRowExpressionDomainTranslator
         assertEquals(
                 toPredicate(fromPredicate(expression).getTupleDomain()),
                 and(
-                        greaterThan(C_BIGINT, bigintLiteral(0)),
-                        greaterThan(C_DOUBLE, doubleLiteral(0))));
+                        greaterThan(C_DOUBLE, doubleLiteral(0)),
+                        greaterThan(C_BIGINT, bigintLiteral(0))));
     }
 
     @Test
