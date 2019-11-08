@@ -178,7 +178,7 @@ public class HivePageSourceProvider
                 split.getPartitionKeys(),
                 allColumns,
                 ImmutableList.of(),
-                split.getPartitionSchemaDifference(), // TODO Include predicateColumns
+                split.getPartitionSchemaDifference(),
                 path,
                 split.getTableBucketNumber());
 
