@@ -63,28 +63,12 @@ public class TableScanStatsRule
 
         for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
             Optional<ColumnStatistics> columnStatistics = Optional.ofNullable(tableStatistics.getColumnStatistics().get(entry.getValue()));
-            outputVariableStats.put(entry.getKey(), columnStatistics.map(statistics -> toSymbolStatistics(tableStatistics, statistics)).orElse(VariableStatsEstimate.unknown()));
+            outputVariableStats.put(entry.getKey(), columnStatistics.map(statistics -> StatsUtil.toSymbolStatistics(tableStatistics, statistics)).orElse(VariableStatsEstimate.unknown()));
         }
 
         return Optional.of(PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(tableStatistics.getRowCount().getValue())
                 .addVariableStatistics(outputVariableStats)
                 .build());
-    }
-
-    private VariableStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics)
-    {
-        double nullsFraction = columnStatistics.getNullsFraction().getValue();
-        double nonNullRowsCount = tableStatistics.getRowCount().getValue() * (1.0 - nullsFraction);
-        double averageRowSize = nonNullRowsCount == 0 ? 0 : columnStatistics.getDataSize().getValue() / nonNullRowsCount;
-        VariableStatsEstimate.Builder result = VariableStatsEstimate.builder();
-        result.setNullsFraction(nullsFraction);
-        result.setDistinctValuesCount(columnStatistics.getDistinctValuesCount().getValue());
-        result.setAverageRowSize(averageRowSize);
-        columnStatistics.getRange().ifPresent(range -> {
-            result.setLowValue(range.getMin());
-            result.setHighValue(range.getMax());
-        });
-        return result.build();
     }
 }
