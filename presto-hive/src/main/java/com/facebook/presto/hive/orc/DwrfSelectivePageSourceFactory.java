@@ -18,6 +18,7 @@ import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.metastore.Storage;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -42,7 +42,6 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory.createOrcPageSource;
@@ -96,7 +95,7 @@ public class DwrfSelectivePageSourceFactory
             Storage storage,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
-            Map<Integer, Function<Block, Block>> coercers,
+            Map<Integer, HiveCoercer> coercers,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,

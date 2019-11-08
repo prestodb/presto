@@ -26,7 +26,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -49,7 +48,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -191,7 +189,7 @@ public class HivePageSourceProvider
                 .filter(mapping -> mapping.getKind() == ColumnMappingKind.PREFILLED)
                 .collect(toImmutableMap(mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(), ColumnMapping::getPrefilledValue));
 
-        Map<Integer, Function<Block, Block>> coercers = columnMappings.stream()
+        Map<Integer, HiveCoercer> coercers = columnMappings.stream()
                 .filter(mapping -> mapping.getCoercionFrom().isPresent())
                 .collect(toImmutableMap(
                         mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(),
