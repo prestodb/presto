@@ -235,6 +235,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -754,26 +755,26 @@ public abstract class AbstractTestHiveClient
                         false,
                         "layout"),
                 Optional.empty(),
-                TupleDomain.withColumnDomains(ImmutableMap.of(
+                withColumnDomains(ImmutableMap.of(
                         dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
                         fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("textfile")), Range.equal(createUnboundedVarcharType(), utf8Slice("sequencefile")), Range.equal(createUnboundedVarcharType(), utf8Slice("rctext")), Range.equal(createUnboundedVarcharType(), utf8Slice("rcbinary"))), false),
                         dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 1L), Range.equal(INTEGER, 2L), Range.equal(INTEGER, 3L), Range.equal(INTEGER, 4L)), false))),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(new DiscretePredicates(ImmutableList.copyOf(partitionColumns), ImmutableList.of(
-                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                        withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("textfile"))), false),
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 1L)), false))),
-                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                        withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("sequencefile"))), false),
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 2L)), false))),
-                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                        withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("rctext"))), false),
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 3L)), false))),
-                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                        withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("2012-12-29"))), false),
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(createUnboundedVarcharType(), utf8Slice("rcbinary"))), false),
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))))),
@@ -1164,7 +1165,7 @@ public abstract class AbstractTestHiveClient
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tablePartitionFormat);
-            ConnectorTableLayout actuaTableLayout = getTableLayout(newSession(), metadata, tableHandle, new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(BIGINT, 5L)))));
+            ConnectorTableLayout actuaTableLayout = getTableLayout(newSession(), metadata, tableHandle, new Constraint<>(withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(BIGINT, 5L)))));
             assertExpectedTableLayout(actuaTableLayout, tableLayout);
         }
     }
@@ -1605,7 +1606,7 @@ public abstract class AbstractTestHiveClient
             assertNotNull(dsColumn);
 
             Domain domain = Domain.singleValue(createUnboundedVarcharType(), utf8Slice("2012-12-30"));
-            TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(dsColumn, domain));
+            TupleDomain<ColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(dsColumn, domain));
             ConnectorTableLayout tableLayout = getTableLayout(session, metadata, tableHandle, new Constraint<>(tupleDomain));
             try {
                 getSplitCount(splitManager.getSplits(transaction.getTransactionHandle(), session, tableLayout.getHandle(), SPLIT_SCHEDULING_CONTEXT));
@@ -1628,7 +1629,7 @@ public abstract class AbstractTestHiveClient
             assertNotNull(dsColumn);
 
             Domain domain = Domain.singleValue(createUnboundedVarcharType(), utf8Slice("2012-12-30"));
-            TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(dsColumn, domain));
+            TupleDomain<ColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(dsColumn, domain));
             ConnectorTableLayout tableLayout = getTableLayout(session, metadata, tableHandle, new Constraint<>(tupleDomain));
             getSplitCount(splitManager.getSplits(transaction.getTransactionHandle(), session, tableLayout.getHandle(), SPLIT_SCHEDULING_CONTEXT));
         }
@@ -2233,7 +2234,7 @@ public abstract class AbstractTestHiveClient
             ColumnHandle column = metadata.getColumnHandles(session, table).get("t_boolean");
             assertNotNull(column);
 
-            ConnectorTableLayoutHandle layoutHandle = getTableLayout(session, metadata, table, new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(BIGINT, 5L))))).getHandle();
+            ConnectorTableLayoutHandle layoutHandle = getTableLayout(session, metadata, table, new Constraint<>(withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(BIGINT, 5L))))).getHandle();
             assertEquals(getAllPartitions(layoutHandle).size(), 1);
             assertEquals(getPartitionId(getAllPartitions(layoutHandle).get(0)), "t_boolean=0");
 
@@ -4308,7 +4309,7 @@ public abstract class AbstractTestHiveClient
 
             // delete ds=2015-07-01 and 2015-07-02
             session = newSession();
-            TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
+            TupleDomain<ColumnHandle> tupleDomain2 = withColumnDomains(
                     ImmutableMap.of(dsColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(createUnboundedVarcharType(), utf8Slice("2015-07-01"), true, utf8Slice("2015-07-02"), true)), false)));
             Constraint<ColumnHandle> constraint2 = new Constraint<>(tupleDomain2, convertToPredicate(tupleDomain2));
             ConnectorTableLayoutHandle tableLayoutHandle2 = getTableLayout(session, metadata, tableHandle, constraint2).getHandle();
@@ -5105,7 +5106,7 @@ public abstract class AbstractTestHiveClient
                 // Query 1: delete
                 session = newSession();
                 HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("pk2");
-                TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                TupleDomain<ColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
                         dsColumnHandle, domainToDrop));
                 Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(tupleDomain));
                 ConnectorTableLayoutHandle tableLayoutHandle = getTableLayout(session, metadata, tableHandle, constraint).getHandle();
