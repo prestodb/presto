@@ -87,7 +87,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
-import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
@@ -110,15 +109,14 @@ public final class RowExpressionDomainTranslator
     }
 
     @Override
-    public RowExpression toPredicate(TupleDomain<VariableReferenceExpression> tupleDomain)
+    public <T extends RowExpression> RowExpression toPredicate(TupleDomain<T> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return FALSE_CONSTANT;
         }
 
-        Map<VariableReferenceExpression, Domain> domains = tupleDomain.getDomains().get();
+        Map<T, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
-                .sorted(comparing(entry -> entry.getKey().getName()))
                 .map(entry -> toPredicate(entry.getValue(), entry.getKey()))
                 .collect(collectingAndThen(toImmutableList(), logicalRowExpressions::combineConjuncts));
     }
@@ -129,7 +127,7 @@ public final class RowExpressionDomainTranslator
         return predicate.accept(new Visitor<>(metadata, session, columnExtractor), false);
     }
 
-    private RowExpression toPredicate(Domain domain, VariableReferenceExpression reference)
+    private RowExpression toPredicate(Domain domain, RowExpression reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? isNull(reference) : FALSE_CONSTANT;
@@ -156,7 +154,7 @@ public final class RowExpressionDomainTranslator
         return logicalRowExpressions.combineDisjunctsWithDefault(disjuncts, TRUE_CONSTANT);
     }
 
-    private RowExpression processRange(Type type, Range range, VariableReferenceExpression reference)
+    private RowExpression processRange(Type type, Range range, RowExpression reference)
     {
         if (range.isAll()) {
             return TRUE_CONSTANT;
@@ -207,7 +205,7 @@ public final class RowExpressionDomainTranslator
         return logicalRowExpressions.combineConjuncts(rangeConjuncts);
     }
 
-    private RowExpression combineRangeWithExcludedPoints(Type type, VariableReferenceExpression reference, Range range, List<RowExpression> excludedPoints)
+    private RowExpression combineRangeWithExcludedPoints(Type type, RowExpression reference, Range range, List<RowExpression> excludedPoints)
     {
         if (excludedPoints.isEmpty()) {
             return processRange(type, range, reference);
@@ -221,7 +219,7 @@ public final class RowExpressionDomainTranslator
         return logicalRowExpressions.combineConjuncts(processRange(type, range, reference), excludedPointsExpression);
     }
 
-    private List<RowExpression> extractDisjuncts(Type type, Ranges ranges, VariableReferenceExpression reference)
+    private List<RowExpression> extractDisjuncts(Type type, Ranges ranges, RowExpression reference)
     {
         List<RowExpression> disjuncts = new ArrayList<>();
         List<RowExpression> singleValues = new ArrayList<>();
@@ -264,7 +262,7 @@ public final class RowExpressionDomainTranslator
         return disjuncts;
     }
 
-    private List<RowExpression> extractDisjuncts(Type type, DiscreteValues discreteValues, VariableReferenceExpression reference)
+    private List<RowExpression> extractDisjuncts(Type type, DiscreteValues discreteValues, RowExpression reference)
     {
         List<RowExpression> values = discreteValues.getValues().stream()
                 .map(object -> toRowExpression(object, type))
