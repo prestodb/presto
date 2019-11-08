@@ -180,7 +180,6 @@ public class OrcSelectiveRecordReader
         requireNonNull(coercers, "coercers is null");
         this.coercers = new Function[this.hiveColumnIndices.length];
         for (Map.Entry<Integer, Function<Block, Block>> entry : coercers.entrySet()) {
-            checkArgument(!filters.containsKey(entry.getKey()), "Coercions for columns with range filters are not supported yet");
             this.coercers[zeroBasedIndices.get(entry.getKey())] = entry.getValue();
         }
 

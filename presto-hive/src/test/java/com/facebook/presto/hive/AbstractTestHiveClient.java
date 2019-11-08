@@ -87,6 +87,8 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
@@ -108,12 +110,14 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FileStatus;
@@ -136,6 +140,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
@@ -464,6 +469,24 @@ public abstract class AbstractTestHiveClient
                                 return new MaterializedRow(materializedRow.getPrecision(), result);
                             }).collect(toList()))
                     .build();
+
+    private static final List<TupleDomain<ColumnMetadata>> MISMATCH_SCHEMA_TABLE_AFTER_FILTERS = ImmutableList.of(
+            // integer_to_varchar
+            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(6), Domain.singleValue(VARCHAR, Slices.utf8Slice("17")))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(6), Domain.notNull(VARCHAR))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(6), Domain.onlyNull(VARCHAR))),
+            // varchar_to_integer
+            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(7), Domain.singleValue(INTEGER, -923L))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(7), Domain.notNull(INTEGER))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(7), Domain.onlyNull(INTEGER))));
+
+    private static final List<Predicate<MaterializedRow>> MISMATCH_SCHEMA_TABLE_AFTER_RESULT_PREDICATES = ImmutableList.of(
+            row -> Objects.equals(row.getField(6), "17"),
+            row -> row.getField(6) != null,
+            row -> row.getField(6) == null,
+            row -> Objects.equals(row.getField(7), -923),
+            row -> row.getField(7) != null,
+            row -> row.getField(7) == null);
 
     protected Set<HiveStorageFormat> createTableFormats = difference(ImmutableSet.copyOf(HiveStorageFormat.values()), ImmutableSet.of(AVRO));
 
@@ -1189,6 +1212,8 @@ public abstract class AbstractTestHiveClient
     public void testMismatchSchemaTable()
             throws Exception
     {
+        boolean pushdownFilterEnabled = getHiveClientConfig().isPushdownFilterEnabled();
+
         for (HiveStorageFormat storageFormat : createTableFormats) {
             // TODO: fix coercion for JSON
             if (storageFormat == JSON) {
@@ -1202,7 +1227,9 @@ public abstract class AbstractTestHiveClient
                         MISMATCH_SCHEMA_TABLE_BEFORE,
                         MISMATCH_SCHEMA_TABLE_DATA_BEFORE,
                         MISMATCH_SCHEMA_TABLE_AFTER,
-                        MISMATCH_SCHEMA_TABLE_DATA_AFTER);
+                        MISMATCH_SCHEMA_TABLE_DATA_AFTER,
+                        pushdownFilterEnabled ? MISMATCH_SCHEMA_TABLE_AFTER_FILTERS : ImmutableList.of(),
+                        pushdownFilterEnabled ? MISMATCH_SCHEMA_TABLE_AFTER_RESULT_PREDICATES : ImmutableList.of());
             }
             finally {
                 dropTable(temporaryMismatchSchemaTable);
@@ -1216,7 +1243,9 @@ public abstract class AbstractTestHiveClient
             List<ColumnMetadata> tableBefore,
             MaterializedResult dataBefore,
             List<ColumnMetadata> tableAfter,
-            MaterializedResult dataAfter)
+            MaterializedResult dataAfter,
+            List<TupleDomain<ColumnMetadata>> afterFilters,
+            List<Predicate<MaterializedRow>> afterResultPredicates)
             throws Exception
     {
         String schemaName = schemaTableName.getSchemaName();
@@ -1285,6 +1314,21 @@ public abstract class AbstractTestHiveClient
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
             assertEqualsIgnoreOrder(result.getMaterializedRows(), dataAfter.getMaterializedRows());
 
+            int filterCount = afterFilters.size();
+            for (int i = 0; i < filterCount; i++) {
+                TupleDomain<ColumnMetadata> tupleDomain = afterFilters.get(i);
+
+                RowExpression predicate = ROW_EXPRESSION_SERVICE.getDomainTranslator().toPredicate(tupleDomain.transform(AbstractTestHiveClient::toVariable));
+                ConnectorTableLayoutHandle layoutHandle = metadata.pushdownFilter(session, tableHandle, predicate, Optional.empty()).getLayout().getHandle();
+
+                MaterializedResult filteredResult = readTable(transaction, tableHandle, layoutHandle, columnHandles, session, OptionalInt.empty(), Optional.empty());
+
+                Predicate<MaterializedRow> rowPredicate = afterResultPredicates.get(i);
+                List<MaterializedRow> expectedRows = dataAfter.getMaterializedRows().stream().filter(rowPredicate::apply).collect(toList());
+
+                assertEqualsIgnoreOrder(filteredResult.getMaterializedRows(), expectedRows);
+            }
+
             transaction.commit();
         }
 
@@ -1309,6 +1353,11 @@ public abstract class AbstractTestHiveClient
             // expected
             assertEquals(e.getErrorCode(), HIVE_PARTITION_SCHEMA_MISMATCH.toErrorCode());
         }
+    }
+
+    private static VariableReferenceExpression toVariable(ColumnMetadata column)
+    {
+        return new VariableReferenceExpression(column.getName(), column.getType());
     }
 
     protected void assertExpectedTableLayout(ConnectorTableLayout actualTableLayout, ConnectorTableLayout expectedTableLayout)
@@ -4626,12 +4675,25 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         ConnectorTableLayoutHandle layoutHandle = getTableLayout(session, transaction.getMetadata(), hiveTableHandle, new Constraint<>(tupleDomain)).getHandle();
-        List<ConnectorSplit> splits = getAllSplits(session, transaction, layoutHandle);
+        return readTable(transaction, hiveTableHandle, layoutHandle, columnHandles, session, expectedSplitCount, expectedStorageFormat);
+    }
+
+    private MaterializedResult readTable(
+            Transaction transaction,
+            ConnectorTableHandle hiveTableHandle,
+            ConnectorTableLayoutHandle hiveTableLayoutHandle,
+            List<ColumnHandle> columnHandles,
+            ConnectorSession session,
+            OptionalInt expectedSplitCount,
+            Optional<HiveStorageFormat> expectedStorageFormat)
+            throws Exception
+    {
+        List<ConnectorSplit> splits = getAllSplits(session, transaction, hiveTableLayoutHandle);
         if (expectedSplitCount.isPresent()) {
             assertEquals(splits.size(), expectedSplitCount.getAsInt());
         }
 
-        TableHandle tableHandle = toTableHandle(transaction, hiveTableHandle, layoutHandle);
+        TableHandle tableHandle = toTableHandle(transaction, hiveTableHandle, hiveTableLayoutHandle);
 
         ImmutableList.Builder<MaterializedRow> allRows = ImmutableList.builder();
         for (ConnectorSplit split : splits) {

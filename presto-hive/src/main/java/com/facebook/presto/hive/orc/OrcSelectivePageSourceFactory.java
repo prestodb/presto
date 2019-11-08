@@ -18,6 +18,7 @@ import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.SubfieldExtractor;
@@ -40,7 +41,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -188,7 +188,7 @@ public class OrcSelectivePageSourceFactory
             Storage storage,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
-            Map<Integer, Function<Block, Block>> coercers,
+            Map<Integer, HiveCoercer> coercers,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
@@ -244,7 +244,7 @@ public class OrcSelectivePageSourceFactory
             long fileSize,
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
-            Map<Integer, Function<Block, Block>> coercers,
+            Map<Integer, HiveCoercer> coercers,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
@@ -306,10 +306,12 @@ public class OrcSelectivePageSourceFactory
             Map<Integer, String> columnNames = physicalColumns.stream()
                     .collect(toImmutableMap(HiveColumnHandle::getHiveColumnIndex, HiveColumnHandle::getName));
 
-            OrcPredicate orcPredicate = toOrcPredicate(domainPredicate, physicalColumns, typeManager, domainCompactionThreshold, orcBloomFiltersEnabled);
+            Map<Integer, HiveCoercer> mappedCoercers = coercers.entrySet().stream().collect(toImmutableMap(entry -> indexMapping.get(entry.getKey()), Map.Entry::getValue));
+
+            OrcPredicate orcPredicate = toOrcPredicate(domainPredicate, physicalColumns, mappedCoercers, typeManager, domainCompactionThreshold, orcBloomFiltersEnabled);
 
             Map<String, Integer> columnIndices = ImmutableBiMap.copyOf(columnNames).inverse();
-            Map<Integer, Map<Subfield, TupleDomainFilter>> tupleDomainFilters = toTupleDomainFilters(domainPredicate, columnIndices);
+            Map<Integer, Map<Subfield, TupleDomainFilter>> tupleDomainFilters = toTupleDomainFilters(domainPredicate, columnIndices, mappedCoercers);
 
             List<Integer> outputIndices = outputColumns.stream().map(indexMapping::get).collect(toImmutableList());
             Map<Integer, List<Subfield>> requiredSubfields = collectRequiredSubfields(physicalColumns, outputIndices, tupleDomainFilters, remainingPredicate, columnIndices, functionResolution, rowExpressionService, session);
@@ -333,8 +335,6 @@ public class OrcSelectivePageSourceFactory
 
             List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
 
-            Map<Integer, Function<Block, Block>> mappedCoercers = coercers.entrySet().stream().collect(toImmutableMap(entry -> indexMapping.get(entry.getKey()), Map.Entry::getValue));
-
             OrcSelectiveRecordReader recordReader = reader.createSelectiveRecordReader(
                     columnTypes,
                     outputIndices,
@@ -343,7 +343,7 @@ public class OrcSelectivePageSourceFactory
                     inputs.inverse(),
                     requiredSubfields,
                     typedPrefilledValues,
-                    mappedCoercers,
+                    Maps.transformValues(mappedCoercers, Function.class::cast),
                     orcPredicate,
                     start,
                     length,
@@ -511,14 +511,19 @@ public class OrcSelectivePageSourceFactory
         }
     }
 
-    private static Map<Integer, Map<Subfield, TupleDomainFilter>> toTupleDomainFilters(TupleDomain<Subfield> domainPredicate, Map<String, Integer> columnIndices)
+    private static Map<Integer, Map<Subfield, TupleDomainFilter>> toTupleDomainFilters(TupleDomain<Subfield> domainPredicate, Map<String, Integer> columnIndices, Map<Integer, HiveCoercer> coercers)
     {
         Map<Subfield, TupleDomainFilter> filtersBySubfield = Maps.transformValues(domainPredicate.getDomains().get(), TupleDomainFilterUtils::toFilter);
 
         Map<Integer, Map<Subfield, TupleDomainFilter>> filtersByColumn = new HashMap<>();
         for (Map.Entry<Subfield, TupleDomainFilter> entry : filtersBySubfield.entrySet()) {
-            int columnIndex = columnIndices.get(entry.getKey().getRootName());
-            filtersByColumn.computeIfAbsent(columnIndex, k -> new HashMap<>()).put(entry.getKey(), entry.getValue());
+            Subfield subfield = entry.getKey();
+            int columnIndex = columnIndices.get(subfield.getRootName());
+            TupleDomainFilter filter = entry.getValue();
+            if (coercers.containsKey(columnIndex)) {
+                filter = coercers.get(columnIndex).toCoercingFilter(filter);
+            }
+            filtersByColumn.computeIfAbsent(columnIndex, k -> new HashMap<>()).put(subfield, filter);
         }
 
         return ImmutableMap.copyOf(filtersByColumn);
@@ -529,7 +534,7 @@ public class OrcSelectivePageSourceFactory
         return subfield.getPath().isEmpty();
     }
 
-    private static OrcPredicate toOrcPredicate(TupleDomain<Subfield> domainPredicate, List<HiveColumnHandle> physicalColumns, TypeManager typeManager, int domainCompactionThreshold, boolean orcBloomFiltersEnabled)
+    private static OrcPredicate toOrcPredicate(TupleDomain<Subfield> domainPredicate, List<HiveColumnHandle> physicalColumns, Map<Integer, HiveCoercer> coercers, TypeManager typeManager, int domainCompactionThreshold, boolean orcBloomFiltersEnabled)
     {
         ImmutableList.Builder<TupleDomainOrcPredicate.ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
         for (HiveColumnHandle column : physicalColumns) {
@@ -540,7 +545,10 @@ public class OrcSelectivePageSourceFactory
         }
 
         Map<String, HiveColumnHandle> columnsByName = uniqueIndex(physicalColumns, HiveColumnHandle::getName);
-        TupleDomain<HiveColumnHandle> entireColumnDomains = domainPredicate.transform(subfield -> isEntireColumn(subfield) ? columnsByName.get(subfield.getRootName()) : null);
+        TupleDomain<HiveColumnHandle> entireColumnDomains = domainPredicate
+                .transform(subfield -> isEntireColumn(subfield) ? columnsByName.get(subfield.getRootName()) : null)
+                // filter out columns with coercions to avoid type mismatch errors between column stats in the file and values domain
+                .transform(column -> coercers.containsKey(column.getHiveColumnIndex()) ? null : column);
         return new TupleDomainOrcPredicate<>(entireColumnDomains, columnReferences.build(), orcBloomFiltersEnabled, Optional.of(domainCompactionThreshold));
     }
 
