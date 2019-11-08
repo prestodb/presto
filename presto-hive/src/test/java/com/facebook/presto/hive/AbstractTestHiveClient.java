@@ -1325,12 +1325,25 @@ public abstract class AbstractTestHiveClient
                 RowExpression predicate = ROW_EXPRESSION_SERVICE.getDomainTranslator().toPredicate(tupleDomain.transform(AbstractTestHiveClient::toVariable));
                 ConnectorTableLayoutHandle layoutHandle = metadata.pushdownFilter(session, tableHandle, predicate, Optional.empty()).getLayout().getHandle();
 
+                // Read all columns with a filter
                 MaterializedResult filteredResult = readTable(transaction, tableHandle, layoutHandle, columnHandles, session, OptionalInt.empty(), Optional.empty());
 
                 Predicate<MaterializedRow> rowPredicate = afterResultPredicates.get(i);
                 List<MaterializedRow> expectedRows = dataAfter.getMaterializedRows().stream().filter(rowPredicate::apply).collect(toList());
 
                 assertEqualsIgnoreOrder(filteredResult.getMaterializedRows(), expectedRows);
+
+                // Read all columns except the ones used in the filter
+                Set<String> filterColumnNames = tupleDomain.getDomains().get().keySet().stream()
+                        .map(ColumnMetadata::getName)
+                        .collect(toImmutableSet());
+
+                List<ColumnHandle> nonFilterColumns = columnHandles.stream()
+                        .filter(column -> !filterColumnNames.contains(((HiveColumnHandle) column).getName()))
+                        .collect(toList());
+
+                int resultCount = readTable(transaction, tableHandle, layoutHandle, nonFilterColumns, session, OptionalInt.empty(), Optional.empty()).getRowCount();
+                assertEquals(resultCount, expectedRows.size());
             }
 
             transaction.commit();
