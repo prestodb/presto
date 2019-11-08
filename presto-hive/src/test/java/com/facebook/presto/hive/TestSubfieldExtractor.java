@@ -23,14 +23,18 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
+import com.facebook.presto.spi.type.NamedTypeSignature;
+import com.facebook.presto.spi.type.RowFieldName;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
@@ -38,13 +42,18 @@ import static com.facebook.presto.metadata.MetadataManager.createTestMetadataMan
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static org.testng.Assert.assertTrue;
 
 public class TestSubfieldExtractor
 {
@@ -86,6 +95,33 @@ public class TestSubfieldExtractor
         assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 4), constant(Slices.utf8Slice("foo"), VARCHAR)), "c_struct.e[\"foo\"]");
 
         assertEquals(subfieldExtractor.extract(constant(2L, INTEGER)), Optional.empty());
+    }
+
+    @Test
+    public void testToRowExpression()
+    {
+        assertToRowExpression("a", DATE);
+        assertToRowExpression("a[1]", new ArrayType(INTEGER));
+        assertToRowExpression("a.b", rowType(ImmutableMap.of("b", VARCHAR, "c", DOUBLE)));
+        assertToRowExpression("a[1]", mapType(BIGINT, DOUBLE));
+        assertToRowExpression("a[\"hello\"]", mapType(VARCHAR, REAL));
+        assertToRowExpression("a[\"hello\"].b", mapType(VARCHAR, rowType(ImmutableMap.of("b", BIGINT))));
+        assertToRowExpression("a[\"hello\"].b.c", mapType(VARCHAR, rowType(ImmutableMap.of("b", rowType(ImmutableMap.of("c", BIGINT))))));
+    }
+
+    private void assertToRowExpression(String subfieldPath, Type type)
+    {
+        Subfield subfield = new Subfield(subfieldPath);
+        Optional<Subfield> recreatedSubfield = subfieldExtractor.extract(subfieldExtractor.toRowExpression(subfield, type));
+        assertTrue(recreatedSubfield.isPresent());
+        assertEquals(recreatedSubfield.get(), subfield);
+    }
+
+    private static RowType rowType(Map<String, Type> fields)
+    {
+        return HiveTestUtils.rowType(fields.entrySet().stream()
+                .map(entry -> new NamedTypeSignature(Optional.of(new RowFieldName(entry.getKey(), false)), entry.getValue().getTypeSignature()))
+                .collect(toImmutableList()));
     }
 
     private void assertSubfieldExtract(RowExpression expression, String subfield)
