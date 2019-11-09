@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
@@ -24,6 +27,7 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +44,15 @@ import static org.testng.Assert.assertEquals;
 
 public class TestHiveUtil
 {
+    public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
+    {
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
+        return new FileHiveMetastore(hdfsEnvironment, catalogDirectory.toURI().toString(), "test");
+    }
+
     @Test
     public void testParseHiveTimestamp()
     {

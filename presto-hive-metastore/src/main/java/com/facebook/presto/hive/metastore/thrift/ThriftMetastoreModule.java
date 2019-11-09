@@ -16,7 +16,7 @@ package com.facebook.presto.hive.metastore.thrift;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.ForRecordingHiveMetastore;
-import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.RecordingHiveMetastore;
@@ -47,7 +47,7 @@ public class ThriftMetastoreModule
 
         binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
 
-        if (buildConfigObject(HiveClientConfig.class).getRecordingPath() != null) {
+        if (buildConfigObject(MetastoreClientConfig.class).getRecordingPath() != null) {
             binder.bind(ExtendedHiveMetastore.class)
                     .annotatedWith(ForRecordingHiveMetastore.class)
                     .to(BridgingHiveMetastore.class)

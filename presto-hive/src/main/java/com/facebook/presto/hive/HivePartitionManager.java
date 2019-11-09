@@ -47,7 +47,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
-import org.apache.hadoop.hive.common.FileUtils;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -70,6 +69,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugM
 import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreTableBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
@@ -328,7 +329,7 @@ public class HivePartitionManager
                 Object value = domain.getNullableSingleValue();
                 Type type = domain.getType();
                 if (value == null) {
-                    filter.add(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION);
+                    filter.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
                 }
                 else if (type instanceof CharType) {
                     Slice slice = (Slice) value;
@@ -400,33 +401,5 @@ public class HivePartitionManager
         }
         Map<ColumnHandle, NullableValue> values = builder.build();
         return new HivePartition(tableName, partitionName, values);
-    }
-
-    public static List<String> extractPartitionValues(String partitionName)
-    {
-        ImmutableList.Builder<String> values = ImmutableList.builder();
-
-        boolean inKey = true;
-        int valueStart = -1;
-        for (int i = 0; i < partitionName.length(); i++) {
-            char current = partitionName.charAt(i);
-            if (inKey) {
-                checkArgument(current != '/', "Invalid partition spec: %s", partitionName);
-                if (current == '=') {
-                    inKey = false;
-                    valueStart = i + 1;
-                }
-            }
-            else if (current == '/') {
-                checkArgument(valueStart != -1, "Invalid partition spec: %s", partitionName);
-                values.add(FileUtils.unescapePathName(partitionName.substring(valueStart, i)));
-                inKey = true;
-                valueStart = -1;
-            }
-        }
-        checkArgument(!inKey, "Invalid partition spec: %s", partitionName);
-        values.add(FileUtils.unescapePathName(partitionName.substring(valueStart, partitionName.length())));
-
-        return values.build();
     }
 }

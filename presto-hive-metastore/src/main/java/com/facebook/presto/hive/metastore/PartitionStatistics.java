@@ -12,9 +12,9 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.metastore.HiveColumnStatistics;
+import com.facebook.presto.hive.HiveBasicStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;

@@ -15,9 +15,8 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveBucketProperty;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.PartitionStatistics;
+import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.SortingColumn.Order;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -105,7 +104,7 @@ public class TestRecordingHiveMetastore
     public void testRecordingHiveMetastore()
             throws IOException
     {
-        HiveClientConfig recordingHiveClientConfig = new HiveClientConfig()
+        MetastoreClientConfig recordingHiveClientConfig = new MetastoreClientConfig()
                 .setRecordingPath(File.createTempFile("recording_test", "json").getAbsolutePath())
                 .setRecordingDuration(new Duration(10, TimeUnit.MINUTES));
 
@@ -114,7 +113,7 @@ public class TestRecordingHiveMetastore
         recordingHiveMetastore.dropDatabase("other_database");
         recordingHiveMetastore.writeRecording();
 
-        HiveClientConfig replayingHiveClientConfig = recordingHiveClientConfig
+        MetastoreClientConfig replayingHiveClientConfig = recordingHiveClientConfig
                 .setReplay(true);
 
         recordingHiveMetastore = new RecordingHiveMetastore(new UnimplementedHiveMetastore(), replayingHiveClientConfig);

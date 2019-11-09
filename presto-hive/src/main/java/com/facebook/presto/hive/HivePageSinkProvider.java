@@ -77,7 +77,8 @@ public class HivePageSinkProvider
             ExtendedHiveMetastore metastore,
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
-            HiveClientConfig config,
+            HiveClientConfig hiveClientConfig,
+            MetastoreClientConfig metastoreClientConfig,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             NodeManager nodeManager,
@@ -94,19 +95,19 @@ public class HivePageSinkProvider
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
-        this.maxOpenSortFiles = config.getMaxOpenSortFiles();
-        this.writerSortBufferSize = requireNonNull(config.getWriterSortBufferSize(), "writerSortBufferSize is null");
-        this.immutablePartitions = config.isImmutablePartitions();
+        this.maxOpenPartitions = hiveClientConfig.getMaxPartitionsPerWriter();
+        this.maxOpenSortFiles = hiveClientConfig.getMaxOpenSortFiles();
+        this.writerSortBufferSize = requireNonNull(hiveClientConfig.getWriterSortBufferSize(), "writerSortBufferSize is null");
+        this.immutablePartitions = hiveClientConfig.isImmutablePartitions();
         this.locationService = requireNonNull(locationService, "locationService is null");
-        this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(config.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));
+        this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(hiveClientConfig.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.eventClient = requireNonNull(eventClient, "eventClient is null");
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "stats is null");
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
-        this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
+        this.perTransactionMetastoreCacheMaximumSize = metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize();
     }
 
     @Override

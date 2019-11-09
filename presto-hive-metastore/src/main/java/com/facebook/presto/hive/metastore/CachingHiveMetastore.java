@@ -14,9 +14,8 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.ForCachingHiveMetastore;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.PartitionStatistics;
+import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
@@ -47,7 +46,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.metastore.HivePartitionName.hivePartitionName;
 import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
 import static com.facebook.presto.hive.metastore.PartitionFilter.partitionFilter;
@@ -88,14 +87,14 @@ public class CachingHiveMetastore
     private final LoadingCache<PrestoPrincipal, Set<RoleGrant>> roleGrantsCache;
 
     @Inject
-    public CachingHiveMetastore(@ForCachingHiveMetastore ExtendedHiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
+    public CachingHiveMetastore(@ForCachingHiveMetastore ExtendedHiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, MetastoreClientConfig metastoreClientConfig)
     {
         this(
                 delegate,
                 executor,
-                hiveClientConfig.getMetastoreCacheTtl(),
-                hiveClientConfig.getMetastoreRefreshInterval(),
-                hiveClientConfig.getMetastoreCacheMaximumSize());
+                metastoreClientConfig.getMetastoreCacheTtl(),
+                metastoreClientConfig.getMetastoreRefreshInterval(),
+                metastoreClientConfig.getMetastoreCacheMaximumSize());
     }
 
     public CachingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, Duration cacheTtl, Duration refreshInterval, long maximumSize)

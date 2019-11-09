@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.ErrorType;
 
 import static com.facebook.presto.spi.ErrorType.EXTERNAL;
+import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 
 public enum MetastoreErrorCode
@@ -26,9 +27,15 @@ public enum MetastoreErrorCode
     HIVE_METASTORE_ERROR(0, EXTERNAL),
     HIVE_TABLE_OFFLINE(2, USER_ERROR),
     HIVE_PARTITION_OFFLINE(6, USER_ERROR),
+    HIVE_INVALID_PARTITION_VALUE(10, EXTERNAL),
     HIVE_INVALID_METADATA(12, EXTERNAL),
+    HIVE_PATH_ALREADY_EXISTS(15, EXTERNAL),
     HIVE_FILESYSTEM_ERROR(16, EXTERNAL),
     HIVE_UNSUPPORTED_FORMAT(19, EXTERNAL),
+    HIVE_PARTITION_DROPPED_DURING_QUERY(31, EXTERNAL),
+    HIVE_TABLE_DROPPED_DURING_QUERY(35, EXTERNAL),
+    HIVE_CORRUPTED_COLUMN_STATISTICS(37, EXTERNAL),
+    HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE(39, INTERNAL_ERROR),
     /* Shared error code with HiveErrorCode */;
 
     private final ErrorCode errorCode;

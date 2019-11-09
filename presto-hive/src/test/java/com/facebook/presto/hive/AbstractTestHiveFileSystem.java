@@ -177,13 +177,14 @@ public abstract class AbstractTestHiveFileSystem
         metastoreClient = new TestingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster)),
                 executor,
-                config,
+                metastoreClientConfig,
                 getBasePath(),
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 config,
+                metastoreClientConfig,
                 metastoreClient,
                 hdfsEnvironment,
                 hivePartitionManager,
@@ -224,6 +225,7 @@ public abstract class AbstractTestHiveFileSystem
                 new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig())),
                 TYPE_MANAGER,
                 config,
+                metastoreClientConfig,
                 locationService,
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
@@ -473,9 +475,9 @@ public abstract class AbstractTestHiveFileSystem
         private final Path basePath;
         private final HdfsEnvironment hdfsEnvironment;
 
-        public TestingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, HiveClientConfig hiveClientConfig, Path basePath, HdfsEnvironment hdfsEnvironment)
+        public TestingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, MetastoreClientConfig metastoreClientConfig, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
-            super(delegate, executor, hiveClientConfig);
+            super(delegate, executor, metastoreClientConfig);
             this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }
