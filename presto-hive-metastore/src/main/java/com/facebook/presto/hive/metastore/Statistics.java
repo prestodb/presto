@@ -11,16 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.util;
+package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveBasicStatistics;
-import com.facebook.presto.hive.PartitionStatistics;
-import com.facebook.presto.hive.metastore.BooleanStatistics;
-import com.facebook.presto.hive.metastore.DateStatistics;
-import com.facebook.presto.hive.metastore.DecimalStatistics;
-import com.facebook.presto.hive.metastore.DoubleStatistics;
-import com.facebook.presto.hive.metastore.HiveColumnStatistics;
-import com.facebook.presto.hive.metastore.IntegerStatistics;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -48,11 +41,11 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
-import static com.facebook.presto.hive.HiveWriteUtils.createPartitionValues;
-import static com.facebook.presto.hive.util.Statistics.ReduceOperator.ADD;
-import static com.facebook.presto.hive.util.Statistics.ReduceOperator.MAX;
-import static com.facebook.presto.hive.util.Statistics.ReduceOperator.MIN;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.createPartitionValues;
+import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.ADD;
+import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.MAX;
+import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.MIN;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;

@@ -65,6 +65,7 @@ public class HiveMetadataFactory
     @SuppressWarnings("deprecation")
     public HiveMetadataFactory(
             HiveClientConfig hiveClientConfig,
+            MetastoreClientConfig metastoreClientConfig,
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
@@ -92,7 +93,7 @@ public class HiveMetadataFactory
                 hiveClientConfig.isSkipTargetCleanupOnRollback(),
                 hiveClientConfig.getWritesToNonManagedTablesEnabled(),
                 hiveClientConfig.getCreatesOfNonManagedTablesEnabled(),
-                hiveClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
+                metastoreClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 typeManager,
                 locationService,
                 functionResolution,

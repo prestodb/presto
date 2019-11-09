@@ -28,7 +28,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static com.facebook.presto.hive.TestHiveUtil.createTestingFileHiveMetastore;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;

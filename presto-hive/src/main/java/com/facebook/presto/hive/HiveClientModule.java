@@ -167,10 +167,10 @@ public class HiveClientModule
     @ForCachingHiveMetastore
     @Singleton
     @Provides
-    public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
+    public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, MetastoreClientConfig metastoreClientConfig)
     {
         return newFixedThreadPool(
-                hiveClientConfig.getMaxMetastoreRefreshThreads(),
+                metastoreClientConfig.getMaxMetastoreRefreshThreads(),
                 daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
     }
 
