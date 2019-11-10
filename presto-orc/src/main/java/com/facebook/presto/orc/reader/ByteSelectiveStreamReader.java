@@ -326,7 +326,7 @@ public class ByteSelectiveStreamReader
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (allNulls) {
-            return new RunLengthEncodedBlock(NULL_BLOCK, outputPositionCount);
+            return new RunLengthEncodedBlock(NULL_BLOCK, positionCount);
         }
 
         boolean includeNulls = nullsAllowed && presentStream != null;
