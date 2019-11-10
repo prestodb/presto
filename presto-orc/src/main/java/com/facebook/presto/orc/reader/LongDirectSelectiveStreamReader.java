@@ -231,7 +231,7 @@ public class LongDirectSelectiveStreamReader
         checkState(positionCount <= outputPositionCount, "Not enough values");
 
         if (allNulls) {
-            return new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), outputPositionCount);
+            return new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount);
         }
 
         return buildOutputBlock(positions, positionCount, nullsAllowed && presentStream != null);
@@ -245,7 +245,7 @@ public class LongDirectSelectiveStreamReader
         checkState(positionCount <= outputPositionCount, "Not enough values");
 
         if (allNulls) {
-            return newLease(new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), outputPositionCount));
+            return newLease(new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount));
         }
 
         return buildOutputBlockView(positions, positionCount, nullsAllowed && presentStream != null);
