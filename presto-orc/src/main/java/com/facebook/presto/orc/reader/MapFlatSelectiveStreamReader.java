@@ -511,7 +511,7 @@ public class MapFlatSelectiveStreamReader
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (allNulls) {
-            return newLease(createNullBlock(outputType, outputPositionCount));
+            return newLease(createNullBlock(outputType, positionCount));
         }
 
         boolean includeNulls = nullsAllowed && presentStream != null;
