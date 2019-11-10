@@ -249,7 +249,7 @@ public abstract class AbstractDecimalSelectiveStreamReader
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (allNulls) {
-            return new RunLengthEncodedBlock(nullBlock, outputPositionCount);
+            return new RunLengthEncodedBlock(nullBlock, positionCount);
         }
 
         boolean includeNulls = nullsAllowed && presentStream != null;
@@ -282,7 +282,7 @@ public abstract class AbstractDecimalSelectiveStreamReader
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (allNulls) {
-            return newLease(new RunLengthEncodedBlock(nullBlock, outputPositionCount));
+            return newLease(new RunLengthEncodedBlock(nullBlock, positionCount));
         }
 
         boolean includeNulls = nullsAllowed && presentStream != null;
