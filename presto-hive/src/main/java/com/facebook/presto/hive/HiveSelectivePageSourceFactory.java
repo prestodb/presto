@@ -40,6 +40,7 @@ public interface HiveSelectivePageSourceFactory
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,           // key is hiveColumnIndex
             Map<Integer, HiveCoercer> coercers,             // key is hiveColumnIndex
+            Optional<BucketAdaptation> bucketAdaptation,
             List<Integer> outputColumns,                    // element is hiveColumnIndex
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,               // refers to columns by name; already optimized

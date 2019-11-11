@@ -1988,7 +1988,6 @@ public abstract class AbstractTestHiveClient
             ConnectorSession session = newSession();
 
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-
             // read entire table
             List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
                     .addAll(metadata.getColumnHandles(session, tableHandle).values())
@@ -2004,12 +2003,25 @@ public abstract class AbstractTestHiveClient
             assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(0, 1, 2, 3, 4, 5, 6, 7), rowCount);
 
             // read single bucket (table/logical bucket)
+
+            NullableValue singleBucket = NullableValue.of(INTEGER, 6L);
+            ConnectorTableLayoutHandle layoutHandle;
+            if (HiveSessionProperties.isPushdownFilterEnabled(session)) {
+                TupleDomain<VariableReferenceExpression> bucketDomain = TupleDomain.fromFixedValues(ImmutableMap.of(new VariableReferenceExpression(BUCKET_COLUMN_NAME, BIGINT), singleBucket));
+
+                RowExpression predicate = ROW_EXPRESSION_SERVICE.getDomainTranslator().toPredicate(bucketDomain);
+                layoutHandle = metadata.pushdownFilter(session, tableHandle, predicate, Optional.empty()).getLayout().getHandle();
+            }
+            else {
+                layoutHandle = getOnlyElement(metadata.getTableLayouts(session, tableHandle, new Constraint<>(TupleDomain.fromFixedValues(ImmutableMap.of(bucketColumnHandle(), singleBucket))), Optional.empty())).getTableLayout().getHandle();
+            }
+
             result = readTable(
                     transaction,
                     tableHandle,
+                    layoutHandle,
                     columnHandles,
                     session,
-                    TupleDomain.fromFixedValues(ImmutableMap.of(bucketColumnHandle(), NullableValue.of(INTEGER, 6L))),
                     OptionalInt.empty(),
                     Optional.empty());
             assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(6), rowCount);
@@ -2023,9 +2035,9 @@ public abstract class AbstractTestHiveClient
             result = readTable(
                     transaction,
                     tableHandle,
+                    layoutHandle,
                     columnHandles,
                     session,
-                    TupleDomain.fromFixedValues(ImmutableMap.of(bucketColumnHandle(), NullableValue.of(INTEGER, 6L))),
                     OptionalInt.empty(),
                     Optional.empty());
             assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(6), rowCount);

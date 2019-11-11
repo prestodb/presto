@@ -17,7 +17,6 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.InMemoryHiveMetastore;
 import com.google.common.collect.ImmutableSet;
-import org.testng.SkipException;
 
 import java.io.File;
 
@@ -56,11 +55,5 @@ public class TestHiveClientInMemoryMetastoreWithFilterPushdown
     public void testTransactionDeleteInsert()
     {
         // InMemoryHiveMetastore does not check whether partition exist in createPartition and dropPartition
-    }
-
-    @Override
-    public void testBucketedTableEvolution()
-    {
-        throw new SkipException("TODO Add support for bucket conversion");
     }
 }
