@@ -636,7 +636,7 @@ public class HiveMetadata
         HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) tableLayoutHandle.get();
 
         Set<ColumnHandle> allColumnHandles = ImmutableSet.<ColumnHandle>builder()
-                .addAll(columnHandles)
+                .addAll(columnHandles.stream().map(columnHandle -> columnHandle.withRequiredSubfields(ImmutableList.of())).collect(toImmutableList()))
                 .addAll(hiveLayoutHandle.getPredicateColumns().values())
                 .build();
 

@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -61,6 +62,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.NESTED_COLUMNS_FILT
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteExchangesCount;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.predicate.Domain.multipleValues;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -98,7 +100,7 @@ public class TestHiveLogicalPlanner
 {
     public TestHiveLogicalPlanner()
     {
-        super(() -> createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM), ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), Optional.empty()));
+        super(() -> createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM), ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), Optional.of(Paths.get("~/aria/test/"))));
     }
 
     @Test
@@ -637,6 +639,25 @@ public class TestHiveLogicalPlanner
         }
     }
 
+    @Test
+    public void test()
+    {
+        try {
+            getQueryRunner().execute("CREATE TABLE lineitem_ex AS\n" +
+                    "SELECT orderkey, MAP(ARRAY[1, 2, 3], ARRAY[orderkey, partkey, suppkey]) as keys\n" +
+                    "FROM lineitem");
+
+            assertPlan(pushdownFilterEnabled(), "SELECT keys[1] FROM orders o, lineitem_ex t WHERE o.orderkey = t.orderkey AND cardinality(keys) > 1",
+                   anyTree(node(JoinNode.class,
+                           anyTree(tableScan("orders", ImmutableMap.of())),
+                           anyTree(tableScan("lineitem_ex", ImmutableMap.of())))));
+
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE lineitem_ex");
+        }
+    }
+
     private static Set<Subfield> toSubfields(String... subfieldPaths)
     {
         return Arrays.stream(subfieldPaths)
@@ -667,6 +688,7 @@ public class TestHiveLogicalPlanner
     private void assertPushdownFilterOnSubfields(String query, Map<Subfield, Domain> predicateDomains)
     {
         String tableName = "test_pushdown_filter_on_subfields";
+
         assertPlan(pushdownFilterAndNestedColumnFilterEnabled(), query,
                 output(exchange(PlanMatchPattern.tableScan(tableName))),
                 plan -> assertTableLayout(
