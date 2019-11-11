@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -182,8 +183,7 @@ public class HivePageSourceProvider
                 path,
                 split.getTableBucketNumber());
 
-        Optional<BucketAdaptation> bucketAdaptation = split.getBucketConversion().map(conversion -> toBucketAdaptation(conversion, columnMappings, split.getTableBucketNumber()));
-        checkArgument(!bucketAdaptation.isPresent(), "Bucket conversion is not supported yet");
+        Optional<BucketAdaptation> bucketAdaptation = split.getBucketConversion().map(conversion -> toBucketAdaptation(conversion, columnMappings, split.getTableBucketNumber(), mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex()));
 
         Map<Integer, String> prefilledValues = columnMappings.stream()
                 .filter(mapping -> mapping.getKind() == ColumnMappingKind.PREFILLED)
@@ -213,6 +213,7 @@ public class HivePageSourceProvider
                     toColumnHandles(columnMappings, true),
                     prefilledValues,
                     coercers,
+                    bucketAdaptation,
                     outputColumns,
                     layout.getDomainPredicate(),
                     optimizedRemainingPredicate,
@@ -261,7 +262,7 @@ public class HivePageSourceProvider
                 tableBucketNumber);
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
-        Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber));
+        Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber, ColumnMapping::getIndex));
 
         for (HiveBatchPageSourceFactory pageSourceFactory : pageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -355,14 +356,15 @@ public class HivePageSourceProvider
         return Optional.empty();
     }
 
-    private static BucketAdaptation toBucketAdaptation(BucketConversion conversion, List<ColumnMapping> columnMappings, OptionalInt tableBucketNumber)
+    private static BucketAdaptation toBucketAdaptation(BucketConversion conversion, List<ColumnMapping> columnMappings, OptionalInt tableBucketNumber, Function<ColumnMapping, Integer> bucketColumnIndexProducer)
     {
         Map<Integer, ColumnMapping> hiveIndexToBlockIndex = uniqueIndex(columnMappings, columnMapping -> columnMapping.getHiveColumnHandle().getHiveColumnIndex());
         int[] bucketColumnIndices = conversion.getBucketColumnHandles().stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .map(hiveIndexToBlockIndex::get)
-                .mapToInt(ColumnMapping::getIndex)
+                .mapToInt(bucketColumnIndexProducer::apply)
                 .toArray();
+
         List<HiveType> bucketColumnHiveTypes = conversion.getBucketColumnHandles().stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .map(hiveIndexToBlockIndex::get)
@@ -523,48 +525,5 @@ public class HivePageSourceProvider
         REGULAR,
         PREFILLED,
         INTERIM,
-    }
-
-    public static class BucketAdaptation
-    {
-        private final int[] bucketColumnIndices;
-        private final List<HiveType> bucketColumnHiveTypes;
-        private final int tableBucketCount;
-        private final int partitionBucketCount;
-        private final int bucketToKeep;
-
-        public BucketAdaptation(int[] bucketColumnIndices, List<HiveType> bucketColumnHiveTypes, int tableBucketCount, int partitionBucketCount, int bucketToKeep)
-        {
-            this.bucketColumnIndices = bucketColumnIndices;
-            this.bucketColumnHiveTypes = bucketColumnHiveTypes;
-            this.tableBucketCount = tableBucketCount;
-            this.partitionBucketCount = partitionBucketCount;
-            this.bucketToKeep = bucketToKeep;
-        }
-
-        public int[] getBucketColumnIndices()
-        {
-            return bucketColumnIndices;
-        }
-
-        public List<HiveType> getBucketColumnHiveTypes()
-        {
-            return bucketColumnHiveTypes;
-        }
-
-        public int getTableBucketCount()
-        {
-            return tableBucketCount;
-        }
-
-        public int getPartitionBucketCount()
-        {
-            return partitionBucketCount;
-        }
-
-        public int getBucketToKeep()
-        {
-            return bucketToKeep;
-        }
     }
 }

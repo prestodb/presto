@@ -58,7 +58,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
-final class HiveBucketing
+public final class HiveBucketing
 {
     private static final Set<HiveType> SUPPORTED_TYPES_FOR_BUCKET_FILTER = ImmutableSet.of(
             HiveType.HIVE_BYTE,

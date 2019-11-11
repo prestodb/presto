@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.hive.BucketAdaptation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -21,6 +22,7 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -39,6 +41,7 @@ import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -46,6 +49,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.Predicate;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -65,6 +69,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -72,6 +77,7 @@ import javax.inject.Inject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -88,8 +94,10 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
@@ -189,6 +197,7 @@ public class OrcSelectivePageSourceFactory
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
             Map<Integer, HiveCoercer> coercers,
+            Optional<BucketAdaptation> bucketAdaptation,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
@@ -216,6 +225,7 @@ public class OrcSelectivePageSourceFactory
                 columns,
                 prefilledValues,
                 coercers,
+                bucketAdaptation,
                 outputColumns,
                 domainPredicate,
                 remainingPredicate,
@@ -245,6 +255,7 @@ public class OrcSelectivePageSourceFactory
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
             Map<Integer, HiveCoercer> coercers,
+            Optional<BucketAdaptation> bucketAdaptation,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
@@ -333,7 +344,17 @@ public class OrcSelectivePageSourceFactory
                             hiveColumnIndex -> new VariableReferenceExpression(columnNames.get(hiveColumnIndex), columnTypes.get(hiveColumnIndex)),
                             hiveColumnIndex -> new InputReferenceExpression(inputs.get(hiveColumnIndex), columnTypes.get(hiveColumnIndex))));
 
-            List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
+            Optional<BucketAdapter> bucketAdapter = bucketAdaptation.map(adaptation -> new BucketAdapter(
+                    Arrays.stream(adaptation.getBucketColumnIndices())
+                            .map(indexMapping::get)
+                            .map(inputs::get)
+                            .toArray(),
+                    adaptation.getBucketColumnHiveTypes(),
+                    adaptation.getTableBucketCount(),
+                    adaptation.getPartitionBucketCount(),
+                    adaptation.getBucketToKeep()));
+
+            List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), bucketAdapter, session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
 
             OrcSelectiveRecordReader recordReader = reader.createSelectiveRecordReader(
                     columnTypes,
@@ -556,15 +577,21 @@ public class OrcSelectivePageSourceFactory
      * Split filter expression into groups of conjuncts that depend on the same set of inputs,
      * then compile each group into FilterFunction.
      */
-    private static List<FilterFunction> toFilterFunctions(RowExpression filter, ConnectorSession session, DeterminismEvaluator determinismEvaluator, PredicateCompiler predicateCompiler)
+    private static List<FilterFunction> toFilterFunctions(RowExpression filter, Optional<BucketAdapter> bucketAdapter, ConnectorSession session, DeterminismEvaluator determinismEvaluator, PredicateCompiler predicateCompiler)
     {
+        ImmutableList.Builder<FilterFunction> filterFunctions = ImmutableList.builder();
+
+        bucketAdapter.map(predicate -> new FilterFunction(session, true, predicate))
+                .ifPresent(filterFunctions::add);
+
         if (TRUE_CONSTANT.equals(filter)) {
-            return ImmutableList.of();
+            return filterFunctions.build();
         }
 
         List<RowExpression> conjuncts = extractConjuncts(filter);
         if (conjuncts.size() == 1) {
-            return ImmutableList.of(new FilterFunction(session, determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
+            filterFunctions.add(new FilterFunction(session, determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
+            return filterFunctions.build();
         }
 
         // Use LinkedHashMap to preserve user-specified order of conjuncts. This will be the initial order in which filters are applied.
@@ -573,10 +600,12 @@ public class OrcSelectivePageSourceFactory
             inputsToConjuncts.computeIfAbsent(extractInputs(conjunct), k -> new ArrayList<>()).add(conjunct);
         }
 
-        return inputsToConjuncts.values().stream()
+        inputsToConjuncts.values().stream()
                 .map(expressions -> binaryExpression(AND, expressions))
                 .map(predicate -> new FilterFunction(session, determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), predicate).get()))
-                .collect(toImmutableList());
+                .forEach(filterFunctions::add);
+
+        return filterFunctions.build();
     }
 
     private static Set<Integer> extractInputs(RowExpression expression)
@@ -600,5 +629,45 @@ public class OrcSelectivePageSourceFactory
     private static String splitError(Throwable t, Path path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
+    }
+
+    private static class BucketAdapter
+            implements Predicate
+    {
+        public final int[] bucketColumns;
+        public final int bucketToKeep;
+        public final int tableBucketCount;
+        public final int partitionBucketCount; // for sanity check only
+        private final List<TypeInfo> typeInfoList;
+
+        public BucketAdapter(int[] bucketColumnIndices, List<HiveType> bucketColumnHiveTypes, int tableBucketCount, int partitionBucketCount, int bucketToKeep)
+        {
+            this.bucketColumns = requireNonNull(bucketColumnIndices, "bucketColumnIndices is null");
+            this.bucketToKeep = bucketToKeep;
+            this.typeInfoList = requireNonNull(bucketColumnHiveTypes, "bucketColumnHiveTypes is null").stream()
+                    .map(HiveType::getTypeInfo)
+                    .collect(toImmutableList());
+            this.tableBucketCount = tableBucketCount;
+            this.partitionBucketCount = partitionBucketCount;
+        }
+
+        @Override
+        public int[] getInputChannels()
+        {
+            return bucketColumns;
+        }
+
+        @Override
+        public boolean evaluate(ConnectorSession session, Page page, int position)
+        {
+            int bucket = getHiveBucket(tableBucketCount, typeInfoList, page, position);
+            if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
+                throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
+                        "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",
+                        bucket, bucketToKeep % partitionBucketCount, partitionBucketCount));
+            }
+
+            return bucket == bucketToKeep;
+        }
     }
 }

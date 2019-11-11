@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HivePageSourceProvider.BucketAdaptation;
 import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -283,7 +282,7 @@ public class HivePageSource
         return new Page(page.getPositionCount(), blocks);
     }
 
-    public static class BucketAdapter
+    private static class BucketAdapter
     {
         public final int[] bucketColumns;
         public final int bucketToKeep;

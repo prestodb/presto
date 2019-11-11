@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
+import com.facebook.presto.hive.BucketAdaptation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.FileOpener;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -96,6 +97,7 @@ public class DwrfSelectivePageSourceFactory
             List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
             Map<Integer, HiveCoercer> coercers,
+            Optional<BucketAdaptation> bucketAdaptation,
             List<Integer> outputColumns,
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
@@ -122,6 +124,7 @@ public class DwrfSelectivePageSourceFactory
                 columns,
                 prefilledValues,
                 coercers,
+                bucketAdaptation,
                 outputColumns,
                 domainPredicate,
                 remainingPredicate,
