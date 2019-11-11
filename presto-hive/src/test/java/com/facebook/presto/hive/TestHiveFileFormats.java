@@ -25,6 +25,7 @@ import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
@@ -63,7 +64,6 @@ import java.util.OptionalInt;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -79,6 +79,7 @@ import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -500,7 +501,7 @@ public class TestHiveFileFormats
 
         List<TestColumn> columns = ImmutableList.of(partitionColumn, varcharColumn);
 
-        HiveErrorCode expectedErrorCode = HIVE_INVALID_PARTITION_VALUE;
+        ErrorCode expectedErrorCode = HIVE_INVALID_PARTITION_VALUE.toErrorCode();
         String expectedMessage = "Invalid partition value 'test' for varchar(3) partition key: partition_column";
 
         assertThatFileFormat(RCTEXT)
@@ -572,7 +573,7 @@ public class TestHiveFileFormats
                 mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER))),
                     "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER)), rowBlockOf(ImmutableList.of(INTEGER), 1L))));
 
-        HiveErrorCode expectedErrorCode = HIVE_PARTITION_SCHEMA_MISMATCH;
+        ErrorCode expectedErrorCode = HIVE_PARTITION_SCHEMA_MISMATCH.toErrorCode();
         String expectedMessageFloatDouble = "The column column_name is declared as type double, but the Parquet file declares the column as type FLOAT";
 
         assertThatFileFormat(PARQUET)
@@ -941,14 +942,14 @@ public class TestHiveFileFormats
             return this;
         }
 
-        public FileFormatAssertion isFailingForPageSource(HiveBatchPageSourceFactory pageSourceFactory, HiveErrorCode expectedErrorCode, String expectedMessage)
+        public FileFormatAssertion isFailingForPageSource(HiveBatchPageSourceFactory pageSourceFactory, ErrorCode expectedErrorCode, String expectedMessage)
                 throws Exception
         {
             assertFailure(Optional.of(pageSourceFactory), Optional.empty(), expectedErrorCode, expectedMessage);
             return this;
         }
 
-        public FileFormatAssertion isFailingForRecordCursor(HiveRecordCursorProvider cursorProvider, HiveErrorCode expectedErrorCode, String expectedMessage)
+        public FileFormatAssertion isFailingForRecordCursor(HiveRecordCursorProvider cursorProvider, ErrorCode expectedErrorCode, String expectedMessage)
                 throws Exception
         {
             assertFailure(Optional.empty(), Optional.of(cursorProvider), expectedErrorCode, expectedMessage);
@@ -1001,7 +1002,7 @@ public class TestHiveFileFormats
         private void assertFailure(
                 Optional<HiveBatchPageSourceFactory> pageSourceFactory,
                 Optional<HiveRecordCursorProvider> cursorProvider,
-                HiveErrorCode expectedErrorCode,
+                ErrorCode expectedErrorCode,
                 String expectedMessage)
                 throws Exception
         {
@@ -1010,7 +1011,7 @@ public class TestHiveFileFormats
                 fail("failure is expected");
             }
             catch (PrestoException prestoException) {
-                assertEquals(prestoException.getErrorCode(), expectedErrorCode.toErrorCode());
+                assertEquals(prestoException.getErrorCode(), expectedErrorCode);
                 assertEquals(prestoException.getMessage(), expectedMessage);
             }
         }

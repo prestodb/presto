@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.orc.OrcDataSink;
@@ -202,7 +203,7 @@ public class OrcFileWriterFactory
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
-                            .put(HiveMetadata.PRESTO_QUERY_ID_NAME, session.getQueryId())
+                            .put(SemiTransactionalHiveMetastore.PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .build(),
                     hiveStorageTimeZone,
                     validationInputFactory,

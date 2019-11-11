@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
@@ -36,7 +37,7 @@ public class HivePartitionObjectBuilder
                 .setValues(HivePartitionManager.extractPartitionValues(partitionUpdate.getName()))
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put(HiveMetadata.PRESTO_VERSION_NAME, prestoVersion)
-                        .put(HiveMetadata.PRESTO_QUERY_ID_NAME, session.getQueryId())
+                        .put(SemiTransactionalHiveMetastore.PRESTO_QUERY_ID_NAME, session.getQueryId())
                         .build())
                 .withStorage(storage -> storage
                         .setStorageFormat(HiveSessionProperties.isRespectTableFormat(session) ?

@@ -55,7 +55,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.HiveWriteUtils;
+import com.facebook.presto.hive.MetastoreWriteUtil;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
@@ -409,7 +409,7 @@ public class GlueHiveMetastore
         }
 
         if (database.getLocation().isPresent()) {
-            HiveWriteUtils.createDirectory(hdfsContext, hdfsEnvironment, new Path(database.getLocation().get()));
+            MetastoreWriteUtil.createDirectory(hdfsContext, hdfsEnvironment, new Path(database.getLocation().get()));
         }
     }
 

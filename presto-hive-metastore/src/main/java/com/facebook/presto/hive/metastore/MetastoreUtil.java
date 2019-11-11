@@ -61,9 +61,15 @@ import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 public class MetastoreUtil
 {
     public static final String PRESTO_OFFLINE = "presto_offline";
+    public static final String PRESTO_VIEW_FLAG = "presto_view";
 
     private MetastoreUtil()
     {
+    }
+
+    public static boolean isPrestoView(Table table)
+    {
+        return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
     }
 
     public static boolean isArrayType(Type type)

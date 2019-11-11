@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.rcfile.HdfsRcFileDataSource;
 import com.facebook.presto.rcfile.RcFileDataSource;
@@ -161,7 +162,7 @@ public class RcFileFileWriterFactory
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
-                            .put(HiveMetadata.PRESTO_QUERY_ID_NAME, session.getQueryId())
+                            .put(SemiTransactionalHiveMetastore.PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .build(),
                     validationInputFactory));
         }
