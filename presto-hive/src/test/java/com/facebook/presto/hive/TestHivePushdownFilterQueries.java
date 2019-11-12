@@ -18,6 +18,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -29,8 +30,18 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
+import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.spi.type.StandardTypes.DATE;
+import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
+import static com.facebook.presto.spi.type.StandardTypes.REAL;
+import static com.facebook.presto.spi.type.StandardTypes.SMALLINT;
+import static com.facebook.presto.spi.type.StandardTypes.TINYINT;
+import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public class TestHivePushdownFilterQueries
         extends AbstractTestQueryFramework
@@ -597,6 +608,35 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT info.linenumber FROM lineitem_ex WHERE info.shipdate.ship_day < 15", rewriter);
     }
 
+    @Test
+    public void testAllNullsInStruct()
+    {
+        List<String> types = ImmutableList.of(BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, DOUBLE, REAL, VARCHAR, DATE);
+
+        String query = String.format("SELECT orderkey, CAST(ROW(%s, 1) AS ROW(%s, a INTEGER)) as struct FROM orders",
+                types.stream()
+                        .map(type -> "null")
+                        .collect(joining(", ")),
+                types.stream()
+                        .map(type -> String.format("null_%s %s", type.toLowerCase(getSession().getLocale()), type.toUpperCase()))
+                        .collect(joining(", ")));
+
+        getQueryRunner().execute("CREATE TABLE test_all_nulls_in_struct AS " + query);
+
+        try {
+            for (String type : types) {
+                assertQuery(
+                        format(
+                                "SELECT struct.a, struct.null_%s FROM test_all_nulls_in_struct WHERE struct IS NOT NULL AND orderkey %% 2 = 0",
+                                type.toLowerCase(getSession().getLocale())),
+                        "SELECT 1, null FROM orders WHERE orderkey % 2 = 0");
+            }
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_all_nulls_in_struct");
+        }
+    }
+
     private void assertFilterProject(String filter, String projections)
     {
         assertQueryUsingH2Cte(format("SELECT * FROM lineitem_ex WHERE %s", filter));
@@ -666,11 +706,11 @@ public class TestHivePushdownFilterQueries
         // Tests composing two pushdowns each with a range filter and filter function.
         assertQuery(
                 "WITH data AS (" +
-                    "    SELECT l.suppkey, l.linenumber, l.shipmode, MAX(o.orderdate)" +
-                    "    FROM lineitem l,  orders o WHERE" +
-                    "        o.orderkey = l.orderkey AND linenumber IN (2, 3, 4, 6) AND shipmode LIKE '%AIR%'" +
-                    "        GROUP BY l.suppkey, l.linenumber, l.shipmode)" +
-                    "SELECT COUNT(*) FROM data WHERE suppkey BETWEEN 10 AND 30 AND shipmode LIKE '%REG%'");
+                        "    SELECT l.suppkey, l.linenumber, l.shipmode, MAX(o.orderdate)" +
+                        "    FROM lineitem l,  orders o WHERE" +
+                        "        o.orderkey = l.orderkey AND linenumber IN (2, 3, 4, 6) AND shipmode LIKE '%AIR%'" +
+                        "        GROUP BY l.suppkey, l.linenumber, l.shipmode)" +
+                        "SELECT COUNT(*) FROM data WHERE suppkey BETWEEN 10 AND 30 AND shipmode LIKE '%REG%'");
     }
 
     @Test
