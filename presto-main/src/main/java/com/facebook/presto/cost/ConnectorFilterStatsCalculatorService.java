@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableBiMap;
 
 import java.util.Map;
 
+import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.StatsUtil.toVariableStatsEstimate;
 import static java.util.Objects.requireNonNull;
 
@@ -52,6 +53,11 @@ public class ConnectorFilterStatsCalculatorService
     {
         PlanNodeStatsEstimate tableStats = toPlanNodeStats(tableStatistics, columnNames, columnTypes);
         PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(tableStats, predicate, session);
+
+        if (filteredStats.isOutputRowCountUnknown()) {
+            filteredStats = tableStats.mapOutputRowCount(sourceRowCount -> tableStats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT);
+        }
+
         return toTableStatistics(filteredStats, ImmutableBiMap.copyOf(columnNames).inverse());
     }
 

@@ -636,14 +636,19 @@ public class HiveMetadata
 
         HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) tableLayoutHandle.get();
 
+        Set<String> columnNames = columnHandles.stream()
+                .map(HiveColumnHandle.class::cast)
+                .map(HiveColumnHandle::getName)
+                .collect(toImmutableSet());
+
         Set<ColumnHandle> allColumnHandles = ImmutableSet.<ColumnHandle>builder()
                 .addAll(columnHandles)
-                .addAll(hiveLayoutHandle.getPredicateColumns().values())
+                .addAll(hiveLayoutHandle.getPredicateColumns().values().stream()
+                        .filter(column -> !columnNames.contains(column.getName()))
+                        .collect(toImmutableList()))
                 .build();
 
-        Map<String, ColumnHandle> allColumns = allColumnHandles.stream()
-                .map(HiveColumnHandle.class::cast)
-                .collect(toImmutableMap(HiveColumnHandle::getName, Function.identity()));
+        Map<String, ColumnHandle> allColumns = Maps.uniqueIndex(allColumnHandles, column -> ((HiveColumnHandle) column).getName());
 
         Map<String, Type> allColumnTypes = allColumns.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
