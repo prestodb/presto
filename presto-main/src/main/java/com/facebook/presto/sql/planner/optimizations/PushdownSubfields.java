@@ -75,6 +75,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyUnnest;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
 import static com.facebook.presto.spi.Subfield.allSubscripts;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -361,7 +362,7 @@ public class PushdownSubfields
                 VariableReferenceExpression container = entry.getKey();
                 boolean found = false;
 
-                if (isRowType(container)) {
+                if (isRowType(container) && !isLegacyUnnest(session)) {
                     for (VariableReferenceExpression field : entry.getValue()) {
                         if (context.get().variables.contains(field)) {
                             found = true;
