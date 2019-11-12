@@ -46,12 +46,6 @@ public class TestHivePushdownDistributedQueries
         // Hive connector currently does not support row-by-row delete
     }
 
-    // TODO Enable this test after the fix in HivePartitionManager enforcedConstraint with empty Partition columns
-    @Override
-    public void testGroupByKeyPredicatePushdown()
-    {
-    }
-
     @Test
     public void testExplainOfCreateTableAs()
     {
