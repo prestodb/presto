@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -41,7 +42,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.spi.function.FunctionImplementationType.REMOTE;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -71,15 +74,20 @@ public class PlanRemotePojections
     @Override
     public Result apply(ProjectNode node, Captures captures, Rule.Context context)
     {
+        if (!node.getLocality().equals(UNKNOWN)) {
+            // Already planned
+            return Result.empty();
+        }
         // Fast check for remote functions
         if (node.getAssignments().getExpressions().stream().noneMatch(expression -> expression.accept(new RemoteFunctionChecker(functionManager), null))) {
             // No remote function
-            return Result.empty();
+            return Result.ofPlanNode(new ProjectNode(node.getId(), node.getSource(), node.getAssignments(), LOCAL));
         }
         List<ProjectionContext> projectionContexts = planRemoteAssignments(node.getAssignments(), context.getVariableAllocator());
+        checkState(!projectionContexts.isEmpty(), "Expect non-empty projectionContexts");
         PlanNode rewritten = node.getSource();
         for (ProjectionContext projectionContext : projectionContexts) {
-            rewritten = new ProjectNode(context.getIdAllocator().getNextId(), rewritten, Assignments.builder().putAll(projectionContext.getProjections()).build());
+            rewritten = new ProjectNode(context.getIdAllocator().getNextId(), rewritten, Assignments.builder().putAll(projectionContext.getProjections()).build(), projectionContext.remote ? REMOTE : LOCAL);
         }
         return Result.ofPlanNode(rewritten);
     }
@@ -128,7 +136,7 @@ public class PlanRemotePojections
             ImmutableMultimap<RowExpression, VariableReferenceExpression> reverseProjections = reverseProjectionsBuilder.build();
             if (reverseProjections.keySet().size() == projectionContexts.get(i).getProjections().size() && reverseProjections.keySet().stream().noneMatch(VariableReferenceExpression.class::isInstance)) {
                 // No duplication
-                deduppedProjectionContexts.add(projectionContexts.get(i));
+                deduppedProjectionContexts.add(new ProjectionContext(projections, projectionContexts.get(i).isRemote()));
                 mapper = null;
             }
             else {
@@ -234,7 +242,7 @@ public class PlanRemotePojections
         public List<ProjectionContext> visitCall(CallExpression call, Void context)
         {
             FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(call.getFunctionHandle());
-            boolean local = !functionMetadata.getImplementationType().equals(REMOTE);
+            boolean local = !functionMetadata.getImplementationType().equals(FunctionImplementationType.REMOTE);
 
             // Break function arguments into local and remote projections first
             ImmutableList.Builder<VariableReferenceExpression> newArgumentsBuilder = ImmutableList.builder();

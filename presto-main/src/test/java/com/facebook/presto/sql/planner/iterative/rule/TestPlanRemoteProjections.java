@@ -28,6 +28,7 @@ import com.facebook.presto.sqlfunction.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.sqlfunction.testing.SqlInvokedFunctionTestUtils;
 import com.facebook.presto.testing.InMemoryFunctionNamespaceManager;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -50,6 +51,17 @@ public class TestPlanRemoteProjections
     public TestPlanRemoteProjections()
     {
         FunctionManager functionManager = METADATA.getFunctionManager();
+        functionManager.addTestFunctionNamespace("test", new InMemoryFunctionNamespaceManager(new SqlInvokedFunctionNamespaceManagerConfig()), "unittest.memory");
+        functionManager.createFunction(FUNCTION_REMOTE_FOO_0, true);
+        functionManager.createFunction(FUNCTION_REMOTE_FOO_1, true);
+        functionManager.createFunction(FUNCTION_REMOTE_FOO_2, true);
+        functionManager.createFunction(SqlInvokedFunctionTestUtils.FUNCTION_REMOTE_FOO_3, true);
+    }
+
+    @BeforeClass
+    public void setup()
+    {
+        FunctionManager functionManager = getFunctionManager();
         functionManager.addTestFunctionNamespace("test", new InMemoryFunctionNamespaceManager(new SqlInvokedFunctionNamespaceManagerConfig()), "unittest.memory");
         functionManager.createFunction(FUNCTION_REMOTE_FOO_0, true);
         functionManager.createFunction(FUNCTION_REMOTE_FOO_1, true);
@@ -126,14 +138,7 @@ public class TestPlanRemoteProjections
     @Test
     void testPlanRewrite()
     {
-        FunctionManager functionManager = getFunctionManager();
-        functionManager.addTestFunctionNamespace("test", new InMemoryFunctionNamespaceManager(new SqlInvokedFunctionNamespaceManagerConfig()), "unittest.memory");
-        functionManager.createFunction(FUNCTION_REMOTE_FOO_0, true);
-        functionManager.createFunction(FUNCTION_REMOTE_FOO_1, true);
-        functionManager.createFunction(FUNCTION_REMOTE_FOO_2, true);
-        functionManager.createFunction(SqlInvokedFunctionTestUtils.FUNCTION_REMOTE_FOO_3, true);
-
-        tester().assertThat(new PlanRemotePojections(functionManager))
+        tester().assertThat(new PlanRemotePojections(getFunctionManager()))
                 .on(p -> {
                     p.variable("x", INTEGER);
                     p.variable("y", INTEGER);
@@ -180,5 +185,33 @@ public class TestPlanRemoteProjections
                                                                 .put("abs_16", PlanMatchPattern.expression("abs(x)"))
                                                                 .build(),
                                                         values(ImmutableMap.of("x", 0, "y", 1)))))));
+    }
+
+    @Test
+    void testRemoteFunctionPlanRewrite()
+    {
+        tester().assertThat(new PlanRemotePojections(getFunctionManager()))
+                .on(p -> {
+                    p.variable("x", INTEGER);
+                    p.variable("y", INTEGER);
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("a"), p.rowExpression("unittest.memory.remote_foo(x)"))
+                                    .put(p.variable("b"), p.rowExpression("unittest.memory.remote_foo(unittest.memory.remote_foo())"))
+                                    .build(),
+                            p.values(p.variable("x", INTEGER)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of(
+                                        "a", PlanMatchPattern.expression("a"),
+                                        "b", PlanMatchPattern.expression("unittest.memory.remote_foo(unittest_memory_remote_foo)")),
+                                project(
+                                        ImmutableMap.of(
+                                                "a", PlanMatchPattern.expression("unittest.memory.remote_foo(x)"),
+                                                "unittest_memory_remote_foo", PlanMatchPattern.expression("unittest.memory.remote_foo()")),
+                                        project(
+                                                ImmutableMap.of("x", PlanMatchPattern.expression("x")),
+                                                values(ImmutableMap.of("x", 0))))));
     }
 }
