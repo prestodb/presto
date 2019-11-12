@@ -48,7 +48,7 @@ public class ConnectorFilterStatsCalculatorService
             RowExpression predicate,
             ConnectorSession session,
             Map<ColumnHandle, String> columnNames,
-            Map<ColumnHandle, Type> columnTypes)
+            Map<String, Type> columnTypes)
     {
         PlanNodeStatsEstimate tableStats = toPlanNodeStats(tableStatistics, columnNames, columnTypes);
         PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(tableStats, predicate, session);
@@ -58,15 +58,15 @@ public class ConnectorFilterStatsCalculatorService
     private static PlanNodeStatsEstimate toPlanNodeStats(
             TableStatistics tableStatistics,
             Map<ColumnHandle, String> columnNames,
-            Map<ColumnHandle, Type> columnTypes)
+            Map<String, Type> columnTypes)
     {
         PlanNodeStatsEstimate.Builder builder = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(tableStatistics.getRowCount().getValue());
 
         for (Map.Entry<ColumnHandle, ColumnStatistics> entry : tableStatistics.getColumnStatistics().entrySet()) {
             String columnName = columnNames.get(entry.getKey());
-            Type type = columnTypes.get(entry.getKey());
-            builder.addVariableStatistics(new VariableReferenceExpression(columnName, type), toVariableStatsEstimate(tableStatistics, entry.getValue()));
+            VariableReferenceExpression variable = new VariableReferenceExpression(columnName, columnTypes.get(columnName));
+            builder.addVariableStatistics(variable, toVariableStatsEstimate(tableStatistics, entry.getValue()));
         }
         return builder.build();
     }

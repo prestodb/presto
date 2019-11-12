@@ -662,10 +662,7 @@ public class HiveMetadata
         List<HivePartition> partitions = partitionManager.getPartitions(metastore, tableHandle, combinedConstraint, session).getPartitions();
         TableStatistics tableStatistics = hiveStatisticsProvider.getTableStatistics(session, ((HiveTableHandle) tableHandle).getSchemaTableName(), columns, columnTypesByName, partitions);
 
-        Map<ColumnHandle, Type> columnTypes = columns.entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getValue, entry -> columnTypesByName.get(entry.getKey())));
-
-        return filterStatsCalculatorService.filterStats(tableStatistics, combinedPredicate, session, ImmutableBiMap.copyOf(columns).inverse(), columnTypes);
+        return filterStatsCalculatorService.filterStats(tableStatistics, combinedPredicate, session, ImmutableBiMap.copyOf(columns).inverse(), columnTypesByName);
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
