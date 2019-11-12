@@ -32,6 +32,15 @@ The ``AT TIME ZONE`` operator sets the time zone of a timestamp::
 
     SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles';
     2012-10-30 18:00:00.000 America/Los_Angeles
+    
+The ``AT TIME ZONE`` operator only supports a constant as a parameter. When using a field for timezone conversion, the at_timezone() function must be used. Here, the value of ``table.timezone_name`` is 'America/Los Angeles'::
+
+    SELECT timestamp '2012-10-31 01:00 UTC';
+    2012-10-31 01:00:00.000 UTC
+    
+    SELECT at_timezone(timestamp '2012-10-31 01:00 UTC', table.timezone_name);
+    2012-10-30 18:00:00.000 America/Los_Angeles
+    
 
 Date and Time Functions
 -----------------------
