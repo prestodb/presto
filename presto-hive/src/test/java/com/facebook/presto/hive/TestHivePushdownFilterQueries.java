@@ -135,6 +135,17 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testLegacyUnnest()
+    {
+        Session legacyUnnest = Session.builder(getSession()).setSystemProperty("legacy_unnest", "true").build();
+
+        assertQuery(legacyUnnest, "SELECT orderkey, date.day FROM lineitem_ex CROSS JOIN UNNEST(dates) t(date)",
+                "SELECT orderkey, day(shipdate) FROM lineitem WHERE orderkey % 31 <> 0 UNION ALL " +
+                "SELECT orderkey, day(commitdate) FROM lineitem WHERE orderkey % 31 <> 0 UNION ALL " +
+                "SELECT orderkey, day(receiptdate) FROM lineitem WHERE orderkey % 31 <> 0");
+    }
+
+    @Test
     public void testPushdownWithDisjointFilters()
     {
         assertQueryUsingH2Cte("SELECT * FROM lineitem_ex where orderkey = 1 and orderkey = 2");

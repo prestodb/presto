@@ -506,6 +506,17 @@ public class TestHiveLogicalPlanner
         assertPushdownSubfields("SELECT id, x.a FROM test_pushdown_struct_subfields CROSS JOIN UNNEST(y) as t(a, b, c, d)", "test_pushdown_struct_subfields",
                 ImmutableMap.of("x", toSubfields("x.a")));
 
+        // Legacy unnest
+        Session legacyUnnest = Session.builder(getSession()).setSystemProperty("legacy_unnest", "true").build();
+        assertPushdownSubfields(legacyUnnest, "SELECT t.y.a, t.y.d.d1, x.a FROM test_pushdown_struct_subfields CROSS JOIN UNNEST(y) as t(y)", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.a"), "y", toSubfields("y[*].a", "y[*].d.d1")));
+
+        assertPushdownSubfields(legacyUnnest, "SELECT t.*, x.a FROM test_pushdown_struct_subfields CROSS JOIN UNNEST(y) as t(y)", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.a")));
+
+        assertPushdownSubfields(legacyUnnest, "SELECT id, x.a FROM test_pushdown_struct_subfields CROSS JOIN UNNEST(y) as t(y)", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.a")));
+
         assertUpdate("DROP TABLE test_pushdown_struct_subfields");
     }
 
