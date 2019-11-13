@@ -22,6 +22,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -30,6 +34,9 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
+import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
+import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.DATE;
@@ -39,8 +46,11 @@ import static com.facebook.presto.spi.type.StandardTypes.REAL;
 import static com.facebook.presto.spi.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.TINYINT;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.stream.Collectors.joining;
 
 public class TestHivePushdownFilterQueries
@@ -804,9 +814,183 @@ public class TestHivePushdownFilterQueries
         assertUpdate("DROP TABLE test_schema_evolution");
     }
 
+    @Test
+    public void testRcAndTextFormats()
+            throws IOException
+    {
+        getQueryRunner().execute("CREATE TABLE lineitem_ex_partitioned WITH (format = 'ORC', partitioned_by = ARRAY['ds']) AS\n" +
+                "SELECT\n" +
+                "    linenumber,\n" +
+                "    orderkey,\n" +
+                "    partkey,\n" +
+                "    suppkey,\n" +
+                "    quantity,\n" +
+                "    extendedprice,\n" +
+                "    tax,\n" +
+                "    shipinstruct,\n" +
+                "    shipmode,\n" +
+                "    ship_by_air,\n" +
+                "    is_returned,\n" +
+                "    ship_day,\n" +
+                "    ship_month,\n" +
+                "    ship_timestamp,\n" +
+                "    commit_timestamp,\n" +
+                "    discount_real,\n" +
+                "    discount,\n" +
+                "    tax_real,\n" +
+                "    ship_day_month,\n" +
+                "    discount_long_decimal,\n" +
+                "    tax_short_decimal,\n" +
+                "    long_decimals,\n" +
+                "    keys,\n" +
+                "    doubles,\n" +
+                "    nested_keys,\n" +
+                "    flags,\n" +
+                "    reals,\n" +
+                "    info,\n" +
+                "    dates,\n" +
+                "    timestamps,\n" +
+                "    comment,\n" +
+                "    uppercase_comment,\n" +
+                "    fixed_comment,\n" +
+                "    char_array,\n" +
+                "    varchar_array,\n" +
+                "    '2019-11-01' AS ds\n" +
+                "FROM lineitem_ex");
+        try {
+            for (HiveStorageFormat format : ImmutableList.of(RCBINARY, RCTEXT, TEXTFILE)) {
+                assertFileFormat(format);
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE lineitem_ex_partitioned");
+        }
+    }
+
+    private void assertFileFormat(HiveStorageFormat storageFormat)
+            throws IOException
+    {
+        // Make an ORC table backed by file of some other format
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.execute("CREATE TABLE test_file_format_orc WITH (format='ORC', partitioned_by=ARRAY['ds']) AS " +
+                "SELECT * FROM lineitem_ex_partitioned LIMIT 1");
+        try {
+            queryRunner.execute(format("CREATE TABLE test_file_format WITH (format='%s', partitioned_by=ARRAY['ds']) AS " +
+                    "SELECT * FROM lineitem_ex_partitioned", storageFormat));
+            Path orcDirectory = getPartitionDirectory("test_file_format_orc", "ds='2019-11-01'");
+            deleteRecursively(orcDirectory, ALLOW_INSECURE);
+
+            Path otherDirectory = getPartitionDirectory("test_file_format", "ds='2019-11-01'");
+            Files.move(otherDirectory, orcDirectory, REPLACE_EXISTING);
+
+            String cte = WITH_LINEITEM_EX + ", test_file_format_orc AS " +
+                    "(SELECT\n" +
+                    "    linenumber,\n" +
+                    "    orderkey,\n" +
+                    "    partkey,\n" +
+                    "    suppkey,\n" +
+                    "    quantity,\n" +
+                    "    extendedprice,\n" +
+                    "    tax,\n" +
+                    "    shipinstruct,\n" +
+                    "    shipmode,\n" +
+                    "    ship_by_air,\n" +
+                    "    is_returned,\n" +
+                    "    ship_day,\n" +
+                    "    ship_month,\n" +
+                    "    ship_timestamp,\n" +
+                    "    commit_timestamp,\n" +
+                    "    discount_real,\n" +
+                    "    discount,\n" +
+                    "    tax_real,\n" +
+                    "    ship_day_month,\n" +
+                    "    discount_long_decimal,\n" +
+                    "    tax_short_decimal,\n" +
+                    "    long_decimals,\n" +
+                    "    keys,\n" +
+                    "    doubles,\n" +
+                    "    nested_keys,\n" +
+                    "    flags,\n" +
+                    "    reals,\n" +
+                    "    info,\n" +
+                    "    dates,\n" +
+                    "    timestamps,\n" +
+                    "    comment,\n" +
+                    "    uppercase_comment,\n" +
+                    "    fixed_comment,\n" +
+                    "    char_array,\n" +
+                    "    varchar_array,\n" +
+                    "    '2019-11-01' AS ds\n" +
+                    "FROM lineitem_ex)";
+
+            // no filter
+            assertQueryUsingH2Cte("SELECT * FROM test_file_format_orc", cte);
+            assertQueryUsingH2Cte("SELECT comment FROM test_file_format_orc", cte);
+            assertQueryUsingH2Cte("SELECT COUNT(*) FROM test_file_format_orc", cte);
+
+            // filter on partition column
+            assertQueryUsingH2Cte("SELECT comment from test_file_format_orc WHERE ds='2019-11-01'", cte);
+            assertQueryReturnsEmptyResult("SELECT comment FROM test_file_format_orc WHERE ds='2019-11-02'");
+
+            // range filters and filter functions
+            assertQueryUsingH2Cte("SELECT orderkey from test_file_format_orc WHERE orderkey < 1000", cte);
+            assertQueryUsingH2Cte("SELECT orderkey, comment from test_file_format_orc WHERE orderkey < 1000 AND comment LIKE '%final%'", cte);
+            assertQueryUsingH2Cte("SELECT COUNT(*) from test_file_format_orc WHERE orderkey < 1000", cte);
+
+            assertQueryUsingH2Cte("SELECT COUNT(*) FROM test_file_format_orc WHERE concat(ds,'*') = '2019-11-01*'", cte);
+            assertQueryUsingH2Cte("SELECT orderkey FROM test_file_format_orc WHERE comment LIKE '%final%'", cte);
+
+            assertQueryUsingH2Cte("SELECT discount FROM test_file_format_orc WHERE discount > 0.01", cte);
+            assertQueryUsingH2Cte("SELECT * FROM test_file_format_orc WHERE discount > 0.01 and discount + tax > 0.03", cte);
+            assertQueryUsingH2Cte("SELECT COUNT(*) FROM test_file_format_orc WHERE discount = 0.0", cte);
+
+            assertQueryUsingH2Cte("SELECT COUNT(*) FROM test_file_format_orc WHERE discount_real > 0.01", cte);
+            assertQueryUsingH2Cte("SELECT * FROM test_file_format_orc WHERE tax_real > 0.01 and discount_real > 0.01", cte);
+
+            assertQueryUsingH2Cte("SELECT keys FROM test_file_format_orc WHERE keys IS NOT NULL", cte);
+            assertQueryUsingH2Cte("SELECT keys FROM test_file_format_orc WHERE keys IS NULL", cte);
+            assertQueryUsingH2Cte("SELECT linenumber FROM test_file_format_orc WHERE keys[1] % 5 = 0 AND keys[2] > 100", cte);
+
+            assertQueryUsingH2Cte("SELECT * FROM test_file_format_orc WHERE is_returned=false", cte);
+            assertQueryUsingH2Cte("SELECT * FROM test_file_format_orc WHERE is_returned is NULL", cte);
+
+            assertQueryUsingH2Cte("SELECT ship_day FROM test_file_format_orc WHERE ship_day > 2", cte);
+
+            assertQueryUsingH2Cte("SELECT discount_long_decimal FROM test_file_format_orc WHERE discount_long_decimal > 0.05", cte);
+            assertQueryUsingH2Cte("SELECT tax_short_decimal FROM test_file_format_orc WHERE tax_short_decimal < 0.03", cte);
+            assertQueryUsingH2Cte("SELECT discount_long_decimal FROM test_file_format_orc WHERE discount_long_decimal > 0.01 AND tax_short_decimal > 0.01 AND (discount_long_decimal + tax_short_decimal) < 0.03", cte);
+
+            Function<String, String> rewriter = query -> query.replaceAll("info.orderkey", "info[1]")
+                    .replaceAll("dates\\[1\\].day", "dates[1][1]");
+
+            assertQueryUsingH2Cte("SELECT dates FROM test_file_format_orc WHERE dates[1].day % 2 = 0", cte, rewriter);
+            assertQueryUsingH2Cte("SELECT info.orderkey, dates FROM test_file_format_orc WHERE info IS NOT NULL AND dates IS NOT NULL AND info.orderkey % 7 = 0", cte, rewriter);
+
+            // empty result
+            assertQueryReturnsEmptyResult("SELECT comment FROM test_file_format_orc WHERE orderkey < 0");
+            assertQueryReturnsEmptyResult("SELECT comment FROM test_file_format_orc WHERE comment LIKE '???'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_file_format");
+            assertUpdate("DROP TABLE test_file_format_orc");
+        }
+    }
+
+    private Path getPartitionDirectory(String tableName, String partitionClause)
+    {
+        String filePath = ((String) computeActual(noPushdownFilter(getSession()), format("SELECT \"$path\" FROM %s WHERE %s LIMIT 1", tableName, partitionClause)).getOnlyValue())
+                .replace("file:", "");
+        return Paths.get(filePath).getParent();
+    }
+
     private void assertQueryUsingH2Cte(String query, String cte)
     {
-        assertQuery(query, cte + " " + query);
+        assertQueryUsingH2Cte(query, cte, Function.identity());
+    }
+
+    private void assertQueryUsingH2Cte(String query, String cte, Function<String, String> rewriter)
+    {
+        assertQuery(query, cte + toH2(rewriter.apply(query)));
     }
 
     private void assertQueryUsingH2Cte(String query)

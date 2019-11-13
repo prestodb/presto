@@ -102,6 +102,7 @@ import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -495,6 +496,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     storage,
                     TupleDomain.all(),
                     columns,
+                    ImmutableMap.of(),
                     partitionKeys,
                     DateTimeZone.UTC,
                     TYPE_MANAGER,
@@ -506,7 +508,10 @@ public class TestOrcBatchPageSourceMemoryTracking
                     ImmutableMap.of(),
                     Optional.empty(),
                     false,
-                    Optional.empty())
+                    Optional.empty(),
+                    null,
+                    false,
+                    ROW_EXPRESSION_SERVICE)
                     .get();
         }
 
