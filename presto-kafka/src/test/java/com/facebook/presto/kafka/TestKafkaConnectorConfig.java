@@ -26,36 +26,54 @@ public class TestKafkaConnectorConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(KafkaConnectorConfig.class)
-                .setNodes("")
+                .setNodes(null)
                 .setKafkaConnectTimeout("10s")
-                .setKafkaBufferSize("64kB")
                 .setDefaultSchema("default")
                 .setTableNames("")
                 .setTableDescriptionDir(new File("etc/kafka/"))
-                .setHideInternalColumns(true));
+                .setHideInternalColumns(true)
+                .setMaxPartitionFetchBytes(1048576)
+                .setMaxPollRecords(500)
+                .setZookeeperMaxRetries(3)
+                .setZookeeperUri(null)
+                .setZookeeperPath(null)
+                .setZookeeperRetrySleepTime(100)
+                .setDiscoveryMode("static"));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("kafka.nodes", "localhost:9092")
                 .put("kafka.table-description-dir", "/var/lib/kafka")
                 .put("kafka.table-names", "table1, table2, table3")
                 .put("kafka.default-schema", "kafka")
-                .put("kafka.nodes", "localhost:12345,localhost:23456")
                 .put("kafka.connect-timeout", "1h")
-                .put("kafka.buffer-size", "1MB")
                 .put("kafka.hide-internal-columns", "false")
+                .put("kafka.max.partition.fetch.bytes", "1024")
+                .put("kafka.max.poll.records", "1000")
+                .put("kafka.zookeeper.max.retries", "5")
+                .put("kafka.zookeeper.uri", "localhost1:2181")
+                .put("kafka.zookeeper.path", "/zookeeper/path/")
+                .put("kafka.zookeeper.retry.sleeptime", "200")
+                .put("kafka.discovery.mode", "zookeeper")
                 .build();
 
         KafkaConnectorConfig expected = new KafkaConnectorConfig()
+                .setNodes("localhost:9092")
                 .setTableDescriptionDir(new File("/var/lib/kafka"))
                 .setTableNames("table1, table2, table3")
                 .setDefaultSchema("kafka")
-                .setNodes("localhost:12345, localhost:23456")
                 .setKafkaConnectTimeout("1h")
-                .setKafkaBufferSize("1MB")
-                .setHideInternalColumns(false);
+                .setHideInternalColumns(false)
+                .setMaxPartitionFetchBytes(1024)
+                .setMaxPollRecords(1000)
+                .setZookeeperMaxRetries(5)
+                .setZookeeperUri("localhost1:2181")
+                .setZookeeperPath("/zookeeper/path/")
+                .setZookeeperRetrySleepTime(200)
+                .setDiscoveryMode("zookeeper");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

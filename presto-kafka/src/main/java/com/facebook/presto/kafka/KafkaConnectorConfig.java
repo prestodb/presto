@@ -17,15 +17,16 @@ import com.facebook.presto.spi.HostAddress;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import javax.validation.constraints.Pattern;
 
 import java.io.File;
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.transform;
@@ -37,17 +38,12 @@ public class KafkaConnectorConfig
     /**
      * Seed nodes for Kafka cluster. At least one must exist.
      */
-    private Set<HostAddress> nodes = ImmutableSet.of();
+    private List<HostAddress> nodes;
 
     /**
      * Timeout to connect to Kafka.
      */
     private Duration kafkaConnectTimeout = Duration.valueOf("10s");
-
-    /**
-     * Buffer size for connecting to Kafka.
-     */
-    private DataSize kafkaBufferSize = new DataSize(64, Unit.KILOBYTE);
 
     /**
      * The schema name to use in the connector.
@@ -68,6 +64,43 @@ public class KafkaConnectorConfig
      * Whether internal columns are shown in table metadata or not. Default is no.
      */
     private boolean hideInternalColumns = true;
+
+    /**
+     * Use either 'static' or 'zookeeper' to discover kafka brokers
+     */
+    private String discoveryMode = "static";
+
+    /**
+     * The Zookeeper URI.
+     * Example: hostAddress:2181
+     */
+    private String kafkaZookeeperUri;
+
+    /**
+     * The Zookeeper path for Kafka services.
+     * Example: /company/service/kafka/prod/path
+     */
+    private String kafkaZookeeperPath;
+
+    /**
+     * Maximum number of records per poll()
+     */
+    private int maxPollRecords = 500;
+
+    /**
+     * Maximum number of bytes from one partition per poll()
+     */
+    private int maxPartitionFetchBytes = 1048576;
+
+    /**
+     * Retry sleep time to connect to Zookeeper
+     */
+    private int zookeeperRetrySleepTime = 100;
+
+    /**
+     * Max retries to connect to Zookeeper
+     */
+    private int zookeeperMaxRetries = 3;
 
     @NotNull
     public File getTableDescriptionDir()
@@ -108,8 +141,7 @@ public class KafkaConnectorConfig
         return this;
     }
 
-    @Size(min = 1)
-    public Set<HostAddress> getNodes()
+    public List<HostAddress> getNodes()
     {
         return nodes;
     }
@@ -117,7 +149,7 @@ public class KafkaConnectorConfig
     @Config("kafka.nodes")
     public KafkaConnectorConfig setNodes(String nodes)
     {
-        this.nodes = (nodes == null) ? null : parseNodes(nodes);
+        this.nodes = (nodes == null) ? null : parseNodes(nodes).asList();
         return this;
     }
 
@@ -134,15 +166,92 @@ public class KafkaConnectorConfig
         return this;
     }
 
-    public DataSize getKafkaBufferSize()
+    public String getDiscoveryMode()
     {
-        return kafkaBufferSize;
+        return discoveryMode;
     }
 
-    @Config("kafka.buffer-size")
-    public KafkaConnectorConfig setKafkaBufferSize(String kafkaBufferSize)
+    @Config("kafka.discovery.mode")
+    @Pattern(regexp = "static|zookeeper", flags = Pattern.Flag.CASE_INSENSITIVE)
+    public KafkaConnectorConfig setDiscoveryMode(String discoveryMode)
     {
-        this.kafkaBufferSize = DataSize.valueOf(kafkaBufferSize);
+        this.discoveryMode = discoveryMode;
+        return this;
+    }
+
+    @Config("kafka.zookeeper.path")
+    public KafkaConnectorConfig setZookeeperPath(String zkPath)
+    {
+        this.kafkaZookeeperPath = zkPath;
+        return this;
+    }
+
+    public String getZookeeperPath()
+    {
+        return kafkaZookeeperPath;
+    }
+
+    @Config("kafka.zookeeper.uri")
+    public KafkaConnectorConfig setZookeeperUri(String setZookeeperUri)
+    {
+        this.kafkaZookeeperUri = setZookeeperUri;
+        return this;
+    }
+
+    public String getZookeeperUri()
+    {
+        return kafkaZookeeperUri;
+    }
+
+    public int getMaxPollRecords()
+    {
+        return maxPollRecords;
+    }
+
+    @Config("kafka.max.poll.records")
+    public KafkaConnectorConfig setMaxPollRecords(int maxPollRecords)
+    {
+        this.maxPollRecords = maxPollRecords;
+        return this;
+    }
+
+    @NotNull
+    public int getZookeeperRetrySleepTime()
+    {
+        return Integer.valueOf(zookeeperRetrySleepTime);
+    }
+
+    @Config("kafka.zookeeper.retry.sleeptime")
+    @ConfigDescription("Zookeeper sleep time between reties")
+    public KafkaConnectorConfig setZookeeperRetrySleepTime(int zookeeperRetrySleepTime)
+    {
+        this.zookeeperRetrySleepTime = zookeeperRetrySleepTime;
+        return this;
+    }
+
+    @Min(1)
+    public int getZookeeperMaxRetries()
+    {
+        return zookeeperMaxRetries;
+    }
+
+    @Config("kafka.zookeeper.max.retries")
+    @ConfigDescription("Zookeeper max reties")
+    public KafkaConnectorConfig setZookeeperMaxRetries(int zookeeperMaxRetries)
+    {
+        this.zookeeperMaxRetries = zookeeperMaxRetries;
+        return this;
+    }
+
+    public int getMaxPartitionFetchBytes()
+    {
+        return maxPartitionFetchBytes;
+    }
+
+    @Config("kafka.max.partition.fetch.bytes")
+    public KafkaConnectorConfig setMaxPartitionFetchBytes(int maxPartitionFetchBytes)
+    {
+        this.maxPartitionFetchBytes = maxPartitionFetchBytes;
         return this;
     }
 

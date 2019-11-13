@@ -83,6 +83,7 @@ public class EmbeddedKafka
                 .put("port", Integer.toString(port))
                 .put("log.dirs", kafkaDataDir.getAbsolutePath())
                 .put("zookeeper.connect", zookeeper.getConnectString())
+                .put("offsets.topic.replication.factor", "1")
                 .putAll(Maps.fromProperties(overrideProperties))
                 .build();
 

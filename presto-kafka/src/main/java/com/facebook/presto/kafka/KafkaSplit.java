@@ -42,8 +42,10 @@ public class KafkaSplit
     private final Optional<String> keyDataSchemaContents;
     private final Optional<String> messageDataSchemaContents;
     private final int partitionId;
-    private final long start;
-    private final long end;
+    private long start;
+    private long end;
+    private final long startTs;
+    private final long endTs;
     private final HostAddress leader;
 
     @JsonCreator
@@ -55,8 +57,8 @@ public class KafkaSplit
             @JsonProperty("keyDataSchemaContents") Optional<String> keyDataSchemaContents,
             @JsonProperty("messageDataSchemaContents") Optional<String> messageDataSchemaContents,
             @JsonProperty("partitionId") int partitionId,
-            @JsonProperty("start") long start,
-            @JsonProperty("end") long end,
+            @JsonProperty("startTs") long startTs,
+            @JsonProperty("endTs") long endTs,
             @JsonProperty("leader") HostAddress leader)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
@@ -66,8 +68,10 @@ public class KafkaSplit
         this.keyDataSchemaContents = keyDataSchemaContents;
         this.messageDataSchemaContents = messageDataSchemaContents;
         this.partitionId = partitionId;
-        this.start = start;
-        this.end = end;
+        this.start = 0;
+        this.end = 0;
+        this.startTs = startTs;
+        this.endTs = endTs;
         this.leader = requireNonNull(leader, "leader address is null");
     }
 
@@ -83,10 +87,20 @@ public class KafkaSplit
         return start;
     }
 
+    public void setStart(long start)
+    {
+        this.start = start;
+    }
+
     @JsonProperty
     public long getEnd()
     {
         return end;
+    }
+
+    public void setEnd(long end)
+    {
+        this.end = end;
     }
 
     @JsonProperty
@@ -131,6 +145,18 @@ public class KafkaSplit
         return leader;
     }
 
+    @JsonProperty
+    public long getStartTs()
+    {
+        return startTs;
+    }
+
+    @JsonProperty
+    public long getEndTs()
+    {
+        return endTs;
+    }
+
     @Override
     public boolean isRemotelyAccessible()
     {
@@ -160,8 +186,8 @@ public class KafkaSplit
                 .add("keyDataSchemaContents", keyDataSchemaContents)
                 .add("messageDataSchemaContents", messageDataSchemaContents)
                 .add("partitionId", partitionId)
-                .add("start", start)
-                .add("end", end)
+                .add("startTs", start)
+                .add("endTs", end)
                 .add("leader", leader)
                 .toString();
     }

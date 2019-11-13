@@ -19,12 +19,12 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -34,25 +34,38 @@ import static java.util.Objects.requireNonNull;
  * Guice module for the Apache Kafka connector.
  */
 public class KafkaConnectorModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
+        bindKafkaClusterModule();
         binder.bind(KafkaConnector.class).in(Scopes.SINGLETON);
 
         binder.bind(KafkaMetadata.class).in(Scopes.SINGLETON);
         binder.bind(KafkaSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
 
-        binder.bind(KafkaSimpleConsumerManager.class).in(Scopes.SINGLETON);
-
+        binder.bind(KafkaConsumerManager.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaRowTypeParser.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(KafkaConnectorConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
 
         binder.install(new DecoderModule());
+    }
+
+    private void bindKafkaClusterModule()
+    {
+        install(installModuleIf(
+                KafkaConnectorConfig.class,
+                zkKafkaConfig -> zkKafkaConfig.getDiscoveryMode().equals("static"),
+                new KafkaStaticModule()));
+        install(installModuleIf(
+                KafkaConnectorConfig.class,
+                zkKafkaConfig -> zkKafkaConfig.getDiscoveryMode().equals("zookeeper"),
+                new KafkaZookeeperBasedModule()));
     }
 
     public static final class TypeDeserializer
@@ -63,7 +76,7 @@ public class KafkaConnectorModule
         private final TypeManager typeManager;
 
         @Inject
-        public TypeDeserializer(TypeManager typeManager)
+        public TypeDeserializer(TypeManager typeManager, KafkaRowTypeParser nestedRowType)
         {
             super(Type.class);
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -72,7 +85,7 @@ public class KafkaConnectorModule
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            return typeManager.getType(parseTypeSignature(value));
+            return KafkaRowTypeParser.getNestedRowType(value, typeManager);
         }
     }
 }

@@ -89,7 +89,12 @@ public enum KafkaInternalFieldDescription
     /**
      * <tt>_key_length</tt> - length in bytes of the key.
      */
-    KEY_LENGTH_FIELD("_key_length", BigintType.BIGINT, "Total number of key bytes");
+    KEY_LENGTH_FIELD("_key_length", BigintType.BIGINT, "Total number of key bytes"),
+
+    /**
+     * <tt>_timestamp</tt> - offset timestamp, used to narrow scan range
+     */
+    OFFSET_TIMESTAMP_FIELD("_timestamp", BigintType.BIGINT, "Offset Timestamp");
 
     private static final Map<String, KafkaInternalFieldDescription> BY_COLUMN_NAME =
             stream(KafkaInternalFieldDescription.values())
