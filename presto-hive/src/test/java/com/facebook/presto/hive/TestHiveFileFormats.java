@@ -64,6 +64,7 @@ import java.util.OptionalInt;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -76,6 +77,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.SEQUENCEFILE;
 import static com.facebook.presto.hive.HiveStorageFormat.TEXTFILE;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
+import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
@@ -735,6 +737,7 @@ public class TestHiveFileFormats
                         ImmutableMap.of()),
                 TupleDomain.all(),
                 getColumnHandles(testColumns),
+                ImmutableMap.of(),
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
@@ -746,7 +749,10 @@ public class TestHiveFileFormats
                 ImmutableMap.of(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                TRUE_CONSTANT,
+                false,
+                ROW_EXPRESSION_SERVICE);
 
         RecordCursor cursor = ((RecordPageSource) pageSource.get()).getCursor();
 
@@ -792,6 +798,7 @@ public class TestHiveFileFormats
                         ImmutableMap.of()),
                 TupleDomain.all(),
                 columnHandles,
+                ImmutableMap.of(),
                 partitionKeys,
                 DateTimeZone.getDefault(),
                 TYPE_MANAGER,
@@ -803,7 +810,10 @@ public class TestHiveFileFormats
                 ImmutableMap.of(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                TRUE_CONSTANT,
+                false,
+                ROW_EXPRESSION_SERVICE);
 
         assertTrue(pageSource.isPresent());
 

@@ -65,7 +65,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -115,7 +114,10 @@ public class HivePageSourceProvider
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
         if (hiveLayout.isPushdownFilterEnabled()) {
-            return createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, hiveStorageTimeZone, rowExpressionService, typeManager);
+            Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, hiveStorageTimeZone, rowExpressionService, typeManager);
+            if (selectivePageSource.isPresent()) {
+                return selectivePageSource.get();
+            }
         }
 
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
@@ -133,6 +135,7 @@ public class HivePageSourceProvider
                         .transform(Subfield::getRootName)
                         .transform(hiveLayout.getPredicateColumns()::get),
                 selectedColumns,
+                hiveLayout.getPredicateColumns(),
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
                 typeManager,
@@ -144,14 +147,17 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionSchemaDifference(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                hiveSplit.getExtraFileInfo());
+                hiveSplit.getExtraFileInfo(),
+                hiveLayout.getRemainingPredicate(),
+                hiveLayout.isPushdownFilterEnabled(),
+                rowExpressionService);
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
         throw new IllegalStateException("Could not find a file reader for split " + hiveSplit);
     }
 
-    private static ConnectorPageSource createSelectivePageSource(
+    private static Optional<ConnectorPageSource> createSelectivePageSource(
             Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories,
             Configuration configuration,
             ConnectorSession session,
@@ -220,11 +226,11 @@ public class HivePageSourceProvider
                     hiveStorageTimeZone,
                     split.getExtraFileInfo());
             if (pageSource.isPresent()) {
-                return pageSource.get();
+                return Optional.of(pageSource.get());
             }
         }
 
-        throw new IllegalStateException(format("Could not find a reader for file type %s for split %s", split.getStorage().getStorageFormat().getSerDe(), split));
+        return Optional.empty();
     }
 
     public static Optional<ConnectorPageSource> createHivePageSource(
@@ -240,6 +246,7 @@ public class HivePageSourceProvider
             Storage storage,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             List<HiveColumnHandle> hiveColumns,
+            Map<String, HiveColumnHandle> predicateColumns,
             List<HivePartitionKey> partitionKeys,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
@@ -251,15 +258,40 @@ public class HivePageSourceProvider
             Map<Integer, Column> partitionSchemaDifference,
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled,
-            Optional<byte[]> extraFileInfo)
+            Optional<byte[]> extraFileInfo,
+            RowExpression remainingPredicate,
+            boolean isPushdownFilterEnabled,
+            RowExpressionService rowExpressionService)
     {
+        List<HiveColumnHandle> allColumns;
+
+        if (isPushdownFilterEnabled) {
+            Set<String> columnNames = hiveColumns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
+            List<HiveColumnHandle> additionalColumns = predicateColumns.values().stream()
+                    .filter(column -> !columnNames.contains(column.getName()))
+                    .collect(toImmutableList());
+
+            allColumns = ImmutableList.<HiveColumnHandle>builder()
+                    .addAll(hiveColumns)
+                    .addAll(additionalColumns)
+                    .build();
+        }
+        else {
+            allColumns = hiveColumns;
+        }
+
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 partitionKeys,
-                hiveColumns,
+                allColumns,
                 bucketConversion.map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
                 partitionSchemaDifference,
                 path,
                 tableBucketNumber);
+
+        Set<Integer> outputIndices = hiveColumns.stream()
+                .map(HiveColumnHandle::getHiveColumnIndex)
+                .collect(toImmutableSet());
+
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
         Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber, ColumnMapping::getIndex));
@@ -279,13 +311,25 @@ public class HivePageSourceProvider
                     hiveStorageTimeZone,
                     extraFileInfo);
             if (pageSource.isPresent()) {
-                return Optional.of(
-                        new HivePageSource(
-                                columnMappings,
-                                bucketAdaptation,
-                                hiveStorageTimeZone,
-                                typeManager,
-                                pageSource.get()));
+                HivePageSource hivePageSource = new HivePageSource(
+                        columnMappings,
+                        bucketAdaptation,
+                        hiveStorageTimeZone,
+                        typeManager,
+                        pageSource.get());
+
+                if (isPushdownFilterEnabled) {
+                    return Optional.of(new FilteringPageSource(
+                            columnMappings,
+                            effectivePredicate,
+                            remainingPredicate,
+                            typeManager,
+                            rowExpressionService,
+                            session,
+                            outputIndices,
+                            hivePageSource));
+                }
+                return Optional.of(hivePageSource);
             }
         }
 
@@ -345,11 +389,23 @@ public class HivePageSourceProvider
                         hiveStorageTimeZone,
                         typeManager,
                         delegate);
-                List<Type> columnTypes = hiveColumns.stream()
+                List<Type> columnTypes = allColumns.stream()
                         .map(input -> typeManager.getType(input.getTypeSignature()))
                         .collect(toList());
 
-                return Optional.of(new RecordPageSource(columnTypes, hiveRecordCursor));
+                RecordPageSource recordPageSource = new RecordPageSource(columnTypes, hiveRecordCursor);
+                if (isPushdownFilterEnabled) {
+                    return Optional.of(new FilteringPageSource(
+                            columnMappings,
+                            effectivePredicate,
+                            remainingPredicate,
+                            typeManager,
+                            rowExpressionService,
+                            session,
+                            outputIndices,
+                            recordPageSource));
+                }
+                return Optional.of(recordPageSource);
             }
         }
 
