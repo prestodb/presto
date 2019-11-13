@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 public interface QueryManager
@@ -53,6 +54,13 @@ public interface QueryManager
      * the future will contain a {@link NoSuchElementException}
      */
     ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState);
+
+    /**
+     * Gets a future that completes when the final query info changes from the specified current query info
+     * or immediately if the query already has a final query info set.  If the query does not exist,
+     * the future will contain a {@link NoSuchElementException}
+     */
+    ListenableFuture<Optional<QueryInfo>> getFinalQueryInfoChange(QueryId queryId, Optional<QueryInfo> currentQueryInfo);
 
     /**
      * @throws NoSuchElementException if query does not exist

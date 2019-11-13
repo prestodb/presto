@@ -914,6 +914,11 @@ public class QueryStateMachine
         return queryState.getStateChange(currentState);
     }
 
+    public ListenableFuture<Optional<QueryInfo>> getFinalQueryInfoChange(Optional<QueryInfo> currentQueryInfo)
+    {
+        return finalQueryInfo.getStateChange(currentQueryInfo);
+    }
+
     public void recordHeartbeat()
     {
         queryStateTimer.recordHeartbeat();

@@ -42,6 +42,8 @@ public interface QueryExecution
 
     ListenableFuture<QueryState> getStateChange(QueryState currentState);
 
+    ListenableFuture<Optional<QueryInfo>> getFinalQueryInfoChange(Optional<QueryInfo> currentInfo);
+
     void addOutputInfoListener(Consumer<QueryOutputInfo> listener);
 
     Plan getQueryPlan();

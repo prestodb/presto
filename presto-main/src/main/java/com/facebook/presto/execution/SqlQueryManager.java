@@ -247,6 +247,14 @@ public class SqlQueryManager
     }
 
     @Override
+    public ListenableFuture<Optional<QueryInfo>> getFinalQueryInfoChange(QueryId queryId, Optional<QueryInfo> currentQueryInfo)
+    {
+        return queryTracker.tryGetQuery(queryId)
+                .map(query -> query.getFinalQueryInfoChange(currentQueryInfo))
+                .orElseGet(() -> immediateFailedFuture(new NoSuchElementException()));
+    }
+
+    @Override
     public ListenableFuture<QueryState> getStateChange(QueryId queryId, QueryState currentState)
     {
         return queryTracker.tryGetQuery(queryId)

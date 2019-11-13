@@ -207,6 +207,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public ListenableFuture<Optional<QueryInfo>> getFinalQueryInfoChange(Optional<QueryInfo> currentQueryInfo)
+    {
+        return stateMachine.getFinalQueryInfoChange(currentQueryInfo);
+    }
+
+    @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);

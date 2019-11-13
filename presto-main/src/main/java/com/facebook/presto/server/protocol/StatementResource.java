@@ -24,6 +24,7 @@ import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.server.HttpRequestSessionContext;
 import com.facebook.presto.server.SessionContext;
+import com.facebook.presto.server.StatementResourceConfig;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.collect.Ordering;
@@ -75,6 +76,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_WAIT_FOR_ENTIRE_RESPONSE_MS;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
@@ -105,6 +107,7 @@ public class StatementResource
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
 
     private final CounterStat createQueryRequests = new CounterStat();
+    private final StatementResourceConfig statementResourceConfig;
 
     @Inject
     public StatementResource(
@@ -112,6 +115,7 @@ public class StatementResource
             SessionPropertyManager sessionPropertyManager,
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
+            StatementResourceConfig statementResourceConfig,
             @ForStatementResource BoundedExecutor responseExecutor,
             @ForStatementResource ScheduledExecutorService timeoutExecutor)
     {
@@ -121,6 +125,7 @@ public class StatementResource
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        this.statementResourceConfig = requireNonNull(statementResourceConfig, "statement resource config is null");
 
         queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, MILLISECONDS);
     }
@@ -133,11 +138,13 @@ public class StatementResource
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public Response createQuery(
+    public void createQuery(
             String statement,
             @HeaderParam(X_FORWARDED_PROTO) String proto,
+            @HeaderParam(PRESTO_WAIT_FOR_ENTIRE_RESPONSE_MS) String waitForEntireResponseMs,
             @Context HttpServletRequest servletRequest,
-            @Context UriInfo uriInfo)
+            @Context UriInfo uriInfo,
+            @Suspended AsyncResponse asyncResponse)
     {
         createQueryRequests.update(1);
 
@@ -166,8 +173,17 @@ public class StatementResource
                 blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
-        QueryResults queryResults = query.getNextResult(OptionalLong.empty(), uriInfo, proto, DEFAULT_TARGET_RESULT_SIZE);
-        return toResponse(query, queryResults);
+        waitForEntireResponseMs = isNullOrEmpty(waitForEntireResponseMs) ? statementResourceConfig.getDefaultWaitForEntireResponseIntervalMs().map(x -> Long.toString(x.toMillis())).orElse(null) : waitForEntireResponseMs;
+        if (isNullOrEmpty(waitForEntireResponseMs)) {
+            // Just respond saying that the query has been created but not yet submitted
+            Response respondImmediately = toResponse(query, query.getNextResult(OptionalLong.empty(), uriInfo, proto, DEFAULT_TARGET_RESULT_SIZE));
+            bindAsyncResponse(asyncResponse, Futures.immediateFuture(respondImmediately), responseExecutor);
+        }
+        else {
+            // Respond when the query is finally done or cancelled/timed-out within the waitForEntireResponseDuration
+            Duration waitForEntireResponseDuration = new Duration(Long.valueOf(waitForEntireResponseMs), MILLISECONDS);
+            asyncGetEntireQueryResults(query, uriInfo, proto, waitForEntireResponseDuration, asyncResponse);
+        }
     }
 
     @GET
@@ -205,6 +221,18 @@ public class StatementResource
         return null;
     }
 
+    private void asyncGetEntireQueryResults(
+            Query query,
+            UriInfo uriInfo,
+            String scheme,
+            Duration timeout,
+            AsyncResponse asyncResponse)
+    {
+        ListenableFuture<QueryResults> queryResultsFuture = query.waitForEntireResults(OptionalLong.empty(), uriInfo, scheme, timeout, MAX_TARGET_RESULT_SIZE);
+        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
+        bindAsyncResponse(asyncResponse, response, responseExecutor);
+    }
+
     private void asyncQueryResults(
             Query query,
             OptionalLong token,
@@ -221,7 +249,9 @@ public class StatementResource
         else {
             targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
         }
-        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait, targetResultSize);
+
+        ListenableFuture<QueryResults> queryResultsFuture;
+        queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait, targetResultSize);
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
 

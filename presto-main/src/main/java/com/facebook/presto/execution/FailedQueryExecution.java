@@ -176,6 +176,12 @@ public class FailedQueryExecution
     }
 
     @Override
+    public ListenableFuture<Optional<QueryInfo>> getFinalQueryInfoChange(Optional<QueryInfo> currentQueryInfo)
+    {
+        return immediateFuture(Optional.of(queryInfo));
+    }
+
+    @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         executor.execute(() -> stateChangeListener.stateChanged(FAILED));

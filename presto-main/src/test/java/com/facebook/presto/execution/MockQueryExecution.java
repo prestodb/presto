@@ -211,6 +211,12 @@ public class MockQueryExecution
     }
 
     @Override
+    public ListenableFuture<Optional<QueryInfo>> getFinalQueryInfoChange(Optional<QueryInfo> currentQueryInfo)
+    {
+        return immediateFuture(Optional.of(getQueryInfo()));
+    }
+
+    @Override
     public VersionedMemoryPoolId getMemoryPool()
     {
         throw new UnsupportedOperationException();

@@ -569,6 +569,12 @@ public class SqlQueryExecution
     }
 
     @Override
+    public ListenableFuture<Optional<QueryInfo>> getFinalQueryInfoChange(Optional<QueryInfo> currentQueryInfo)
+    {
+        return stateMachine.getFinalQueryInfoChange(currentQueryInfo);
+    }
+
+    @Override
     public void recordHeartbeat()
     {
         stateMachine.recordHeartbeat();

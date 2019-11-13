@@ -45,6 +45,7 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.transaction.TransactionId;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -294,6 +295,33 @@ class Query
         return clearTransactionId;
     }
 
+    public synchronized ListenableFuture<QueryResults> waitForEntireResults(OptionalLong token, UriInfo uriInfo, String scheme, Duration entireResponseTimeout, DataSize targetResultSize)
+    {
+        ListenableFuture<?> futureForStateChange = getFutureForQueryFinish();
+
+        // wait for a results data or query to finish, up to the wait timeout
+        ListenableFuture<?> futureStateChange = addTimeout(
+                futureForStateChange,
+                () -> {
+                    cancel();
+                    return null;
+                },
+                entireResponseTimeout,
+                timeoutExecutor);
+
+        return Futures.transform(futureStateChange, ignored -> {
+            synchronized (this) {
+                Preconditions.checkState(submissionFuture.isDone(), "Query %s should have been submitted by now", queryId);
+                QueryResults shouldBeLastResult = getNextResult(token, uriInfo, scheme, targetResultSize);
+                QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+                if (!queryInfo.getState().isDone()) {
+                    cancel();
+                }
+                return shouldBeLastResult;
+            }
+        }, resultsProcessorExecutor);
+    }
+
     public synchronized ListenableFuture<QueryResults> waitForResults(OptionalLong token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
     {
         // before waiting, check if this request has already been processed and cached
@@ -304,15 +332,27 @@ class Query
             }
         }
 
+        ListenableFuture<?> futureForStateChange = getFutureStateChange();
+
         // wait for a results data or query to finish, up to the wait timeout
         ListenableFuture<?> futureStateChange = addTimeout(
-                getFutureStateChange(),
+                futureForStateChange,
                 () -> null,
                 wait,
                 timeoutExecutor);
 
-        // when state changes, fetch the next result
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
+    }
+
+    private synchronized ListenableFuture<?> getFutureForQueryFinish()
+    {
+        submissionFuture.submitQuery();
+        ListenableFuture<?> exchangeClientNotBlocked = Futures.transformAsync(submissionFuture, ignored -> exchangeClient.isBlocked(), directExecutor());
+        return Futures.transformAsync(exchangeClientNotBlocked, ignored -> {
+            // otherwise, wait for the query to finish
+            queryManager.recordHeartbeat(queryId);
+            return finalQueryInfoFuture(Optional.empty());
+        }, directExecutor());
     }
 
     private synchronized ListenableFuture<?> getFutureStateChange()
@@ -564,6 +604,14 @@ class Query
             return immediateFuture(null);
         }
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
+    }
+
+    private ListenableFuture<?> finalQueryInfoFuture(Optional<QueryInfo> currentQueryInfo)
+    {
+        if (currentQueryInfo.isPresent() && currentQueryInfo.get().isFinalQueryInfo()) {
+            return immediateFuture(null);
+        }
+        return Futures.transformAsync(queryManager.getFinalQueryInfoChange(queryId, currentQueryInfo), this::finalQueryInfoFuture, directExecutor());
     }
 
     private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo)

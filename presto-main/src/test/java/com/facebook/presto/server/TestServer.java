@@ -55,10 +55,11 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTIO
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_WAIT_FOR_ENTIRE_RESPONSE_MS;
 import static com.facebook.presto.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.ws.rs.core.Response.Status.OK;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
@@ -120,6 +121,42 @@ public class TestServer
                 createStatusResponseHandler());
 
         assertEquals(response.getStatusCode(), OK.getStatusCode());
+    }
+
+    @Test
+    public void testQueryReturnsInOneShotWhenAsked()
+    {
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .setHeader(PRESTO_WAIT_FOR_ENTIRE_RESPONSE_MS, "5000") // wait 5 seconds for this query to finish
+                .build();
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        assertNull(queryResults.getError());
+        assertNull(queryResults.getNextUri(), String.format("Expected the entire response to be finished with header %s", PRESTO_WAIT_FOR_ENTIRE_RESPONSE_MS));
+        assertEquals(queryResults.getData(), ImmutableList.of(ImmutableList.of("system")));
+    }
+
+    @Test
+    public void testQueryReturnsInOneShotInError()
+    {
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("this is an erroneous statement", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .setHeader(PRESTO_WAIT_FOR_ENTIRE_RESPONSE_MS, "5000") // wait 5 seconds for this query to finish
+                .build();
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        assertNotNull(queryResults.getError());
+        assertNull(queryResults.getNextUri(), String.format("Expected the entire response to be finished with header %s", PRESTO_WAIT_FOR_ENTIRE_RESPONSE_MS));
+        assertNull(queryResults.getData());
     }
 
     @Test
