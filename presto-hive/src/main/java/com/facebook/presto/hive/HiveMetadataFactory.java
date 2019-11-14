@@ -19,6 +19,7 @@ import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -50,6 +51,7 @@ public class HiveMetadataFactory
     private final TypeManager typeManager;
     private final LocationService locationService;
     private final StandardFunctionResolution functionResolution;
+    private final FunctionMetadataManager functionMetadataManager;
     private final RowExpressionService rowExpressionService;
     private final FilterStatsCalculatorService filterStatsCalculatorService;
     private final TableParameterCodec tableParameterCodec;
@@ -73,6 +75,7 @@ public class HiveMetadataFactory
             TypeManager typeManager,
             LocationService locationService,
             StandardFunctionResolution functionResolution,
+            FunctionMetadataManager functionMetadataManager,
             RowExpressionService rowExpressionService,
             FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
@@ -97,6 +100,7 @@ public class HiveMetadataFactory
                 typeManager,
                 locationService,
                 functionResolution,
+                functionMetadataManager,
                 rowExpressionService,
                 filterStatsCalculatorService,
                 tableParameterCodec,
@@ -123,6 +127,7 @@ public class HiveMetadataFactory
             TypeManager typeManager,
             LocationService locationService,
             StandardFunctionResolution functionResolution,
+            FunctionMetadataManager functionMetadataManager,
             RowExpressionService rowExpressionService,
             FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
@@ -148,6 +153,7 @@ public class HiveMetadataFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
