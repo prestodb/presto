@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
@@ -66,11 +67,13 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -225,12 +228,17 @@ import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFo
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -243,6 +251,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Sets.intersection;
 import static com.google.common.collect.Streams.stream;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -274,6 +283,7 @@ public class HiveMetadata
     private final TypeManager typeManager;
     private final LocationService locationService;
     private final StandardFunctionResolution functionResolution;
+    private final FunctionMetadataManager functionMetadataManager;
     private final RowExpressionService rowExpressionService;
     private final FilterStatsCalculatorService filterStatsCalculatorService;
     private final TableParameterCodec tableParameterCodec;
@@ -298,6 +308,7 @@ public class HiveMetadata
             TypeManager typeManager,
             LocationService locationService,
             StandardFunctionResolution functionResolution,
+            FunctionMetadataManager functionMetadataManager,
             RowExpressionService rowExpressionService,
             FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
@@ -318,6 +329,7 @@ public class HiveMetadata
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
@@ -1834,8 +1846,19 @@ public class HiveMetadata
             entireColumnDomain = entireColumnDomain.intersect(((HiveTableLayoutHandle) (currentLayoutHandle.get())).getPartitionColumnPredicate());
         }
 
-        // TODO Extract deterministic conjuncts that apply to partition columns and specify these as Constraint#predicate
-        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint<>(entireColumnDomain), session);
+        Constraint<ColumnHandle> constraint = new Constraint<>(entireColumnDomain);
+
+        // Extract deterministic conjuncts that apply to partition columns and specify these as Constraint#predicate
+        if (!TRUE_CONSTANT.equals(decomposedFilter.getRemainingExpression())) {
+            LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(rowExpressionService.getDeterminismEvaluator(), functionResolution, functionMetadataManager);
+            RowExpression deterministicPredicate = logicalRowExpressions.filterDeterministicConjuncts(decomposedFilter.getRemainingExpression());
+            if (!TRUE_CONSTANT.equals(deterministicPredicate)) {
+                ConstraintEvaluator evaluator = new ConstraintEvaluator(rowExpressionService, session, columnHandles, deterministicPredicate);
+                constraint = new Constraint<>(entireColumnDomain, evaluator::isCandidate);
+            }
+        }
+
+        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint, session);
 
         TupleDomain<Subfield> domainPredicate = withColumnDomains(ImmutableMap.<Subfield, Domain>builder()
                 .putAll(hivePartitionResult.getUnenforcedConstraint()
@@ -1881,6 +1904,73 @@ public class HiveMetadata
                                 true,
                                 createTableLayoutString(session, tableName, hivePartitionResult.getBucketHandle(), decomposedFilter.getRemainingExpression(), domainPredicate))),
                 TRUE_CONSTANT);
+    }
+
+    private static class ConstraintEvaluator
+    {
+        private final Map<String, ColumnHandle> assignments;
+        private final RowExpressionService evaluator;
+        private final ConnectorSession session;
+        private final RowExpression expression;
+        private final Set<ColumnHandle> arguments;
+
+        public ConstraintEvaluator(RowExpressionService evaluator, ConnectorSession session, Map<String, ColumnHandle> assignments, RowExpression expression)
+        {
+            this.assignments = assignments;
+            this.evaluator = evaluator;
+            this.session = session;
+            this.expression = expression;
+
+            arguments = ImmutableSet.copyOf(extractAll(expression)).stream()
+                    .map(VariableReferenceExpression::getName)
+                    .map(assignments::get)
+                    .collect(toImmutableSet());
+        }
+
+        private boolean isCandidate(Map<ColumnHandle, NullableValue> bindings)
+        {
+            if (intersection(bindings.keySet(), arguments).isEmpty()) {
+                return true;
+            }
+
+            Function<VariableReferenceExpression, Object> variableResolver = variable -> {
+                ColumnHandle column = assignments.get(variable.getName());
+                checkArgument(column != null, "Missing column assignment for %s", variable);
+
+                if (!bindings.containsKey(column)) {
+                    return variable;
+                }
+
+                return bindings.get(column).getValue();
+            };
+
+            // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
+            // spurious query failures for partitions that would otherwise be filtered out.
+            Object optimized = null;
+            try {
+                optimized = evaluator.getExpressionOptimizer().optimize(expression, OPTIMIZED, session, variableResolver);
+            }
+            catch (PrestoException e) {
+                propagateIfUnhandled(e);
+            }
+
+            // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
+            return !Boolean.FALSE.equals(optimized) && optimized != null && (!(optimized instanceof ConstantExpression) || !((ConstantExpression) optimized).isNull());
+        }
+
+        private static void propagateIfUnhandled(PrestoException e)
+                throws PrestoException
+        {
+            int errorCode = e.getErrorCode().getCode();
+            if (errorCode == DIVISION_BY_ZERO.toErrorCode().getCode()
+                    || errorCode == INVALID_CAST_ARGUMENT.toErrorCode().getCode()
+                    || errorCode == INVALID_FUNCTION_ARGUMENT.toErrorCode().getCode()
+                    || errorCode == NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode().getCode()) {
+                return;
+            }
+
+            throw e;
+        }
     }
 
     private static ExtractionResult intersectExtractionResult(ExtractionResult left, ExtractionResult right)
