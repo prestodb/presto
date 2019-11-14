@@ -482,10 +482,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.supportsMetadataDelete(session, tableHandle);
+            return delegate.supportsMetadataDelete(session, tableHandle, tableLayoutHandle);
         }
     }
 

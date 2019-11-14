@@ -47,10 +47,4 @@ public class TestHivePushdownIntegrationSmokeTest
     public void testMaterializedPartitioning()
     {
     }
-
-    // TODO Enable this test after we fix the query plan to retain information to indicate that a column filter is pushed down and the "DELETE" operation is not on entire partition.
-    @Test
-    public void testMetadataDelete()
-    {
-    }
 }

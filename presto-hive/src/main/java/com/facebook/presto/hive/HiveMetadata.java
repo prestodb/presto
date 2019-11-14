@@ -1793,9 +1793,42 @@ public class HiveMetadata
     }
 
     @Override
-    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle)
     {
-        return true;
+        if (!tableLayoutHandle.isPresent()) {
+            return true;
+        }
+
+        // Allow metadata delete for range filters on partition columns.
+        // TODO Add support for metadata delete for any filter on partition columns.
+
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutHandle.get();
+        if (!layoutHandle.isPushdownFilterEnabled()) {
+            return true;
+        }
+
+        if (layoutHandle.getPredicateColumns().isEmpty()) {
+            return true;
+        }
+
+        if (!TRUE_CONSTANT.equals(layoutHandle.getRemainingPredicate())) {
+            return false;
+        }
+
+        TupleDomain<Subfield> domainPredicate = layoutHandle.getDomainPredicate();
+        if (domainPredicate.isAll()) {
+            return true;
+        }
+
+        Set<String> predicateColumnNames = domainPredicate.getDomains().get().keySet().stream()
+                .map(Subfield::getRootName)
+                .collect(toImmutableSet());
+
+        Set<String> partitionColumnNames = layoutHandle.getPartitionColumns().stream()
+                .map(HiveColumnHandle::getName)
+                .collect(toImmutableSet());
+
+        return partitionColumnNames.containsAll(predicateColumnNames);
     }
 
     @Override

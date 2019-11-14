@@ -871,7 +871,8 @@ public class MetadataManager
         ConnectorMetadata metadata = getMetadata(session, connectorId);
         return metadata.supportsMetadataDelete(
                 session.toConnectorSession(connectorId),
-                tableHandle.getConnectorHandle());
+                tableHandle.getConnectorHandle(),
+                tableHandle.getLayout());
     }
 
     @Override
