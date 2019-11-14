@@ -1295,11 +1295,13 @@ public class OrcTester
         OrcReader orcReader = new OrcReader(
                 orcDataSource,
                 orcEncoding,
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                MAX_BLOCK_SIZE,
                 orcFileTailSource,
-                stripeMetadataSource);
+                stripeMetadataSource,
+                new OrcReaderOptions(
+                        new DataSize(1, MEGABYTE),
+                        new DataSize(1, MEGABYTE),
+                        MAX_BLOCK_SIZE,
+                        false));
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
@@ -1364,11 +1366,13 @@ public class OrcTester
         OrcReader orcReader = new OrcReader(
                 orcDataSource,
                 orcEncoding,
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                MAX_BLOCK_SIZE,
                 new StorageOrcFileTailSource(),
-                new StorageStripeMetadataSource());
+                new StorageStripeMetadataSource(),
+                new OrcReaderOptions(
+                        new DataSize(1, MEGABYTE),
+                        new DataSize(1, MEGABYTE),
+                        MAX_BLOCK_SIZE,
+                        false));
 
         assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);

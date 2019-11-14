@@ -196,11 +196,9 @@ public class TestCachingOrcDataSource
         OrcReader orcReader = new OrcReader(
                 orcDataSource,
                 ORC,
-                maxMergeDistance,
-                tinyStripeThreshold,
-                new DataSize(1, Unit.MEGABYTE),
                 new StorageOrcFileTailSource(),
-                new StorageStripeMetadataSource());
+                new StorageStripeMetadataSource(),
+                new OrcReaderOptions(maxMergeDistance, tinyStripeThreshold, new DataSize(1, Unit.MEGABYTE), false));
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();

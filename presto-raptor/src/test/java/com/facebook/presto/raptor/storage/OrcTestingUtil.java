@@ -23,6 +23,7 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamOrcDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
@@ -65,11 +66,9 @@ final class OrcTestingUtil
         OrcReader orcReader = new OrcReader(
                 dataSource,
                 ORC,
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
                 new StorageOrcFileTailSource(),
-                new StorageStripeMetadataSource());
+                new StorageStripeMetadataSource(),
+                createDefaultTestConfig());
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
@@ -118,5 +117,14 @@ final class OrcTestingUtil
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
         return new OrcFileWriter(columnIds, columnTypes, new OutputStreamOrcDataSink(new FileOutputStream(file)), true, true, new OrcWriterStats(), typeManager, ZSTD);
+    }
+
+    public static OrcReaderOptions createDefaultTestConfig()
+    {
+        return new OrcReaderOptions(
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                false);
     }
 }

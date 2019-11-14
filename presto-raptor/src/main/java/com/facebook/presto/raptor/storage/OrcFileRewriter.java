@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StripeMetadataSource;
@@ -102,11 +103,9 @@ public final class OrcFileRewriter
             OrcReader reader = new OrcReader(
                     dataSource,
                     ORC,
-                    readerAttributes.getMaxMergeDistance(),
-                    readerAttributes.getTinyStripeThreshold(),
-                    HUGE_MAX_READ_BLOCK_SIZE,
                     orcFileTailSource,
-                    stripeMetadataSource);
+                    stripeMetadataSource,
+                    new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()));
 
             if (reader.getFooter().getNumberOfRows() < rowsToDelete.length()) {
                 throw new IOException("File has fewer rows than deletion vector");

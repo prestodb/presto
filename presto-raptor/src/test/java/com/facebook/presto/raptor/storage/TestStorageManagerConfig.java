@@ -72,6 +72,7 @@ public class TestStorageManagerConfig
                 .setMaxBufferSize(new DataSize(256, MEGABYTE))
                 .setOneSplitPerBucketThreshold(0)
                 .setShardDayBoundaryTimeZone(TimeZoneKey.UTC_KEY.getId())
+                .setZstdJniDecompressionEnabled(false)
                 .setMaxAllowedFilesPerWriter(Integer.MAX_VALUE));
     }
 
@@ -107,6 +108,7 @@ public class TestStorageManagerConfig
                 .put("storage.one-split-per-bucket-threshold", "4")
                 .put("storage.shard-day-boundary-time-zone", "PST")
                 .put("storage.max-allowed-files-per-writer", "50")
+                .put("storage.zstd-jni-decompression-enabled", "true")
                 .build();
 
         StorageManagerConfig expected = new StorageManagerConfig()
@@ -136,7 +138,8 @@ public class TestStorageManagerConfig
                 .setMaxBufferSize(new DataSize(512, MEGABYTE))
                 .setOneSplitPerBucketThreshold(4)
                 .setShardDayBoundaryTimeZone("PST")
-                .setMaxAllowedFilesPerWriter(50);
+                .setMaxAllowedFilesPerWriter(50)
+                .setZstdJniDecompressionEnabled(true);
 
         assertFullMapping(properties, expected);
     }

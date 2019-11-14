@@ -21,6 +21,7 @@ import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -45,6 +46,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDista
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.orc.OrcBatchPageSourceFactory.createOrcPageSource;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static java.util.Objects.requireNonNull;
@@ -115,11 +117,8 @@ public class DwrfBatchPageSourceFactory
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
-                getOrcTinyStripeThreshold(session),
-                getOrcMaxReadBlockSize(session),
                 getOrcLazyReadSmallRanges(session),
                 false,
                 stats,
@@ -127,6 +126,11 @@ public class DwrfBatchPageSourceFactory
                 orcFileTailSource,
                 stripeMetadataSource,
                 extraFileInfo,
-                fileOpener));
+                fileOpener,
+                new OrcReaderOptions(
+                        getOrcMaxMergeDistance(session),
+                        getOrcTinyStripeThreshold(session),
+                        getOrcMaxReadBlockSize(session),
+                        isOrcZstdJniDecompressionEnabled(session))));
     }
 }
