@@ -24,7 +24,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -75,9 +74,9 @@ public class CostCalculatorUsingExchanges
     }
 
     @Override
-    public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session, TypeProvider types)
+    public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session)
     {
-        CostEstimator costEstimator = new CostEstimator(stats, sourcesCosts, types, taskCountEstimator);
+        CostEstimator costEstimator = new CostEstimator(stats, sourcesCosts, taskCountEstimator);
         return node.accept(costEstimator, null);
     }
 
@@ -86,14 +85,12 @@ public class CostCalculatorUsingExchanges
     {
         private final StatsProvider stats;
         private final CostProvider sourcesCosts;
-        private final TypeProvider types;
         private final TaskCountEstimator taskCountEstimator;
 
-        CostEstimator(StatsProvider stats, CostProvider sourcesCosts, TypeProvider types, TaskCountEstimator taskCountEstimator)
+        CostEstimator(StatsProvider stats, CostProvider sourcesCosts, TaskCountEstimator taskCountEstimator)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.sourcesCosts = requireNonNull(sourcesCosts, "sourcesCosts is null");
-            this.types = requireNonNull(types, "types is null");
             this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
         }
 
@@ -195,7 +192,6 @@ public class CostCalculatorUsingExchanges
                     probe,
                     build,
                     stats,
-                    types,
                     replicated,
                     taskCountEstimator.estimateSourceDistributedTaskCount());
             LocalCostEstimate joinOutputCost = calculateJoinOutputCost(join);
