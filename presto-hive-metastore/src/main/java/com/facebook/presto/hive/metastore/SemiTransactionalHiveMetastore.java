@@ -21,6 +21,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.LocationHandle.WriteMode;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -107,6 +108,7 @@ public class SemiTransactionalHiveMetastore
     private final ExtendedHiveMetastore delegate;
     private final HdfsEnvironment hdfsEnvironment;
     private final ListeningExecutorService renameExecutor;
+    private final HiveMetastoreAuthentication metastoreAuthentication;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
 
@@ -126,12 +128,14 @@ public class SemiTransactionalHiveMetastore
             HdfsEnvironment hdfsEnvironment,
             ExtendedHiveMetastore delegate,
             ListeningExecutorService renameExecutor,
+            HiveMetastoreAuthentication metastoreAuthentication,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecutor is null");
+        this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
     }
@@ -139,13 +143,13 @@ public class SemiTransactionalHiveMetastore
     public synchronized List<String> getAllDatabases(ConnectorIdentity identity)
     {
         checkReadable();
-        return hdfsEnvironment.doAs(identity.getUser(), delegate::getAllDatabases);
+        return metastoreAuthentication.doAs(identity.getUser(), delegate::getAllDatabases);
     }
 
     public synchronized Optional<Database> getDatabase(ConnectorIdentity identity, String databaseName)
     {
         checkReadable();
-        return hdfsEnvironment.doAs(identity.getUser(), () -> delegate.getDatabase(databaseName));
+        return metastoreAuthentication.doAs(identity.getUser(), () -> delegate.getDatabase(databaseName));
     }
 
     public synchronized Optional<List<String>> getAllTables(ConnectorIdentity identity, String databaseName)
@@ -154,7 +158,7 @@ public class SemiTransactionalHiveMetastore
         if (!tableActions.isEmpty()) {
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
-        return hdfsEnvironment.doAs(identity.getUser(), () -> delegate.getAllTables(databaseName));
+        return metastoreAuthentication.doAs(identity.getUser(), () -> delegate.getAllTables(databaseName));
     }
 
     public synchronized Optional<Table> getTable(ConnectorIdentity identity, String databaseName, String tableName)
@@ -162,7 +166,7 @@ public class SemiTransactionalHiveMetastore
         checkReadable();
         Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
         if (tableAction == null) {
-            return hdfsEnvironment.doAs(identity.getUser(), () -> delegate.getTable(databaseName, tableName));
+            return metastoreAuthentication.doAs(identity.getUser(), () -> delegate.getTable(databaseName, tableName));
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -178,7 +182,7 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized Set<ColumnStatisticType> getSupportedColumnStatistics(ConnectorIdentity identity, Type type)
     {
-        return hdfsEnvironment.doAs(identity.getUser(), () -> delegate.getSupportedColumnStatistics(type));
+        return metastoreAuthentication.doAs(identity.getUser(), () -> delegate.getSupportedColumnStatistics(type));
     }
 
     public synchronized PartitionStatistics getTableStatistics(ConnectorIdentity identity, String databaseName, String tableName)
@@ -186,7 +190,7 @@ public class SemiTransactionalHiveMetastore
         checkReadable();
         Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
         if (tableAction == null) {
-            return hdfsEnvironment.doAs(identity.getUser(), () -> delegate.getTableStatistics(databaseName, tableName));
+            return metastoreAuthentication.doAs(identity.getUser(), () -> delegate.getTableStatistics(databaseName, tableName));
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -231,7 +235,7 @@ public class SemiTransactionalHiveMetastore
             }
         }
 
-        Map<String, PartitionStatistics> delegateResult = hdfsEnvironment.doAs(identity.getUser(), () -> delegate.getPartitionStatistics(databaseName, tableName, partitionNamesToQuery.build()));
+        Map<String, PartitionStatistics> delegateResult = metastoreAuthentication.doAs(identity.getUser(), () -> delegate.getPartitionStatistics(databaseName, tableName, partitionNamesToQuery.build()));
         if (!delegateResult.isEmpty()) {
             resultBuilder.putAll(delegateResult);
         }
@@ -299,34 +303,34 @@ public class SemiTransactionalHiveMetastore
         if (!tableActions.isEmpty()) {
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
-        return hdfsEnvironment.doAs(identity.getUser(), () -> delegate.getAllViews(databaseName));
+        return metastoreAuthentication.doAs(identity.getUser(), () -> delegate.getAllViews(databaseName));
     }
 
     public synchronized void createDatabase(ConnectorIdentity identity, Database database)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.createDatabase(database)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.createDatabase(database)));
     }
 
     public synchronized void dropDatabase(ConnectorIdentity identity, String schemaName)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.dropDatabase(schemaName)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.dropDatabase(schemaName)));
     }
 
     public synchronized void renameDatabase(ConnectorIdentity identity, String source, String target)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.renameDatabase(source, target)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.renameDatabase(source, target)));
     }
 
     // TODO: Allow updating statistics for 2 tables in the same transaction
     public synchronized void setTableStatistics(ConnectorIdentity identity, Table table, PartitionStatistics tableStatistics)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.updateTableStatistics(table.getDatabaseName(), table.getTableName(), statistics -> updatePartitionStatistics(statistics, tableStatistics))));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.updateTableStatistics(table.getDatabaseName(), table.getTableName(), statistics -> updatePartitionStatistics(statistics, tableStatistics))));
     }
 
     // TODO: Allow updating statistics for 2 tables in the same transaction
     public synchronized void setPartitionStatistics(ConnectorIdentity identity, Table table, Map<List<String>, PartitionStatistics> partitionStatisticsMap)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () ->
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () ->
                 partitionStatisticsMap.forEach((partitionValues, newPartitionStats) ->
                         delegate.updatePartitionStatistics(
                                 table.getDatabaseName(),
@@ -415,27 +419,27 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void replaceView(ConnectorIdentity identity, String databaseName, String tableName, Table table, PrincipalPrivileges principalPrivileges)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.replaceTable(databaseName, tableName, table, principalPrivileges)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.replaceTable(databaseName, tableName, table, principalPrivileges)));
     }
 
     public synchronized void renameTable(ConnectorIdentity identity, String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.renameTable(databaseName, tableName, newDatabaseName, newTableName)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.renameTable(databaseName, tableName, newDatabaseName, newTableName)));
     }
 
     public synchronized void addColumn(ConnectorIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.addColumn(databaseName, tableName, columnName, columnType, columnComment)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.addColumn(databaseName, tableName, columnName, columnType, columnComment)));
     }
 
     public synchronized void renameColumn(ConnectorIdentity identity, String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.renameColumn(databaseName, tableName, oldColumnName, newColumnName)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.renameColumn(databaseName, tableName, oldColumnName, newColumnName)));
     }
 
     public synchronized void dropColumn(ConnectorIdentity identity, String databaseName, String tableName, String columnName)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.dropColumn(databaseName, tableName, columnName)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.dropColumn(databaseName, tableName, columnName)));
     }
 
     public synchronized void finishInsertIntoExistingTable(
@@ -501,7 +505,7 @@ public class SemiTransactionalHiveMetastore
 
         Path path = new Path(table.get().getStorage().getLocation());
         HdfsContext context = new HdfsContext(session, databaseName, tableName);
-        setExclusive((delegate, hdfsEnvironment) -> {
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> {
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableList.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
                 throw new PrestoException(HIVE_FILESYSTEM_ERROR, format(
@@ -807,12 +811,12 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void createRole(ConnectorIdentity identity, String role, String grantor)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.createRole(role, grantor)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.createRole(role, grantor)));
     }
 
     public synchronized void dropRole(ConnectorIdentity identity, String role)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.dropRole(role)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.dropRole(role)));
     }
 
     public synchronized Set<String> listRoles(ConnectorIdentity identity)
@@ -823,12 +827,12 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void grantRoles(ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.grantRoles(roles, grantees, withAdminOption, grantor)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.grantRoles(roles, grantees, withAdminOption, grantor)));
     }
 
     public synchronized void revokeRoles(ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.revokeRoles(roles, grantees, adminOptionFor, grantor)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.revokeRoles(roles, grantees, adminOptionFor, grantor)));
     }
 
     public synchronized Set<RoleGrant> listRoleGrants(ConnectorIdentity identity, PrestoPrincipal principal)
@@ -871,12 +875,12 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void grantTablePrivileges(ConnectorIdentity identity, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges)));
     }
 
     public synchronized void revokeTablePrivileges(ConnectorIdentity identity, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        setExclusive((delegate, hdfsEnvironment) -> hdfsEnvironment.doAs(identity.getUser(), () -> delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges)));
+        setExclusive((delegate, hdfsEnvironment, metastoreAuthentication) -> metastoreAuthentication.doAs(identity.getUser(), () -> delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges)));
     }
 
     public synchronized void declareIntentionToWrite(
@@ -910,7 +914,7 @@ public class SemiTransactionalHiveMetastore
                     break;
                 case EXCLUSIVE_OPERATION_BUFFERED:
                     requireNonNull(bufferedExclusiveOperation, "bufferedExclusiveOperation is null");
-                    bufferedExclusiveOperation.execute(delegate, hdfsEnvironment);
+                    bufferedExclusiveOperation.execute(delegate, hdfsEnvironment, metastoreAuthentication);
                     break;
                 case FINISHED:
                     throw new IllegalStateException("Tried to commit buffered metastore operations after transaction has been committed/aborted");
@@ -2765,6 +2769,6 @@ public class SemiTransactionalHiveMetastore
 
     private interface ExclusiveOperation
     {
-        void execute(ExtendedHiveMetastore delegate, HdfsEnvironment hdfsEnvironment);
+        void execute(ExtendedHiveMetastore delegate, HdfsEnvironment hdfsEnvironment, HiveMetastoreAuthentication metastoreAuthentication);
     }
 }

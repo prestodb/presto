@@ -19,7 +19,9 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.LocationService.WriteInfo;
+import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -709,6 +711,7 @@ public abstract class AbstractTestHiveClient
     protected DateTimeZone timeZone;
 
     protected HdfsEnvironment hdfsEnvironment;
+    protected HiveMetastoreAuthentication metastoreAuthentication;
     protected LocationService locationService;
 
     protected HiveMetadataFactory metadataFactory;
@@ -892,7 +895,7 @@ public abstract class AbstractTestHiveClient
 
         HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, host, port);
         ExtendedHiveMetastore metastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, new MetastoreClientConfig(), new MBeanExporter(new TestingMBeanServer()))),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, new MBeanExporter(new TestingMBeanServer()))),
                 executor,
                 Duration.valueOf("1m"),
                 Duration.valueOf("15s"),
@@ -911,10 +914,12 @@ public abstract class AbstractTestHiveClient
         metastoreClient = hiveMetastore;
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of());
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
+        metastoreAuthentication = new NoHiveMetastoreAuthentication();
         locationService = new HiveLocationService(hdfsEnvironment);
         metadataFactory = new HiveMetadataFactory(
                 metastoreClient,
                 hdfsEnvironment,
+                metastoreAuthentication,
                 hivePartitionManager,
                 timeZone,
                 true,
