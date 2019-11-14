@@ -14,8 +14,10 @@
 
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.authentication.HiveMetastoreAuthentication;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
@@ -64,9 +66,9 @@ public class TestingSemiTransactionalHiveMetastore
     private final Map<HiveTableName, Table> tablesMap = new HashMap<>();
     private final Map<HiveTableName, List<String>> partitionsMap = new HashMap<>();
 
-    private TestingSemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, ListeningExecutorService renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback)
+    private TestingSemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, HiveMetastoreAuthentication authentication, ListeningExecutorService renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback)
     {
-        super(hdfsEnvironment, delegate, renameExecutor, skipDeletionForAlter, skipTargetCleanupOnRollback);
+        super(hdfsEnvironment, delegate, renameExecutor, authentication, skipDeletionForAlter, skipTargetCleanupOnRollback);
     }
 
     public static TestingSemiTransactionalHiveMetastore create()
@@ -77,11 +79,12 @@ public class TestingSemiTransactionalHiveMetastore
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config, metastoreClientConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, HOST, PORT);
+        HiveMetastoreAuthentication metastoreAuthentication = new NoHiveMetastoreAuthentication();
         ExtendedHiveMetastore delegate = new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, new MBeanExporter(new TestingMBeanServer())));
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         ListeningExecutorService renameExecutor = listeningDecorator(executor);
 
-        return new TestingSemiTransactionalHiveMetastore(hdfsEnvironment, delegate, renameExecutor, false, false);
+        return new TestingSemiTransactionalHiveMetastore(hdfsEnvironment, delegate, metastoreAuthentication, renameExecutor, false, false);
     }
 
     public void addTable(String database, String tableName, Table table, List<String> partitions)
