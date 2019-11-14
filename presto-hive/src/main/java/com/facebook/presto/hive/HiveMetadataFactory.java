@@ -194,6 +194,7 @@ public class HiveMetadataFactory
                 typeManager,
                 locationService,
                 functionResolution,
+                functionMetadataManager,
                 rowExpressionService,
                 filterStatsCalculatorService,
                 tableParameterCodec,
