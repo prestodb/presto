@@ -97,7 +97,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestOrcFileRewriter
 {
-    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+    private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true, false);
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     private File temporary;
@@ -495,7 +495,7 @@ public class TestOrcFileRewriter
         assertEquals(info.getRowCount(), 4);
 
         // Optimized writer will keep the only column
-        OrcReader orcReader = new OrcReader(fileOrcDataSource(newFile2), ORC, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new StorageOrcFileTailSource(), new StorageStripeMetadataSource());
+        OrcReader orcReader = new OrcReader(fileOrcDataSource(newFile2), ORC, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), OrcTestingUtil.createDefaultTestConfig());
         orcReader.getColumnNames().equals(ImmutableList.of("7"));
 
         // Add a column with the different ID with different type

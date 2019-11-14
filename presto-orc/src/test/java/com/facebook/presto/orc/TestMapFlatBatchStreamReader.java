@@ -396,11 +396,9 @@ public class TestMapFlatBatchStreamReader
         OrcReader orcReader = new OrcReader(
                 orcDataSource,
                 OrcEncoding.DWRF,
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, DataSize.Unit.MEGABYTE),
                 new StorageOrcFileTailSource(),
-                new StorageStripeMetadataSource());
+                new StorageStripeMetadataSource(),
+                OrcReaderTestingUtils.createDefaultTestConfig());
         Type mapType = TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(

@@ -51,6 +51,7 @@ public final class HiveSessionProperties
     private static final String ORC_TINY_STRIPE_THRESHOLD = "orc_tiny_stripe_threshold";
     private static final String ORC_MAX_READ_BLOCK_SIZE = "orc_max_read_block_size";
     private static final String ORC_LAZY_READ_SMALL_RANGES = "orc_lazy_read_small_ranges";
+    private static final String ORC_ZSTD_JNI_DECOMPRESSION_ENABLED = "orc_zstd_jni_decompression_enabled";
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
     private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
@@ -398,6 +399,11 @@ public final class HiveSessionProperties
                         OFFLINE_DATA_DEBUG_MODE_ENABLED,
                         "allow reading from tables or partitions that are marked as offline or not readable",
                         false,
+                        true),
+                booleanProperty(
+                        ORC_ZSTD_JNI_DECOMPRESSION_ENABLED,
+                        "use JNI based zstd decompression for reading ORC files",
+                        hiveClientConfig.isZstdJniDecompressionEnabled(),
                         true));
     }
 
@@ -464,6 +470,11 @@ public final class HiveSessionProperties
     public static boolean getOrcLazyReadSmallRanges(ConnectorSession session)
     {
         return session.getProperty(ORC_LAZY_READ_SMALL_RANGES, Boolean.class);
+    }
+
+    public static boolean isOrcZstdJniDecompressionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ORC_ZSTD_JNI_DECOMPRESSION_ENABLED, Boolean.class);
     }
 
     public static DataSize getOrcStringStatisticsLimit(ConnectorSession session)

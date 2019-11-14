@@ -301,11 +301,9 @@ public class TestOrcReaderPositions
             OrcReader orcReader = new OrcReader(
                     orcDataSource,
                     ORC,
-                    new DataSize(1, MEGABYTE),
-                    new DataSize(1, MEGABYTE),
-                    new DataSize(1, MEGABYTE),
                     new StorageOrcFileTailSource(),
-                    new StorageStripeMetadataSource());
+                    new StorageStripeMetadataSource(),
+                    OrcReaderTestingUtils.createDefaultTestConfig());
             Footer footer = orcReader.getFooter();
             Map<String, String> readMetadata = Maps.transformValues(footer.getUserMetadata(), Slice::toStringAscii);
             assertEquals(readMetadata, metadata);

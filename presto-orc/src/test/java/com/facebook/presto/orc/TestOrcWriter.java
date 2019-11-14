@@ -98,7 +98,16 @@ public class TestOrcWriter
             // read the footer and verify the streams are ordered by size
             DataSize dataSize = new DataSize(1, MEGABYTE);
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-            Footer footer = new OrcReader(orcDataSource, ORC, dataSize, dataSize, dataSize, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()).getFooter();
+            Footer footer = new OrcReader(
+                    orcDataSource,
+                    ORC,
+                    new StorageOrcFileTailSource(),
+                    new StorageStripeMetadataSource(),
+                    new OrcReaderOptions(
+                            dataSize,
+                            dataSize,
+                            dataSize,
+                            false)).getFooter();
 
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer

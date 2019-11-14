@@ -20,6 +20,7 @@ import com.facebook.presto.orc.OrcDataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
@@ -285,11 +286,9 @@ public class OrcStorageManager
             OrcReader reader = new OrcReader(
                     dataSource,
                     ORC,
-                    readerAttributes.getMaxMergeDistance(),
-                    readerAttributes.getTinyStripeThreshold(),
-                    HUGE_MAX_READ_BLOCK_SIZE,
                     orcFileTailSource,
-                    stripeMetadataSource);
+                    stripeMetadataSource,
+                    new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()));
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -438,11 +437,9 @@ public class OrcStorageManager
             OrcReader reader = new OrcReader(
                     dataSource,
                     ORC,
-                    defaultReaderAttributes.getMaxMergeDistance(),
-                    defaultReaderAttributes.getTinyStripeThreshold(),
-                    HUGE_MAX_READ_BLOCK_SIZE,
                     orcFileTailSource,
-                    stripeMetadataSource);
+                    stripeMetadataSource,
+                    new OrcReaderOptions(defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, defaultReaderAttributes.isZstdJniDecompressionEnabled()));
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {

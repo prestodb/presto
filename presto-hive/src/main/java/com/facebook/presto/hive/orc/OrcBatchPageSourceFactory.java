@@ -27,6 +27,7 @@ import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
@@ -66,6 +67,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxReadBlockS
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -166,11 +168,8 @@ public class OrcBatchPageSourceFactory
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
-                getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
-                getOrcTinyStripeThreshold(session),
-                getOrcMaxReadBlockSize(session),
                 getOrcLazyReadSmallRanges(session),
                 isOrcBloomFiltersEnabled(session),
                 stats,
@@ -178,7 +177,12 @@ public class OrcBatchPageSourceFactory
                 orcFileTailSource,
                 stripeMetadataSource,
                 extraFileInfo,
-                fileOpener));
+                fileOpener,
+                new OrcReaderOptions(
+                        getOrcMaxMergeDistance(session),
+                        getOrcTinyStripeThreshold(session),
+                        getOrcMaxReadBlockSize(session),
+                        isOrcZstdJniDecompressionEnabled(session))));
     }
 
     public static OrcBatchPageSource createOrcPageSource(
@@ -195,11 +199,8 @@ public class OrcBatchPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            DataSize maxMergeDistance,
             DataSize maxBufferSize,
             DataSize streamBufferSize,
-            DataSize tinyStripeThreshold,
-            DataSize maxReadBlockSize,
             boolean lazyReadSmallRanges,
             boolean orcBloomFiltersEnabled,
             FileFormatDataSourceStats stats,
@@ -207,7 +208,8 @@ public class OrcBatchPageSourceFactory
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
             Optional<byte[]> extraFileInfo,
-            FileOpener fileOpener)
+            FileOpener fileOpener,
+            OrcReaderOptions orcReaderOptions)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
@@ -218,7 +220,7 @@ public class OrcBatchPageSourceFactory
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,
-                    maxMergeDistance,
+                    orcReaderOptions.getMaxMergeDistance(),
                     maxBufferSize,
                     streamBufferSize,
                     lazyReadSmallRanges,
@@ -235,7 +237,7 @@ public class OrcBatchPageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, maxMergeDistance, tinyStripeThreshold, maxReadBlockSize, orcFileTailSource, stripeMetadataSource);
+            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, orcReaderOptions);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();

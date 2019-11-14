@@ -121,6 +121,7 @@ public class TestHiveClientConfig
                 .setTemporaryTableStorageFormat(ORC)
                 .setTemporaryTableCompressionCodec(SNAPPY)
                 .setPushdownFilterEnabled(false)
+                .setZstdJniDecompressionEnabled(false)
                 .setNestedColumnsFilterEnabled(false));
     }
 
@@ -208,6 +209,7 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-compression-codec", "NONE")
                 .put("hive.pushdown-filter-enabled", "true")
                 .put("hive.nested-columns-filter-enabled", "true")
+                .put("hive.zstd-jni-decompression-enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -291,6 +293,7 @@ public class TestHiveClientConfig
                 .setTemporaryTableStorageFormat(DWRF)
                 .setTemporaryTableCompressionCodec(NONE)
                 .setPushdownFilterEnabled(true)
+                .setZstdJniDecompressionEnabled(true)
                 .setNestedColumnsFilterEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

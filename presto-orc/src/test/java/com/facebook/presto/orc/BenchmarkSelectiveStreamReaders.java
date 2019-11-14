@@ -193,11 +193,9 @@ public class BenchmarkSelectiveStreamReaders
             OrcReader orcReader = new OrcReader(
                     dataSource,
                     ORC,
-                    new DataSize(1, MEGABYTE),
-                    new DataSize(1, MEGABYTE),
-                    new DataSize(1, MEGABYTE),
                     new StorageOrcFileTailSource(),
-                    new StorageStripeMetadataSource());
+                    new StorageStripeMetadataSource(),
+                    OrcReaderTestingUtils.createDefaultTestConfig());
 
             return orcReader.createSelectiveRecordReader(
                     ImmutableMap.of(0, type),

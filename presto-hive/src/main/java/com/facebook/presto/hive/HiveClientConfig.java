@@ -152,6 +152,7 @@ public class HiveClientConfig
 
     private boolean pushdownFilterEnabled;
     private boolean nestedColumnsFilterEnabled;
+    private boolean zstdJniDecompressionEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -857,6 +858,18 @@ public class HiveClientConfig
     public HiveClientConfig setOptimizeMismatchedBucketCount(boolean optimizeMismatchedBucketCount)
     {
         this.optimizeMismatchedBucketCount = optimizeMismatchedBucketCount;
+        return this;
+    }
+
+    public boolean isZstdJniDecompressionEnabled()
+    {
+        return zstdJniDecompressionEnabled;
+    }
+
+    @Config("hive.zstd-jni-decompression-enabled")
+    public HiveClientConfig setZstdJniDecompressionEnabled(boolean zstdJniDecompressionEnabled)
+    {
+        this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
         return this;
     }
 

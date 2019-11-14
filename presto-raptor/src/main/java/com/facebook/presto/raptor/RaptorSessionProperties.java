@@ -39,6 +39,7 @@ public class RaptorSessionProperties
     private static final String READER_TINY_STRIPE_THRESHOLD = "reader_tiny_stripe_threshold";
     private static final String READER_LAZY_READ_SMALL_RANGES = "reader_lazy_read_small_ranges";
     private static final String ONE_SPLIT_PER_BUCKET_THRESHOLD = "one_split_per_bucket_threshold";
+    private static final String ORC_ZSTD_JNI_DECOMPRESSION_ENABLED = "orc_ztd_jni_decompression_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -80,7 +81,12 @@ public class RaptorSessionProperties
                         ONE_SPLIT_PER_BUCKET_THRESHOLD,
                         "Experimental: Maximum bucket count at which to produce multiple splits per bucket",
                         config.getOneSplitPerBucketThreshold(),
-                        false));
+                        false),
+                booleanProperty(
+                        ORC_ZSTD_JNI_DECOMPRESSION_ENABLED,
+                        "use JNI based std decompression for reading ORC files",
+                        config.isZstdJniDecompressionEnabled(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -121,6 +127,11 @@ public class RaptorSessionProperties
     public static int getOneSplitPerBucketThreshold(ConnectorSession session)
     {
         return session.getProperty(ONE_SPLIT_PER_BUCKET_THRESHOLD, Integer.class);
+    }
+
+    public static boolean isZstdJniDecompressionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ORC_ZSTD_JNI_DECOMPRESSION_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
