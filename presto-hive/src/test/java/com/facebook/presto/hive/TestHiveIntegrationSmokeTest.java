@@ -1677,6 +1677,15 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'F' or linenumber<>3");
 
+        // TODO This use case can be supported
+        try {
+            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE lower(LINE_STATUS)='f' and LINE_NUMBER=CAST(4 AS INTEGER)");
+            fail("expected exception");
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
+        }
+
         assertUpdate("DELETE FROM test_metadata_delete WHERE LINE_STATUS='O'");
 
         assertQuery("SELECT * from test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' and linenumber<>3");
