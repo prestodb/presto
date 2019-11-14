@@ -121,8 +121,7 @@ public class TestJoinEnumerator
                 queryRunner.getCostCalculator(),
                 statsProvider,
                 Optional.empty(),
-                queryRunner.getDefaultSession(),
-                variableAllocator.getTypes());
+                queryRunner.getDefaultSession());
 
         return new Rule.Context()
         {

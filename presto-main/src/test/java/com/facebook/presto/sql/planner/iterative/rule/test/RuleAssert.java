@@ -205,7 +205,7 @@ public class RuleAssert
     private String formatPlan(PlanNode plan, TypeProvider types)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session);
         return inTransaction(session -> textLogicalPlan(translateExpressions(plan, types), types, metadata.getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
     }
 
@@ -229,7 +229,7 @@ public class RuleAssert
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, PlanVariableAllocator variableAllocator, Memo memo, Lookup lookup, Session session)
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, variableAllocator.getTypes());
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session, variableAllocator.getTypes());
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
 
         return new Rule.Context()
         {
