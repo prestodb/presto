@@ -68,9 +68,9 @@ public class FixedDoubleHistogram
 
     private final double[] weights;
 
-    private int bucketCount;
-    private double min;
-    private double max;
+    private final int bucketCount;
+    private final double min;
+    private final double max;
 
     public FixedDoubleHistogram(int bucketCount, double min, double max)
     {
