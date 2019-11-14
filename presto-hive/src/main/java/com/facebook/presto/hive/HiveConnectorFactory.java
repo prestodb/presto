@@ -42,6 +42,7 @@ import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPag
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.Procedure;
@@ -118,6 +119,7 @@ public class HiveConnectorFactory
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
+                        binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                         binder.bind(FilterStatsCalculatorService.class).toInstance(context.getFilterStatsCalculatorService());
                     });

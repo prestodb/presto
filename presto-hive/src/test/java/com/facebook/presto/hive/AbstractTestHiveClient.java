@@ -199,6 +199,7 @@ import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
+import static com.facebook.presto.hive.HiveTestUtils.METADATA;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
@@ -867,6 +868,7 @@ public abstract class AbstractTestHiveClient
                 TYPE_MANAGER,
                 locationService,
                 FUNCTION_RESOLUTION,
+                METADATA.getFunctionManager(),
                 ROW_EXPRESSION_SERVICE,
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new TableParameterCodec(),
