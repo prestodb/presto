@@ -146,24 +146,4 @@ public class ByteInputStream
             offset += chunkSize;
         }
     }
-
-    public void next(byte[] values, int items)
-            throws IOException
-    {
-        int outputOffset = 0;
-        while (outputOffset < items) {
-            if (offset == length) {
-                readNextBlock();
-            }
-            if (length == 0) {
-                throw new OrcCorruptionException(input.getOrcDataSourceId(), "Unexpected end of stream");
-            }
-
-            int chunkSize = min(items - outputOffset, length - offset);
-            System.arraycopy(buffer, offset, values, outputOffset, chunkSize);
-
-            outputOffset += chunkSize;
-            offset += chunkSize;
-        }
-    }
 }
