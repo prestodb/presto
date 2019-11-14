@@ -145,6 +145,28 @@ public class TestHivePushdownFilterQueries
     }
 
     @Test
+    public void testTableSampling()
+    {
+        assertQuerySucceeds("SELECT * FROM lineitem TABLESAMPLE BERNOULLI (1)");
+
+        assertQuerySucceeds("SELECT * FROM lineitem TABLESAMPLE BERNOULLI (1) WHERE orderkey > 1000");
+
+        assertQuerySucceeds("SELECT * FROM lineitem TABLESAMPLE BERNOULLI (1) WHERE orderkey % 2 = 0");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM lineitem WHERE rand() > 1");
+
+        // error in filter function with no inputs
+        assertQueryFails("SELECT * FROM lineitem WHERE array[1, 2, 3][cast(floor(rand()) as integer)] > 0", "SQL array indices start at 1");
+
+        // error in filter function with no inputs is masked by another filter
+        assertQuerySucceeds("SELECT * FROM lineitem WHERE array[1, 2, 3][cast(floor(rand()) as integer)] > 0 AND linenumber < 0");
+        assertQuerySucceeds("SELECT * FROM lineitem WHERE array[1, 2, 3][cast(floor(rand()) as integer)] > 0 AND linenumber % 2 < 0");
+
+        // error in filter function with no inputs is masked by an error in another filter
+        assertQueryFails("SELECT * FROM lineitem WHERE array[1, 2, 3][cast(floor(rand()) as integer)] > 0 AND array[1, 2, 3][cast(floor(rand() * linenumber) as integer) - linenumber] > 0", "Array subscript is negative");
+    }
+
+    @Test
     public void testLegacyUnnest()
     {
         Session legacyUnnest = Session.builder(getSession()).setSystemProperty("legacy_unnest", "true").build();

@@ -215,6 +215,11 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQuerySucceeds(queryRunner, session, sql);
     }
 
+    protected void assertQuerySucceeds(@Language("SQL") String sql)
+    {
+        QueryAssertions.assertQuerySucceeds(queryRunner, getSession(), sql);
+    }
+
     protected void assertQueryFailsEventually(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, Duration timeout)
     {
         QueryAssertions.assertQueryFailsEventually(queryRunner, getSession(), sql, expectedMessageRegExp, timeout);

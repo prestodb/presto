@@ -71,9 +71,4 @@ public class TestTpcds
         assertQuerySucceeds("SELECT i_current_price FROM item WHERE i_current_price IN (i_wholesale_cost, " + longValues + ")");
         assertQuerySucceeds("SELECT i_current_price FROM item WHERE i_current_price NOT IN (i_wholesale_cost, " + longValues + ")");
     }
-
-    private void assertQuerySucceeds(String sql)
-    {
-        computeActual(sql);
-    }
 }
