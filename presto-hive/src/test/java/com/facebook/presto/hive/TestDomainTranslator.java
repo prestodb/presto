@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -42,6 +44,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
@@ -79,6 +82,21 @@ public class TestDomainTranslator
             RowType.field("d", mapType(BIGINT, BIGINT)),
             RowType.field("e", mapType(VARCHAR, BIGINT)))));
 
+    private static final ExpressionOptimizer TEST_EXPRESSION_OPTIMIZER = new ExpressionOptimizer()
+    {
+        @Override
+        public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
+        {
+            return rowExpression;
+        }
+
+        @Override
+        public Object optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
+        {
+            throw new UnsupportedOperationException();
+        }
+    };
+
     private Metadata metadata;
     private RowExpressionDomainTranslator domainTranslator;
     private DomainTranslator.ColumnExtractor<Subfield> columnExtractor;
@@ -90,7 +108,7 @@ public class TestDomainTranslator
         domainTranslator = new RowExpressionDomainTranslator(metadata);
         columnExtractor = new SubfieldExtractor(
                 new FunctionResolution(metadata.getFunctionManager()),
-                (rowExpression, level, session) -> rowExpression,
+                TEST_EXPRESSION_OPTIMIZER,
                 new TestingConnectorSession(
                         new HiveSessionProperties(
                                 new HiveClientConfig().setNestedColumnsFilterEnabled(true),
