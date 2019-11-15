@@ -14,11 +14,13 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.TestingSession;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.ArrayType;
@@ -36,6 +38,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -68,6 +71,21 @@ public class TestSubfieldExtractor
             RowType.field("d", mapType(BIGINT, BIGINT)),
             RowType.field("e", mapType(VARCHAR, BIGINT)))));
 
+    private static final ExpressionOptimizer TEST_EXPRESSION_OPTIMIZER = new ExpressionOptimizer()
+    {
+        @Override
+        public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
+        {
+            return rowExpression;
+        }
+
+        @Override
+        public Object optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
+        {
+            throw new UnsupportedOperationException();
+        }
+    };
+
     private FunctionManager functionManager;
     private SubfieldExtractor subfieldExtractor;
 
@@ -77,7 +95,7 @@ public class TestSubfieldExtractor
         functionManager = createTestMetadataManager().getFunctionManager();
         subfieldExtractor = new SubfieldExtractor(
                 new FunctionResolution(functionManager),
-                (rowExpression, level, session) -> rowExpression,
+                TEST_EXPRESSION_OPTIMIZER,
                 TestingSession.SESSION);
     }
 

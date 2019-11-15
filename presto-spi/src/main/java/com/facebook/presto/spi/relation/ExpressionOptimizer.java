@@ -15,12 +15,16 @@ package com.facebook.presto.spi.relation;
 
 import com.facebook.presto.spi.ConnectorSession;
 
+import java.util.function.Function;
+
 public interface ExpressionOptimizer
 {
     /**
      * Optimize a RowExpression to
      */
     RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session);
+
+    Object optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver);
 
     enum Level
     {
