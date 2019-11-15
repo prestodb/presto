@@ -27,6 +27,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.Marker;
+import com.facebook.presto.spi.predicate.Range;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -204,7 +207,27 @@ public class KafkaMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         KafkaTableHandle handle = convertTableHandle(table);
-        ConnectorTableLayout layout = new ConnectorTableLayout(new KafkaTableLayoutHandle(handle));
+        long startTimestamp = 0;
+        long endTimestamp = 0;
+        Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
+        if (domains.isPresent()) {
+            Map<ColumnHandle, Domain> columnHandleDomainMap = domains.get();
+            for (Map.Entry<ColumnHandle, Domain> entry : columnHandleDomainMap.entrySet()) {
+                if (entry.getKey() instanceof KafkaColumnHandle && ((KafkaColumnHandle) entry.getKey()).getName().equals(KafkaInternalFieldDescription.OFFSET_TIMESTAMP_FIELD.getColumnName())) {
+                    Range span = entry.getValue().getValues().getRanges().getSpan();
+                    Marker low = span.getLow();
+                    Marker high = span.getHigh();
+                    if (!low.isLowerUnbounded()) {
+                        startTimestamp = (long) low.getValue();
+                    }
+                    if (!high.isUpperUnbounded()) {
+                        endTimestamp = (long) high.getValue();
+                    }
+                }
+            }
+        }
+
+        ConnectorTableLayout layout = new ConnectorTableLayout(new KafkaTableLayoutHandle(handle, startTimestamp, endTimestamp));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 

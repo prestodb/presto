@@ -24,7 +24,8 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.google.common.collect.ImmutableMap;
-import kafka.producer.KeyedMessage;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -35,7 +36,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
 
-import static com.facebook.presto.kafka.util.EmbeddedKafka.CloseableProducer;
 import static com.facebook.presto.kafka.util.TestUtils.createEmptyTopicDescription;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -96,10 +96,13 @@ public class TestMinimalFunctionality
 
     private void createMessages(String topicName, int count)
     {
-        try (CloseableProducer<Long, Object> producer = embeddedKafka.createProducer()) {
-            for (long i = 0; i < count; i++) {
-                Object message = ImmutableMap.of("id", Long.toString(i), "value", UUID.randomUUID().toString());
-                producer.send(new KeyedMessage<>(topicName, i, message));
+        try (KafkaProducer<Long, Object> producer = embeddedKafka.createProducer()) {
+            int jMax = 10;
+            int iMax = count / jMax;
+            for (long i = 0; i < iMax; i++) {
+                for (long j = 0; j < jMax; j++) {
+                    producer.send(new ProducerRecord<>(topicName, i, ImmutableMap.of("id", Long.toString(i * iMax + j), "value", UUID.randomUUID().toString())));
+                }
             }
         }
     }
