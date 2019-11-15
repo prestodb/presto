@@ -13,35 +13,31 @@
  */
 package com.facebook.presto.cache;
 
-import java.util.Objects;
+import java.util.List;
 
-public class FileToken
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
+
+public class DataCacheKey
 {
-    private final String path;
+    private final FileToken fileToken;
+    private final List<FileRange> rangeList;
 
-    public FileToken(String path)
+    public DataCacheKey(FileToken token, List<FileRange> ranges)
     {
-        this.path = path;
+        this.fileToken = requireNonNull(token, "token is null");
+        requireNonNull(ranges, "ranges is null");
+        checkArgument(ranges.size() > 0);
+        this.rangeList = ranges;
     }
 
-    @Override
-    public String toString()
+    public FileToken getToken()
     {
-        return "FileToken:" + path;
+        return fileToken;
     }
 
-    @Override
-    public boolean equals(Object o)
+    public List<FileRange> getOffset()
     {
-        if (this == o) { return true; }
-        if (o == null || getClass() != o.getClass()) { return false; }
-        FileToken fileToken = (FileToken) o;
-        return path.equals(fileToken.path);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(path);
+        return rangeList;
     }
 }

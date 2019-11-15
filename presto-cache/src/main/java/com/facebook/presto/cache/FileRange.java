@@ -13,35 +13,29 @@
  */
 package com.facebook.presto.cache;
 
-import java.util.Objects;
+import static com.google.common.base.Preconditions.checkArgument;
 
-public class FileToken
+public class FileRange
 {
-    private final String path;
+    private final long offset;
+    private final int length;
 
-    public FileToken(String path)
+    public FileRange(long offset, int length)
     {
-        this.path = path;
+        checkArgument(offset >= 0, "offset is negative");
+        checkArgument(length > 0, "length must be at least 1");
+
+        this.offset = offset;
+        this.length = length;
     }
 
-    @Override
-    public String toString()
+    public long getOffset()
     {
-        return "FileToken:" + path;
+        return offset;
     }
 
-    @Override
-    public boolean equals(Object o)
+    public int getLength()
     {
-        if (this == o) { return true; }
-        if (o == null || getClass() != o.getClass()) { return false; }
-        FileToken fileToken = (FileToken) o;
-        return path.equals(fileToken.path);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(path);
+        return length;
     }
 }
