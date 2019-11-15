@@ -88,7 +88,7 @@ public class KafkaConsumerManager
         props.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG, "org.apache.kafka.clients.consumer.RoundRobinAssignor");
 
         Thread.currentThread().setContextClassLoader(null);
-        log.debug("Creating KafkaConsumer for thread %s, partitionId %d", consumerId.threadId, consumerId.partitionId);
+        log.debug("Creating KafkaConsumer for thread %s, partitionId %s", consumerId.threadId, consumerId.partitionId);
         return new KafkaConsumer<>(props);
     }
 }
