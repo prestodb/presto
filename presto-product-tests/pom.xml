@@ -15,6 +15,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>com.facebook.presto.tests.TemptoProductTestRunner</main-class>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
+        <scala.version>2.12.2</scala.version>
     </properties>
 
     <dependencies>
@@ -135,6 +136,17 @@
         <dependency>
             <groupId>com.facebook.presto.cassandra</groupId>
             <artifactId>cassandra-driver</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>${scala.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 
