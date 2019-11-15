@@ -17,15 +17,13 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
 
 import java.io.File;
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.transform;
@@ -37,17 +35,12 @@ public class KafkaConnectorConfig
     /**
      * Seed nodes for Kafka cluster. At least one must exist.
      */
-    private Set<HostAddress> nodes = ImmutableSet.of();
+    private List<HostAddress> nodes;
 
     /**
      * Timeout to connect to Kafka.
      */
     private Duration kafkaConnectTimeout = Duration.valueOf("10s");
-
-    /**
-     * Buffer size for connecting to Kafka.
-     */
-    private DataSize kafkaBufferSize = new DataSize(64, Unit.KILOBYTE);
 
     /**
      * The schema name to use in the connector.
@@ -68,6 +61,16 @@ public class KafkaConnectorConfig
      * Whether internal columns are shown in table metadata or not. Default is no.
      */
     private boolean hideInternalColumns = true;
+
+    /**
+     * Maximum number of records per poll()
+     */
+    private int maxPollRecords = 500;
+
+    /**
+     * Maximum number of bytes from one partition per poll()
+     */
+    private int maxPartitionFetchBytes = 1024 * 1024;
 
     @NotNull
     public File getTableDescriptionDir()
@@ -108,8 +111,7 @@ public class KafkaConnectorConfig
         return this;
     }
 
-    @Size(min = 1)
-    public Set<HostAddress> getNodes()
+    public List<HostAddress> getNodes()
     {
         return nodes;
     }
@@ -117,7 +119,7 @@ public class KafkaConnectorConfig
     @Config("kafka.nodes")
     public KafkaConnectorConfig setNodes(String nodes)
     {
-        this.nodes = (nodes == null) ? null : parseNodes(nodes);
+        this.nodes = (nodes == null) ? null : parseNodes(nodes).asList();
         return this;
     }
 
@@ -134,15 +136,27 @@ public class KafkaConnectorConfig
         return this;
     }
 
-    public DataSize getKafkaBufferSize()
+    public int getMaxPollRecords()
     {
-        return kafkaBufferSize;
+        return maxPollRecords;
     }
 
-    @Config("kafka.buffer-size")
-    public KafkaConnectorConfig setKafkaBufferSize(String kafkaBufferSize)
+    @Config("kafka.max-poll-records")
+    public KafkaConnectorConfig setMaxPollRecords(int maxPollRecords)
     {
-        this.kafkaBufferSize = DataSize.valueOf(kafkaBufferSize);
+        this.maxPollRecords = maxPollRecords;
+        return this;
+    }
+
+    public int getMaxPartitionFetchBytes()
+    {
+        return maxPartitionFetchBytes;
+    }
+
+    @Config("kafka.max-partition-fetch-bytes")
+    public KafkaConnectorConfig setMaxPartitionFetchBytes(int maxPartitionFetchBytes)
+    {
+        this.maxPartitionFetchBytes = maxPartitionFetchBytes;
         return this;
     }
 

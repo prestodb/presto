@@ -17,17 +17,25 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final KafkaTableHandle table;
+    private final long startOffsetTimestamp;
+    private final long endOffsetTimestamp;
 
     @JsonCreator
-    public KafkaTableLayoutHandle(@JsonProperty("table") KafkaTableHandle table)
+    public KafkaTableLayoutHandle(
+            @JsonProperty("table") KafkaTableHandle table,
+            @JsonProperty("startOffsetTimestamp") long startOffsetTimestamp,
+            @JsonProperty("endOffsetTimestamp") long endOffsetTimestamp)
     {
         this.table = requireNonNull(table, "table is null");
+        this.startOffsetTimestamp = startOffsetTimestamp;
+        this.endOffsetTimestamp = endOffsetTimestamp;
     }
 
     @JsonProperty
@@ -36,9 +44,24 @@ public class KafkaTableLayoutHandle
         return table;
     }
 
+    @JsonProperty
+    public long getStartOffsetTimestamp()
+    {
+        return startOffsetTimestamp;
+    }
+
+    @JsonProperty
+    public long getEndOffsetTimestamp()
+    {
+        return endOffsetTimestamp;
+    }
+
     @Override
     public String toString()
     {
-        return table.toString();
+        return toStringHelper(this)
+                .add("table", table.toString())
+                .add("startOffsetTimestamp", startOffsetTimestamp)
+                .add("endOffsetTimestamp", endOffsetTimestamp).toString();
     }
 }

@@ -25,7 +25,9 @@ import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 public enum KafkaErrorCode
         implements ErrorCodeSupplier
 {
-    KAFKA_SPLIT_ERROR(0, EXTERNAL);
+    KAFKA_SPLIT_ERROR(0, EXTERNAL),
+
+    KAFKA_CONSUMER_ERROR(1, EXTERNAL);
 
     private final ErrorCode errorCode;
 
