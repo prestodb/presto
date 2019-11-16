@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveCoercer.VarcharToIntegerNumberCoercer;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
+import com.facebook.presto.spi.Subfield;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -34,7 +35,7 @@ public class TestCoercingFilters
 
         HiveCoercer coercer = new IntegerNumberToVarcharCoercer(INTEGER, VARCHAR);
 
-        TupleDomainFilter coercingFilter = coercer.toCoercingFilter(filter);
+        TupleDomainFilter coercingFilter = coercer.toCoercingFilter(filter, new Subfield("c"));
 
         assertTrue(coercingFilter.testLong(10));
         assertFalse(coercingFilter.testLong(25));
@@ -48,7 +49,7 @@ public class TestCoercingFilters
 
         HiveCoercer coercer = new VarcharToIntegerNumberCoercer(VARCHAR, INTEGER);
 
-        TupleDomainFilter coercingFilter = coercer.toCoercingFilter(filter);
+        TupleDomainFilter coercingFilter = coercer.toCoercingFilter(filter, new Subfield("c"));
 
         assertTrue(coercingFilter.testLength(1));
         assertTrue(coercingFilter.testLength(2));

@@ -892,6 +892,11 @@ public final class HiveUtil
                 .collect(toImmutableList());
     }
 
+    public static List<String> extractStructFieldNames(HiveType hiveType)
+    {
+        return ((StructTypeInfo) hiveType.getTypeInfo()).getAllStructFieldNames();
+    }
+
     public static int getHeaderCount(Properties schema)
     {
         return getPositiveIntegerValue(schema, "skip.header.line.count", "0");

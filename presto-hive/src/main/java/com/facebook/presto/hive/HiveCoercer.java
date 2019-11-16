@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -40,6 +41,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
+import static com.facebook.presto.hive.HiveUtil.extractStructFieldNames;
 import static com.facebook.presto.hive.HiveUtil.extractStructFieldTypes;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
@@ -56,6 +58,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -64,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 public interface HiveCoercer
         extends Function<Block, Block>
 {
-    TupleDomainFilter toCoercingFilter(TupleDomainFilter filter);
+    TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield);
 
     static HiveCoercer createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
     {
@@ -128,8 +131,9 @@ public interface HiveCoercer
         }
 
         @Override
-        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield)
         {
+            checkArgument(subfield.getPath().isEmpty(), "Subfields on primitive types are not allowed");
             return filter;
         }
     }
@@ -161,8 +165,9 @@ public interface HiveCoercer
         }
 
         @Override
-        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield)
         {
+            checkArgument(subfield.getPath().isEmpty(), "Subfields on primitive types are not allowed");
             return new CoercingFilter(filter);
         }
 
@@ -253,8 +258,9 @@ public interface HiveCoercer
         }
 
         @Override
-        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield)
         {
+            checkArgument(subfield.getPath().isEmpty(), "Subfields on primitive types are not allowed");
             return new CoercingFilter(filter, minValue, maxValue);
         }
 
@@ -324,8 +330,9 @@ public interface HiveCoercer
         }
 
         @Override
-        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield)
         {
+            checkArgument(subfield.getPath().isEmpty(), "Subfields on primitive types are not allowed");
             return filter;
         }
     }
@@ -363,13 +370,13 @@ public interface HiveCoercer
         }
 
         @Override
-        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield)
         {
             if (filter == IS_NULL || filter == IS_NOT_NULL) {
                 return filter;
             }
 
-            throw new UnsupportedOperationException("Range filers on array types are not supported");
+            throw new UnsupportedOperationException("Range filers on array elements are not supported");
         }
     }
 
@@ -410,13 +417,13 @@ public interface HiveCoercer
         }
 
         @Override
-        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield)
         {
             if (filter == IS_NULL || filter == IS_NOT_NULL) {
                 return filter;
             }
 
-            throw new UnsupportedOperationException("Range filers on array types are not supported");
+            throw new UnsupportedOperationException("Range filers on map elements are not supported");
         }
     }
 
@@ -425,6 +432,7 @@ public interface HiveCoercer
     {
         private final HiveCoercer[] coercers;
         private final Block[] nullBlocks;
+        private final List<String> toFieldNames;
 
         public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
         {
@@ -443,6 +451,7 @@ public interface HiveCoercer
                     coercers[i] = createCoercer(typeManager, fromFieldTypes.get(i), toFieldTypes.get(i));
                 }
             }
+            this.toFieldNames = extractStructFieldNames(toHiveType);
         }
 
         @Override
@@ -470,13 +479,23 @@ public interface HiveCoercer
         }
 
         @Override
-        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter)
+        public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield)
         {
             if (filter == IS_NULL || filter == IS_NOT_NULL) {
                 return filter;
             }
 
-            throw new UnsupportedOperationException("Range filers on array types are not supported");
+            if (subfield.getPath().size() > 0) {
+                String fieldName = ((Subfield.NestedField) subfield.getPath().get(0)).getName();
+                for (int i = 0; i < toFieldNames.size(); i++) {
+                    if (fieldName.equals(toFieldNames.get(i))) {
+                        return coercers[i].toCoercingFilter(filter, subfield.tail(fieldName));
+                    }
+                }
+                throw new IllegalArgumentException("Struct field not found: " + fieldName);
+            }
+
+            throw new UnsupportedOperationException("Range filers on struct types are not supported");
         }
     }
 }

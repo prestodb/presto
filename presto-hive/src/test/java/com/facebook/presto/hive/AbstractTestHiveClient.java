@@ -473,15 +473,18 @@ public abstract class AbstractTestHiveClient
                             }).collect(toList()))
                     .build();
 
-    private static final List<TupleDomain<ColumnMetadata>> MISMATCH_SCHEMA_TABLE_AFTER_FILTERS = ImmutableList.of(
+    private static final List<TupleDomain<SubfieldWithType>> MISMATCH_SCHEMA_TABLE_AFTER_FILTERS = ImmutableList.of(
             // integer_to_varchar
-            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(6), Domain.singleValue(VARCHAR, Slices.utf8Slice("17")))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(6), Domain.notNull(VARCHAR))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(6), Domain.onlyNull(VARCHAR))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("integer_to_varchar", VARCHAR), Domain.singleValue(VARCHAR, Slices.utf8Slice("17")))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("integer_to_varchar", VARCHAR), Domain.notNull(VARCHAR))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("integer_to_varchar", VARCHAR), Domain.onlyNull(VARCHAR))),
             // varchar_to_integer
-            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(7), Domain.singleValue(INTEGER, -923L))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(7), Domain.notNull(INTEGER))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(MISMATCH_SCHEMA_TABLE_AFTER.get(7), Domain.onlyNull(INTEGER))));
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("varchar_to_integer", INTEGER), Domain.singleValue(INTEGER, -923L))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("varchar_to_integer", INTEGER), Domain.notNull(INTEGER))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("varchar_to_integer", INTEGER), Domain.onlyNull(INTEGER))),
+            // struct_to_struct
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_integer_to_varchar", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(VARCHAR, Slices.utf8Slice("-27")))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_varchar_to_integer", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(INTEGER, 2147483647L))));
 
     private static final List<Predicate<MaterializedRow>> MISMATCH_SCHEMA_TABLE_AFTER_RESULT_PREDICATES = ImmutableList.of(
             row -> Objects.equals(row.getField(6), "17"),
@@ -489,7 +492,9 @@ public abstract class AbstractTestHiveClient
             row -> row.getField(6) == null,
             row -> Objects.equals(row.getField(7), -923),
             row -> row.getField(7) != null,
-            row -> row.getField(7) == null);
+            row -> row.getField(7) == null,
+            row -> Objects.equals(row.getField(6), "-27"),
+            row -> Objects.equals(row.getField(7), 2147483647));
 
     protected Set<HiveStorageFormat> createTableFormats = difference(ImmutableSet.copyOf(HiveStorageFormat.values()), ImmutableSet.of(AVRO));
 
@@ -1250,7 +1255,7 @@ public abstract class AbstractTestHiveClient
             MaterializedResult dataBefore,
             List<ColumnMetadata> tableAfter,
             MaterializedResult dataAfter,
-            List<TupleDomain<ColumnMetadata>> afterFilters,
+            List<TupleDomain<SubfieldWithType>> afterFilters,
             List<Predicate<MaterializedRow>> afterResultPredicates)
             throws Exception
     {
@@ -1322,9 +1327,9 @@ public abstract class AbstractTestHiveClient
 
             int filterCount = afterFilters.size();
             for (int i = 0; i < filterCount; i++) {
-                TupleDomain<ColumnMetadata> tupleDomain = afterFilters.get(i);
+                TupleDomain<SubfieldWithType> tupleDomain = afterFilters.get(i);
 
-                RowExpression predicate = ROW_EXPRESSION_SERVICE.getDomainTranslator().toPredicate(tupleDomain.transform(AbstractTestHiveClient::toVariable));
+                RowExpression predicate = ROW_EXPRESSION_SERVICE.getDomainTranslator().toPredicate(tupleDomain.transform(column -> toVariable(column, session)));
                 ConnectorTableLayoutHandle layoutHandle = metadata.pushdownFilter(session, tableHandle, predicate, Optional.empty()).getLayout().getHandle();
 
                 // Read all columns with a filter
@@ -1337,7 +1342,8 @@ public abstract class AbstractTestHiveClient
 
                 // Read all columns except the ones used in the filter
                 Set<String> filterColumnNames = tupleDomain.getDomains().get().keySet().stream()
-                        .map(ColumnMetadata::getName)
+                        .map(SubfieldWithType::getSubfield)
+                        .map(Subfield::getRootName)
                         .collect(toImmutableSet());
 
                 List<ColumnHandle> nonFilterColumns = columnHandles.stream()
@@ -1374,9 +1380,10 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private static VariableReferenceExpression toVariable(ColumnMetadata column)
+    private static RowExpression toVariable(SubfieldWithType column, ConnectorSession session)
     {
-        return new VariableReferenceExpression(column.getName(), column.getType());
+        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE.getExpressionOptimizer(), session);
+        return subfieldExtractor.toRowExpression(column.getSubfield(), column.getType());
     }
 
     protected void assertExpectedTableLayout(ConnectorTableLayout actualTableLayout, ConnectorTableLayout expectedTableLayout)
@@ -5469,6 +5476,33 @@ public abstract class AbstractTestHiveClient
             // The file we added to trigger a conflict was cleaned up because it matches the query prefix.
             // Consider this the same as a network failure that caused the successful creation of file not reported to the caller.
             assertFalse(hdfsEnvironment.getFileSystem(context, path).exists(path));
+        }
+    }
+
+    private static final class SubfieldWithType
+    {
+        private final Subfield subfield;
+        private final Type type;
+
+        private SubfieldWithType(Subfield subfield, Type type)
+        {
+            this.subfield = subfield;
+            this.type = type;
+        }
+
+        public static SubfieldWithType of(String subfield, Type type)
+        {
+            return new SubfieldWithType(new Subfield(subfield), type);
+        }
+
+        public Subfield getSubfield()
+        {
+            return subfield;
+        }
+
+        public Type getType()
+        {
+            return type;
         }
     }
 }
