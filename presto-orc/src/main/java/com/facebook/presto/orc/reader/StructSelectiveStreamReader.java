@@ -72,6 +72,7 @@ public class StructSelectiveStreamReader
     @Nullable
     private final Type outputType;
 
+    private final Optional<List<Type>> nestedTypes;
     private final Map<String, SelectiveStreamReader> nestedReaders;
     private final SelectiveStreamReader[] orderedNestedReaders;
 
@@ -124,7 +125,7 @@ public class StructSelectiveStreamReader
             }
         }
 
-        Optional<List<Type>> nestedTypes = outputType.map(type -> type.getTypeParameters());
+        this.nestedTypes = outputType.map(type -> type.getTypeParameters());
         List<StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams();
 
         Optional<Map<String, List<Subfield>>> requiredFields = getRequiredFields(requiredSubfields);
@@ -429,10 +430,14 @@ public class StructSelectiveStreamReader
 
     private Block[] getFieldBlocks()
     {
-        Block[] blocks = new Block[nestedReaders.size()];
+        Block[] blocks = new Block[nestedTypes.isPresent() ? nestedTypes.get().size() : nestedReaders.size()];
         int i = 0;
         for (SelectiveStreamReader reader : nestedReaders.values()) {
             blocks[i++] = reader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
+        }
+        while (i < blocks.length) {
+            blocks[i] = createNullBlock(nestedTypes.get().get(i), nestedOutputPositionCount);
+            i++;
         }
         return blocks;
     }
@@ -511,7 +516,7 @@ public class StructSelectiveStreamReader
         outputPositionCount = positionCount;
     }
 
-    private BlockLease newLease(Block block, BlockLease...fieldBlockLeases)
+    private BlockLease newLease(Block block, BlockLease... fieldBlockLeases)
     {
         valuesInUse = true;
         return ClosingBlockLease.newLease(block, () -> {
