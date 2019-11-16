@@ -542,7 +542,7 @@ public class OrcSelectivePageSourceFactory
             int columnIndex = columnIndices.get(subfield.getRootName());
             TupleDomainFilter filter = entry.getValue();
             if (coercers.containsKey(columnIndex)) {
-                filter = coercers.get(columnIndex).toCoercingFilter(filter);
+                filter = coercers.get(columnIndex).toCoercingFilter(filter, subfield);
             }
             filtersByColumn.computeIfAbsent(columnIndex, k -> new HashMap<>()).put(subfield, filter);
         }
