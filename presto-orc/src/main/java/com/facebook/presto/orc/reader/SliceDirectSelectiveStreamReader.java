@@ -114,11 +114,13 @@ public class SliceDirectSelectiveStreamReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
         if (!rowGroupOpen) {
             openRowGroup();
         }
 
-        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+        allNulls = false;
 
         outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
@@ -150,8 +152,6 @@ public class SliceDirectSelectiveStreamReader
             throws IOException
     {
         int streamPosition = 0;
-        allNulls = false;
-
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
             if (position > streamPosition) {
@@ -188,7 +188,6 @@ public class SliceDirectSelectiveStreamReader
     private int readWithFilter(int[] positions, int positionCount)
             throws IOException
     {
-        allNulls = false;
         int streamPosition = 0;
         int dataToSkip = 0;
 
