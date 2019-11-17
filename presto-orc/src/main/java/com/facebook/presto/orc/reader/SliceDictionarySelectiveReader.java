@@ -143,11 +143,13 @@ public class SliceDictionarySelectiveReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
         if (!rowGroupOpen) {
             openRowGroup();
         }
 
-        checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+        allNulls = false;
 
         if (outputRequired) {
             values = ensureCapacity(values, positionCount);
