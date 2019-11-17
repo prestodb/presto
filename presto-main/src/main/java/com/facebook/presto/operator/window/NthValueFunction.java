@@ -23,7 +23,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
-@WindowFunctionSignature(name = "nth_value", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
+@WindowFunctionSignature(name = "nth_value", typeVariables = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 public class NthValueFunction
         extends ValueWindowFunction
 {

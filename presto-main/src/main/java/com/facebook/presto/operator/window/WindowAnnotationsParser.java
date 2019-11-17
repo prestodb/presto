@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
@@ -46,10 +47,9 @@ public final class WindowAnnotationsParser
 
     private static SqlWindowFunction parse(Class<? extends WindowFunction> clazz, WindowFunctionSignature window)
     {
-        List<TypeVariableConstraint> typeVariables = ImmutableList.of();
-        if (!window.typeVariable().isEmpty()) {
-            typeVariables = ImmutableList.of(typeVariable(window.typeVariable()));
-        }
+        List<TypeVariableConstraint> typeVariables = Stream.of(window.typeVariables())
+                .map(Signature::typeVariable)
+                .collect(Collectors.toList());
 
         List<TypeSignature> argumentTypes = Stream.of(window.argumentTypes())
                 .map(TypeSignature::parseTypeSignature)

@@ -29,7 +29,7 @@ public @interface WindowFunctionSignature
 
     String returnType() default "";
 
-    String typeVariable() default "";
+    String[] typeVariables() default {};
 
     String[] argumentTypes() default {};
 }

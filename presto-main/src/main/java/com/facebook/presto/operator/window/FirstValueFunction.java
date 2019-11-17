@@ -21,7 +21,7 @@ import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
-@WindowFunctionSignature(name = "first_value", typeVariable = "T", returnType = "T", argumentTypes = "T")
+@WindowFunctionSignature(name = "first_value", typeVariables = "T", returnType = "T", argumentTypes = "T")
 public class FirstValueFunction
         extends ValueWindowFunction
 {
