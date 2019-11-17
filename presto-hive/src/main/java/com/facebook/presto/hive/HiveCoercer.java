@@ -489,7 +489,14 @@ public interface HiveCoercer
                 String fieldName = ((Subfield.NestedField) subfield.getPath().get(0)).getName();
                 for (int i = 0; i < toFieldNames.size(); i++) {
                     if (fieldName.equals(toFieldNames.get(i))) {
-                        return coercers[i].toCoercingFilter(filter, subfield.tail(fieldName));
+                        HiveCoercer coercer = coercers[i];
+                        if (coercer == null) {
+                            // the column value will be null
+                            //  -> only isNull method will be called
+                            //   -> the original filter will work just fine
+                            return filter;
+                        }
+                        return coercer.toCoercingFilter(filter, subfield.tail(fieldName));
                     }
                 }
                 throw new IllegalArgumentException("Struct field not found: " + fieldName);

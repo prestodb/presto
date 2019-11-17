@@ -74,6 +74,7 @@ public class StructSelectiveStreamReader
 
     private final Map<String, SelectiveStreamReader> nestedReaders;
     private final SelectiveStreamReader[] orderedNestedReaders;
+    private final boolean missingFieldFilterIsFalse;
 
     private final LocalMemoryContext systemMemoryContext;
 
@@ -141,7 +142,12 @@ public class StructSelectiveStreamReader
                 .map(Subfield.NestedField::getName)
                 .collect(toImmutableSet());
 
-        if (outputRequired || !fieldsWithFilters.isEmpty()) {
+        if (!checkMissingFieldFilters(nestedStreams, filters)) {
+            this.missingFieldFilterIsFalse = true;
+            this.nestedReaders = ImmutableMap.of();
+            this.orderedNestedReaders = new SelectiveStreamReader[0];
+        }
+        else if (outputRequired || !fieldsWithFilters.isEmpty()) {
             ImmutableMap.Builder<String, SelectiveStreamReader> nestedReaders = ImmutableMap.builder();
             for (int i = 0; i < nestedStreams.size(); i++) {
                 StreamDescriptor nestedStream = nestedStreams.get(i);
@@ -168,14 +174,51 @@ public class StructSelectiveStreamReader
                     nestedReaders.put(fieldName, new PruningStreamReader(nestedStream, fieldOutputType));
                 }
             }
+
+            this.missingFieldFilterIsFalse = false;
             this.nestedReaders = nestedReaders.build();
             this.orderedNestedReaders = orderNestedReaders(this.nestedReaders, fieldsWithFilters);
         }
         else {
             // No need to read the elements when output is not required and the filter is a simple IS [NOT] NULL
+            this.missingFieldFilterIsFalse = false;
             this.nestedReaders = ImmutableMap.of();
             this.orderedNestedReaders = new SelectiveStreamReader[0];
         }
+    }
+
+    private boolean checkMissingFieldFilters(List<StreamDescriptor> nestedStreams, Map<Subfield, TupleDomainFilter> filters)
+    {
+        if (filters.isEmpty()) {
+            return true;
+        }
+
+        Set<String> presentFieldNames = nestedStreams.stream()
+                .map(StreamDescriptor::getFieldName)
+                .map(name -> name.toLowerCase(Locale.ENGLISH))
+                .collect(toImmutableSet());
+
+        for (Map.Entry<Subfield, TupleDomainFilter> entry : filters.entrySet()) {
+            Subfield subfield = entry.getKey();
+            if (subfield.getPath().isEmpty()) {
+                continue;
+            }
+
+            String fieldName = ((Subfield.NestedField) subfield.getPath().get(0)).getName();
+            if (presentFieldNames.contains(fieldName)) {
+                continue;
+            }
+
+            // Check out the filter. If filter allows nulls, then all rows pass, otherwise, no row passes.
+            TupleDomainFilter filter = entry.getValue();
+            checkArgument(filter.isDeterministic(), "Non-deterministic range filters are not supported yet");
+
+            if (!filter.testNull()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static SelectiveStreamReader[] orderNestedReaders(Map<String, SelectiveStreamReader> nestedReaders, Set<String> fieldsWithFilters)
@@ -183,8 +226,10 @@ public class StructSelectiveStreamReader
         SelectiveStreamReader[] order = new SelectiveStreamReader[nestedReaders.size()];
 
         int index = 0;
-        for (String fieldName : fieldsWithFilters) {
-            order[index++] = nestedReaders.get(fieldName);
+        for (Map.Entry<String, SelectiveStreamReader> entry : nestedReaders.entrySet()) {
+            if (fieldsWithFilters.contains(entry.getKey())) {
+                order[index++] = entry.getValue();
+            }
         }
         for (Map.Entry<String, SelectiveStreamReader> entry : nestedReaders.entrySet()) {
             if (!fieldsWithFilters.contains(entry.getKey())) {
@@ -201,6 +246,11 @@ public class StructSelectiveStreamReader
     {
         checkArgument(positionCount > 0, "positionCount must be greater than zero");
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
+
+        if (missingFieldFilterIsFalse) {
+            outputPositionCount = 0;
+            return 0;
+        }
 
         if (!rowGroupOpen) {
             openRowGroup();

@@ -489,7 +489,10 @@ public abstract class AbstractTestHiveClient
             TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("tinyint_append", TINYINT), Domain.notNull(TINYINT))),
             // struct_to_struct
             TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_integer_to_varchar", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(VARCHAR, Slices.utf8Slice("-27")))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_varchar_to_integer", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(INTEGER, 2147483647L))));
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_varchar_to_integer", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(INTEGER, 2147483647L))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_tinyint_to_smallint_append", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(TINYINT, 1L))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_tinyint_to_smallint_append", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.onlyNull(TINYINT))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_tinyint_to_smallint_append", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.notNull(TINYINT))));
 
     private static final List<Predicate<MaterializedRow>> MISMATCH_SCHEMA_TABLE_AFTER_RESULT_PREDICATES = ImmutableList.of(
             // integer_to_varchar
@@ -506,7 +509,10 @@ public abstract class AbstractTestHiveClient
             row -> false,
             // struct_to_struct
             row -> Objects.equals(row.getField(6), "-27"),
-            row -> Objects.equals(row.getField(7), 2147483647));
+            row -> Objects.equals(row.getField(7), 2147483647),
+            row -> false,
+            row -> true,
+            row -> false);
 
     protected Set<HiveStorageFormat> createTableFormats = difference(ImmutableSet.copyOf(HiveStorageFormat.values()), ImmutableSet.of(AVRO));
 
