@@ -445,6 +445,7 @@ public abstract class AbstractTestHiveClient
             .add(new ColumnMetadata("struct_to_struct", MISMATCH_SCHEMA_ROW_TYPE_APPEND))
             .add(new ColumnMetadata("list_to_list", arrayType(MISMATCH_SCHEMA_ROW_TYPE_APPEND)))
             .add(new ColumnMetadata("map_to_map", mapType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.get(1).getType(), MISMATCH_SCHEMA_ROW_TYPE_DROP)))
+            .add(new ColumnMetadata("tinyint_append", TINYINT))
             .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
             .build();
 
@@ -468,6 +469,7 @@ public abstract class AbstractTestHiveClient
                                 result.add(appendFieldRowResult);
                                 result.add(Arrays.asList(appendFieldRowResult, null, appendFieldRowResult));
                                 result.add(ImmutableMap.of(result.get(1), dropFieldRowResult));
+                                result.add(null);
                                 result.add(result.get(9));
                                 return new MaterializedRow(materializedRow.getPrecision(), result);
                             }).collect(toList()))
@@ -482,17 +484,28 @@ public abstract class AbstractTestHiveClient
             TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("varchar_to_integer", INTEGER), Domain.singleValue(INTEGER, -923L))),
             TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("varchar_to_integer", INTEGER), Domain.notNull(INTEGER))),
             TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("varchar_to_integer", INTEGER), Domain.onlyNull(INTEGER))),
+            // tinyint_append
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("tinyint_append", TINYINT), Domain.singleValue(TINYINT, 1L))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("tinyint_append", TINYINT), Domain.onlyNull(TINYINT))),
+            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("tinyint_append", TINYINT), Domain.notNull(TINYINT))),
             // struct_to_struct
             TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_integer_to_varchar", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(VARCHAR, Slices.utf8Slice("-27")))),
             TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_varchar_to_integer", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(INTEGER, 2147483647L))));
 
     private static final List<Predicate<MaterializedRow>> MISMATCH_SCHEMA_TABLE_AFTER_RESULT_PREDICATES = ImmutableList.of(
+            // integer_to_varchar
             row -> Objects.equals(row.getField(6), "17"),
             row -> row.getField(6) != null,
             row -> row.getField(6) == null,
+            // varchar_to_integer
             row -> Objects.equals(row.getField(7), -923),
             row -> row.getField(7) != null,
             row -> row.getField(7) == null,
+            // tinyint_append
+            row -> false,
+            row -> true,
+            row -> false,
+            // struct_to_struct
             row -> Objects.equals(row.getField(6), "-27"),
             row -> Objects.equals(row.getField(7), 2147483647));
 
