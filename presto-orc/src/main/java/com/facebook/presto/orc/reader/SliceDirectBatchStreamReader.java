@@ -178,7 +178,7 @@ public class SliceDirectBatchStreamReader
         }
         if (totalLength > ONE_GIGABYTE) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR,
-                    format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", streamDescriptor.getFieldName(), nextBatchSize, streamDescriptor.getOrcDataSourceId()));
+                    format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", streamDescriptor.getFieldName(), currentBatchSize, streamDescriptor.getOrcDataSourceId()));
         }
         if (dataStream == null) {
             throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");
