@@ -85,6 +85,7 @@ public class OrcSelectiveRecordReader
     private int[] outputPositions;
     private RuntimeException[] errors;
     private boolean constantFilterIsFalse;
+    private boolean constantFilterFunctionsPass;
 
     private int readPositions;
 
@@ -506,18 +507,45 @@ public class OrcSelectiveRecordReader
             initializeOutputPositions(positionCount);
 
             for (FilterFunction function : filterFunctionsWithInputs) {
+                boolean allConstant = true;
                 int[] inputs = function.getInputChannels();
                 Block[] inputBlocks = new Block[inputs.length];
 
                 for (int i = 0; i < inputs.length; i++) {
-                    inputBlocks[i] = blocks[filterFunctionInputMapping.get(inputs[i])];
+                    int columnIndex = filterFunctionInputMapping.get(inputs[i]);
+                    if (constantValues[columnIndex] == null) {
+                        allConstant = false;
+                    }
+                    inputBlocks[i] = blocks[columnIndex];
                 }
 
-                Page page = new Page(positionCount, inputBlocks);
+                // if all are Constant columns and evaluated to true no need to evaluate again
+                if (allConstant && constantFilterFunctionsPass) {
+                    continue;
+                }
+
+                Page page = new Page(allConstant ? 1 : positionCount, inputBlocks);
                 positionCount = function.filter(page, outputPositions, positionCount, errors);
+
+                // if the 1st row does not pass the filter then none of the rows pass allConstant filter
                 if (positionCount == 0) {
+                    if (allConstant) {
+                        constantFilterIsFalse = false;
+                    }
                     break;
                 }
+                // if the 1st row passes allConstant filter then all the rows will pass
+                if (allConstant) {
+                    for (int i = 1; i < positionCount; i++) {
+                        outputPositions[i] = i;
+                        errors[i] = errors[0];
+                    }
+                }
+            }
+
+            if (positionCount > 0) {
+                // If rows survived all filters then we know any constant-dependent functions are also true and need not be run next time.
+                constantFilterFunctionsPass = true;
             }
 
             for (int i = 0; i < positionCount; i++) {

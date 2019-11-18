@@ -772,6 +772,12 @@ public class TestHivePushdownFilterQueries
 
         assertQuery("SELECT * FROM test_partition_columns WHERE substr(p, x, 1) = 'a' and substr(q, 1, 1) = 'c'", "SELECT 1, 'abc', 'cba'");
 
+        assertQuery("SELECT count(*) FROM test_partition_columns WHERE p LIKE '%bc'", "SELECT 2");
+
+        assertQuery("SELECT count(*) FROM test_partition_columns WHERE p LIKE '%bc' and q LIKE '%cba'", "SELECT 1");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM test_partition_columns WHERE p LIKE '%1'");
+
         assertQueryReturnsEmptyResult("SELECT * FROM test_partition_columns WHERE p = 'xxx'");
 
         assertQueryReturnsEmptyResult("SELECT * FROM test_partition_columns WHERE p = 'abc' and p='def'");
