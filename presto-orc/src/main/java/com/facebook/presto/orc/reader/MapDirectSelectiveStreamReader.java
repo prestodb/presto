@@ -130,11 +130,9 @@ public class MapDirectSelectiveStreamReader
         Optional<Type> keyOutputType = outputType.map(MapType.class::cast).map(MapType::getKeyType);
         Optional<Type> valueOutputType = outputType.map(MapType.class::cast).map(MapType::getValueType);
 
-        Map<Subfield, TupleDomainFilter> keyFilter = makeKeyFilter(nestedStreams.get(0).getOrcTypeKind(), requiredSubfields)
-                .map(f -> ImmutableMap.of(new Subfield("c"), f))
-                .orElse(ImmutableMap.of());
-
         if (outputRequired) {
+            Map<Subfield, TupleDomainFilter> keyFilter = ImmutableMap.of(new Subfield("c"), makeKeyFilter(nestedStreams.get(0).getOrcTypeKind(), requiredSubfields));
+
             List<Subfield> elementRequiredSubfields = ImmutableList.of();
             if (requiredSubfields.stream().map(Subfield::getPath).allMatch(path -> path.size() > 1)) {
                 elementRequiredSubfields = requiredSubfields.stream()
@@ -152,17 +150,19 @@ public class MapDirectSelectiveStreamReader
         }
     }
 
-    private static Optional<TupleDomainFilter> makeKeyFilter(OrcType.OrcTypeKind orcType, List<Subfield> requiredSubfields)
+    private static TupleDomainFilter makeKeyFilter(OrcType.OrcTypeKind orcType, List<Subfield> requiredSubfields)
     {
+        // Map entries with a null key are skipped in the Hive ORC reader, so skip them here also
+
         if (requiredSubfields.isEmpty()) {
-            return Optional.empty();
+            return IS_NOT_NULL;
         }
 
         if (requiredSubfields.stream()
                 .map(Subfield::getPath)
                 .map(path -> path.get(0))
                 .anyMatch(Subfield.AllSubscripts.class::isInstance)) {
-            return Optional.empty();
+            return IS_NOT_NULL;
         }
 
         switch (orcType) {
@@ -178,14 +178,14 @@ public class MapDirectSelectiveStreamReader
                         .toArray();
 
                 if (requiredIndices.length == 0) {
-                    return Optional.empty();
+                    return IS_NOT_NULL;
                 }
 
                 if (requiredIndices.length == 1) {
-                    return Optional.of(BigintRange.of(requiredIndices[0], requiredIndices[0], false));
+                    return BigintRange.of(requiredIndices[0], requiredIndices[0], false);
                 }
 
-                return Optional.of(BigintValues.of(requiredIndices, false));
+                return BigintValues.of(requiredIndices, false);
             }
             case STRING:
             case CHAR:
@@ -199,17 +199,17 @@ public class MapDirectSelectiveStreamReader
                         .toArray(byte[][]::new);
 
                 if (requiredIndices.length == 0) {
-                    return Optional.empty();
+                    return IS_NOT_NULL;
                 }
 
                 if (requiredIndices.length == 1) {
-                    return Optional.of(BytesRange.of(requiredIndices[0], false, requiredIndices[0], false, false));
+                    return BytesRange.of(requiredIndices[0], false, requiredIndices[0], false, false);
                 }
 
-                return Optional.of(BytesValues.of(requiredIndices, false));
+                return BytesValues.of(requiredIndices, false);
             }
             default:
-                return Optional.empty();
+                return IS_NOT_NULL;
         }
     }
 
