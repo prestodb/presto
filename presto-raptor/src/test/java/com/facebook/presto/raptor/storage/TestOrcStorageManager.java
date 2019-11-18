@@ -641,7 +641,7 @@ public class TestOrcStorageManager
                 storageService,
                 backupStore,
                 READER_ATTRIBUTES,
-                new BackupManager(backupStore, storageService, new LocalOrcDataEnvironment(), 1),
+                new BackupManager(backupStore, storageService, new LocalOrcDataEnvironment(), 1, true),
                 recoveryManager,
                 shardRecorder,
                 new TypeRegistry(),

@@ -71,7 +71,7 @@ public class TestBackupManager
         storageService = new LocalFileStorageService(new LocalOrcDataEnvironment(), new File(temporary, "data").toURI());
         storageService.start();
 
-        backupManager = new BackupManager(Optional.of(backupStore), storageService, new LocalOrcDataEnvironment(), 5);
+        backupManager = new BackupManager(Optional.of(backupStore), storageService, new LocalOrcDataEnvironment(), 5, true);
     }
 
     @AfterMethod(alwaysRun = true)

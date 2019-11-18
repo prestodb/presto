@@ -31,6 +31,7 @@ public class BackupConfig
     private int timeoutThreads = 1000;
     private String provider;
     private int backupThreads = 5;
+    private boolean enableVerification = true;
 
     @NotNull
     @MinDuration("1s")
@@ -87,6 +88,19 @@ public class BackupConfig
     public BackupConfig setBackupThreads(int backupThreads)
     {
         this.backupThreads = backupThreads;
+        return this;
+    }
+
+    public boolean isEnableVerification()
+    {
+        return enableVerification;
+    }
+
+    @Config("backup.enable-verification")
+    @ConfigDescription("Enable backup verification which immediately reads back from backup after write")
+    public BackupConfig setEnableVerification(boolean enableVerification)
+    {
+        this.enableVerification = enableVerification;
         return this;
     }
 }

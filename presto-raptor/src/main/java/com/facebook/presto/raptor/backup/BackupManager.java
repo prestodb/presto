@@ -57,6 +57,7 @@ public class BackupManager
     private final StorageService storageService;
     private final ExecutorService executorService;
     private final Optional<RawLocalFileSystem> localFileSystem;
+    private final boolean enableVerification;
 
     private final AtomicInteger pendingBackups = new AtomicInteger();
     private final BackupStats stats = new BackupStats();
@@ -64,10 +65,10 @@ public class BackupManager
     @Inject
     public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, OrcDataEnvironment environment, BackupConfig config)
     {
-        this(backupStore, storageService, environment, config.getBackupThreads());
+        this(backupStore, storageService, environment, config.getBackupThreads(), config.isEnableVerification());
     }
 
-    public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, OrcDataEnvironment environment, int backupThreads)
+    public BackupManager(Optional<BackupStore> backupStore, StorageService storageService, OrcDataEnvironment environment, int backupThreads, boolean enableVerification)
     {
         checkArgument(backupThreads > 0, "backupThreads must be > 0");
 
@@ -75,6 +76,7 @@ public class BackupManager
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.executorService = newFixedThreadPool(backupThreads, daemonThreadsNamed("background-shard-backup-%s"));
         this.localFileSystem = tryGetLocalFileSystem(requireNonNull(environment, "environment is null"));
+        this.enableVerification = enableVerification;
 
         checkState((!backupStore.isPresent() || localFileSystem.isPresent()), "cannot support backup for remote file system");
     }
@@ -123,6 +125,11 @@ public class BackupManager
 
                 backupStore.get().backupShard(uuid, source);
                 stats.addCopyShardDataRate(new DataSize(source.length(), BYTE), Duration.nanosSince(start));
+
+                if (!enableVerification) {
+                    stats.incrementBackupSuccess();
+                    return;
+                }
 
                 File restored = new File(localFileSystem.get().pathToFile(storageService.getStagingFile(uuid)) + ".validate");
                 backupStore.get().restoreShard(uuid, restored);

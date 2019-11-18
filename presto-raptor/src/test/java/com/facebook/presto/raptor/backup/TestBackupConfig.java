@@ -34,6 +34,7 @@ public class TestBackupConfig
                 .setProvider(null)
                 .setTimeoutThreads(1000)
                 .setTimeout(new Duration(1, MINUTES))
+                .setEnableVerification(true)
                 .setBackupThreads(5));
     }
 
@@ -45,13 +46,15 @@ public class TestBackupConfig
                 .put("backup.timeout", "42s")
                 .put("backup.timeout-threads", "13")
                 .put("backup.threads", "3")
+                .put("backup.enable-verification", "false")
                 .build();
 
         BackupConfig expected = new BackupConfig()
                 .setProvider("file")
                 .setTimeout(new Duration(42, SECONDS))
                 .setTimeoutThreads(13)
-                .setBackupThreads(3);
+                .setBackupThreads(3)
+                .setEnableVerification(false);
 
         assertFullMapping(properties, expected);
     }
