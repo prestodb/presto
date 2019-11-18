@@ -270,7 +270,9 @@ public class StructSelectiveStreamReader
                 }
                 else {
                     readNestedStreams(offset, positions, positionCount);
-                    outputPositions = nestedOutputPositions;
+                    if (nestedOutputPositionCount > 0) {
+                        outputPositions = initializeOutputPositions(outputPositions, nestedOutputPositions, positionCount);
+                    }
                     outputPositionCount = nestedOutputPositionCount;
                 }
                 readOffset = offset + positions[positionCount - 1];
@@ -688,7 +690,7 @@ public class StructSelectiveStreamReader
         @Override
         public int read(int offset, int[] positions, int positionCount)
         {
-            outputPositions = positions;
+            outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
             outputPositionCount = positionCount;
             return outputPositionCount;
         }
