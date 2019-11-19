@@ -241,7 +241,7 @@ public class ShardOrganizerUtil
         throw new IllegalArgumentException("Unhandled type: " + type);
     }
 
-    static OrganizationSet createOrganizationSet(long tableId, boolean tableSupportsDeltaDelete, Set<ShardIndexInfo> shardsToCompact)
+    static OrganizationSet createOrganizationSet(long tableId, boolean tableSupportsDeltaDelete, Set<ShardIndexInfo> shardsToCompact, int priority)
     {
         Map<UUID, Optional<UUID>> uuidsMap = shardsToCompact.stream()
                 .collect(toImmutableMap(ShardIndexInfo::getShardUuid, ShardIndexInfo::getDeltaUuid));
@@ -251,6 +251,6 @@ public class ShardOrganizerUtil
                 .collect(toSet());
 
         checkArgument(bucketNumber.size() == 1);
-        return new OrganizationSet(tableId, tableSupportsDeltaDelete, uuidsMap, getOnlyElement(bucketNumber));
+        return new OrganizationSet(tableId, tableSupportsDeltaDelete, uuidsMap, getOnlyElement(bucketNumber), priority);
     }
 }

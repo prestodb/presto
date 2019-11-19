@@ -22,6 +22,7 @@ import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 public class OrganizationSet
 {
@@ -29,13 +30,15 @@ public class OrganizationSet
     private final boolean tableSupportsDeltaDelete;
     private final Map<UUID, Optional<UUID>> shardsMap;
     private final OptionalInt bucketNumber;
+    private final int priority;
 
-    public OrganizationSet(long tableId, boolean tableSupportsDeltaDelete, Map<UUID, Optional<UUID>> shardsMap, OptionalInt bucketNumber)
+    public OrganizationSet(long tableId, boolean tableSupportsDeltaDelete, Map<UUID, Optional<UUID>> shardsMap, OptionalInt bucketNumber, int priority)
     {
         this.tableId = tableId;
         this.tableSupportsDeltaDelete = tableSupportsDeltaDelete;
         this.shardsMap = requireNonNull(shardsMap, "shards is null");
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
+        this.priority = priority;
     }
 
     public long getTableId()
@@ -61,6 +64,11 @@ public class OrganizationSet
     public OptionalInt getBucketNumber()
     {
         return bucketNumber;
+    }
+
+    public int getPriority()
+    {
+        return priority;
     }
 
     @Override
@@ -91,7 +99,9 @@ public class OrganizationSet
         return toStringHelper(this)
                 .add("tableId", tableId)
                 .add("tableSupportsDeltaDelete", tableSupportsDeltaDelete)
-                .add("shards", shardsMap)
+                .add("shardSize", shardsMap.size())
+                .add("deltaSize", shardsMap.values().stream().filter(Optional::isPresent).collect(toSet()).size())
+                .add("priority", priority)
                 .add("bucketNumber", bucketNumber.isPresent() ? bucketNumber.getAsInt() : null)
                 .omitNullValues()
                 .toString();

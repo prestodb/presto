@@ -31,6 +31,7 @@ import java.util.OptionalLong;
 import java.util.UUID;
 
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -123,5 +124,22 @@ class OrganizationJob
                 tableMetadata.getColumns(),
                 tableMetadata.getSortColumnIds(),
                 nCopies(tableMetadata.getSortColumnIds().size(), ASC_NULLS_FIRST));
+    }
+
+    public int getPriority()
+    {
+        return organizationSet.getPriority();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("metadataDao", metadataDao)
+                .add("shardManager", shardManager)
+                .add("compactor", compactor)
+                .add("organizationSet", organizationSet)
+                .add("priority", organizationSet.getPriority())
+                .toString();
     }
 }

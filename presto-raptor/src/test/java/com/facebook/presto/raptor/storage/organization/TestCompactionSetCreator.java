@@ -63,6 +63,19 @@ public class TestCompactionSetCreator
     }
 
     @Test
+    public void testNonTemporalOrganizationSetDelta()
+    {
+        List<ShardIndexInfo> inputShards = ImmutableList.of(
+                sharAndDeltaWithSize(10, 10),
+                sharAndDeltaWithSize(10, 10),
+                sharAndDeltaWithSize(10, 10));
+
+        Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(tableInfo, inputShards);
+        assertEquals(compactionSets.size(), 1);
+        assertEquals(getOnlyElement(compactionSets).getShardsMap(), extractIndexes(inputShards, 0, 1, 2));
+    }
+
+    @Test
     public void testNonTemporalSizeBasedOrganizationSet()
     {
         List<ShardIndexInfo> inputShards = ImmutableList.of(
@@ -117,8 +130,8 @@ public class TestCompactionSetCreator
         assertEquals(actual.size(), 2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
-                new OrganizationSet(temporalTableInfo.getTableId(), false, extractIndexes(inputShards, 0, 3), OptionalInt.empty()),
-                new OrganizationSet(temporalTableInfo.getTableId(), false, extractIndexes(inputShards, 1, 2), OptionalInt.empty()));
+                new OrganizationSet(temporalTableInfo.getTableId(), false, extractIndexes(inputShards, 0, 3), OptionalInt.empty(), 0),
+                new OrganizationSet(temporalTableInfo.getTableId(), false, extractIndexes(inputShards, 1, 2), OptionalInt.empty(), 0));
         assertEquals(actual, expected);
     }
 
@@ -145,8 +158,8 @@ public class TestCompactionSetCreator
         assertEquals(compactionSets.size(), 2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
-                new OrganizationSet(tableId, false, extractIndexes(inputShards, 0, 1, 5, 6), OptionalInt.empty()),
-                new OrganizationSet(tableId, false, extractIndexes(inputShards, 2, 3, 4), OptionalInt.empty()));
+                new OrganizationSet(tableId, false, extractIndexes(inputShards, 0, 1, 5, 6), OptionalInt.empty(), 0),
+                new OrganizationSet(tableId, false, extractIndexes(inputShards, 2, 3, 4), OptionalInt.empty(), 0));
         assertEquals(compactionSets, expected);
     }
 
@@ -171,8 +184,8 @@ public class TestCompactionSetCreator
         assertEquals(actual.size(), 2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
-                new OrganizationSet(tableId, false, extractIndexes(inputShards, 0, 3, 5), OptionalInt.empty()),
-                new OrganizationSet(tableId, false, extractIndexes(inputShards, 1, 4), OptionalInt.empty()));
+                new OrganizationSet(tableId, false, extractIndexes(inputShards, 0, 3, 5), OptionalInt.empty(), 0),
+                new OrganizationSet(tableId, false, extractIndexes(inputShards, 1, 4), OptionalInt.empty(), 0));
         assertEquals(actual, expected);
     }
 
@@ -193,8 +206,8 @@ public class TestCompactionSetCreator
         assertEquals(actual.size(), 2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
-                new OrganizationSet(tableId, false, extractIndexes(inputShards, 0, 3, 5), OptionalInt.of(1)),
-                new OrganizationSet(tableId, false, extractIndexes(inputShards, 1, 2, 4), OptionalInt.of(2)));
+                new OrganizationSet(tableId, false, extractIndexes(inputShards, 0, 3, 5), OptionalInt.of(1), 0),
+                new OrganizationSet(tableId, false, extractIndexes(inputShards, 1, 2, 4), OptionalInt.of(2), 0));
         assertEquals(actual, expected);
     }
 
@@ -229,8 +242,8 @@ public class TestCompactionSetCreator
         assertEquals(actual.size(), 2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
-                new OrganizationSet(tableId, false, extractIndexes(inputShards, 0, 2), OptionalInt.of(1)),
-                new OrganizationSet(tableId, false, extractIndexes(inputShards, 1, 3), OptionalInt.of(2)));
+                new OrganizationSet(tableId, false, extractIndexes(inputShards, 0, 2), OptionalInt.of(1), 0),
+                new OrganizationSet(tableId, false, extractIndexes(inputShards, 1, 3), OptionalInt.of(2), 0));
         assertEquals(actual, expected);
     }
 
@@ -242,6 +255,20 @@ public class TestCompactionSetCreator
                 UUID.randomUUID(),
                 false,
                 Optional.empty(),
+                rows,
+                size,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    private static ShardIndexInfo sharAndDeltaWithSize(long rows, long size)
+    {
+        return new ShardIndexInfo(
+                1,
+                OptionalInt.empty(),
+                UUID.randomUUID(),
+                false,
+                Optional.of(UUID.randomUUID()),
                 rows,
                 size,
                 Optional.empty(),

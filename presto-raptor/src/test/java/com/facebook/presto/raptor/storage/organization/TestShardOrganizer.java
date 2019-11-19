@@ -37,7 +37,7 @@ public class TestShardOrganizer
         ShardOrganizer organizer = createShardOrganizer();
 
         Map<UUID, Optional<UUID>> shards = ImmutableMap.of(UUID.randomUUID(), Optional.empty());
-        OrganizationSet organizationSet = new OrganizationSet(1L, false, shards, OptionalInt.empty());
+        OrganizationSet organizationSet = new OrganizationSet(1L, false, shards, OptionalInt.empty(), 0);
 
         organizer.enqueue(organizationSet);
 
