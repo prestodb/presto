@@ -60,7 +60,7 @@ class DecodedBlockNode
 
     public long getRetainedSizeInBytes()
     {
-        int size = INSTANCE_SIZE;
+        long size = INSTANCE_SIZE;
         if (decodedBlock instanceof Block) {
             size += ((Block) decodedBlock).getRetainedSizeInBytes();
         }
