@@ -1,0 +1,1 @@
+export HADOOP_OPTS="$HADOOP_OPTS -Xmx1024m"
