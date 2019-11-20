@@ -37,8 +37,14 @@ public interface ResourceGroupConfigurationManager<C>
      */
     void configure(ResourceGroup group, SelectionContext<C> criteria);
 
+    void configure(ResourceGroup group);
+
+    boolean dynamicReloadSupported();
+
     /**
      * This method is called for every query that is submitted, so it should be fast.
      */
     Optional<SelectionContext<C>> match(SelectionCriteria criteria);
+
+    int getSpecVersion();
 }

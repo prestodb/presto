@@ -54,6 +54,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -77,6 +78,7 @@ public class DbResourceGroupConfigurationManager
     @GuardedBy("this")
     private Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = new HashMap<>();
     private final ConcurrentMap<ResourceGroupIdTemplate, List<ResourceGroupId>> configuredGroups = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ResourceGroupId, ResourceGroupIdTemplate> configuredGroupsTemplate = new ConcurrentHashMap<>();
     private final AtomicReference<List<ResourceGroupSpec>> rootGroups = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<List<ResourceGroupSelector>> selectors = new AtomicReference<>();
     private final AtomicReference<Optional<Duration>> cpuQuotaPeriod = new AtomicReference<>(Optional.empty());
@@ -86,6 +88,7 @@ public class DbResourceGroupConfigurationManager
     private final String environment;
     private final Duration maxRefreshInterval;
     private final boolean exactMatchSelectorEnabled;
+    private AtomicInteger version;
 
     private final CounterStat refreshFailures = new CounterStat();
 
@@ -106,6 +109,7 @@ public class DbResourceGroupConfigurationManager
         if (exactMatchSelectorEnabled) {
             this.dao.createExactMatchSelectorsTable();
         }
+        version = new AtomicInteger(0);
         load();
     }
 
@@ -148,10 +152,27 @@ public class DbResourceGroupConfigurationManager
         if (groups.putIfAbsent(group.getId(), group) == null) {
             // If a new spec replaces the spec returned from getMatchingSpec the group will be reconfigured on the next run of load().
             configuredGroups.computeIfAbsent(entry.getKey(), v -> new LinkedList<>()).add(group.getId());
+            configuredGroupsTemplate.put(group.getId(), entry.getKey());
         }
         synchronized (getRootGroup(group.getId())) {
             configureGroup(group, entry.getValue());
         }
+    }
+
+    @Override
+    public void configure(ResourceGroup group)
+    {
+        ResourceGroupIdTemplate resourceGroupIdTemplate = configuredGroupsTemplate.get(group.getId());
+        ResourceGroupSpec resourceGroupSpec = resourceGroupSpecs.get(resourceGroupIdTemplate);
+        synchronized (getRootGroup(group.getId())) {
+            configureGroup(group, resourceGroupSpec);
+        }
+    }
+
+    @Override
+    public boolean dynamicReloadSupported()
+    {
+        return true;
     }
 
     @Override
@@ -168,6 +189,12 @@ public class DbResourceGroupConfigurationManager
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
+    }
+
+    @Override
+    public synchronized int getSpecVersion()
+    {
+        return version.get();
     }
 
     @VisibleForTesting
@@ -196,12 +223,43 @@ public class DbResourceGroupConfigurationManager
             ManagerSpec managerSpec = specsFromDb.getKey();
             Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = specsFromDb.getValue();
             Set<ResourceGroupIdTemplate> changedSpecs = new HashSet<>();
-            Set<ResourceGroupIdTemplate> deletedSpecs = Sets.difference(this.resourceGroupSpecs.keySet(), resourceGroupSpecs.keySet());
-
+            Set<ResourceGroupIdTemplate> newSpecs = new HashSet<>();
+            Set<ResourceGroupIdTemplate> deletedSpecTemplates = Sets.difference(this.resourceGroupSpecs.keySet(), resourceGroupSpecs.keySet());
             for (Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry : resourceGroupSpecs.entrySet()) {
-                if (!entry.getValue().sameConfig(this.resourceGroupSpecs.get(entry.getKey()))) {
+                if (!this.resourceGroupSpecs.containsKey(entry.getKey())) {
+                    newSpecs.add(entry.getKey());
+                }
+                else if (!entry.getValue().sameConfig(this.resourceGroupSpecs.get(entry.getKey()))) {
                     changedSpecs.add(entry.getKey());
                 }
+            }
+
+            int deletedTemplateSize = 0;
+            for (ResourceGroupIdTemplate deletedSpecTemplate : deletedSpecTemplates) {
+                ResourceGroupSpec deletedSpec = this.resourceGroupSpecs.get(deletedSpecTemplate);
+                //If the spec is already deleted, skip resetting it again
+                if (this.resourceGroupSpecs.get(deletedSpecTemplate).getHardConcurrencyLimit() > 0) {
+                    ResourceGroupSpecBuilder specBuilder = new ResourceGroupSpecBuilder(
+                            0,
+                            deletedSpec.getName(),
+                            "0MB",
+                            0,
+                            Optional.empty(),
+                            0,
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty());
+                    resourceGroupSpecs.put(deletedSpecTemplate, specBuilder.build());
+                    deletedTemplateSize++;
+                }
+            }
+
+            //Bump the version if changedSpecs, newSpecs or deletedSpecs has any changes:
+            if (!changedSpecs.isEmpty() || !newSpecs.isEmpty() || deletedTemplateSize > 0) {
+                version.getAndIncrement();
             }
 
             this.resourceGroupSpecs = resourceGroupSpecs;
@@ -218,13 +276,13 @@ public class DbResourceGroupConfigurationManager
                 this.selectors.set(selectors);
             }
 
-            configureChangedGroups(changedSpecs);
-            disableDeletedGroups(deletedSpecs);
-
             if (lastRefresh.get() > 0) {
-                for (ResourceGroupIdTemplate deleted : deletedSpecs) {
-                    log.info("Resource group spec deleted %s", deleted);
+                if (deletedTemplateSize > 0) {
+                    for (ResourceGroupIdTemplate deleted : deletedSpecTemplates) {
+                        log.info("Resource group spec deleted %s", deleted);
+                    }
                 }
+
                 for (ResourceGroupIdTemplate changed : changedSpecs) {
                     log.info("Resource group spec %s changed to %s", changed, resourceGroupSpecs.get(changed));
                 }

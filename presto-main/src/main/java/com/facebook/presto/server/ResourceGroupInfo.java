@@ -52,6 +52,8 @@ public class ResourceGroupInfo
     private final List<ResourceGroupInfo> subGroups;
     private final List<QueryStateInfo> runningQueries;
 
+    private final int version;
+
     @JsonCreator
     public ResourceGroupInfo(
             @JsonProperty("id") ResourceGroupId id,
@@ -67,7 +69,8 @@ public class ResourceGroupInfo
             @JsonProperty("numRunningQueries") int numRunningQueries,
             @JsonProperty("numEligibleSubGroups") int numEligibleSubGroups,
             @JsonProperty("subGroups") List<ResourceGroupInfo> subGroups,
-            @JsonProperty("runningQueries") List<QueryStateInfo> runningQueries)
+            @JsonProperty("runningQueries") List<QueryStateInfo> runningQueries,
+            @JsonProperty("version") int version)
     {
         this.id = requireNonNull(id, "id is null");
         this.state = requireNonNull(state, "state is null");
@@ -89,6 +92,8 @@ public class ResourceGroupInfo
         this.runningQueries = runningQueries;
 
         this.subGroups = subGroups;
+
+        this.version = version;
     }
 
     @JsonProperty
@@ -189,5 +194,11 @@ public class ResourceGroupInfo
     public List<ResourceGroupInfo> getSubGroups()
     {
         return subGroups;
+    }
+
+    @JsonProperty
+    public int getVersion()
+    {
+        return version;
     }
 }
