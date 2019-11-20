@@ -15,8 +15,11 @@ package com.facebook.presto.raptor.filesystem;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheStats;
 import com.facebook.presto.cache.ForCachingFileSystem;
+import com.facebook.presto.cache.LocalRangeCacheManager;
+import com.facebook.presto.cache.NoOpCacheManager;
 import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.storage.StorageService;
@@ -27,7 +30,9 @@ import org.apache.hadoop.fs.Path;
 
 import javax.inject.Singleton;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HdfsModule
@@ -60,5 +65,18 @@ public class HdfsModule
     public Path createBaseLocation(StorageManagerConfig config)
     {
         return new Path(config.getDataDirectory());
+    }
+
+    @Singleton
+    @Provides
+    public CacheManager createCacheManager(CacheConfig cacheConfig, CacheStats cacheStats)
+    {
+        return cacheConfig.getBaseDirectory() == null ?
+                new NoOpCacheManager() :
+                new LocalRangeCacheManager(
+                        cacheConfig,
+                        cacheStats,
+                        newScheduledThreadPool(5, daemonThreadsNamed("raptor-cache-flusher-%s")),
+                        newScheduledThreadPool(1, daemonThreadsNamed("raptor-cache-remover-%s")));
     }
 }

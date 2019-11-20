@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.raptor.filesystem;
+package com.facebook.presto.hive;
 
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CachingFileSystem;
 import com.facebook.presto.cache.ForCachingFileSystem;
 import com.facebook.presto.hadoop.FileSystemFactory;
+import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -30,30 +31,30 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.function.BiFunction;
 
-import static com.facebook.presto.raptor.filesystem.FileSystemUtil.copy;
+import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
-public class RaptorCachingHdfsConfiguration
-        implements RaptorHdfsConfiguration
+public class HiveCachingHdfsConfiguration
+        implements HdfsConfiguration
 {
-    private final RaptorHdfsConfiguration hiveHdfsConfiguration;
+    private final HdfsConfiguration hiveHdfsConfiguration;
     private final CacheManager cacheManager;
     private final boolean cacheValidationEnabled;
 
     @Inject
-    public RaptorCachingHdfsConfiguration(
-            @ForCachingFileSystem RaptorHdfsConfiguration hiveHdfsConfiguration,
+    public HiveCachingHdfsConfiguration(
+            @ForCachingFileSystem HdfsConfiguration hdfsConfiguration,
             CacheConfig cacheConfig,
             CacheManager cacheManager)
     {
-        this.hiveHdfsConfiguration = requireNonNull(hiveHdfsConfiguration, "hiveHdfsConfiguration is null");
+        this.hiveHdfsConfiguration = requireNonNull(hdfsConfiguration, "hiveHdfsConfiguration is null");
         this.cacheManager = requireNonNull(cacheManager, "CacheManager is null");
         this.cacheValidationEnabled = requireNonNull(cacheConfig, "cacheConfig is null").isValidationEnabled();
     }
 
     @Override
-    public Configuration getConfiguration(FileSystemContext context, URI uri)
+    public Configuration getConfiguration(HdfsContext context, URI uri)
     {
         @SuppressWarnings("resource")
         Configuration config = new CachingJobConf((factoryConfig, factoryUri) -> {
@@ -66,7 +67,7 @@ public class RaptorCachingHdfsConfiguration
                         cacheValidationEnabled);
             }
             catch (IOException e) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create caching FS", e);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create caching file system", e);
             }
         });
         Configuration defaultConfig = hiveHdfsConfiguration.getConfiguration(context, uri);
@@ -81,7 +82,7 @@ public class RaptorCachingHdfsConfiguration
     {
         private final BiFunction<Configuration, URI, FileSystem> factory;
 
-        public CachingJobConf(BiFunction<Configuration, URI, FileSystem> factory)
+        private CachingJobConf(BiFunction<Configuration, URI, FileSystem> factory)
         {
             super(false);
             this.factory = requireNonNull(factory, "factory is null");

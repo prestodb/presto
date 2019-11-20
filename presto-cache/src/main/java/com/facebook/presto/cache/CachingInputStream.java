@@ -22,7 +22,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
-final class CachingInputStream
+public final class CachingInputStream
         extends FSDataInputStream
 {
     private final FSDataInputStream inputStream;
