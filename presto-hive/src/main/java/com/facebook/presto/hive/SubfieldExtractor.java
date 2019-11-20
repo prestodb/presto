@@ -37,7 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveSessionProperties.isNestedColumnsFilterEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isRangeFiltersOnSubscriptsEnabled;
 import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -76,7 +76,7 @@ public final class SubfieldExtractor
             Optional<Subfield> subfield = extract(expression);
             // If the expression involves array or map subscripts, it is considered only if allowed by nested_columns_filter_enabled.
             if (hasSubscripts(subfield)) {
-                if (isNestedColumnsFilterEnabled(connectorSession)) {
+                if (isRangeFiltersOnSubscriptsEnabled(connectorSession)) {
                     return subfield;
                 }
                 return Optional.empty();

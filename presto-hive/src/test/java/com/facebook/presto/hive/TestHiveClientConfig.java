@@ -122,7 +122,7 @@ public class TestHiveClientConfig
                 .setTemporaryTableCompressionCodec(SNAPPY)
                 .setPushdownFilterEnabled(false)
                 .setZstdJniDecompressionEnabled(false)
-                .setNestedColumnsFilterEnabled(false));
+                .setRangeFiltersOnSubscriptsEnabled(false));
     }
 
     @Test
@@ -208,7 +208,7 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-storage-format", "DWRF")
                 .put("hive.temporary-table-compression-codec", "NONE")
                 .put("hive.pushdown-filter-enabled", "true")
-                .put("hive.nested-columns-filter-enabled", "true")
+                .put("hive.range-filters-on-subscripts-enabled", "true")
                 .put("hive.zstd-jni-decompression-enabled", "true")
                 .build();
 
@@ -294,7 +294,7 @@ public class TestHiveClientConfig
                 .setTemporaryTableCompressionCodec(NONE)
                 .setPushdownFilterEnabled(true)
                 .setZstdJniDecompressionEnabled(true)
-                .setNestedColumnsFilterEnabled(true);
+                .setRangeFiltersOnSubscriptsEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
