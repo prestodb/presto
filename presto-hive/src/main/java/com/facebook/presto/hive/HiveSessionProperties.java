@@ -88,7 +88,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
-    public static final String NESTED_COLUMNS_FILTER_ENABLED = "nested_columns_filter_enabled";
+    public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
     public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
@@ -381,9 +381,9 @@ public final class HiveSessionProperties
                         hiveClientConfig.isPushdownFilterEnabled(),
                         false),
                 booleanProperty(
-                        NESTED_COLUMNS_FILTER_ENABLED,
-                        "Experimental: enable filters on nested columns",
-                        hiveClientConfig.isNestedColumnsFilterEnabled(),
+                        RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED,
+                        "Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers",
+                        hiveClientConfig.isRangeFiltersOnSubscriptsEnabled(),
                         false),
                 integerProperty(
                         VIRTUAL_BUCKET_COUNT,
@@ -669,9 +669,9 @@ public final class HiveSessionProperties
         return session.getProperty(PUSHDOWN_FILTER_ENABLED, Boolean.class);
     }
 
-    public static boolean isNestedColumnsFilterEnabled(ConnectorSession session)
+    public static boolean isRangeFiltersOnSubscriptsEnabled(ConnectorSession session)
     {
-        return session.getProperty(NESTED_COLUMNS_FILTER_ENABLED, Boolean.class);
+        return session.getProperty(RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED, Boolean.class);
     }
 
     public static int getVirtualBucketCount(ConnectorSession session)

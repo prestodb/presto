@@ -151,7 +151,7 @@ public class HiveClientConfig
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
 
     private boolean pushdownFilterEnabled;
-    private boolean nestedColumnsFilterEnabled;
+    private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean zstdJniDecompressionEnabled;
 
     public int getMaxInitialSplits()
@@ -1240,16 +1240,16 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isNestedColumnsFilterEnabled()
+    public boolean isRangeFiltersOnSubscriptsEnabled()
     {
-        return nestedColumnsFilterEnabled;
+        return rangeFiltersOnSubscriptsEnabled;
     }
 
-    @Config("hive.nested-columns-filter-enabled")
-    @ConfigDescription("Experimental: enable filters on nested columns")
-    public HiveClientConfig setNestedColumnsFilterEnabled(boolean nestedColumnsFilterEnabled)
+    @Config("hive.range-filters-on-subscripts-enabled")
+    @ConfigDescription("Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers")
+    public HiveClientConfig setRangeFiltersOnSubscriptsEnabled(boolean rangeFiltersOnSubscriptsEnabled)
     {
-        this.nestedColumnsFilterEnabled = nestedColumnsFilterEnabled;
+        this.rangeFiltersOnSubscriptsEnabled = rangeFiltersOnSubscriptsEnabled;
         return this;
     }
 }

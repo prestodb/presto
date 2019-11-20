@@ -111,7 +111,7 @@ public class TestDomainTranslator
                 TEST_EXPRESSION_OPTIMIZER,
                 new TestingConnectorSession(
                         new HiveSessionProperties(
-                                new HiveClientConfig().setNestedColumnsFilterEnabled(true),
+                                new HiveClientConfig().setRangeFiltersOnSubscriptsEnabled(true),
                                 new OrcFileWriterConfig(),
                                 new ParquetFileWriterConfig()).getSessionProperties())).toColumnExtractor();
     }
