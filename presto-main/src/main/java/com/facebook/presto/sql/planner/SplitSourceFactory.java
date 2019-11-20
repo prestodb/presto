@@ -65,7 +65,6 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
@@ -149,12 +148,10 @@ public class SplitSourceFactory
             else {
                 table = node.getTable();
             }
-            Supplier<SplitSource> splitSourceSupplier = () -> splitSourceProvider.getSplits(
+            SplitSource splitSource = splitSourceProvider.getSplits(
                     session,
                     table,
                     getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId()));
-
-            SplitSource splitSource = new LazySplitSource(splitSourceSupplier);
 
             splitSources.add(splitSource);
 
