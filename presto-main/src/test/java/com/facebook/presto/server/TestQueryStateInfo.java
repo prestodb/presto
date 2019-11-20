@@ -45,18 +45,18 @@ public class TestQueryStateInfo
     @Test
     public void testQueryStateInfo()
     {
-        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), 1);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(0);
         root.setSchedulingPolicy(WEIGHTED);
 
-        InternalResourceGroup rootA = root.getOrCreateSubGroup("a", true);
+        InternalResourceGroup rootA = root.getOrCreateSubGroup("a", true, 0);
         rootA.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         rootA.setMaxQueuedQueries(20);
         rootA.setHardConcurrencyLimit(0);
 
-        InternalResourceGroup rootAX = rootA.getOrCreateSubGroup("x", true);
+        InternalResourceGroup rootAX = rootA.getOrCreateSubGroup("x", true, 0);
         rootAX.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         rootAX.setMaxQueuedQueries(10);
         rootAX.setHardConcurrencyLimit(0);

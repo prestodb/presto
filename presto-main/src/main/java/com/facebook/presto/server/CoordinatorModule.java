@@ -52,6 +52,7 @@ import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.ForQueryExecution;
+import com.facebook.presto.execution.ForQueryScheduling;
 import com.facebook.presto.execution.GrantRolesTask;
 import com.facebook.presto.execution.GrantTask;
 import com.facebook.presto.execution.PrepareTask;
@@ -294,6 +295,8 @@ public class CoordinatorModule
 
         binder.bind(ScheduledExecutorService.class).annotatedWith(ForScheduler.class)
                 .toInstance(newSingleThreadScheduledExecutor(threadsNamed("stage-scheduler")));
+        binder.bind(ExecutorService.class).annotatedWith(ForQueryScheduling.class)
+                .toInstance(newCachedThreadPool(threadsNamed("query-scheduler-%s")));
 
         // query execution
         binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)

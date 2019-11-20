@@ -95,4 +95,6 @@ public interface ResourceGroup
      * Whether to export statistics about this group and allow configuration via JMX.
      */
     void setJmxExport(boolean export);
+
+    int getVersion();
 }
