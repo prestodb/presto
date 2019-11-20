@@ -20,7 +20,7 @@ env:
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-materialized"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-recoverable-grouped-execution"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-basic"
-    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-advanced" 
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-advanced"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-repartitioning"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-parquet"
     - TEST_SPECIFIC_MODULES=presto-main
@@ -137,14 +137,14 @@ script:
       presto-product-tests/bin/run_on_docker.sh \
         singlenode-ldap -g ldap -x simba_jdbc
     fi
-# SQL server image sporadically hangs during the startup
-# TODO: Uncomment it once issue is fixed
-# https://github.com/Microsoft/mssql-docker/issues/76
-#  - |
-#    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-#      presto-product-tests/bin/run_on_docker.sh \
-#        singlenode-sqlserver -g sqlserver
-#    fi
+  # SQL server image sporadically hangs during the startup
+  # TODO: Uncomment it once issue is fixed
+  # https://github.com/Microsoft/mssql-docker/issues/76
+  #  - |
+  #    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
+  #      presto-product-tests/bin/run_on_docker.sh \
+  #        singlenode-sqlserver -g sqlserver
+  #    fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
       presto-product-tests/bin/run_on_docker.sh \
@@ -238,27 +238,27 @@ deploy:
   acl: public_read
 
 after_script:
-- |
-  if [[ -v DEPLOY_S3_ACCESS_KEY ]]; then
-    sudo pip install awscli
-    export AWS_ACCESS_KEY_ID=${DEPLOY_S3_ACCESS_KEY}
-    export AWS_SECRET_ACCESS_KEY=${DEPLOY_S3_SECRET_KEY}
+  - |
+    if [[ -v DEPLOY_S3_ACCESS_KEY ]]; then
+      sudo pip install awscli
+      export AWS_ACCESS_KEY_ID=${DEPLOY_S3_ACCESS_KEY}
+      export AWS_SECRET_ACCESS_KEY=${DEPLOY_S3_SECRET_KEY}
 
-    JOB_ARTIFACTS_URL_PREFIX=s3://${DEPLOY_S3_BUCKET}/${ARTIFACTS_UPLOAD_PATH}/travis_jobs/${TRAVIS_JOB_NUMBER}-run
-    JOB_RUN_ATTEMPTS=$( aws s3 ls ${JOB_ARTIFACTS_URL_PREFIX} | wc -l | tr -d '[:space:]' )
-    JOB_STATUS=$( [ "$TRAVIS_TEST_RESULT" == "0" ] && echo SUCCESS || echo FAILURE )
+      JOB_ARTIFACTS_URL_PREFIX=s3://${DEPLOY_S3_BUCKET}/${ARTIFACTS_UPLOAD_PATH}/travis_jobs/${TRAVIS_JOB_NUMBER}-run
+      JOB_RUN_ATTEMPTS=$( aws s3 ls ${JOB_ARTIFACTS_URL_PREFIX} | wc -l | tr -d '[:space:]' )
+      JOB_STATUS=$( [ "$TRAVIS_TEST_RESULT" == "0" ] && echo SUCCESS || echo FAILURE )
 
-    mkdir -p /tmp/job_artifacts/
-    rsync -av -m \
-      --include='**/' \
-      --include='**/surefire-reports/**.xml' \
-      --include='**/surefire-reports/emailable-report.html' \
-      --include='**/product-tests-presto-jvm-error-file.log' \
-      --include='**/test-reports/junitreports/**.xml' \
-      --include='**/test-reports/emailable-report.html' \
-      --exclude='*' \
-      . /tmp/job_artifacts/
-    wget https://api.travis-ci.org/jobs/${TRAVIS_JOB_ID}/log.txt?deansi=true -O /tmp/job_artifacts/log.txt
+      mkdir -p /tmp/job_artifacts/
+      rsync -av -m \
+        --include='**/' \
+        --include='**/surefire-reports/**.xml' \
+        --include='**/surefire-reports/emailable-report.html' \
+        --include='**/product-tests-presto-jvm-error-file.log' \
+        --include='**/test-reports/junitreports/**.xml' \
+        --include='**/test-reports/emailable-report.html' \
+        --exclude='*' \
+        . /tmp/job_artifacts/
+      wget https://api.travis-ci.org/jobs/${TRAVIS_JOB_ID}/log.txt?deansi=true -O /tmp/job_artifacts/log.txt
 
-    aws s3 sync /tmp/job_artifacts ${JOB_ARTIFACTS_URL_PREFIX}_$((JOB_RUN_ATTEMPTS + 1))-${JOB_STATUS} --quiet
-  fi
+      aws s3 sync /tmp/job_artifacts ${JOB_ARTIFACTS_URL_PREFIX}_$((JOB_RUN_ATTEMPTS + 1))-${JOB_STATUS} --quiet
+    fi
