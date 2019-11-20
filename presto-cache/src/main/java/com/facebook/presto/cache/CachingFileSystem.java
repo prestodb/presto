@@ -42,10 +42,8 @@ public final class CachingFileSystem
             FileSystem dataTier,
             boolean cacheValidationEnabled)
     {
-        requireNonNull(workingDirectory, "uri is null");
         requireNonNull(configuration, "configuration is null");
-
-        this.workingDirectory = URI.create(workingDirectory.getScheme() + "://" + workingDirectory.getAuthority());
+        this.workingDirectory = requireNonNull(workingDirectory, "workingDirectory URI is null");
         this.cacheManager = requireNonNull(cacheManager, "cacheManager is null");
         this.dataTier = requireNonNull(dataTier, "dataTier is null");
         this.cacheValidationEnabled = cacheValidationEnabled;
@@ -135,5 +133,15 @@ public final class CachingFileSystem
             throws IOException
     {
         return dataTier.getFileStatus(path);
+    }
+
+    public FileSystem getDataTier()
+    {
+        return dataTier;
+    }
+
+    public boolean isCacheValidationEnabled()
+    {
+        return cacheValidationEnabled;
     }
 }
