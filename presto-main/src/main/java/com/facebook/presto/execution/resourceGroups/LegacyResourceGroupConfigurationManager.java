@@ -56,8 +56,25 @@ public class LegacyResourceGroupConfigurationManager
     }
 
     @Override
+    public void configure(ResourceGroup group)
+    {
+    }
+
+    @Override
+    public boolean dynamicReloadSupported()
+    {
+        return false;
+    }
+
+    @Override
     public Optional<SelectionContext<VoidContext>> match(SelectionCriteria criteria)
     {
         return Optional.of(new SelectionContext<>(GLOBAL, VoidContext.NONE));
+    }
+
+    @Override
+    public int getSpecVersion()
+    {
+        return 0;
     }
 }
