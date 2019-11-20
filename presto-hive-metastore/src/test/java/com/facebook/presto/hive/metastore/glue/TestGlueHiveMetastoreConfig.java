@@ -32,7 +32,9 @@ public class TestGlueHiveMetastoreConfig
                 .setPinGlueClientToCurrentRegion(false)
                 .setMaxGlueConnections(5)
                 .setDefaultWarehouseDir(null)
-                .setCatalogId(null));
+                .setCatalogId(null)
+                .setPartitionSegments(5)
+                .setGetPartitionThreads(20));
     }
 
     @Test
@@ -44,6 +46,8 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.max-connections", "10")
                 .put("hive.metastore.glue.default-warehouse-dir", "/location")
                 .put("hive.metastore.glue.catalogid", "0123456789")
+                .put("hive.metastore.glue.partitions-segments", "10")
+                .put("hive.metastore.glue.get-partition-threads", "42")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -51,7 +55,9 @@ public class TestGlueHiveMetastoreConfig
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
                 .setDefaultWarehouseDir("/location")
-                .setCatalogId("0123456789");
+                .setCatalogId("0123456789")
+                .setPartitionSegments(10)
+                .setGetPartitionThreads(42);
 
         assertFullMapping(properties, expected);
     }
