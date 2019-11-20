@@ -16,6 +16,9 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.concurrent.ExecutorServiceAdapter;
 import com.facebook.airlift.event.client.EventClient;
+import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.cache.CacheStats;
+import com.facebook.presto.cache.ForCachingFileSystem;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
@@ -89,7 +92,7 @@ public class HiveClientModule
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);
-        binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
+        binder.bind(HdfsConfiguration.class).annotatedWith(ForMetastoreHdfsEnvironment.class).to(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(DirectoryLister.class).to(HadoopDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveClientConfig.class);
@@ -139,6 +142,11 @@ public class HiveClientModule
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(OrcCacheConfig.class, connectorId);
+
+        binder.bind(HiveCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
+        binder.bind(HdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
+        binder.bind(CacheStats.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(CacheConfig.class);
 
         binder.bind(FileOpener.class).to(HadoopFileOpener.class).in(Scopes.SINGLETON);
 

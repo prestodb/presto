@@ -43,6 +43,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-cache</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-column</artifactId>
             <version>${dep.parquet.version}</version>
