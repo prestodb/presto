@@ -47,6 +47,7 @@ public class TestStorageManagerConfig
     {
         assertRecordedDefaults(recordDefaults(StorageManagerConfig.class)
                 .setDataDirectory(null)
+                .setStagingWriteDirectory(null)
                 .setFileSystemProvider("file")
                 .setMinAvailableSpace(new DataSize(0, BYTE))
                 .setOrcMaxMergeDistance(new DataSize(1, MEGABYTE))
@@ -82,6 +83,7 @@ public class TestStorageManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("storage.data-directory", "file:///data")
+                .put("storage.staging-write-directory", "file:///staging")
                 .put("storage.file-system", "hdfs")
                 .put("storage.min-available-space", "123GB")
                 .put("storage.orc.max-merge-distance", "16kB")
@@ -113,6 +115,7 @@ public class TestStorageManagerConfig
 
         StorageManagerConfig expected = new StorageManagerConfig()
                 .setDataDirectory(new URI("file:///data"))
+                .setStagingWriteDirectory(new URI("file:///staging"))
                 .setFileSystemProvider("hdfs")
                 .setMinAvailableSpace(new DataSize(123, GIGABYTE))
                 .setOrcMaxMergeDistance(new DataSize(16, KILOBYTE))

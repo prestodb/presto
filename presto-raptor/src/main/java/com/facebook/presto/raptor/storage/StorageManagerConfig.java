@@ -45,6 +45,7 @@ import static java.lang.Runtime.getRuntime;
 public class StorageManagerConfig
 {
     private URI dataDirectory;
+    private URI stagingWriteDirectory;
     private String fileSystemProvider = "file";
     private DataSize minAvailableSpace = new DataSize(0, BYTE);
     private Duration shardRecoveryTimeout = new Duration(30, TimeUnit.SECONDS);
@@ -85,6 +86,19 @@ public class StorageManagerConfig
     public StorageManagerConfig setDataDirectory(URI dataURI)
     {
         this.dataDirectory = dataURI;
+        return this;
+    }
+
+    public URI getStagingWriteDirectory()
+    {
+        return stagingWriteDirectory;
+    }
+
+    @Config("storage.staging-write-directory")
+    @ConfigDescription("A file directory that does staged write. Writers or compactors will write temporary files to this directory before committing to the final destination")
+    public StorageManagerConfig setStagingWriteDirectory(URI stagingWriteDirectory)
+    {
+        this.stagingWriteDirectory = stagingWriteDirectory;
         return this;
     }
 
