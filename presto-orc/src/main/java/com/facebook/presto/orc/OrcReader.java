@@ -85,7 +85,7 @@ public class OrcReader
             throws IOException
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
-        orcDataSource = wrapWithCacheIfTiny(orcDataSource, orcReaderOptions.getTinyStripeThreshold());
+//        orcDataSource = wrapWithCacheIfTiny(orcDataSource, orcReaderOptions.getTinyStripeThreshold());
         this.orcDataSource = orcDataSource;
         requireNonNull(orcEncoding, "orcEncoding is null");
         this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), orcEncoding.createMetadataReader());
@@ -94,56 +94,12 @@ public class OrcReader
 
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
 
-        //TODO(gauravmi): figure out where this code belongs
-        //
-        // Read the file tail:
-        //
-        // variable: Footer
-        // variable: Metadata
-        // variable: PostScript - contains length of footer and metadata
-        // 1 byte: postScriptSize
-
-        // figure out the size of the file using the option or filesystem
-        long size = orcDataSource.getSize();
-        if (size <= MAGIC.length()) {
-            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid file size %s", size);
-        }
-
-        // Read the tail of the file
-        byte[] buffer = new byte[toIntExact(min(size, EXPECTED_FOOTER_SIZE))];
-        readFromCache(size - buffer.length, buffer, 0, buffer.length);
-
-        // get length of PostScript - last byte of the file
-        int postScriptSize = buffer[buffer.length - SIZE_OF_BYTE] & 0xff;
-        if (postScriptSize >= buffer.length) {
-            throw new OrcCorruptionException(orcDataSource.getId(), "Invalid postscript length %s", postScriptSize);
-        }
-
-        // decode the post script
-        PostScript postScript;
-        try {
-            postScript = metadataReader.readPostScript(buffer, buffer.length - SIZE_OF_BYTE - postScriptSize, postScriptSize);
-        }
-        catch (OrcCorruptionException e) {
-            // check if this is an ORC file and not an RCFile or something else
-            if (!isValidHeaderMagic(orcDataSource)) {
-                throw new OrcCorruptionException(orcDataSource.getId(), "Not an ORC file");
-            }
-            throw e;
-        }
-
-        // verify this is a supported version
-        checkOrcVersion(orcDataSource, postScript.getVersion());
-        validateWrite(validation -> validation.getVersion().equals(postScript.getVersion()), "Unexpected version");
-        //TODO ends
-
         OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation);
         this.bufferSize = orcFileTail.getBufferSize();
         this.compressionKind = orcFileTail.getCompressionKind();
         this.decompressor = createOrcDecompressor(orcDataSource.getId(), compressionKind, bufferSize, orcReaderOptions.isOrcZstdJniDecompressionEnabled());
         this.hiveWriterVersion = orcFileTail.getHiveWriterVersion();
 
-        //TODO(gauravmi): check if we need footer caching here
         try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getFooterSlice().getInput(), decompressor, newSimpleAggregatedMemoryContext(), orcFileTail.getFooterSize())) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
@@ -161,19 +117,6 @@ public class OrcReader
             writeValidation.get().validateMetadata(orcDataSource.getId(), footer.getUserMetadata());
             writeValidation.get().validateFileStatistics(orcDataSource.getId(), footer.getFileStats());
             writeValidation.get().validateStripeStatistics(orcDataSource.getId(), footer.getStripes(), metadata.getStripeStatsList());
-        }
-    }
-
-    private void readFromCache(long position, byte[] buffer, int bufferOffset, int bufferLength)
-            throws IOException
-    {
-        if (orcDataSource.useCache()) {
-            try (FileCache.Entry entry = FileCache.get(orcDataSource, position, bufferLength, FileCache.getListener("footer"), 10000)) {
-                System.arraycopy(entry.getBuffer(), 0, buffer, bufferOffset, bufferLength);
-            }
-        }
-        else {
-            orcDataSource.readFully(position, buffer, bufferOffset, bufferLength);
         }
     }
 

@@ -153,7 +153,7 @@ public class HiveClientConfig
     private boolean pushdownFilterEnabled;
     private boolean nestedColumnsFilterEnabled;
     private boolean zstdJniDecompressionEnabled;
-    private boolean blockCacheEnabled;
+    private boolean blockCacheEnabled = true;
     private DataSize blockCacheSize = new DataSize(10240, MEGABYTE);
 
     public int getMaxInitialSplits()
@@ -1252,6 +1252,7 @@ public class HiveClientConfig
     public HiveClientConfig setNestedColumnsFilterEnabled(boolean nestedColumnsFilterEnabled)
     {
         this.nestedColumnsFilterEnabled = nestedColumnsFilterEnabled;
+        return this;
     }
 
     public boolean isBlockCacheEnabled()

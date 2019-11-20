@@ -127,7 +127,7 @@ public abstract class AbstractOrcDataSource
             return ImmutableMap.of();
         }
         if (useCache() && toClose == null) {
-            toClose = new ArrayList();
+            toClose = new ArrayList<>();
         }
         if (effectiveBufferSize == null) {
             effectiveBufferSize = useCache() ? new DataSize(FileCacheInput.MAX_BUFFER_SIZE, BYTE) : maxBufferSize;

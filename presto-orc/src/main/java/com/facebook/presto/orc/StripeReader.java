@@ -280,13 +280,13 @@ public class StripeReader
             // TODO: figure out how to get Stripe offset
             diskRangesBuilder.put(entry.getKey(), new DiskRange(stripeId.offset + diskRange.getOffset(), diskRange.getLength()));
         }
-        diskRanges = diskRangesBuilder.build();
+        ImmutableMap<StreamId, DiskRange> finalDiskRanges = diskRangesBuilder.build();
         if (orcDataSource.useCache()) {
-            tracker.schedulePrefetch(diskRanges, orcDataSource);
+            tracker.schedulePrefetch(finalDiskRanges, orcDataSource);
         }
             // read ranges
         //TODO (gauravmi): figure out how tracker fits in
-        Map<StreamId, OrcDataSourceInput> streamsData = stripeMetadataSource.getInputs(orcDataSource, stripeId, diskRanges);
+        Map<StreamId, OrcDataSourceInput> streamsData = orcDataSource.readFully(finalDiskRanges, tracker);
 
         // transform streams to OrcInputStream
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();

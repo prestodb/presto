@@ -104,7 +104,7 @@ public class HdfsOrcDataSource
     @Override
     public boolean useCache()
     {
-        return useCache;
+        return true;
     }
 
     @Override

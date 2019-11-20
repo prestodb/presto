@@ -229,7 +229,7 @@ public class OrcBatchPageSourceFactory
                     lazyReadSmallRanges,
                     inputStream,
                     stats,
-                                                  useCache);
+                    useCache);
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||

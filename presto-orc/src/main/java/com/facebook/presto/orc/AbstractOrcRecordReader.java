@@ -203,7 +203,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
 
-        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, tinyStripeThreshold);
+//        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, tinyStripeThreshold);
         this.orcDataSource = orcDataSource;
         this.splitLength = splitLength;
 

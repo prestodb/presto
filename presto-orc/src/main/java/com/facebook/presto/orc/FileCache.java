@@ -14,6 +14,7 @@
 
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.memory.ArrayPool;
 import com.facebook.presto.spi.memory.Caches;
 import com.google.common.cache.CacheBuilder;
@@ -22,7 +23,6 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.log.Logger;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -44,7 +44,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-    import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Math.toIntExact;
 import static java.lang.Thread.currentThread;
@@ -113,14 +113,15 @@ public class FileCache
     // LRU cache from table.column to per column-wise access listener.
     private static final LoadingCache<String, Listener> listeners =
             CacheBuilder.newBuilder()
-            .maximumSize(10000)
-            .removalListener(new RemovalListener<String, Listener>() {
-                public void onRemoval(RemovalNotification<String, Listener> notification)
-                {
-                    defaultListener.merge(notification.getValue());
-                }
-            })
-            .build(CacheLoader.from(key -> new Listener(key)));
+                    .maximumSize(10000)
+                    .removalListener(new RemovalListener<String, Listener>()
+                    {
+                        public void onRemoval(RemovalNotification<String, Listener> notification)
+                        {
+                            defaultListener.merge(notification.getValue());
+                        }
+                    })
+                    .build(CacheLoader.from(key -> new Listener(key)));
     private static final Listener defaultListener = new Listener("unspecified");
 
     private FileCache() {}
@@ -142,13 +143,13 @@ public class FileCache
         }
 
         @Override
-            public int hashCode()
+        public int hashCode()
         {
             return hash;
         }
 
         @Override
-            public boolean equals(Object other)
+        public boolean equals(Object other)
         {
             return this == other;
         }
@@ -172,7 +173,7 @@ public class FileCache
         }
         else if (bytes > free + (max - total) - (500 * (1014 * 1024))) {
             log.warn("Attempting to set FileCache size above free memory - 500M: Increase by " + bytes + " while " + (free + max - total) + "available. Total = " + total + " and max = " + max);
-            targetSize = (max - total) / 2; 
+            targetSize = (max - total) / 2;
             if (targetSize <= 1L << 30) {
                 targetSize += 1L << 30;
             }
@@ -607,14 +608,14 @@ public class FileCache
                 bucketString = "bucket = " + bucketIndex;
             }
             return toStringHelper(this)
-                .addValue(isTemporary ? "Temporary" : "")
-                .addValue(token)
-                .add("offset", offset)
-                .add("size", dataSize)
-                .add("pins ", pinCount)
-                .add("buffer", referencedBuffer != null ? "byte[" + referencedBuffer.length + "]" : "null")
-                .addValue(bucketString)
-                .toString();
+                    .addValue(isTemporary ? "Temporary" : "")
+                    .addValue(token)
+                    .add("offset", offset)
+                    .add("size", dataSize)
+                    .add("pins ", pinCount)
+                    .add("buffer", referencedBuffer != null ? "byte[" + referencedBuffer.length + "]" : "null")
+                    .addValue(bucketString)
+                    .toString();
         }
     }
 
@@ -853,7 +854,7 @@ public class FileCache
                 }
                 catch (Exception e) {
                     log.warn("load error 1" + e.toString());
-                    throw(e);
+                    throw (e);
                 }
                 if (isPrefetch) {
                     numPrefetchRead++;
@@ -886,7 +887,7 @@ public class FileCache
                 }
                 catch (Exception e) {
                     log.warn("load error 2" + e.toString());
-                    throw(e);
+                    throw (e);
                 }
                 if (isPrefetch) {
                     numPrefetchRead++;
@@ -1445,7 +1446,7 @@ public class FileCache
             for (int i = 0; i < numSizes; i++) {
                 if (counts[i] > 0) {
                     long size = byteArrayPool.getStandardSizes()[i];
-                    long percent = ( size * counts[i] * 100) / totalSize.get();
+                    long percent = (size * counts[i] * 100) / totalSize.get();
                     long pendingSize = unhitPrefetchBytes[i] / (1024 * 1024);
                     result = result + (size / 1024) + "K: " + percent + "% " + ((size * counts[i]) >> 20) + "M Age ms: " + ages[i] / counts[i] / 1000000 + (pendingSize > 0 ? " pending use " + pendingSize + "M" : "") + "\n";
                 }

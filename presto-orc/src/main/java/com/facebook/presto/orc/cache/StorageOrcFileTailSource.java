@@ -120,7 +120,7 @@ public class StorageOrcFileTailSource
     /**
      * Does the file start with the ORC magic bytes?
      */
-    private static boolean isValidHeaderMagic(OrcDataSource source)
+    public static boolean isValidHeaderMagic(OrcDataSource source)
             throws IOException
     {
         byte[] headerMagic = new byte[MAGIC.length()];
@@ -134,7 +134,7 @@ public class StorageOrcFileTailSource
      * warn the user that we may not be able to read all of the column encodings.
      */
     // This is based on the Apache Hive ORC code
-    private static void checkOrcVersion(OrcDataSource orcDataSource, List<Integer> version)
+    public static void checkOrcVersion(OrcDataSource orcDataSource, List<Integer> version)
     {
         if (version.size() >= 1) {
             int major = version.get(0);

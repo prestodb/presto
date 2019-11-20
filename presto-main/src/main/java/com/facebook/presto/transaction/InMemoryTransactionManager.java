@@ -573,12 +573,14 @@ public class InMemoryTransactionManager
         private synchronized ListenableFuture<?> abortInternal()
         {
             // the callbacks in statement performed on another thread so are safe
-            return nonCancellationPropagating(Futures.allAsList(Stream.concat(
+            Stream<ListenableFuture<?>> concat = Stream.concat(
                     functionNamespaceTransactions.values().stream()
                             .map(transactionMetadata -> finishingExecutor.submit(() -> safeAbort(transactionMetadata))),
                     connectorIdToMetadata.values().stream()
-                            .map(connection -> finishingExecutor.submit(() -> safeAbort(connection))))
-                    .collect(toList())));
+                            .map(connection -> finishingExecutor.submit(() -> safeAbort(connection))));
+            List<ListenableFuture<?>> collect = concat
+                    .collect(toList());
+            return nonCancellationPropagating(Futures.allAsList(collect));
         }
 
         private static void safeAbort(ConnectorTransactionMetadata connection)

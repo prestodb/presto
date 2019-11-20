@@ -338,6 +338,7 @@ public final class HiveQueryRunner
                 log.error("       [baseDataDir] is a local directory under which you want the hive_data directory to be created.]\n");
                 System.exit(1);
             }
+            log.error("base dir is " + args[0]);
 
             File baseDataDirFile = new File(args[0]);
             if (baseDataDirFile.exists()) {
