@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore.glue;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 
 import java.util.Optional;
@@ -27,6 +28,8 @@ public class GlueHiveMetastoreConfig
     private int maxGlueConnections = 5;
     private Optional<String> defaultWarehouseDir = Optional.empty();
     private Optional<String> catalogId = Optional.empty();
+    private int partitionSegments = 5;
+    private int getPartitionThreads = 20;
 
     public Optional<String> getGlueRegion()
     {
@@ -91,6 +94,35 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setCatalogId(String catalogId)
     {
         this.catalogId = Optional.ofNullable(catalogId);
+        return this;
+    }
+
+    @Min(1)
+    @Max(10)
+    public int getPartitionSegments()
+    {
+        return partitionSegments;
+    }
+
+    @Config("hive.metastore.glue.partitions-segments")
+    @ConfigDescription("Number of segments for partitioned Glue tables")
+    public GlueHiveMetastoreConfig setPartitionSegments(int partitionSegments)
+    {
+        this.partitionSegments = partitionSegments;
+        return this;
+    }
+
+    @Min(1)
+    public int getGetPartitionThreads()
+    {
+        return getPartitionThreads;
+    }
+
+    @Config("hive.metastore.glue.get-partition-threads")
+    @ConfigDescription("Number of threads for parallel partition fetches from Glue")
+    public GlueHiveMetastoreConfig setGetPartitionThreads(int getPartitionThreads)
+    {
+        this.getPartitionThreads = getPartitionThreads;
         return this;
     }
 }
