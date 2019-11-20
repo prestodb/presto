@@ -24,6 +24,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.execution.StageExecutionState.PLANNED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.graph.Traverser.forTree;
 import static java.util.Objects.requireNonNull;
@@ -35,7 +36,7 @@ public class StageInfo
     private final URI self;
     private final Optional<PlanFragment> plan;
 
-    private final StageExecutionInfo latestAttemptExecutionInfo;
+    private final Optional<StageExecutionInfo> latestAttemptExecutionInfo;
     private final List<StageExecutionInfo> previousAttemptsExecutionInfos;
 
     private final List<StageInfo> subStages;
@@ -45,7 +46,7 @@ public class StageInfo
             @JsonProperty("stageId") StageId stageId,
             @JsonProperty("self") URI self,
             @JsonProperty("plan") Optional<PlanFragment> plan,
-            @JsonProperty("latestAttemptExecutionInfo") StageExecutionInfo latestAttemptExecutionInfo,
+            @JsonProperty("latestAttemptExecutionInfo") Optional<StageExecutionInfo> latestAttemptExecutionInfo,
             @JsonProperty("previousAttemptsExecutionInfos") List<StageExecutionInfo> previousAttemptsExecutionInfos,
             @JsonProperty("subStages") List<StageInfo> subStages)
     {
@@ -76,7 +77,7 @@ public class StageInfo
     }
 
     @JsonProperty
-    public StageExecutionInfo getLatestAttemptExecutionInfo()
+    public Optional<StageExecutionInfo> getLatestAttemptExecutionInfo()
     {
         return latestAttemptExecutionInfo;
     }
@@ -93,9 +94,14 @@ public class StageInfo
         return subStages;
     }
 
+    public List<TaskInfo> getLatestAttemptTasks()
+    {
+        return latestAttemptExecutionInfo.map(StageExecutionInfo::getTasks).orElse(ImmutableList.of());
+    }
+
     public boolean isFinalStageInfo()
     {
-        return latestAttemptExecutionInfo.isFinal();
+        return latestAttemptExecutionInfo.isPresent() && latestAttemptExecutionInfo.get().isFinal();
     }
 
     @Override
@@ -103,7 +109,7 @@ public class StageInfo
     {
         return toStringHelper(this)
                 .add("stageId", stageId)
-                .add("state", latestAttemptExecutionInfo.getState())
+                .add("state", latestAttemptExecutionInfo.isPresent() ? latestAttemptExecutionInfo.get().getState() : PLANNED)
                 .toString();
     }
 

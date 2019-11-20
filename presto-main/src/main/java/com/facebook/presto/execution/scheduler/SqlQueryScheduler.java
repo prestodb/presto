@@ -650,12 +650,11 @@ public class SqlQueryScheduler
     {
         StageId stageId = getStageId(subPlan.getFragment().getId());
         StageExecutionInfo stageExecutionInfo = stageExecutionInfos.get(stageId);
-        checkArgument(stageExecutionInfo != null, "No stageExecutionInfo for %s", stageId);
         return new StageInfo(
                 stageId,
                 locationFactory.createStageLocation(stageId),
                 Optional.of(subPlan.getFragment()),
-                stageExecutionInfo,
+                Optional.ofNullable(stageExecutionInfo),
                 ImmutableList.of(),
                 subPlan.getChildren().stream()
                         .map(plan -> buildStageInfo(plan, stageExecutionInfos))

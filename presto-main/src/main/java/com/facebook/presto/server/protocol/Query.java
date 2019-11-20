@@ -606,16 +606,18 @@ class Query
 
     private static StageStats toStageStats(StageInfo stageInfo)
     {
-        if (stageInfo == null) {
+        if (stageInfo == null || !stageInfo.getLatestAttemptExecutionInfo().isPresent()) {
             return null;
         }
 
-        StageExecutionInfo currentStageExecutionInfo = stageInfo.getLatestAttemptExecutionInfo();
+        StageExecutionInfo currentStageExecutionInfo = stageInfo.getLatestAttemptExecutionInfo().get();
         StageExecutionStats stageExecutionStats = currentStageExecutionInfo.getStats();
 
         ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
         for (StageInfo subStage : stageInfo.getSubStages()) {
-            subStages.add(toStageStats(subStage));
+            if (subStage.getLatestAttemptExecutionInfo().isPresent()) {
+                subStages.add(toStageStats(subStage));
+            }
         }
 
         Set<String> uniqueNodes = new HashSet<>();
@@ -648,7 +650,7 @@ class Query
             return ImmutableSet.of();
         }
         ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
-        for (TaskInfo task : stageInfo.getLatestAttemptExecutionInfo().getTasks()) {
+        for (TaskInfo task : stageInfo.getLatestAttemptTasks()) {
             // todo add nodeId to TaskInfo
             URI uri = task.getTaskStatus().getSelf();
             nodes.add(uri.getHost() + ":" + uri.getPort());
@@ -669,7 +671,7 @@ class Query
     private static URI findCancelableLeafStage(StageInfo stage)
     {
         // if this stage is already done, we can't cancel it
-        if (stage.getLatestAttemptExecutionInfo().getState().isDone()) {
+        if (stage.getLatestAttemptExecutionInfo().isPresent() && stage.getLatestAttemptExecutionInfo().get().getState().isDone()) {
             return null;
         }
 

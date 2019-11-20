@@ -254,9 +254,9 @@ public class PlanPrinter
                 fragment.getId(),
                 fragment.getPartitioning()));
 
-        if (stageInfo.isPresent()) {
-            StageExecutionStats stageExecutionStats = stageInfo.get().getLatestAttemptExecutionInfo().getStats();
-            List<TaskInfo> tasks = stageInfo.get().getLatestAttemptExecutionInfo().getTasks();
+        if (stageInfo.isPresent() && stageInfo.get().getLatestAttemptExecutionInfo().isPresent()) {
+            StageExecutionStats stageExecutionStats = stageInfo.get().getLatestAttemptExecutionInfo().get().getStats();
+            List<TaskInfo> tasks = stageInfo.get().getLatestAttemptExecutionInfo().get().getTasks();
 
             double avgPositionsPerTask = tasks.stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
             double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
