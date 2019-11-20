@@ -14,38 +14,53 @@
 package com.facebook.presto.cache;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.BlockLocation;
+import org.apache.hadoop.fs.ContentSummary;
+import org.apache.hadoop.fs.CreateFlag;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FsServerDefaults;
+import org.apache.hadoop.fs.FsStatus;
+import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.fs.XAttrSetFlag;
+import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclStatus;
+import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.security.Credentials;
+import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.Progressable;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
 public final class CachingFileSystem
         extends FileSystem
 {
-    private final URI workingDirectory;
+    private final URI uri;
     private final CacheManager cacheManager;
     private final FileSystem dataTier;
     private final boolean cacheValidationEnabled;
 
     public CachingFileSystem(
-            URI workingDirectory,
+            URI uri,
             Configuration configuration,
             CacheManager cacheManager,
             FileSystem dataTier,
             boolean cacheValidationEnabled)
     {
-        requireNonNull(workingDirectory, "uri is null");
         requireNonNull(configuration, "configuration is null");
-
-        this.workingDirectory = URI.create(workingDirectory.getScheme() + "://" + workingDirectory.getAuthority());
+        this.uri = requireNonNull(uri, "uri is null");
         this.cacheManager = requireNonNull(cacheManager, "cacheManager is null");
         this.dataTier = requireNonNull(dataTier, "dataTier is null");
         this.cacheValidationEnabled = cacheValidationEnabled;
@@ -53,26 +68,26 @@ public final class CachingFileSystem
         setConf(configuration);
 
         //noinspection AssignmentToSuperclassField
-        statistics = getStatistics(workingDirectory.getScheme(), getClass());
+        statistics = getStatistics(this.uri.getScheme(), getClass());
     }
 
     @Override
-    public void initialize(URI uri, Configuration configuration)
+    public String getScheme()
     {
-        // make unique instances
-        throw new UnsupportedOperationException();
+        return dataTier.getScheme();
     }
 
     @Override
     public URI getUri()
     {
-        return workingDirectory;
+        return uri;
     }
 
     @Override
-    public void setWorkingDirectory(Path workingDirectory)
+    public void initialize(URI uri, Configuration configuration)
+            throws IOException
     {
-        dataTier.setWorkingDirectory(workingDirectory);
+        dataTier.initialize(uri, configuration);
     }
 
     @Override
@@ -82,10 +97,47 @@ public final class CachingFileSystem
     }
 
     @Override
-    public boolean mkdirs(Path path, FsPermission permission)
+    public void setWorkingDirectory(Path workingDirectory)
+    {
+        dataTier.setWorkingDirectory(workingDirectory);
+    }
+
+    @Override
+    public long getDefaultBlockSize()
+    {
+        return dataTier.getDefaultBlockSize();
+    }
+
+    @Override
+    public short getDefaultReplication()
+    {
+        return dataTier.getDefaultReplication();
+    }
+
+    @Override
+    public Path getHomeDirectory()
+    {
+        return dataTier.getHomeDirectory();
+    }
+
+    @Override
+    public BlockLocation[] getFileBlockLocations(FileStatus fileStatus, long offset, long length)
             throws IOException
     {
-        return dataTier.mkdirs(path, permission);
+        return dataTier.getFileBlockLocations(fileStatus, offset, length);
+    }
+
+    @Override
+    public BlockLocation[] getFileBlockLocations(Path path, long offset, long length)
+            throws IOException
+    {
+        return dataTier.getFileBlockLocations(path, offset, length);
+    }
+
+    @Override
+    public void setVerifyChecksum(boolean verifyChecksum)
+    {
+        dataTier.setVerifyChecksum(verifyChecksum);
     }
 
     @Override
@@ -96,17 +148,53 @@ public final class CachingFileSystem
     }
 
     @Override
-    public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
+    public FSDataOutputStream append(Path path, int bufferSize, Progressable progressable)
             throws IOException
     {
-        return dataTier.create(path, permission, overwrite, bufferSize, replication, blockSize, progress);
+        return dataTier.append(path, bufferSize, progressable);
     }
 
     @Override
-    public FSDataOutputStream append(Path path, int bufferSize, Progressable progress)
+    public FSDataOutputStream create(
+            Path path,
+            FsPermission permission,
+            boolean overwrite,
+            int bufferSize,
+            short replication,
+            long blockSize,
+            Progressable progressable)
             throws IOException
     {
-        return dataTier.append(path, bufferSize, progress);
+        return dataTier.create(path, permission, overwrite, bufferSize, replication, blockSize, progressable);
+    }
+
+    @Override
+    public FSDataOutputStream create(
+            Path path,
+            FsPermission permission,
+            EnumSet<CreateFlag> createFlags,
+            int bufferSize,
+            short replication,
+            long blockSize,
+            Progressable progressable,
+            Options.ChecksumOpt checksumOption)
+            throws IOException
+    {
+        return dataTier.create(path, permission, createFlags, bufferSize, replication, blockSize, progressable, checksumOption);
+    }
+
+    @Override
+    public boolean setReplication(Path path, short replication)
+            throws IOException
+    {
+        return dataTier.setReplication(path, replication);
+    }
+
+    @Override
+    public void concat(Path targetPath, Path[] sourcePaths)
+            throws IOException
+    {
+        dataTier.concat(targetPath, sourcePaths);
     }
 
     @Override
@@ -117,10 +205,24 @@ public final class CachingFileSystem
     }
 
     @Override
+    public boolean truncate(Path path, long length)
+            throws IOException
+    {
+        return dataTier.truncate(path, length);
+    }
+
+    @Override
     public boolean delete(Path path, boolean recursive)
             throws IOException
     {
         return dataTier.delete(path, recursive);
+    }
+
+    @Override
+    public ContentSummary getContentSummary(Path path)
+            throws IOException
+    {
+        return dataTier.getContentSummary(path);
     }
 
     @Override
@@ -131,9 +233,269 @@ public final class CachingFileSystem
     }
 
     @Override
+    public RemoteIterator<FileStatus> listStatusIterator(Path path)
+            throws IOException
+    {
+        return dataTier.listStatusIterator(path);
+    }
+
+    @Override
+    public boolean mkdirs(Path path, FsPermission permission)
+            throws IOException
+    {
+        return dataTier.mkdirs(path, permission);
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        dataTier.close();
+    }
+
+    @Override
+    public String toString()
+    {
+        return "CachingFileSystem[" +
+                "dataTier=" + dataTier +
+                ']';
+    }
+
+    @Override
+    public FsStatus getStatus(Path path)
+            throws IOException
+    {
+        return dataTier.getStatus(path);
+    }
+
+    @Override
+    public RemoteIterator<Path> listCorruptFileBlocks(Path path)
+            throws IOException
+    {
+        return dataTier.listCorruptFileBlocks(path);
+    }
+
+    @Override
+    public FsServerDefaults getServerDefaults()
+            throws IOException
+    {
+        return dataTier.getServerDefaults();
+    }
+
+    @Override
     public FileStatus getFileStatus(Path path)
             throws IOException
     {
         return dataTier.getFileStatus(path);
+    }
+
+    @Override
+    public void createSymlink(Path target, Path link, boolean createParent)
+            throws IOException
+    {
+        dataTier.createSymlink(target, link, createParent);
+    }
+
+    @Override
+    public boolean supportsSymlinks()
+    {
+        return dataTier.supportsSymlinks();
+    }
+
+    @Override
+    public FileStatus getFileLinkStatus(Path path)
+            throws IOException
+    {
+        return dataTier.getFileLinkStatus(path);
+    }
+
+    @Override
+    public Path getLinkTarget(Path path)
+            throws IOException
+    {
+        return dataTier.getLinkTarget(path);
+    }
+
+    @Override
+    public FileChecksum getFileChecksum(Path path)
+            throws IOException
+    {
+        return dataTier.getFileChecksum(path);
+    }
+
+    @Override
+    public FileChecksum getFileChecksum(Path path, long length)
+            throws IOException
+    {
+        return dataTier.getFileChecksum(path, length);
+    }
+
+    @Override
+    public void setPermission(Path path, FsPermission permission)
+            throws IOException
+    {
+        dataTier.setPermission(path, permission);
+    }
+
+    @Override
+    public void setOwner(Path path, String user, String group)
+            throws IOException
+    {
+        dataTier.setOwner(path, user, group);
+    }
+
+    @Override
+    public void setTimes(Path path, long modificationTime, long accessTime)
+            throws IOException
+    {
+        dataTier.setTimes(path, modificationTime, accessTime);
+    }
+
+    @Override
+    public Token<?> getDelegationToken(String renewer)
+            throws IOException
+    {
+        return dataTier.getDelegationToken(renewer);
+    }
+
+    @Override
+    public String getCanonicalServiceName()
+    {
+        return dataTier.getCanonicalServiceName();
+    }
+
+    @Override
+    public Path createSnapshot(Path path, String snapshotName)
+            throws IOException
+    {
+        return dataTier.createSnapshot(path, snapshotName);
+    }
+
+    @Override
+    public void renameSnapshot(Path path, String snapshotOldName, String snapshotNewName)
+            throws IOException
+    {
+        dataTier.renameSnapshot(path, snapshotOldName, snapshotNewName);
+    }
+
+    @Override
+    public void deleteSnapshot(Path snapshotDirectory, String snapshotName)
+            throws IOException
+    {
+        dataTier.deleteSnapshot(snapshotDirectory, snapshotName);
+    }
+
+    @Override
+    public void modifyAclEntries(Path path, List<AclEntry> aclEntries)
+            throws IOException
+    {
+        dataTier.modifyAclEntries(path, aclEntries);
+    }
+
+    @Override
+    public void removeAclEntries(Path path, List<AclEntry> aclEntries)
+            throws IOException
+    {
+        dataTier.removeAclEntries(path, aclEntries);
+    }
+
+    @Override
+    public void removeDefaultAcl(Path path)
+            throws IOException
+    {
+        dataTier.removeDefaultAcl(path);
+    }
+
+    @Override
+    public void removeAcl(Path path)
+            throws IOException
+    {
+        dataTier.removeAcl(path);
+    }
+
+    @Override
+    public void setAcl(Path path, List<AclEntry> aclEntries)
+            throws IOException
+    {
+        dataTier.setAcl(path, aclEntries);
+    }
+
+    @Override
+    public AclStatus getAclStatus(Path path)
+            throws IOException
+    {
+        return dataTier.getAclStatus(path);
+    }
+
+    @Override
+    public void setXAttr(Path path, String name, byte[] value, EnumSet<XAttrSetFlag> xAttrSetFlags)
+            throws IOException
+    {
+        dataTier.setXAttr(path, name, value, xAttrSetFlags);
+    }
+
+    @Override
+    public byte[] getXAttr(Path path, String name)
+            throws IOException
+    {
+        return dataTier.getXAttr(path, name);
+    }
+
+    @Override
+    public Map<String, byte[]> getXAttrs(Path path)
+            throws IOException
+    {
+        return dataTier.getXAttrs(path);
+    }
+
+    @Override
+    public Map<String, byte[]> getXAttrs(Path path, List<String> names)
+            throws IOException
+    {
+        return dataTier.getXAttrs(path, names);
+    }
+
+    @Override
+    public List<String> listXAttrs(Path path)
+            throws IOException
+    {
+        return dataTier.listXAttrs(path);
+    }
+
+    @Override
+    public void removeXAttr(Path path, String name)
+            throws IOException
+    {
+        dataTier.removeXAttr(path, name);
+    }
+
+    @Override
+    public void access(Path path, FsAction mode)
+            throws IOException
+    {
+        dataTier.access(path, mode);
+    }
+
+    @Override
+    public Token<?>[] addDelegationTokens(String renewer, Credentials credentials)
+            throws IOException
+    {
+        return dataTier.addDelegationTokens(renewer, credentials);
+    }
+
+    @Override
+    public Path makeQualified(Path path)
+    {
+        return dataTier.makeQualified(path);
+    }
+
+    public FileSystem getDataTier()
+    {
+        return dataTier;
+    }
+
+    public boolean isCacheValidationEnabled()
+    {
+        return cacheValidationEnabled;
     }
 }
