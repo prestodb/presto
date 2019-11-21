@@ -77,7 +77,8 @@ public final class RaptorQueryRunner
                     .put("cache.base-directory", "file://" + new File(baseDir, "cache").getAbsolutePath())
                     .put("cache.max-in-memory-cache-size", "100MB")
                     .put("cache.validation-enabled", "true")
-                    .put("storage.data-directory", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile().toURI().toString());
+                    .put("storage.data-directory", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile().toURI().toString())
+                    .put("storage.staging-write-directory", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_staging_write").toFile().toURI().toString());
         }
         else {
             builder.put("backup.provider", "file")

@@ -50,7 +50,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-public final class ShardCompactor
+public class ShardCompactor
 {
     private final StorageManager storageManager;
 

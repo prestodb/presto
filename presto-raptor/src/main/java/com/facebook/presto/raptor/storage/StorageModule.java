@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.orc.CacheStatsMBean;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
@@ -40,12 +41,12 @@ import com.facebook.presto.raptor.storage.organization.ShardCompactionManager;
 import com.facebook.presto.raptor.storage.organization.ShardCompactor;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizationManager;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizer;
+import com.facebook.presto.raptor.storage.organization.StagingShardCompactor;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.slice.Slice;
@@ -61,7 +62,7 @@ import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class StorageModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private final String connectorId;
 
@@ -71,9 +72,9 @@ public class StorageModule
     }
 
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
-        configBinder(binder).bindConfig(StorageManagerConfig.class);
+        StorageManagerConfig storageManagerConfig = buildConfigObject(StorageManagerConfig.class);
         configBinder(binder).bindConfig(BucketBalancerConfig.class);
         configBinder(binder).bindConfig(ShardCleanerConfig.class);
         configBinder(binder).bindConfig(MetadataConfig.class);
@@ -92,7 +93,6 @@ public class StorageModule
         binder.bind(ShardOrganizationManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardOrganizer.class).in(Scopes.SINGLETON);
         binder.bind(JobFactory.class).to(OrganizationJobFactory.class).in(Scopes.SINGLETON);
-        binder.bind(ShardCompactor.class).in(Scopes.SINGLETON);
         binder.bind(ShardEjector.class).in(Scopes.SINGLETON);
         binder.bind(ShardCleaner.class).in(Scopes.SINGLETON);
         binder.bind(BucketBalancer.class).in(Scopes.SINGLETON);
@@ -100,12 +100,20 @@ public class StorageModule
         binder.bind(AssignmentLimiter.class).in(Scopes.SINGLETON);
         binder.bind(TemporalFunction.class).in(Scopes.SINGLETON);
 
+        if (storageManagerConfig.getStagingWriteDirectory() == null) {
+            binder.bind(ShardCompactor.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(ShardCompactor.class, connectorId));
+        }
+        else {
+            binder.bind(ShardCompactor.class).to(StagingShardCompactor.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(StagingShardCompactor.class, connectorId));
+        }
+
         newExporter(binder).export(ShardRecoveryManager.class).as(generatedNameOf(ShardRecoveryManager.class, connectorId));
         newExporter(binder).export(BackupManager.class).as(generatedNameOf(BackupManager.class, connectorId));
         newExporter(binder).export(StorageManager.class).as(generatedNameOf(OrcStorageManager.class, connectorId));
         newExporter(binder).export(ShardCompactionManager.class).as(generatedNameOf(ShardCompactionManager.class, connectorId));
         newExporter(binder).export(ShardOrganizer.class).as(generatedNameOf(ShardOrganizer.class, connectorId));
-        newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(ShardCompactor.class, connectorId));
         newExporter(binder).export(ShardEjector.class).as(generatedNameOf(ShardEjector.class, connectorId));
         newExporter(binder).export(ShardCleaner.class).as(generatedNameOf(ShardCleaner.class, connectorId));
         newExporter(binder).export(BucketBalancer.class).as(generatedNameOf(BucketBalancer.class, connectorId));
