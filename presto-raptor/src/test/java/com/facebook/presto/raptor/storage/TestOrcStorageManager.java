@@ -659,6 +659,26 @@ public class TestOrcStorageManager
                 new StorageStripeMetadataSource());
     }
 
+    public static StagingStorageManager createStagingStorageManager(IDBI dbi, File temporary, int maxShardRows)
+    {
+        URI directory = new File(temporary, "data").toURI();
+
+        return createStagingStorageManager(directory, maxShardRows, MAX_FILE_SIZE);
+    }
+
+    public static StagingStorageManager createStagingStorageManager(URI directory, int maxShardRows, DataSize maxFileSize)
+    {
+        return new StagingStorageManager(
+                new TypeRegistry(),
+                CONNECTOR_ID,
+                DELETION_THREADS,
+                maxShardRows,
+                maxFileSize,
+                directory,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource());
+    }
+
     private static void assertFileEquals(File actual, File expected)
             throws IOException
     {

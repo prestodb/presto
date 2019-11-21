@@ -114,6 +114,20 @@ public class ShardCompactor
     public List<ShardInfo> compactSorted(long transactionId, OptionalInt bucketNumber, Set<UUID> uuids, List<ColumnInfo> columns, List<Long> sortColumnIds, List<SortOrder> sortOrders)
             throws IOException
     {
+        return compactSorted(storageManager, readerAttributes, transactionId, bucketNumber, uuids, columns, sortColumnIds, sortOrders);
+    }
+
+    List<ShardInfo> compactSorted(
+            StorageManager sourceStorageManager,
+            ReaderAttributes readerAttributes,
+            long transactionId,
+            OptionalInt bucketNumber,
+            Set<UUID> uuids,
+            List<ColumnInfo> columns,
+            List<Long> sortColumnIds,
+            List<SortOrder> sortOrders)
+            throws IOException
+    {
         checkArgument(sortColumnIds.size() == sortOrders.size(), "sortColumnIds and sortOrders must be of the same size");
 
         long start = System.nanoTime();
@@ -131,7 +145,7 @@ public class ShardCompactor
         StoragePageSink outputPageSink = storageManager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, false);
         try {
             for (UUID uuid : uuids) {
-                ConnectorPageSource pageSource = storageManager.getPageSource(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes);
+                ConnectorPageSource pageSource = sourceStorageManager.getPageSource(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes);
                 SortedPageSource rowSource = new SortedPageSource(pageSource, columnTypes, sortIndexes, sortOrders);
                 rowSources.add(rowSource);
             }
@@ -281,7 +295,7 @@ public class ShardCompactor
         }
     }
 
-    private static boolean isNullOrEmptyPage(Page nextPage)
+    static boolean isNullOrEmptyPage(Page nextPage)
     {
         return nextPage == null || nextPage.getPositionCount() == 0;
     }

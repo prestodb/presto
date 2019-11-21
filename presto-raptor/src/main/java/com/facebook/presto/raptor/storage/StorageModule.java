@@ -105,6 +105,7 @@ public class StorageModule
             newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(ShardCompactor.class, connectorId));
         }
         else {
+            binder.bind(StagingStorageManager.class).in(Scopes.SINGLETON);
             binder.bind(ShardCompactor.class).to(StagingShardCompactor.class).in(Scopes.SINGLETON);
             newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(StagingShardCompactor.class, connectorId));
         }

@@ -50,6 +50,7 @@ import java.util.UUID;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
+import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createStagingStorageManager;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -153,6 +154,38 @@ public class TestShardCompactor
 
         long transactionId = 1;
         ShardCompactor compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);
+        List<ShardInfo> outputShards = compactor.compactSorted(transactionId, OptionalInt.empty(), inputUuids, getColumnInfo(columnIds, columnTypes), sortColumnIds, sortOrders);
+        List<UUID> outputUuids = outputShards.stream()
+                .map(ShardInfo::getShardUuid)
+                .collect(toList());
+        assertEquals(outputShards.size(), expectedOutputShards);
+
+        assertShardEqualsSorted(storageManager, inputUuids, outputUuids, columnIds, columnTypes, sortIndexes, sortOrders);
+    }
+
+    @Test(dataProvider = "useOptimizedOrcWriter")
+    public void testStagingShardCompactorSorted(boolean useOptimizedOrcWriter)
+            throws Exception
+    {
+        StorageManager storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DATE, TIMESTAMP, DOUBLE);
+        List<Long> columnIds = ImmutableList.of(3L, 7L, 2L, 1L, 5L);
+        List<Long> sortColumnIds = ImmutableList.of(1L, 2L, 3L, 5L, 7L);
+        List<SortOrder> sortOrders = nCopies(sortColumnIds.size(), ASC_NULLS_FIRST);
+        List<Integer> sortIndexes = sortColumnIds.stream()
+                .map(columnIds::indexOf)
+                .collect(toList());
+
+        List<ShardInfo> inputShards = createSortedShards(storageManager, columnIds, columnTypes, sortIndexes, sortOrders, 2);
+        assertEquals(inputShards.size(), 2);
+
+        long totalRows = inputShards.stream().mapToLong(ShardInfo::getRowCount).sum();
+        long expectedOutputShards = computeExpectedOutputShards(totalRows);
+
+        Set<UUID> inputUuids = inputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
+
+        long transactionId = 1;
+        ShardCompactor compactor = new StagingShardCompactor(storageManager, createStagingStorageManager(dbi, temporary, MAX_SHARD_ROWS), READER_ATTRIBUTES);
         List<ShardInfo> outputShards = compactor.compactSorted(transactionId, OptionalInt.empty(), inputUuids, getColumnInfo(columnIds, columnTypes), sortColumnIds, sortOrders);
         List<UUID> outputUuids = outputShards.stream()
                 .map(ShardInfo::getShardUuid)
