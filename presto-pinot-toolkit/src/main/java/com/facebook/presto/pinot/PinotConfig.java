@@ -121,7 +121,7 @@ public class PinotConfig
         return this;
     }
 
-    @NotNull
+    @Nullable
     public String getControllerRestService()
     {
         return controllerRestService;
