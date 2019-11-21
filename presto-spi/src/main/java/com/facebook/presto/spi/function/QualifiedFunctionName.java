@@ -33,6 +33,7 @@ public class QualifiedFunctionName
         this.functionName = requireNonNull(functionName, "name is null").toLowerCase(ENGLISH);
     }
 
+    // This function should only be used for JSON deserialization. Do not use it directly.
     @JsonCreator
     public static QualifiedFunctionName of(String dottedName)
     {

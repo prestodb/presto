@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.spi.CatalogSchemaName;
+
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -52,7 +54,7 @@ public enum OperatorType
     OperatorType(String operator, boolean calledOnNullInput)
     {
         this.operator = operator;
-        this.functionName = QualifiedFunctionName.of("presto.default.$operator$" + name());
+        this.functionName = QualifiedFunctionName.of(new CatalogSchemaName("presto", "default"), "$operator$" + name());
         this.calledOnNullInput = calledOnNullInput;
     }
 
