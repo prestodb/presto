@@ -36,7 +36,7 @@ import java.util.Optional;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.raptor.storage.OrcStorageManager.toOrcFileType;
+import static com.facebook.presto.raptor.storage.StorageManagerUtils.toOrcFileType;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.isInfinite;

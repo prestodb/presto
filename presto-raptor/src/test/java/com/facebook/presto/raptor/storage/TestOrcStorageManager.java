@@ -31,6 +31,7 @@ import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.facebook.presto.raptor.storage.InMemoryShardRecorder.RecordedShard;
+import com.facebook.presto.raptor.storage.organization.StagedShardCompactor;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
@@ -659,21 +660,19 @@ public class TestOrcStorageManager
                 new StorageStripeMetadataSource());
     }
 
-    public static StagingStorageManager createStagingStorageManager(IDBI dbi, File temporary, int maxShardRows)
+    public static StagedShardCompactor.StagedCompactionStorageManager createStagingStorageManager(File temporary)
     {
         URI directory = new File(temporary, "data").toURI();
 
-        return createStagingStorageManager(directory, maxShardRows, MAX_FILE_SIZE);
+        return createStagingStorageManager(directory);
     }
 
-    public static StagingStorageManager createStagingStorageManager(URI directory, int maxShardRows, DataSize maxFileSize)
+    public static StagedShardCompactor.StagedCompactionStorageManager createStagingStorageManager(URI directory)
     {
-        return new StagingStorageManager(
+        return new StagedShardCompactor.StagedCompactionStorageManager(
                 new TypeRegistry(),
                 CONNECTOR_ID,
                 DELETION_THREADS,
-                maxShardRows,
-                maxFileSize,
                 directory,
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource());

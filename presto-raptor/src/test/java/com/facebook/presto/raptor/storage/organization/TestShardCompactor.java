@@ -185,7 +185,7 @@ public class TestShardCompactor
         Set<UUID> inputUuids = inputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
 
         long transactionId = 1;
-        ShardCompactor compactor = new StagingShardCompactor(storageManager, createStagingStorageManager(dbi, temporary, MAX_SHARD_ROWS), READER_ATTRIBUTES);
+        ShardCompactor compactor = new StagedShardCompactor(storageManager, createStagingStorageManager(temporary), READER_ATTRIBUTES);
         List<ShardInfo> outputShards = compactor.compactSorted(transactionId, OptionalInt.empty(), inputUuids, getColumnInfo(columnIds, columnTypes), sortColumnIds, sortOrders);
         List<UUID> outputUuids = outputShards.stream()
                 .map(ShardInfo::getShardUuid)

@@ -41,7 +41,7 @@ import com.facebook.presto.raptor.storage.organization.ShardCompactionManager;
 import com.facebook.presto.raptor.storage.organization.ShardCompactor;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizationManager;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizer;
-import com.facebook.presto.raptor.storage.organization.StagingShardCompactor;
+import com.facebook.presto.raptor.storage.organization.StagedShardCompactor;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
@@ -105,9 +105,9 @@ public class StorageModule
             newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(ShardCompactor.class, connectorId));
         }
         else {
-            binder.bind(StagingStorageManager.class).in(Scopes.SINGLETON);
-            binder.bind(ShardCompactor.class).to(StagingShardCompactor.class).in(Scopes.SINGLETON);
-            newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(StagingShardCompactor.class, connectorId));
+            binder.bind(StagedShardCompactor.StagedCompactionStorageManager.class).in(Scopes.SINGLETON);
+            binder.bind(ShardCompactor.class).to(StagedShardCompactor.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(StagedShardCompactor.class, connectorId));
         }
 
         newExporter(binder).export(ShardRecoveryManager.class).as(generatedNameOf(ShardRecoveryManager.class, connectorId));

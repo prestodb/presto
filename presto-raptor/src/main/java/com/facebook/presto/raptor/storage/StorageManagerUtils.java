@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.orc.OrcBatchRecordReader;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
+import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
-import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.ArrayType;
@@ -42,12 +46,18 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.UUID;
 
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isBucketNumberColumn;
+import static com.facebook.presto.raptor.RaptorColumnHandle.isHiddenColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isShardRowIdColumn;
 import static com.facebook.presto.raptor.RaptorColumnHandle.isShardUuidColumn;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.storage.OrcPageSource.BUCKET_NUMBER_COLUMN;
+import static com.facebook.presto.raptor.storage.OrcPageSource.NULL_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.ROWID_COLUMN;
 import static com.facebook.presto.raptor.storage.OrcPageSource.SHARD_UUID_COLUMN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -152,16 +162,65 @@ public class StorageManagerUtils
         return raptorType;
     }
 
-    private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
+    public static ConnectorPageSource getPageSource(
+            OrcReader reader,
+            OrcDataSource dataSource,
+            TypeManager typeManager,
+            UUID shardUuid,
+            OptionalInt bucketNumber,
+            List<Long> columnIds,
+            List<Type> columnTypes,
+            TupleDomain<RaptorColumnHandle> effectivePredicate,
+            Optional<ShardRewriter> shardRewriter)
     {
-        ImmutableList.Builder<ColumnReference<RaptorColumnHandle>> columns = ImmutableList.builder();
-        for (RaptorColumnHandle column : effectivePredicate.getDomains().get().keySet()) {
-            Integer index = indexMap.get(column.getColumnId());
-            if (index != null) {
-                columns.add(new ColumnReference<>(column, index, column.getColumnType()));
+        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+
+        try {
+            Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
+            ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
+            ImmutableList.Builder<Integer> columnIndexes = ImmutableList.builder();
+            for (int i = 0; i < columnIds.size(); i++) {
+                long columnId = columnIds.get(i);
+                if (isHiddenColumn(columnId)) {
+                    columnIndexes.add(toSpecialIndex(columnId));
+                    continue;
+                }
+
+                Integer index = indexMap.get(columnId);
+                if (index == null) {
+                    columnIndexes.add(NULL_COLUMN);
+                }
+                else {
+                    columnIndexes.add(index);
+                    includedColumns.put(index, toOrcFileType(columnTypes.get(i), typeManager));
+                }
             }
+
+            OrcPredicate predicate = getPredicate(effectivePredicate, indexMap);
+
+            StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeManager);
+
+            OrcBatchRecordReader recordReader = reader.createBatchRecordReader(storageTypeConverter.toStorageTypes(includedColumns.build()), predicate, DEFAULT_STORAGE_TIMEZONE, systemMemoryUsage, INITIAL_BATCH_SIZE);
+
+            return new OrcPageSource(shardRewriter, recordReader, dataSource, columnIds, columnTypes, columnIndexes.build(), shardUuid, bucketNumber, systemMemoryUsage);
         }
-        return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build(), false, Optional.empty());
+        catch (IOException | RuntimeException e) {
+            closeQuietly(dataSource);
+            throw new PrestoException(RAPTOR_ERROR, "Failed to create page source for shard " + shardUuid, e);
+        }
+        catch (Throwable t) {
+            closeQuietly(dataSource);
+            throw t;
+        }
+    }
+
+    public static void closeQuietly(Closeable closeable)
+    {
+        try {
+            closeable.close();
+        }
+        catch (IOException ignored) {
+        }
     }
 
     private static Map<Long, Integer> columnIdIndex(List<String> columnNames)
@@ -173,12 +232,15 @@ public class StorageManagerUtils
         return map.build();
     }
 
-    private static void closeQuietly(Closeable closeable)
+    private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
     {
-        try {
-            closeable.close();
+        ImmutableList.Builder<TupleDomainOrcPredicate.ColumnReference<RaptorColumnHandle>> columns = ImmutableList.builder();
+        for (RaptorColumnHandle column : effectivePredicate.getDomains().get().keySet()) {
+            Integer index = indexMap.get(column.getColumnId());
+            if (index != null) {
+                columns.add(new TupleDomainOrcPredicate.ColumnReference<>(column, index, column.getColumnType()));
+            }
         }
-        catch (IOException ignored) {
-        }
+        return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build(), false, Optional.empty());
     }
 }
