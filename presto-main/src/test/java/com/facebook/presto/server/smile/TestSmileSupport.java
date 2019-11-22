@@ -160,7 +160,7 @@ public class TestSmileSupport
     private Map<String, Object> createCarMap()
             throws IOException
     {
-        return objectMapper.readValue(objectMapper.writeValueAsBytes(CAR), new TypeReference<Object>() {});
+        return objectMapper.readValue(objectMapper.writeValueAsBytes(CAR), new TypeReference<Map<String, Object>>() {});
     }
 
     /**
