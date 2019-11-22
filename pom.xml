@@ -65,7 +65,7 @@
         <dep.alluxio.version>2.1.2</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.17.0</dep.druid.version>
-        <dep.jackson.version>2.9.10</dep.jackson.version>
+        <dep.jackson.version>2.10.1</dep.jackson.version>
 
         <!--
           America/Bahia_Banderas has:
