@@ -32,6 +32,7 @@ public class TestTransactionManagerConfig
         assertRecordedDefaults(recordDefaults(TransactionManagerConfig.class)
                 .setIdleCheckInterval(new Duration(1, TimeUnit.MINUTES))
                 .setIdleTimeout(new Duration(5, TimeUnit.MINUTES))
+                .setCompanionCatalogs("")
                 .setMaxFinishingConcurrency(1));
     }
 
@@ -42,11 +43,13 @@ public class TestTransactionManagerConfig
                 .put("transaction.idle-check-interval", "1s")
                 .put("transaction.idle-timeout", "10s")
                 .put("transaction.max-finishing-concurrency", "100")
+                .put("transaction.companion-catalogs", "cat1=cat2,cat2=cat3")
                 .build();
 
         TransactionManagerConfig expected = new TransactionManagerConfig()
                 .setIdleCheckInterval(new Duration(1, TimeUnit.SECONDS))
                 .setIdleTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setCompanionCatalogs("cat1=cat2,cat2=cat3")
                 .setMaxFinishingConcurrency(100);
 
         assertFullMapping(properties, expected);
