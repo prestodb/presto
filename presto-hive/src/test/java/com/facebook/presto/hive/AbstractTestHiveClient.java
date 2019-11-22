@@ -105,8 +105,10 @@ import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -263,6 +265,8 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -475,25 +479,46 @@ public abstract class AbstractTestHiveClient
                             }).collect(toList()))
                     .build();
 
-    private static final List<TupleDomain<SubfieldWithType>> MISMATCH_SCHEMA_TABLE_AFTER_FILTERS = ImmutableList.of(
+    private static final SubfieldExtractor SUBFIELD_EXTRACTOR = new SubfieldExtractor(FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE.getExpressionOptimizer(), SESSION);
+
+    private static final TypeProvider TYPE_PROVIDER_AFTER = TypeProvider.copyOf(MISMATCH_SCHEMA_TABLE_AFTER.stream()
+            .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getType)));
+
+    private static final TestingRowExpressionTranslator ROW_EXPRESSION_TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
+
+    private static final List<RowExpression> MISMATCH_SCHEMA_TABLE_AFTER_FILTERS = ImmutableList.of(
             // integer_to_varchar
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("integer_to_varchar", VARCHAR), Domain.singleValue(VARCHAR, Slices.utf8Slice("17")))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("integer_to_varchar", VARCHAR), Domain.notNull(VARCHAR))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("integer_to_varchar", VARCHAR), Domain.onlyNull(VARCHAR))),
+            toRowExpression("integer_to_varchar", VARCHAR, Domain.singleValue(VARCHAR, Slices.utf8Slice("17"))),
+            toRowExpression("integer_to_varchar", VARCHAR, Domain.notNull(VARCHAR)),
+            toRowExpression("integer_to_varchar", VARCHAR, Domain.onlyNull(VARCHAR)),
             // varchar_to_integer
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("varchar_to_integer", INTEGER), Domain.singleValue(INTEGER, -923L))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("varchar_to_integer", INTEGER), Domain.notNull(INTEGER))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("varchar_to_integer", INTEGER), Domain.onlyNull(INTEGER))),
+            toRowExpression("varchar_to_integer", INTEGER, Domain.singleValue(INTEGER, -923L)),
+            toRowExpression("varchar_to_integer", INTEGER, Domain.notNull(INTEGER)),
+            toRowExpression("varchar_to_integer", INTEGER, Domain.onlyNull(INTEGER)),
             // tinyint_append
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("tinyint_append", TINYINT), Domain.singleValue(TINYINT, 1L))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("tinyint_append", TINYINT), Domain.onlyNull(TINYINT))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("tinyint_append", TINYINT), Domain.notNull(TINYINT))),
+            toRowExpression("tinyint_append", TINYINT, Domain.singleValue(TINYINT, 1L)),
+            toRowExpression("tinyint_append", TINYINT, Domain.onlyNull(TINYINT)),
+            toRowExpression("tinyint_append", TINYINT, Domain.notNull(TINYINT)),
             // struct_to_struct
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_integer_to_varchar", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(VARCHAR, Slices.utf8Slice("-27")))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_varchar_to_integer", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(INTEGER, 2147483647L))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_tinyint_to_smallint_append", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.singleValue(TINYINT, 1L))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_tinyint_to_smallint_append", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.onlyNull(TINYINT))),
-            TupleDomain.withColumnDomains(ImmutableMap.of(SubfieldWithType.of("struct_to_struct.f_tinyint_to_smallint_append", MISMATCH_SCHEMA_ROW_TYPE_APPEND), Domain.notNull(TINYINT))));
+            toRowExpression("struct_to_struct.f_integer_to_varchar", MISMATCH_SCHEMA_ROW_TYPE_APPEND, Domain.singleValue(VARCHAR, Slices.utf8Slice("-27"))),
+            toRowExpression("struct_to_struct.f_varchar_to_integer", MISMATCH_SCHEMA_ROW_TYPE_APPEND, Domain.singleValue(INTEGER, 2147483647L)),
+            toRowExpression("struct_to_struct.f_tinyint_to_smallint_append", MISMATCH_SCHEMA_ROW_TYPE_APPEND, Domain.singleValue(TINYINT, 1L)),
+            toRowExpression("struct_to_struct.f_tinyint_to_smallint_append", MISMATCH_SCHEMA_ROW_TYPE_APPEND, Domain.onlyNull(TINYINT)),
+            toRowExpression("struct_to_struct.f_tinyint_to_smallint_append", MISMATCH_SCHEMA_ROW_TYPE_APPEND, Domain.notNull(TINYINT)),
+            // filter functions
+            toRowExpression("tinyint_to_smallint + 1 > 0"),
+            toRowExpression("tinyint_to_smallint * 2 < 0"));
+
+    private static RowExpression toRowExpression(String name, Type type, Domain domain)
+    {
+        RowExpression expression = SUBFIELD_EXTRACTOR.toRowExpression(new Subfield(name), type);
+        return ROW_EXPRESSION_SERVICE.getDomainTranslator().toPredicate(TupleDomain.withColumnDomains(ImmutableMap.of(expression, domain)));
+    }
+
+    private static RowExpression toRowExpression(String sql)
+    {
+        return ROW_EXPRESSION_TRANSLATOR.translate(expression(sql), TYPE_PROVIDER_AFTER);
+    }
 
     private static final List<Predicate<MaterializedRow>> MISMATCH_SCHEMA_TABLE_AFTER_RESULT_PREDICATES = ImmutableList.of(
             // integer_to_varchar
@@ -513,7 +538,10 @@ public abstract class AbstractTestHiveClient
             row -> Objects.equals(row.getField(7), 2147483647),
             row -> false,
             row -> true,
-            row -> false);
+            row -> false,
+            // filter functions
+            row -> row.getField(0) != null && (short) row.getField(0) + 1 > 0,
+            row -> row.getField(0) != null && (short) row.getField(0) + 1 < 0);
 
     protected Set<HiveStorageFormat> createTableFormats = difference(ImmutableSet.copyOf(HiveStorageFormat.values()), ImmutableSet.of(AVRO));
 
@@ -1274,7 +1302,7 @@ public abstract class AbstractTestHiveClient
             MaterializedResult dataBefore,
             List<ColumnMetadata> tableAfter,
             MaterializedResult dataAfter,
-            List<TupleDomain<SubfieldWithType>> afterFilters,
+            List<RowExpression> afterFilters,
             List<Predicate<MaterializedRow>> afterResultPredicates)
             throws Exception
     {
@@ -1346,9 +1374,7 @@ public abstract class AbstractTestHiveClient
 
             int filterCount = afterFilters.size();
             for (int i = 0; i < filterCount; i++) {
-                TupleDomain<SubfieldWithType> tupleDomain = afterFilters.get(i);
-
-                RowExpression predicate = ROW_EXPRESSION_SERVICE.getDomainTranslator().toPredicate(tupleDomain.transform(column -> toVariable(column, session)));
+                RowExpression predicate = afterFilters.get(i);
                 ConnectorTableLayoutHandle layoutHandle = metadata.pushdownFilter(session, tableHandle, predicate, Optional.empty()).getLayout().getHandle();
 
                 // Read all columns with a filter
@@ -1360,10 +1386,7 @@ public abstract class AbstractTestHiveClient
                 assertEqualsIgnoreOrder(filteredResult.getMaterializedRows(), expectedRows);
 
                 // Read all columns except the ones used in the filter
-                Set<String> filterColumnNames = tupleDomain.getDomains().get().keySet().stream()
-                        .map(SubfieldWithType::getSubfield)
-                        .map(Subfield::getRootName)
-                        .collect(toImmutableSet());
+                Set<String> filterColumnNames = extractUnique(predicate).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
 
                 List<ColumnHandle> nonFilterColumns = columnHandles.stream()
                         .filter(column -> !filterColumnNames.contains(((HiveColumnHandle) column).getName()))
@@ -1397,12 +1420,6 @@ public abstract class AbstractTestHiveClient
             // expected
             assertEquals(e.getErrorCode(), HIVE_PARTITION_SCHEMA_MISMATCH.toErrorCode());
         }
-    }
-
-    private static RowExpression toVariable(SubfieldWithType column, ConnectorSession session)
-    {
-        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE.getExpressionOptimizer(), session);
-        return subfieldExtractor.toRowExpression(column.getSubfield(), column.getType());
     }
 
     protected void assertExpectedTableLayout(ConnectorTableLayout actualTableLayout, ConnectorTableLayout expectedTableLayout)
@@ -5495,33 +5512,6 @@ public abstract class AbstractTestHiveClient
             // The file we added to trigger a conflict was cleaned up because it matches the query prefix.
             // Consider this the same as a network failure that caused the successful creation of file not reported to the caller.
             assertFalse(hdfsEnvironment.getFileSystem(context, path).exists(path));
-        }
-    }
-
-    private static final class SubfieldWithType
-    {
-        private final Subfield subfield;
-        private final Type type;
-
-        private SubfieldWithType(Subfield subfield, Type type)
-        {
-            this.subfield = subfield;
-            this.type = type;
-        }
-
-        public static SubfieldWithType of(String subfield, Type type)
-        {
-            return new SubfieldWithType(new Subfield(subfield), type);
-        }
-
-        public Subfield getSubfield()
-        {
-            return subfield;
-        }
-
-        public Type getType()
-        {
-            return type;
         }
     }
 }
