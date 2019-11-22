@@ -90,8 +90,9 @@ public class InMemoryTransactionManager
     private final Executor finishingExecutor;
 
     private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers = new HashMap<>();
+    private final Map<String, String> companionCatalogs;
 
-    private InMemoryTransactionManager(Duration idleTimeout, int maxFinishingConcurrency, CatalogManager catalogManager, Executor finishingExecutor)
+    private InMemoryTransactionManager(Duration idleTimeout, int maxFinishingConcurrency, CatalogManager catalogManager, Executor finishingExecutor, Map<String, String> companionCatalogs)
     {
         this.catalogManager = catalogManager;
         requireNonNull(idleTimeout, "idleTimeout is null");
@@ -101,6 +102,7 @@ public class InMemoryTransactionManager
         this.idleTimeout = idleTimeout;
         this.maxFinishingConcurrency = maxFinishingConcurrency;
         this.finishingExecutor = finishingExecutor;
+        this.companionCatalogs = ImmutableMap.copyOf(companionCatalogs);
     }
 
     public static TransactionManager create(
@@ -109,7 +111,7 @@ public class InMemoryTransactionManager
             CatalogManager catalogManager,
             ExecutorService finishingExecutor)
     {
-        InMemoryTransactionManager transactionManager = new InMemoryTransactionManager(config.getIdleTimeout(), config.getMaxFinishingConcurrency(), catalogManager, finishingExecutor);
+        InMemoryTransactionManager transactionManager = new InMemoryTransactionManager(config.getIdleTimeout(), config.getMaxFinishingConcurrency(), catalogManager, finishingExecutor, config.getCompanionCatalogs());
         transactionManager.scheduleIdleChecks(config.getIdleCheckInterval(), idleCheckExecutor);
         return transactionManager;
     }
@@ -122,7 +124,7 @@ public class InMemoryTransactionManager
     public static TransactionManager createTestTransactionManager(CatalogManager catalogManager)
     {
         // No idle checks needed
-        return new InMemoryTransactionManager(new Duration(1, TimeUnit.DAYS), 1, catalogManager, directExecutor());
+        return new InMemoryTransactionManager(new Duration(1, TimeUnit.DAYS), 1, catalogManager, directExecutor(), ImmutableMap.of());
     }
 
     private void scheduleIdleChecks(Duration idleCheckInterval, ScheduledExecutorService idleCheckExecutor)
@@ -181,7 +183,7 @@ public class InMemoryTransactionManager
     {
         TransactionId transactionId = TransactionId.create();
         BoundedExecutor executor = new BoundedExecutor(finishingExecutor, maxFinishingConcurrency);
-        TransactionMetadata transactionMetadata = new TransactionMetadata(transactionId, isolationLevel, readOnly, autoCommitContext, catalogManager, executor, functionNamespaceManagers);
+        TransactionMetadata transactionMetadata = new TransactionMetadata(transactionId, isolationLevel, readOnly, autoCommitContext, catalogManager, executor, functionNamespaceManagers, companionCatalogs);
         checkState(transactions.put(transactionId, transactionMetadata) == null, "Duplicate transaction ID: %s", transactionId);
         return transactionId;
     }
@@ -344,6 +346,7 @@ public class InMemoryTransactionManager
         private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers;
         @GuardedBy("this")
         private final Map<String, FunctionNamespaceTransactionMetadata> functionNamespaceTransactions = new ConcurrentHashMap<>();
+        private final Map<String, String> companionCatalogs;
 
         public TransactionMetadata(
                 TransactionId transactionId,
@@ -352,7 +355,8 @@ public class InMemoryTransactionManager
                 boolean autoCommitContext,
                 CatalogManager catalogManager,
                 Executor finishingExecutor,
-                Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers)
+                Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers,
+                Map<String, String> companionCatalogs)
         {
             this.transactionId = requireNonNull(transactionId, "transactionId is null");
             this.isolationLevel = requireNonNull(isolationLevel, "isolationLevel is null");
@@ -361,6 +365,7 @@ public class InMemoryTransactionManager
             this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
             this.finishingExecutor = listeningDecorator(ExecutorServiceAdapter.from(requireNonNull(finishingExecutor, "finishingExecutor is null")));
             this.functionNamespaceManagers = requireNonNull(functionNamespaceManagers, "functionNamespaceManagers is null");
+            this.companionCatalogs = requireNonNull(companionCatalogs, "companionCatalogs is null");
         }
 
         public void setActive()
@@ -416,6 +421,12 @@ public class InMemoryTransactionManager
                 catalogByName.put(catalogName, catalog);
                 if (catalog.isPresent()) {
                     registerCatalog(catalog.get());
+                }
+
+                if (companionCatalogs.containsKey(catalogName)) {
+                    Optional<Catalog> companionCatalog = catalogManager.getCatalog(companionCatalogs.get(catalogName));
+                    checkArgument(companionCatalog.isPresent(), format("Invalid config, no catalog exists for catalog name %s: %s", catalogName, companionCatalogs.get(catalogName)));
+                    registerCatalog(companionCatalog.get());
                 }
             }
             return catalog.map(Catalog::getConnectorId);
