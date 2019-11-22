@@ -200,6 +200,11 @@ public class H2QueryRunner
         return materializedRows;
     }
 
+    public Handle getHandle()
+    {
+        return handle;
+    }
+
     private static RowMapper<MaterializedRow> rowMapper(List<? extends Type> types)
     {
         return new RowMapper<MaterializedRow>()
