@@ -388,7 +388,7 @@ public class PlanFragmenter
                     properties.getPartitioningScheme(),
                     StageExecutionDescriptor.ungroupedExecution(),
                     outputTableWriterFragment,
-                    Optional.of(statsAndCosts.getForSubplan(root)),
+                    statsAndCosts.getForSubplan(root),
                     Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, metadata.getFunctionManager(), session)));
 
             return new SubPlan(fragment, properties.getChildren());
