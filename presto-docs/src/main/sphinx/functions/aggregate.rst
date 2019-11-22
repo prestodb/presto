@@ -105,7 +105,7 @@ General Aggregate Functions
 
     Returns ``n`` smallest values of all input values of ``x``.
 
-.. function:: reduce_agg(inputValue T, initialState S, inputFunction(S, T, S), combineFunction(S, S, S)) -> S
+.. function:: reduce_agg(inputValue T, initialState S, inputFunction(S,T,S), combineFunction(S,S,S)) -> S
 
     Reduces all input values into a single value. ```inputFunction`` will be invoked
     for each input value. In addition to taking the input value, ``inputFunction``

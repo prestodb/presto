@@ -39,17 +39,13 @@ Array Functions
 
     Remove duplicate values from the array ``x``.
 
-.. function:: array_intersect(x, y) -> array
-
-    Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
-
-.. function:: array_union(x, y) -> array
-
-    Returns an array of the elements in the union of ``x`` and ``y``, without duplicates.
-
 .. function:: array_except(x, y) -> array
 
     Returns an array of elements in ``x`` but not in ``y``, without duplicates.
+
+.. function:: array_intersect(x, y) -> array
+
+    Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
 
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
@@ -110,6 +106,10 @@ Array Functions
 
     Tests if arrays ``x`` and ``y`` have any non-null elements in common.
     Returns null if there are no non-null elements in common but either array contains null.
+
+.. function:: array_union(x, y) -> array
+
+    Returns an array of the elements in the union of ``x`` and ``y``, without duplicates.
 
 .. function:: cardinality(x) -> bigint
 
