@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -108,7 +109,7 @@ public final class TaskTestUtils
                     .withBucketToPartition(Optional.of(new int[1])),
             StageExecutionDescriptor.ungroupedExecution(),
             false,
-            Optional.empty(),
+            StatsAndCosts.empty(),
             Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()

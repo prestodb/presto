@@ -562,7 +562,7 @@ public class TestCostCalculator
         CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session);
         PlanNode plan = translateExpression(node, statsCalculator(stats), typeProvider);
         SubPlan subPlan = fragment(new Plan(plan, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
-        return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().orElse(StatsAndCosts.empty()).getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
+        return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
     }
 
     private PlanNode translateExpression(PlanNode node, StatsCalculator statsCalculator, TypeProvider typeProvider)
@@ -688,7 +688,7 @@ public class TestCostCalculator
         CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session);
         node = translateExpression(node, statsCalculator, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
-        return subPlan.getFragment().getStatsAndCosts().orElse(StatsAndCosts.empty()).getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
+        return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
     }
 
     private static class CostAssertionBuilder
