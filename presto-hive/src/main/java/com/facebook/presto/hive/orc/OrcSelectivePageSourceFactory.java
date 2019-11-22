@@ -342,10 +342,11 @@ public class OrcSelectivePageSourceFactory
                     .boxed()
                     .collect(toImmutableBiMap(i -> physicalColumns.get(i).getHiveColumnIndex(), Function.identity()));
 
+            // use column types from the current table schema; these types might be different from this partition's schema
             Map<VariableReferenceExpression, InputReferenceExpression> variableToInput = columnNames.keySet().stream()
                     .collect(toImmutableMap(
-                            hiveColumnIndex -> new VariableReferenceExpression(columnNames.get(hiveColumnIndex), columnTypes.get(hiveColumnIndex)),
-                            hiveColumnIndex -> new InputReferenceExpression(inputs.get(hiveColumnIndex), columnTypes.get(hiveColumnIndex))));
+                            hiveColumnIndex -> new VariableReferenceExpression(columnNames.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex)),
+                            hiveColumnIndex -> new InputReferenceExpression(inputs.get(hiveColumnIndex), getColumnTypeFromTableSchema(coercers, columnTypes, hiveColumnIndex))));
 
             Optional<BucketAdapter> bucketAdapter = bucketAdaptation.map(adaptation -> new BucketAdapter(
                     Arrays.stream(adaptation.getBucketColumnIndices())
@@ -397,6 +398,11 @@ public class OrcSelectivePageSourceFactory
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    private static Type getColumnTypeFromTableSchema(Map<Integer, HiveCoercer> coercers, Map<Integer, Type> columnTypes, int hiveColumnIndex)
+    {
+        return coercers.containsKey(hiveColumnIndex) ? coercers.get(hiveColumnIndex).getToType() : columnTypes.get(hiveColumnIndex);
     }
 
     private static Map<Integer, List<Subfield>> collectRequiredSubfields(List<HiveColumnHandle> physicalColumns, List<Integer> outputColumns, Map<Integer, Map<Subfield, TupleDomainFilter>> tupleDomainFilters, RowExpression remainingPredicate, Map<String, Integer> columnIndices, StandardFunctionResolution functionResolution, RowExpressionService rowExpressionService, ConnectorSession session)

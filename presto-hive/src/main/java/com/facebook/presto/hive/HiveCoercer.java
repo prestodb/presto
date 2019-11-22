@@ -69,6 +69,8 @@ public interface HiveCoercer
 {
     TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield);
 
+    Type getToType();
+
     static HiveCoercer createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
     {
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
@@ -136,6 +138,12 @@ public interface HiveCoercer
             checkArgument(subfield.getPath().isEmpty(), "Subfields on primitive types are not allowed");
             return filter;
         }
+
+        @Override
+        public Type getToType()
+        {
+            return toType;
+        }
     }
 
     class IntegerNumberToVarcharCoercer
@@ -194,6 +202,12 @@ public interface HiveCoercer
                 byte[] bytes = String.valueOf(value).getBytes();
                 return delegate.testBytes(bytes, 0, bytes.length);
             }
+        }
+
+        @Override
+        public Type getToType()
+        {
+            return toType;
         }
     }
 
@@ -310,6 +324,12 @@ public interface HiveCoercer
                 }
             }
         }
+
+        @Override
+        public Type getToType()
+        {
+            return toType;
+        }
     }
 
     class FloatToDoubleCoercer
@@ -335,12 +355,18 @@ public interface HiveCoercer
             checkArgument(subfield.getPath().isEmpty(), "Subfields on primitive types are not allowed");
             return filter;
         }
+        @Override
+        public Type getToType()
+        {
+            return DOUBLE;
+        }
     }
 
     class ListCoercer
             implements HiveCoercer
     {
         private final HiveCoercer elementCoercer;
+        private final Type toType;
 
         public ListCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
         {
@@ -350,6 +376,7 @@ public interface HiveCoercer
             HiveType fromElementHiveType = HiveType.valueOf(((ListTypeInfo) fromHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
             HiveType toElementHiveType = HiveType.valueOf(((ListTypeInfo) toHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
             this.elementCoercer = fromElementHiveType.equals(toElementHiveType) ? null : createCoercer(typeManager, fromElementHiveType, toElementHiveType);
+            this.toType = toHiveType.getType(typeManager);
         }
 
         @Override
@@ -377,6 +404,12 @@ public interface HiveCoercer
             }
 
             throw new UnsupportedOperationException("Range filers on array elements are not supported");
+        }
+
+        @Override
+        public Type getToType()
+        {
+            return toType;
         }
     }
 
@@ -425,6 +458,12 @@ public interface HiveCoercer
 
             throw new UnsupportedOperationException("Range filers on map elements are not supported");
         }
+
+        @Override
+        public Type getToType()
+        {
+            return toType;
+        }
     }
 
     class StructCoercer
@@ -433,6 +472,7 @@ public interface HiveCoercer
         private final HiveCoercer[] coercers;
         private final Block[] nullBlocks;
         private final List<String> toFieldNames;
+        private final Type toType;
 
         public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
         {
@@ -452,6 +492,7 @@ public interface HiveCoercer
                 }
             }
             this.toFieldNames = extractStructFieldNames(toHiveType);
+            this.toType = toHiveType.getType(typeManager);
         }
 
         @Override
@@ -503,6 +544,12 @@ public interface HiveCoercer
             }
 
             throw new UnsupportedOperationException("Range filers on struct types are not supported");
+        }
+
+        @Override
+        public Type getToType()
+        {
+            return toType;
         }
     }
 }
