@@ -127,36 +127,36 @@ public class TestHiveRecoverableGroupedExecution
         testRecoverableGroupedExecution(
                 writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table1\n" +
+                        "CREATE TABLE create_bucketed_table_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                                 "SELECT orderkey key1, comment value1 FROM orders",
-                        "CREATE TABLE test_table2\n" +
+                        "CREATE TABLE create_bucketed_table_2\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
                                 "SELECT orderkey key2, comment value2 FROM orders",
-                        "CREATE TABLE test_table3\n" +
+                        "CREATE TABLE create_bucketed_table_3\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
                                 "SELECT orderkey key3, comment value3 FROM orders"),
-                "CREATE TABLE test_success WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
+                "CREATE TABLE create_bucketed_table_success WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                         "SELECT key1, value1, key2, value2, key3, value3\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM create_bucketed_table_1\n" +
+                        "JOIN create_bucketed_table_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN create_bucketed_table_3\n" +
                         "ON key2 = key3",
-                "CREATE TABLE test_failure WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
+                "CREATE TABLE create_bucketed_table_failure WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                         "SELECT key1, value1, key2, value2, key3, value3\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM create_bucketed_table_1\n" +
+                        "JOIN create_bucketed_table_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN create_bucketed_table_3\n" +
                         "ON key2 = key3",
                 15000,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table1",
-                        "DROP TABLE IF EXISTS test_table2",
-                        "DROP TABLE IF EXISTS test_table3",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS create_bucketed_table_1",
+                        "DROP TABLE IF EXISTS create_bucketed_table_2",
+                        "DROP TABLE IF EXISTS create_bucketed_table_3",
+                        "DROP TABLE IF EXISTS create_bucketed_table_success",
+                        "DROP TABLE IF EXISTS create_bucketed_table_failure"));
     }
 
     @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
@@ -166,40 +166,40 @@ public class TestHiveRecoverableGroupedExecution
         testRecoverableGroupedExecution(
                 writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table1\n" +
+                        "CREATE TABLE insert_bucketed_table_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                                 "SELECT orderkey key1, comment value1 FROM orders",
-                        "CREATE TABLE test_table2\n" +
+                        "CREATE TABLE insert_bucketed_table_2\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
                                 "SELECT orderkey key2, comment value2 FROM orders",
-                        "CREATE TABLE test_table3\n" +
+                        "CREATE TABLE insert_bucketed_table_3\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
                                 "SELECT orderkey key3, comment value3 FROM orders",
-                        "CREATE TABLE test_success (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
+                        "CREATE TABLE insert_bucketed_table_success (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key'], partitioned_by = ARRAY['partition_key'])",
-                        "CREATE TABLE test_failure (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
+                        "CREATE TABLE insert_bucketed_table_failure (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key'], partitioned_by = ARRAY['partition_key'])"),
-                "INSERT INTO test_success\n" +
+                "INSERT INTO insert_bucketed_table_success\n" +
                         "SELECT key1, value1, 'foo'\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM insert_bucketed_table_1\n" +
+                        "JOIN insert_bucketed_table_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN insert_bucketed_table_3\n" +
                         "ON key2 = key3",
-                "INSERT INTO test_failure\n" +
+                "INSERT INTO insert_bucketed_table_failure\n" +
                         "SELECT key1, value1, 'foo'\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM insert_bucketed_table_1\n" +
+                        "JOIN insert_bucketed_table_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN insert_bucketed_table_3\n" +
                         "ON key2 = key3",
                 15000,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table1",
-                        "DROP TABLE IF EXISTS test_table2",
-                        "DROP TABLE IF EXISTS test_table3",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS insert_bucketed_table_1",
+                        "DROP TABLE IF EXISTS insert_bucketed_table_2",
+                        "DROP TABLE IF EXISTS insert_bucketed_table_3",
+                        "DROP TABLE IF EXISTS insert_bucketed_table_success",
+                        "DROP TABLE IF EXISTS insert_bucketed_table_failure"));
     }
 
     @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
@@ -209,36 +209,36 @@ public class TestHiveRecoverableGroupedExecution
         testRecoverableGroupedExecution(
                 writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table1\n" +
+                        "CREATE TABLE create_unbucketed_table_with_grouped_execution_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                                 "SELECT orderkey key1, comment value1 FROM orders",
-                        "CREATE TABLE test_table2\n" +
+                        "CREATE TABLE create_unbucketed_table_with_grouped_execution_2\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
                                 "SELECT orderkey key2, comment value2 FROM orders",
-                        "CREATE TABLE test_table3\n" +
+                        "CREATE TABLE create_unbucketed_table_with_grouped_execution_3\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
                                 "SELECT orderkey key3, comment value3 FROM orders"),
-                "CREATE TABLE test_success AS\n" +
+                "CREATE TABLE create_unbucketed_table_with_grouped_execution_success AS\n" +
                         "SELECT key1, value1, key2, value2, key3, value3\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM create_unbucketed_table_with_grouped_execution_1\n" +
+                        "JOIN create_unbucketed_table_with_grouped_execution_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN create_unbucketed_table_with_grouped_execution_3\n" +
                         "ON key2 = key3",
-                "CREATE TABLE test_failure AS\n" +
+                "CREATE TABLE create_unbucketed_table_with_grouped_execution_failure AS\n" +
                         "SELECT key1, value1, key2, value2, key3, value3\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM create_unbucketed_table_with_grouped_execution_1\n" +
+                        "JOIN create_unbucketed_table_with_grouped_execution_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN create_unbucketed_table_with_grouped_execution_3\n" +
                         "ON key2 = key3",
                 15000,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table1",
-                        "DROP TABLE IF EXISTS test_table2",
-                        "DROP TABLE IF EXISTS test_table3",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_1",
+                        "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_2",
+                        "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_3",
+                        "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_success",
+                        "DROP TABLE IF EXISTS create_unbucketed_table_with_grouped_execution_failure"));
     }
 
     @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
@@ -248,40 +248,40 @@ public class TestHiveRecoverableGroupedExecution
         testRecoverableGroupedExecution(
                 writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table1\n" +
+                        "CREATE TABLE insert_unbucketed_table_with_grouped_execution_1\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
                                 "SELECT orderkey key1, comment value1 FROM orders",
-                        "CREATE TABLE test_table2\n" +
+                        "CREATE TABLE insert_unbucketed_table_with_grouped_execution_2\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
                                 "SELECT orderkey key2, comment value2 FROM orders",
-                        "CREATE TABLE test_table3\n" +
+                        "CREATE TABLE insert_unbucketed_table_with_grouped_execution_3\n" +
                                 "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
                                 "SELECT orderkey key3, comment value3 FROM orders",
-                        "CREATE TABLE test_success (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
+                        "CREATE TABLE insert_unbucketed_table_with_grouped_execution_success (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
                                 "WITH (partitioned_by = ARRAY['partition_key'])",
-                        "CREATE TABLE test_failure (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
+                        "CREATE TABLE insert_unbucketed_table_with_grouped_execution_failure (key BIGINT, value VARCHAR, partition_key VARCHAR)\n" +
                                 "WITH (partitioned_by = ARRAY['partition_key'])"),
-                "INSERT INTO test_success\n" +
+                "INSERT INTO insert_unbucketed_table_with_grouped_execution_success\n" +
                         "SELECT key1, value1, 'foo'\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM insert_unbucketed_table_with_grouped_execution_1\n" +
+                        "JOIN insert_unbucketed_table_with_grouped_execution_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN insert_unbucketed_table_with_grouped_execution_3\n" +
                         "ON key2 = key3",
-                "INSERT INTO test_failure\n" +
+                "INSERT INTO insert_unbucketed_table_with_grouped_execution_failure\n" +
                         "SELECT key1, value1, 'foo'\n" +
-                        "FROM test_table1\n" +
-                        "JOIN test_table2\n" +
+                        "FROM insert_unbucketed_table_with_grouped_execution_1\n" +
+                        "JOIN insert_unbucketed_table_with_grouped_execution_2\n" +
                         "ON key1 = key2\n" +
-                        "JOIN test_table3\n" +
+                        "JOIN insert_unbucketed_table_with_grouped_execution_3\n" +
                         "ON key2 = key3",
                 15000,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table1",
-                        "DROP TABLE IF EXISTS test_table2",
-                        "DROP TABLE IF EXISTS test_table3",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_1",
+                        "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_2",
+                        "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_3",
+                        "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_success",
+                        "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_failure"));
     }
 
     @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
@@ -291,19 +291,19 @@ public class TestHiveRecoverableGroupedExecution
         testRecoverableGroupedExecution(
                 writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table AS\n" +
+                        "CREATE TABLE scan_filter_projection_only_query_on_unbucketed_table AS\n" +
                                 "SELECT t.comment\n" +
                                 "FROM orders\n" +
                                 "CROSS JOIN UNNEST(REPEAT(comment, 10)) AS t (comment)"),
-                "CREATE TABLE test_success AS\n" +
-                        "SELECT comment value1 FROM test_table",
-                "CREATE TABLE test_failure AS\n" +
-                        "SELECT comment value1 FROM test_table",
+                "CREATE TABLE scan_filter_projection_only_query_on_unbucketed_table_success AS\n" +
+                        "SELECT comment value1 FROM scan_filter_projection_only_query_on_unbucketed_table",
+                "CREATE TABLE scan_filter_projection_only_query_on_unbucketed_table_failure AS\n" +
+                        "SELECT comment value1 FROM scan_filter_projection_only_query_on_unbucketed_table",
                 15000 * 10,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS scan_filter_projection_only_query_on_unbucketed_table",
+                        "DROP TABLE IF EXISTS scan_filter_projection_only_query_on_unbucketed_table_success",
+                        "DROP TABLE IF EXISTS scan_filter_projection_only_query_on_unbucketed_table_failure"));
     }
 
     @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
@@ -313,23 +313,23 @@ public class TestHiveRecoverableGroupedExecution
         testRecoverableGroupedExecution(
                 writerConcurrency,
                 ImmutableList.of(
-                        "CREATE TABLE test_table AS\n" +
+                        "CREATE TABLE test_union_all AS\n" +
                                 "SELECT t.comment\n" +
                                 "FROM orders\n" +
                                 "CROSS JOIN UNNEST(REPEAT(comment, 10)) AS t (comment)"),
-                "CREATE TABLE test_success AS\n" +
-                        "SELECT comment value1 FROM test_table " +
+                "CREATE TABLE test_union_all_success AS\n" +
+                        "SELECT comment value1 FROM test_union_all " +
                         "UNION ALL " +
-                        "SELECT comment value1 FROM test_table",
-                "CREATE TABLE test_failure AS\n" +
-                        "SELECT comment value1 FROM test_table " +
+                        "SELECT comment value1 FROM test_union_all",
+                "CREATE TABLE test_union_all_failure AS\n" +
+                        "SELECT comment value1 FROM test_union_all " +
                         "UNION ALL " +
-                        "SELECT comment value1 FROM test_table",
+                        "SELECT comment value1 FROM test_union_all",
                 30000 * 10,
                 ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
+                        "DROP TABLE IF EXISTS test_union_all",
+                        "DROP TABLE IF EXISTS test_union_all_success",
+                        "DROP TABLE IF EXISTS test_union_all_failure"));
     }
 
     private void testRecoverableGroupedExecution(
