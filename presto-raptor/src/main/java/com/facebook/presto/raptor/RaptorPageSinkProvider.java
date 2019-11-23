@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
+import com.facebook.presto.raptor.storage.StagedWriteStorageManager;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
@@ -45,9 +46,19 @@ public class RaptorPageSinkProvider
     private final int maxAllowedFilesPerWriter;
 
     @Inject
-    public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, TemporalFunction temporalFunction, StorageManagerConfig config)
+    public RaptorPageSinkProvider(
+            StorageManager storageManager,
+            StagedWriteStorageManager stagedWriteStorageManager,
+            PageSorter pageSorter,
+            TemporalFunction temporalFunction,
+            StorageManagerConfig config)
     {
-        this.storageManager = requireNonNull(storageManager, "storageManager is null");
+        if (config.getStagingWriteDirectory() == null) {
+            this.storageManager = requireNonNull(storageManager, "storageManager is null");
+        }
+        else {
+            this.storageManager = requireNonNull(stagedWriteStorageManager, "stagedWriteStorageManager is null");
+        }
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
         this.maxBufferSize = config.getMaxBufferSize();

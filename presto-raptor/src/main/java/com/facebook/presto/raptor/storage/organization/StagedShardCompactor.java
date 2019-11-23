@@ -87,7 +87,7 @@ import static java.util.stream.Collectors.toList;
 public final class StagedShardCompactor
         extends ShardCompactor
 {
-    private static final ReaderAttributes SMALL_READ_ATTRIBUTES = new ReaderAttributes(
+    public static final ReaderAttributes SMALL_READ_ATTRIBUTES = new ReaderAttributes(
             new DataSize(1, BYTE),
             new DataSize(100, KILOBYTE),
             new DataSize(100, KILOBYTE),
@@ -280,6 +280,8 @@ public final class StagedShardCompactor
                 OptionalInt bucketNumber,
                 List<Long> columnIds,
                 List<Type> columnTypes,
+                List<Long> sortFields,
+                List<SortOrder> sortOrders,
                 boolean checkSpace)
         {
             throw new UnsupportedOperationException("TODO");

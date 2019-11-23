@@ -76,14 +76,11 @@ public class ShardCompactor
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
-        StoragePageSink storagePageSink = storageManager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, false);
-
         List<ShardInfo> shardInfos;
         try {
-            shardInfos = compact(storagePageSink, bucketNumber, uuids, columnIds, columnTypes);
+            shardInfos = compact(storageManager, readerAttributes, transactionId, bucketNumber, uuids, columnIds, columnTypes);
         }
         catch (IOException | RuntimeException e) {
-            storagePageSink.rollback();
             throw e;
         }
 
@@ -91,22 +88,37 @@ public class ShardCompactor
         return shardInfos;
     }
 
-    private List<ShardInfo> compact(StoragePageSink storagePageSink, OptionalInt bucketNumber, Set<UUID> uuids, List<Long> columnIds, List<Type> columnTypes)
+    public List<ShardInfo> compact(
+            StorageManager sourceStorageManager,
+            ReaderAttributes readerAttributes,
+            long transactionId,
+            OptionalInt bucketNumber,
+            Set<UUID> uuids,
+            List<Long> columnIds,
+            List<Type> columnTypes)
             throws IOException
     {
-        for (UUID uuid : uuids) {
-            try (ConnectorPageSource pageSource = storageManager.getPageSource(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
-                while (!pageSource.isFinished()) {
-                    Page page = pageSource.getNextPage();
-                    if (isNullOrEmptyPage(page)) {
-                        continue;
-                    }
-                    storagePageSink.appendPages(ImmutableList.of(page));
-                    if (storagePageSink.isFull()) {
-                        storagePageSink.flush();
+        StoragePageSink storagePageSink = storageManager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, ImmutableList.of(), ImmutableList.of(), false);
+
+        try {
+            for (UUID uuid : uuids) {
+                try (ConnectorPageSource pageSource = sourceStorageManager.getPageSource(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes)) {
+                    while (!pageSource.isFinished()) {
+                        Page page = pageSource.getNextPage();
+                        if (isNullOrEmptyPage(page)) {
+                            continue;
+                        }
+                        storagePageSink.appendPages(ImmutableList.of(page));
+                        if (storagePageSink.isFull()) {
+                            storagePageSink.flush();
+                        }
                     }
                 }
             }
+        }
+        catch (IOException | RuntimeException e) {
+            storagePageSink.rollback();
+            throw e;
         }
         return getFutureValue(storagePageSink.commit());
     }
@@ -117,7 +129,7 @@ public class ShardCompactor
         return compactSorted(storageManager, readerAttributes, transactionId, bucketNumber, uuids, columns, sortColumnIds, sortOrders);
     }
 
-    List<ShardInfo> compactSorted(
+    public List<ShardInfo> compactSorted(
             StorageManager sourceStorageManager,
             ReaderAttributes readerAttributes,
             long transactionId,
@@ -142,7 +154,7 @@ public class ShardCompactor
                 .collect(toList());
 
         Queue<SortedPageSource> rowSources = new PriorityQueue<>();
-        StoragePageSink outputPageSink = storageManager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, false);
+        StoragePageSink outputPageSink = storageManager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, sortColumnIds, sortOrders, false);
         try {
             for (UUID uuid : uuids) {
                 ConnectorPageSource pageSource = sourceStorageManager.getPageSource(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, uuid, bucketNumber, columnIds, columnTypes, TupleDomain.all(), readerAttributes);

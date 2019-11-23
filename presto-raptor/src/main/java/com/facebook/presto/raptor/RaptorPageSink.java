@@ -173,7 +173,15 @@ public class RaptorPageSink
     {
         return new PageBuffer(
                 maxBufferBytes,
-                storageManager.createStoragePageSink(context, transactionId, bucketNumber, columnIds, columnTypes, true),
+                storageManager.createStoragePageSink(
+                        context,
+                        transactionId,
+                        bucketNumber,
+                        columnIds,
+                        columnTypes,
+                        sortFields.stream().mapToLong(x -> x).boxed().collect(toList()),
+                        sortOrders,
+                        true),
                 columnTypes,
                 sortFields,
                 sortOrders,

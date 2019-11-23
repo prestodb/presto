@@ -38,6 +38,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -280,6 +281,8 @@ public class OrcStorageManager
             OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,
+            List<Long> sortFields,
+            List<SortOrder> sortOrders,
             boolean checkSpace)
     {
         if (checkSpace && storageService.getAvailableBytes() < minAvailableSpace.toBytes()) {

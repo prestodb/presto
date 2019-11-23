@@ -62,6 +62,7 @@ import static com.facebook.presto.raptor.RaptorTableProperties.TEMPORAL_COLUMN_P
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createOrcStorageManager;
+import static com.facebook.presto.raptor.storage.TestOrcStorageManager.createStagedWriteStorageManager;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -109,7 +110,9 @@ public class TestRaptorConnector
                 new RaptorMetadataFactory(connectorId, dbi, shardManager, new TypeRegistry()),
                 new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false),
                 new RaptorPageSourceProvider(storageManager),
-                new RaptorPageSinkProvider(storageManager,
+                new RaptorPageSinkProvider(
+                        storageManager,
+                        createStagedWriteStorageManager(storageManager, dataDir),
                         new PagesIndexPageSorter(new PagesIndex.TestingFactory(false)),
                         new TemporalFunction(DateTimeZone.forID("America/Los_Angeles")),
                         config),

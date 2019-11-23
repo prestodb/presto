@@ -31,6 +31,7 @@ import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.facebook.presto.raptor.storage.InMemoryShardRecorder.RecordedShard;
+import com.facebook.presto.raptor.storage.organization.ShardCompactor;
 import com.facebook.presto.raptor.storage.organization.StagedShardCompactor;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
@@ -112,6 +113,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -583,7 +585,7 @@ public class TestOrcStorageManager
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
     {
         long transactionId = TRANSACTION_ID;
-        return manager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
+        return manager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, OptionalInt.empty(), columnIds, columnTypes, ImmutableList.of(), ImmutableList.of(), false);
     }
 
     private OrcStorageManager createOrcStorageManager()
@@ -662,7 +664,7 @@ public class TestOrcStorageManager
 
     public static StagedShardCompactor.StagedCompactionStorageManager createStagingStorageManager(File temporary)
     {
-        URI directory = new File(temporary, "data").toURI();
+        URI directory = new File(temporary, "staging").toURI();
 
         return createStagingStorageManager(directory);
     }
@@ -676,6 +678,25 @@ public class TestOrcStorageManager
                 directory,
                 new StorageOrcFileTailSource(),
                 new StorageStripeMetadataSource());
+    }
+
+    public static StagedWriteStorageManager createStagedWriteStorageManager(StorageManager storageManager, File temporary)
+    {
+        URI directory = new File(temporary, "staging").toURI();
+
+        return createStagedWriteStorageManager(storageManager, directory);
+    }
+
+    public static StagedWriteStorageManager createStagedWriteStorageManager(StorageManager storageManager, URI directory)
+    {
+        return new StagedWriteStorageManager(
+                new TypeRegistry(),
+                CONNECTOR_ID,
+                100,
+                new DataSize(1, KILOBYTE),
+                directory,
+                new ShardCompactor(storageManager, READER_ATTRIBUTES),
+                createStagingStorageManager(directory));
     }
 
     private static void assertFileEquals(File actual, File expected)

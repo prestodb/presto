@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 
@@ -57,5 +58,7 @@ public interface StorageManager
             OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,
+            List<Long> sortFields,
+            List<SortOrder> sortOrders,
             boolean checkSpace);
 }

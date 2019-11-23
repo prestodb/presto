@@ -83,6 +83,7 @@ public class StorageModule
         binder.bind(Ticker.class).toInstance(Ticker.systemTicker());
 
         binder.bind(StorageManager.class).to(OrcStorageManager.class).in(Scopes.SINGLETON);
+        binder.bind(StagedWriteStorageManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardManager.class).to(DatabaseShardManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardRecorder.class).to(DatabaseShardRecorder.class).in(Scopes.SINGLETON);
         binder.bind(DatabaseShardManager.class).in(Scopes.SINGLETON);
