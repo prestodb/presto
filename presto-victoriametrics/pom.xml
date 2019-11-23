@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>com.facebook.presto</groupId>
+		<artifactId>presto-root</artifactId>
+		<version>0.229</version>
+	</parent>
+
+	<artifactId>presto-victoriametrics</artifactId>
+	<description>Presto - VictoriaMetrics Connector</description>
+	<packaging>presto-plugin</packaging>
+
+	<properties>
+		<air.main.basedir>${project.parent.basedir}</air.main.basedir>
+		<kotlin.version>1.3.60</kotlin.version>
+		<okhttp.version>4.2.2</okhttp.version>
+		<okio.version>2.2.2</okio.version>
+		<clikt.version>2.2.0</clikt.version>
+
+		<kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
+		<!--<kotlin.compiler.incremental>true</kotlin.compiler.incremental>-->
+		<mockk.version>1.9.3</mockk.version>
+		<assertj.version>3.13.2</assertj.version>
+		<kotlinx-serialization.version>0.14.0</kotlinx-serialization.version>
+		<jetbrains-annotations.version>13.0</jetbrains-annotations.version>
+	</properties>
+
+	<repositories>
+		<repository>
+			<id>bintray-kotlin-kotlinx</id>
+			<name>bintray</name>
+			<url>https://kotlin.bintray.com/kotlinx</url>
+		</repository>
+	</repositories>
+
+	<dependencies>
+
+		<dependency>
+			<groupId>org.jetbrains.kotlin</groupId>
+			<artifactId>kotlin-stdlib</artifactId>
+			<version>${kotlin.version}</version>
+		</dependency>
+
+		<!--<dependency>-->
+		<!--	<groupId>org.jetbrains.kotlin</groupId>-->
+		<!--	<artifactId>kotlin-stdlib-jdk8</artifactId>-->
+		<!--	<version>${kotlin.version}</version>-->
+		<!--</dependency>-->
+
+		<dependency>
+			<groupId>org.jetbrains.kotlinx</groupId>
+			<artifactId>kotlinx-serialization-runtime</artifactId>
+			<version>${kotlinx-serialization.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.jetbrains</groupId>
+			<artifactId>annotations</artifactId>
+			<version>${jetbrains-annotations.version}</version>
+		</dependency>
+
+		<!--<dependency>-->
+		<!--	<groupId>com.facebook.airlift</groupId>-->
+		<!--	<artifactId>bootstrap</artifactId>-->
+		<!--</dependency>-->
+
+		<!--<dependency>-->
+		<!--	<groupId>com.facebook.airlift</groupId>-->
+		<!--	<artifactId>json</artifactId>-->
+		<!--</dependency>-->
+
+		<dependency>
+			<groupId>com.facebook.airlift</groupId>
+			<artifactId>log</artifactId>
+		</dependency>
+
+		<!--<dependency>-->
+		<!--	<groupId>com.facebook.airlift</groupId>-->
+		<!--	<artifactId>configuration</artifactId>-->
+		<!--</dependency>-->
+
+		<!--<dependency>-->
+		<!--	<groupId>com.facebook.presto</groupId>-->
+		<!--	<artifactId>presto-record-decoder</artifactId>-->
+		<!--</dependency>-->
+
+		<!--<dependency>-->
+		<!--	<groupId>com.google.guava</groupId>-->
+		<!--	<artifactId>guava</artifactId>-->
+		<!--</dependency>-->
+
+		<!--<dependency>-->
+		<!--	<groupId>com.google.inject</groupId>-->
+		<!--	<artifactId>guice</artifactId>-->
+		<!--</dependency>-->
+
+		<!--<dependency>-->
+		<!--	<groupId>javax.validation</groupId>-->
+		<!--	<artifactId>validation-api</artifactId>-->
+		<!--</dependency>-->
+
+		<!--<dependency>-->
+		<!--	<groupId>joda-time</groupId>-->
+		<!--	<artifactId>joda-time</artifactId>-->
+		<!--</dependency>-->
+
+		<dependency>
+			<groupId>com.squareup.okhttp3</groupId>
+			<artifactId>okhttp</artifactId>
+			<version>${okhttp.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.squareup.okio</groupId>
+			<artifactId>okio</artifactId>
+			<version>${okio.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.github.ajalt</groupId>
+			<artifactId>clikt</artifactId>
+			<version>${clikt.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift</groupId>
+			<artifactId>joda-to-java-time-bridge</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!--<dependency>-->
+		<!--	<groupId>javax.annotation</groupId>-->
+		<!--	<artifactId>javax.annotation-api</artifactId>-->
+		<!--</dependency>-->
+
+		<!--<dependency>-->
+		<!--	<groupId>javax.inject</groupId>-->
+		<!--	<artifactId>javax.inject</artifactId>-->
+		<!--</dependency>-->
+
+		<!--<dependency>-->
+		<!--	<groupId>com.fasterxml.jackson.core</groupId>-->
+		<!--	<artifactId>jackson-core</artifactId>-->
+		<!--</dependency>-->
+
+		<!--<dependency>-->
+		<!--	<groupId>com.fasterxml.jackson.core</groupId>-->
+		<!--	<artifactId>jackson-databind</artifactId>-->
+		<!--</dependency>-->
+
+		<!-- Presto SPI -->
+		<dependency>
+			<groupId>com.facebook.presto</groupId>
+			<artifactId>presto-spi</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift</groupId>
+			<artifactId>slice</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.airlift</groupId>
+			<artifactId>units</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-annotations</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
+		<!-- for testing -->
+		<dependency>
+			<groupId>org.testng</groupId>
+			<artifactId>testng</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<version>${assertj.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.mockk</groupId>
+			<artifactId>mockk</artifactId>
+			<version>${mockk.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.mockk</groupId>
+			<artifactId>mockk-dsl-jvm</artifactId>
+			<version>${mockk.version}</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.facebook.airlift</groupId>
+			<artifactId>testing</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.facebook.presto</groupId>
+			<artifactId>presto-main</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.facebook.presto</groupId>
+			<artifactId>presto-tpch</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.facebook.presto</groupId>
+			<artifactId>presto-client</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.facebook.presto</groupId>
+			<artifactId>presto-tests</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+	</dependencies>
+
+	<build>
+		<sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
+		<testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
+
+		<plugins>
+			<plugin>
+				<groupId>org.jetbrains.kotlin</groupId>
+				<artifactId>kotlin-maven-plugin</artifactId>
+				<version>${kotlin.version}</version>
+
+				<executions>
+					<execution>
+						<id>compile</id>
+						<goals>
+							<goal>compile</goal>
+						</goals>
+					</execution>
+
+					<execution>
+						<id>test-compile</id>
+						<goals>
+							<goal>test-compile</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<compilerPlugins>
+						<plugin>kotlinx-serialization</plugin>
+					</compilerPlugins>
+				</configuration>
+				<dependencies>
+					<dependency>
+						<groupId>org.jetbrains.kotlin</groupId>
+						<artifactId>kotlin-maven-serialization</artifactId>
+						<version>${kotlin.version}</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<excludes>
+					</excludes>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.basepom.maven</groupId>
+				<artifactId>duplicate-finder-maven-plugin</artifactId>
+				<configuration>
+					<ignoredDependencies>
+						<dependency>
+							<groupId>org.assertj</groupId>
+							<artifactId>assertj-core</artifactId>
+						</dependency>
+						<dependency>
+							<groupId>net.bytebuddy</groupId>
+							<artifactId>byte-buddy-agent</artifactId>
+						</dependency>
+					</ignoredDependencies>
+				</configuration>
+			</plugin>
+
+
+			<!--<plugin>-->
+			<!--	<groupId>org.apache.maven.plugins</groupId>-->
+			<!--	<artifactId>maven-assembly-plugin</artifactId>-->
+			<!--	<version>2.6</version>-->
+			<!--	<executions>-->
+			<!--		<execution>-->
+			<!--			<id>make-assembly</id>-->
+			<!--			<phase>package</phase>-->
+			<!--			<goals>-->
+			<!--				<goal>single</goal>-->
+			<!--			</goals>-->
+			<!--			<configuration>-->
+			<!--				<archive>-->
+			<!--					<manifest>-->
+			<!--						&lt;!&ndash;<mainClass>${main.class}</mainClass>&ndash;&gt;-->
+			<!--					</manifest>-->
+			<!--				</archive>-->
+			<!--				<descriptorRefs>-->
+			<!--					<descriptorRef>jar-with-dependencies</descriptorRef>-->
+			<!--				</descriptorRefs>-->
+			<!--			</configuration>-->
+			<!--		</execution>-->
+			<!--	</executions>-->
+			<!--</plugin>-->
+
+
+			<plugin>
+				<groupId>com.mycila</groupId>
+				<artifactId>license-maven-plugin</artifactId>
+				<configuration>
+					<mapping>
+						<kt>JAVADOC_STYLE</kt>
+					</mapping>
+				</configuration>
+			</plugin>
+
+		</plugins>
+	</build>
+
+	<profiles>
+		<profile>
+			<id>ci</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<configuration>
+							<excludes combine.self="override"/>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+</project>

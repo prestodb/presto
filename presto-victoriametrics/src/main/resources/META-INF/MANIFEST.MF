@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Implementation-Title: presto-victoriametrics
+Implementation-Version: 0.1
+Specification-Title: presto-victoriametrics
+Implementation-Vendor-Id: com.victoriametrics

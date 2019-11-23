@@ -164,5 +164,9 @@
             <directory>${project.build.directory}/dependency/presto-elasticsearch-${project.version}</directory>
             <outputDirectory>plugin/presto-elasticsearch</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-victoriametrics-${project.version}</directory>
+            <outputDirectory>plugin/victoriametrics</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>

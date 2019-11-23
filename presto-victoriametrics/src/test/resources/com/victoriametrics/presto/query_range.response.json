@@ -1,0 +1,59 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "matrix",
+    "result": [
+      {
+        "metric": {
+          "instance": "victoriametrics:8428",
+          "job": "vm",
+          "type": "indexdb"
+        },
+        "values": [
+          [
+            1571978478,
+            "0.040268456375838924"
+          ],
+          [
+            1571978778,
+            "0.040268456375838924"
+          ]
+        ]
+      },
+      {
+        "metric": {
+          "instance": "victoriametrics:8428",
+          "job": "vm",
+          "type": "storage/big"
+        },
+        "values": [
+          [
+            1571978478,
+            "0"
+          ],
+          [
+            1571978778,
+            "0"
+          ]
+        ]
+      },
+      {
+        "metric": {
+          "instance": "victoriametrics:8428",
+          "job": "vm",
+          "type": "storage/small"
+        },
+        "values": [
+          [
+            1571978478,
+            "0.08389261744966443"
+          ],
+          [
+            1571978778,
+            "0.08389261744966443"
+          ]
+        ]
+      }
+    ]
+  }
+}

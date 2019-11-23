@@ -1,0 +1,3 @@
+{"metric":{"__name__":"vm_blocks","job":"vm","type":"indexdb","instance":"victoriametrics:8428"},"values":[21,21,23,23,23,23],"timestamps":[1571978321645,1571978322646,1571978365646,1571978366646,1571978367646,1571978368646]}
+{"metric":{"__name__":"vm_blocks","job":"vm","type":"storage/small","instance":"victoriametrics:8428"},"values":[61488,61488,62173,62173,62173,1320],"timestamps":[1571978321645,1571978322646,1571978365646,1571978366646,1571978367646,1571978368646]}
+{"metric":{"__name__":"vm_blocks","job":"vm","type":"storage/big","instance":"victoriametrics:8428"},"values":[59406,59406,59406,59406,59406,0],"timestamps":[1571978321645,1571978322646,1571978365646,1571978366646,1571978367646,1571978368646]}

@@ -1,0 +1,22 @@
+<configuration>
+
+	<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+		<!-- encoders are by default assigned the type
+			 ch.qos.logback.classic.encoder.PatternLayoutEncoder -->
+		<encoder>
+			<pattern>%d{yyyy-MM-dd HH:mm:ss.SSSZ} [%thread] %-5level %logger - %msg%n</pattern>
+		</encoder>
+	</appender>
+
+	<appender name="METRICS" class="io.prometheus.client.logback.InstrumentedAppender"/>
+
+	<root level="INFO">
+		<appender-ref ref="STDOUT"/>
+		<!--<appender-ref ref="METRICS"/>-->
+	</root>
+
+	<logger name="ch.qos.logback" level="WARN"/>
+	<logger name="com.victoriametrics" level="INFO"/>
+
+
+</configuration>

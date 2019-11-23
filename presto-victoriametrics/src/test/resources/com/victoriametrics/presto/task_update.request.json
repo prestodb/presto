@@ -1,0 +1,177 @@
+{
+  "session": {
+	"queryId": "20191108_051004_00005_u8dji",
+	"transactionId": "b08fb46c-b335-4d44-8ed8-4143cb591db1",
+	"clientTransactionSupport": true,
+	"user": "dl",
+	"source": "presto-cli",
+	"catalog": "victoriametrics",
+	"schema": "default",
+	"path": {},
+	"timeZoneKey": 1825,
+	"locale": "en_US",
+	"remoteUserAddress": "127.0.0.1",
+	"userAgent": "StatementClientV1/0.226-66b9e4d",
+	"clientTags": [],
+	"clientCapabilities": [
+	  "PATH"
+	],
+	"resourceEstimates": {},
+	"startTime": 1573189804534,
+	"systemProperties": {},
+	"catalogProperties": {},
+	"unprocessedCatalogProperties": {},
+	"roles": {},
+	"preparedStatements": {}
+  },
+  "extraCredentials": {},
+  "fragment": {
+	"id": "1",
+	"root": {
+	  "@type": ".TableScanNode",
+	  "id": "0",
+	  "table": {
+		"connectorId": "victoriametrics",
+		"connectorHandle": {
+		  "@type": "victoriametrics"
+		},
+		"transaction": {
+		  "@type": "victoriametrics"
+		},
+		"connectorTableLayout": {
+		  "@type": "victoriametrics"
+		}
+	  },
+	  "outputVariables": [
+		{
+		  "@type": "variable",
+		  "name": "name",
+		  "type": "varchar"
+		},
+		{
+		  "@type": "variable",
+		  "name": "timestamp",
+		  "type": "timestamp"
+		},
+		{
+		  "@type": "variable",
+		  "name": "value",
+		  "type": "double"
+		}
+	  ],
+	  "assignments": {
+		"value<double>": {
+		  "@type": "victoriametrics"
+		},
+		"timestamp<timestamp>": {
+		  "@type": "victoriametrics"
+		},
+		"name<varchar>": {
+		  "@type": "victoriametrics"
+		}
+	  }
+	},
+	"variables": [
+	  {
+		"@type": "variable",
+		"name": "name",
+		"type": "varchar"
+	  },
+	  {
+		"@type": "variable",
+		"name": "timestamp",
+		"type": "timestamp"
+	  },
+	  {
+		"@type": "variable",
+		"name": "value",
+		"type": "double"
+	  }
+	],
+	"partitioning": {
+	  "connectorHandle": {
+		"@type": "$remote",
+		"partitioning": "SOURCE",
+		"function": "UNKNOWN"
+	  }
+	},
+	"tableScanSchedulingOrder": [
+	  "0"
+	],
+	"partitioningScheme": {
+	  "partitioning": {
+		"handle": {
+		  "connectorHandle": {
+			"@type": "$remote",
+			"partitioning": "SINGLE",
+			"function": "SINGLE"
+		  }
+		},
+		"arguments": []
+	  },
+	  "outputLayout": [
+		{
+		  "@type": "variable",
+		  "name": "name",
+		  "type": "varchar"
+		},
+		{
+		  "@type": "variable",
+		  "name": "timestamp",
+		  "type": "timestamp"
+		},
+		{
+		  "@type": "variable",
+		  "name": "value",
+		  "type": "double"
+		}
+	  ],
+	  "replicateNullsAndAny": false,
+	  "bucketToPartition": [
+		0
+	  ]
+	},
+	"stageExecutionDescriptor": {
+	  "stageExecutionStrategy": "UNGROUPED_EXECUTION",
+	  "groupedExecutionScanNodes": [],
+	  "totalLifespans": 1
+	},
+	"outputTableWriterFragment": false,
+	"statsAndCosts": {
+	  "stats": {},
+	  "costs": {}
+	},
+	"jsonRepresentation": "{\n  \"id\" : \"0\",\n  \"name\" : \"TableScan\",\n  \"identifier\" : \"[TableHandle {connectorId='victoriametrics', connectorHandle='VmTableHandle(tableName=default.metrics)', layout='Optional[VmTableHandle(tableName=default.metrics)]'}]\",\n  \"details\" : \"value := VmColumnHandle(tableName=default.metrics, columnName=value)\\ntimestamp := VmColumnHandle(tableName=default.metrics, columnName=timestamp)\\nname := VmColumnHandle(tableName=default.metrics, columnName=name)\\n\",\n  \"children\" : [ ],\n  \"remoteSources\" : [ ]\n}"
+  },
+  "sources": [
+	{
+	  "planNodeId": "0",
+	  "splits": [
+		{
+		  "sequenceId": 0,
+		  "planNodeId": "0",
+		  "split": {
+			"connectorId": "victoriametrics",
+			"transactionHandle": {
+			  "@type": "victoriametrics"
+			},
+			"connectorSplit": {
+			  "@type": "victoriametrics"
+			},
+			"lifespan": "TaskWide"
+		  }
+		}
+	  ],
+	  "noMoreSplitsForLifespan": [],
+	  "noMoreSplits": false
+	}
+  ],
+  "outputIds": {
+	"type": "PARTITIONED",
+	"version": 2,
+	"noMoreBufferIds": true,
+	"buffers": {
+	  "0": 0
+	}
+  }
+}
