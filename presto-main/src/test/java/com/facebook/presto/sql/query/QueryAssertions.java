@@ -53,6 +53,11 @@ class QueryAssertions
         runner = new LocalQueryRunner(session);
     }
 
+    public QueryRunner getQueryRunner()
+    {
+        return runner;
+    }
+
     public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
