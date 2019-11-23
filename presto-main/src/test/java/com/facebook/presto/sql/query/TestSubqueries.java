@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.query;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
@@ -59,6 +61,15 @@ public class TestSubqueries
     {
         assertions.close();
         assertions = null;
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG)
+    public void testCorrelatedSubqueriesWithDistinct()
+    {
+        QueryRunner runner = assertions.getQueryRunner();
+        runner.execute(
+                runner.getDefaultSession(),
+                "select a from (values (1, 10), (2, 20)) t(a,b) where a in (select distinct c from (values 1) t2(c) where b in (10, 11))");
     }
 
     @Test
