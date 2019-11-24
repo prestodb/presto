@@ -14,9 +14,18 @@
 package com.victoriametrics.presto
 
 import com.facebook.airlift.log.Logger
-import com.facebook.presto.spi.*
+import com.facebook.presto.spi.ColumnHandle
+import com.facebook.presto.spi.ColumnMetadata
+import com.facebook.presto.spi.ConnectorSession
+import com.facebook.presto.spi.ConnectorTableHandle
+import com.facebook.presto.spi.ConnectorTableLayout
+import com.facebook.presto.spi.ConnectorTableLayoutHandle
+import com.facebook.presto.spi.ConnectorTableLayoutResult
+import com.facebook.presto.spi.ConnectorTableMetadata
+import com.facebook.presto.spi.Constraint
+import com.facebook.presto.spi.SchemaTableName
+import com.facebook.presto.spi.SchemaTablePrefix
 import com.facebook.presto.spi.connector.ConnectorMetadata
-import com.facebook.presto.spi.predicate.TupleDomain
 import com.victoriametrics.presto.model.VmColumnHandle
 import com.victoriametrics.presto.model.VmSchema
 import com.victoriametrics.presto.model.VmTableHandle
@@ -45,29 +54,31 @@ object VmMetadata : ConnectorMetadata {
     override fun getTableMetadata(session: ConnectorSession, table: ConnectorTableHandle): ConnectorTableMetadata? {
         table as VmTableHandle
         return ConnectorTableMetadata(
-            VmSchema.metricsTableName,
-            VmSchema.columns
+                VmSchema.metricsTableName,
+                VmSchema.columns
         )
     }
 
-    override fun getTableLayout(session: ConnectorSession, handle: ConnectorTableLayoutHandle): ConnectorTableLayout {
-        handle as VmTableLayoutHandle
-        // val columnHandles = getColumnHandles(session, handle).values.toList()
-        return ConnectorTableLayout(handle)
-        // Optional.of(columnHandles),
-        // TupleDomain.all(),
-        // Optional.empty(),
-        // Optional.empty(),
-        // Optional.empty(),
-        // emptyList()
+    override fun getTableLayout(session: ConnectorSession, tableLayoutHandle: ConnectorTableLayoutHandle): ConnectorTableLayout {
+        tableLayoutHandle as VmTableLayoutHandle
+        return ConnectorTableLayout(tableLayoutHandle)
+        // val tableHandle = VmTableHandle()
+        // val columnHandles = getColumnHandles(session, tableHandle).values.toList()
+        // return ConnectorTableLayout(tableLayoutHandle,
+        //         Optional.of(columnHandles),
+        //         TupleDomain.all(),
+        //         Optional.empty(),
+        //         Optional.empty(),
+        //         Optional.empty(),
+        //         emptyList()
         // )
     }
 
     override fun getTableLayouts(
-        session: ConnectorSession,
-        table: ConnectorTableHandle,
-        constraint: Constraint<ColumnHandle>,
-        desiredColumns: Optional<MutableSet<ColumnHandle>>
+            session: ConnectorSession,
+            table: ConnectorTableHandle,
+            constraint: Constraint<ColumnHandle>,
+            desiredColumns: Optional<MutableSet<ColumnHandle>>
     ): List<ConnectorTableLayoutResult> {
         table as VmTableHandle
 
@@ -75,8 +86,9 @@ object VmMetadata : ConnectorMetadata {
 
         val tableLayout = ConnectorTableLayout(tableLayoutHandle)
 
-        // .all() means we did not enforce anything. Same effect as constraint.summary.
-        val unenforcedConstraint: TupleDomain<ColumnHandle> = TupleDomain.all<ColumnHandle>()
+        // Important
+        // If using TupleDomain.all(), then Presto will not filter out these constraints on its own.
+        val unenforcedConstraint = constraint.summary
 
         // There's no point extending ConnectorTableLayoutResult, as only these two fields will be used.
         val result = ConnectorTableLayoutResult(tableLayout, unenforcedConstraint)
@@ -86,8 +98,8 @@ object VmMetadata : ConnectorMetadata {
     }
 
     override fun listTableColumns(
-        session: ConnectorSession,
-        prefix: SchemaTablePrefix
+            session: ConnectorSession,
+            prefix: SchemaTablePrefix
     ): Map<SchemaTableName, List<ColumnMetadata>> {
         if (!prefix.matches(VmSchema.metricsTableName)) {
             log.warn("prefix didn't match anything: {}", prefix)
@@ -97,19 +109,19 @@ object VmMetadata : ConnectorMetadata {
     }
 
     override fun getColumnHandles(
-        session: ConnectorSession,
-        tableHandle: ConnectorTableHandle
+            session: ConnectorSession,
+            tableHandle: ConnectorTableHandle
     ): Map<String, ColumnHandle> {
         tableHandle as VmTableHandle
         return VmSchema.columns
-            .map { it.name to VmColumnHandle(it.name) }
-            .toMap()
+                .map { it.name to VmColumnHandle(it.name) }
+                .toMap()
     }
 
     override fun getColumnMetadata(
-        session: ConnectorSession,
-        tableHandle: ConnectorTableHandle,
-        columnHandle: ColumnHandle
+            session: ConnectorSession,
+            tableHandle: ConnectorTableHandle,
+            columnHandle: ColumnHandle
     ): ColumnMetadata? {
         tableHandle as VmTableHandle
         columnHandle as VmColumnHandle

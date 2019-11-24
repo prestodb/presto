@@ -19,7 +19,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.testng.annotations.Test
 import java.nio.charset.StandardCharsets
 
-class ExportResponseLineTest {
+internal class ExportResponseLineTest {
     private val log = Logger.get(this::class.java)!!
     /**
      * `http://0.0.0.0:8428/api/v1/export?match={__name__=~"vm_blocks"}`

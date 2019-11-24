@@ -17,6 +17,5 @@ package com.victoriametrics.presto.model
 
 import com.facebook.presto.spi.ConnectorTableHandle
 
-class VmTableHandle : ConnectorTableHandle {
-}
+class VmTableHandle : ConnectorTableHandle
 
