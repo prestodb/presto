@@ -22,6 +22,7 @@ class VmConfigTest {
     fun multiple() {
         val config = mapOf(VmConfig.nodesParamName to "example.com,example2.com")
         val unit = VmConfig(config)
+        // unit.vmselectEndpoints = "example.com,example2.com"
         assertThat(unit.httpUrls[0]).isEqualTo("http://example.com/api/v1/".toHttpUrl())
         assertThat(unit.httpUrls[1]).isEqualTo("http://example2.com/api/v1/".toHttpUrl())
     }

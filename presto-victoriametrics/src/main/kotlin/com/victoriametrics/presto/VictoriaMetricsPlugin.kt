@@ -29,12 +29,38 @@ class VictoriaMetricsPlugin : Plugin {
         override fun getHandleResolver() = VmHandleResolver
 
         override fun create(
-            catalogName: String,
-            config: Map<String, String>,
-            context: ConnectorContext
+                catalogName: String,
+                config: Map<String, String>,
+                context: ConnectorContext
         ): VmConnector {
             val vmConfig = VmConfig(config)
             return VmConnector(vmConfig)
+            //
+            // val app = Bootstrap(
+            //         // JsonModule(),
+            //         VmModule(),
+            //         Module { binder: Binder ->
+            //             // binder.bind(RedisConnectorId::class.java).toInstance(RedisConnectorId(catalogName))
+            //             binder.bind(TypeManager::class.java).toInstance(context.typeManager)
+            //             binder.bind(NodeManager::class.java).toInstance(context.nodeManager)
+            //             // if (tableDescriptionSupplier.isPresent()) {
+            //             //     binder.bind(object : TypeLiteral<Supplier<Map<SchemaTableName?, RedisTableDescription?>?>?>() {})
+            //             //             .toInstance(tableDescriptionSupplier.get())
+            //             // } else {
+            //             //     binder.bind(object : TypeLiteral<Supplier<Map<SchemaTableName?, RedisTableDescription?>?>?>() {})
+            //             //             .to(RedisTableDescriptionSupplier::class.java)
+            //             //             .`in`(Scopes.SINGLETON)
+            //             // }
+            //         })
+            //
+            // val injector: com.google.inject.Injector = app
+            //         // .strictConfig()
+            //         .doNotInitializeLogging()
+            //         .setRequiredConfigurationProperties(config)
+            //         .initialize()
+            //
+            // return injector.getInstance(VmConnector::class.java)
+
         }
     }
 }
