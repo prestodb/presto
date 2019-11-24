@@ -12,21 +12,21 @@
  * limitations under the License.
  */
 package com.victoriametrics.presto.inject
-
-import com.google.inject.Binder
-import com.google.inject.Module
-import com.google.inject.Provides
-import com.google.inject.Scopes
-import com.victoriametrics.presto.VmConnector
-import okhttp3.OkHttpClient
-
-class VmModule : Module {
-    override fun configure(binder: Binder) {
-        binder.bind<VmConnector>(VmConnector::class.java).`in`(Scopes.SINGLETON)
-    }
-
-    @Provides
-    fun provideHttpClient(): OkHttpClient {
-        return OkHttpClient.Builder().build()
-    }
-}
+//
+// import com.google.inject.Binder
+// import com.google.inject.Module
+// import com.google.inject.Provides
+// import com.google.inject.Scopes
+// import com.victoriametrics.presto.VmConnector
+// import okhttp3.OkHttpClient
+//
+// class VmModule : Module {
+//     override fun configure(binder: Binder) {
+//         binder.bind<VmConnector>(VmConnector::class.java).`in`(Scopes.SINGLETON)
+//     }
+//
+//     @Provides
+//     fun provideHttpClient(): OkHttpClient {
+//         return OkHttpClient.Builder().build()
+//     }
+// }

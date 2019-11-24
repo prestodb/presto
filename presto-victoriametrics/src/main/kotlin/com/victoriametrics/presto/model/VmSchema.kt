@@ -16,7 +16,6 @@ package com.victoriametrics.presto.model
 import com.facebook.presto.spi.ColumnMetadata
 import com.facebook.presto.spi.SchemaTableName
 import com.facebook.presto.spi.type.DoubleType
-import com.facebook.presto.spi.type.RowType
 import com.facebook.presto.spi.type.TimestampType
 import com.facebook.presto.spi.type.VarcharType
 
@@ -28,7 +27,9 @@ object VmSchema {
         // TODO: proper uint32 type http://prestodb.github.io/docs/current/develop/types.html
         // ColumnMetadata("account_id", BigintType.BIGINT),
         // ColumnMetadata("project_id", BigintType.BIGINT),
-        ColumnMetadata("name", RowType.from(listOf(RowType.field("__name__", VarcharType.VARCHAR)))),
+        ColumnMetadata("name", VarcharType.VARCHAR),
+        // ColumnMetadata("name", MapType(VarcharType.VARCHAR, VarcharType.VARCHAR)),
+        // ColumnMetadata("name", RowType.from(listOf(RowType.field("__name__", VarcharType.VARCHAR)))),
         ColumnMetadata("timestamp", TimestampType.TIMESTAMP),
         ColumnMetadata("value", DoubleType.DOUBLE)
     )

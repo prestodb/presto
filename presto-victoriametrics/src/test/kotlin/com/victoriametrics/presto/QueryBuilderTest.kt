@@ -31,7 +31,7 @@ class QueryBuilderTest {
     @Test
     fun testGreaterThan() {
         val range = Range.greaterThan(TimestampType.TIMESTAMP, 1572151210000L)
-        val url = test(range)
+        val url = test(range)[0]
 
         assertThat(url.queryParameter("start")).isEqualTo("1572151210.001")
         assertThat(url.queryParameter("end")).isNull()
@@ -43,7 +43,7 @@ class QueryBuilderTest {
     @Test
     fun testGreaterThanOrEqual() {
         val range = Range.greaterThanOrEqual(TimestampType.TIMESTAMP, 1572151210000L)
-        val url = test(range)
+        val url = test(range)[0]
 
         assertThat(url.queryParameter("start")).isEqualTo("1572151210.000")
         assertThat(url.queryParameter("end")).isNull()
@@ -55,7 +55,7 @@ class QueryBuilderTest {
     @Test
     fun testLessThan() {
         val range = Range.lessThan(TimestampType.TIMESTAMP, 1572151210000L)
-        val url = test(range)
+        val url = test(range)[0]
 
         assertThat(url.queryParameter("start")).isNull()
         assertThat(url.queryParameter("end")).isEqualTo("1572151209.999")
@@ -67,7 +67,7 @@ class QueryBuilderTest {
     @Test
     fun testLessThanOrEqual() {
         val range = Range.lessThanOrEqual(TimestampType.TIMESTAMP, 1572151210000L)
-        val url = test(range)
+        val url = test(range)[0]
 
         assertThat(url.queryParameter("start")).isNull()
         assertThat(url.queryParameter("end")).isEqualTo("1572151210.000")
@@ -79,7 +79,7 @@ class QueryBuilderTest {
     @Test
     fun testBetween() {
         val range = Range.range(TimestampType.TIMESTAMP, 1572151210646L, true, 1572154810000L, true)
-        val url = test(range)
+        val url = test(range)[0]
 
         assertThat(url.queryParameter("start")).isEqualTo("1572151210.646")
         assertThat(url.queryParameter("end")).isEqualTo("1572154810.000")
@@ -90,15 +90,17 @@ class QueryBuilderTest {
      */
     @Test
     fun testNotBetween() {
-        val range1 = Range.lessThan(TimestampType.TIMESTAMP, 1572151210646L)
-        val range2 = Range.greaterThan(TimestampType.TIMESTAMP, 1572151210646L)
-        val url = test(range1, range2)
+        val range1 = Range.lessThan(TimestampType.TIMESTAMP, 1572151210000L)
+        val range2 = Range.greaterThan(TimestampType.TIMESTAMP, 1572151210999L)
+        val urls = test(range1, range2)
 
-        assertThat(url.queryParameter("start")).isNull()
-        assertThat(url.queryParameter("end")).isNull()
+        assertThat(urls[0].queryParameter("start")).isNull()
+        assertThat(urls[0].queryParameter("end")).isEqualTo("1572151210.000")
+        assertThat(urls[1].queryParameter("start")).isEqualTo("1572151210.999")
+        assertThat(urls[1].queryParameter("end")).isNull()
     }
 
-    private fun test(range: Range, vararg ranges: Range): HttpUrl {
+    private fun test(range: Range, vararg ranges: Range): List<HttpUrl> {
         val timestampHandle: ColumnHandle = VmColumnHandle("timestamp")
 
         val values = ValueSet.ofRanges(range, *ranges)
@@ -112,6 +114,6 @@ class QueryBuilderTest {
         val constraint = TupleDomain.withColumnDomains(map)
 
         val unit = QueryBuilder()
-        return unit.build(constraint)[0]
+        return unit.build(constraint)
     }
 }

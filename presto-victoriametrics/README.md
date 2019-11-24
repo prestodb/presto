@@ -29,8 +29,10 @@ CREATE TABLE metrics (
 Then query:
 ```
 SELECT * FROM metrics 
+AND JSON_EXTRACT(CAST (name AS JSON), '$.__name__') = JSON '"vm_blocks"'
+
 WHERE REGEXP_LIKE(name, '__name__="<search_for_this_name>"') 
-AND REGEXP_LIKE(name, 'foo="<search_for_this_foo_value>"') 
+AND REGEXP_LIKE(name, 'foo="<search_for_this_foo_value>"')
 AND timestamp > NOW() - INTERVAL '10 hours'
 ```
 

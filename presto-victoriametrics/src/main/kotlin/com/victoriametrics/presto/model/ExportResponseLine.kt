@@ -19,17 +19,23 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonConfiguration
 
+
 @Serializable
+// @UseExperimental(kotlinx.serialization.ImplicitReflectionSerializer::class)
 data class ExportResponseLine(
-    @Required val metric: Metric,
-    @Required val values: DoubleArray,
-    @Required val timestamps: LongArray
+        @Required val metric: LinkedHashMap<String, String>,
+        @Required val values: DoubleArray,
+        @Required val timestamps: LongArray
 ) {
     companion object {
         private val json = Json(JsonConfiguration.Stable)
         private val serializer = serializer()
-
         fun deserialize(content: String): ExportResponseLine {
+            // val mapper  = ObjectMapper()
+            // val tree: ObjectNode = mapper.readTree(content) as ObjectNode
+            // val node: ArrayNode = tree.get("timestamps") as ArrayNode
+            //  node.
+            val jsonElement = json.parseJson(content)
             return json.parse(serializer, content)
         }
     }
@@ -37,14 +43,47 @@ data class ExportResponseLine(
     init {
         require(timestamps.size == values.size) { "Sizes aren't equal: ${timestamps.size} vs ${values.size}" }
     }
+    //
+    // class MetricDeserializer @JvmOverloads constructor(vc: Class<*>? = null) : StdDeserializer<Metric>(vc) {
+    //         @Throws(IOException::class, JsonProcessingException::class)
+    //         override fun deserialize(jp: JsonParser, ctxt: DeserializationContext): Metric {
+    //             val node: JsonNode = jp.codec.readTree(jp)
+    //             jp.currentToken.isStructStart
+    //             assert(jp.isExpectedStartObjectToken) {jp.currentToken}
+    //             jp.nextToken()
+    //             jp.currentToken.asCharArray()
+    //             // val id = (node["id"] as IntNode).numberValue() as Int
+    //             // val itemName = node["itemName"].asText()
+    //             // val userId = (node["createdBy"] as IntNode).numberValue() as Int
+    //             return Metric()
+    //         }
+    //     }
+
+    //
+    // @JsonDeserialize(using = MetricDeserializer::class)
+    // @Serializable
+    // data class Metric(val fullName: String) {
+    //     @Serializer(forClass = Metric::class)
+    //     companion object : KSerializer<Metric> {
+    //         override val descriptor: SerialDescriptor = StringDescriptor.withName("Metric")
+    //
+    //         override fun serialize(encoder: Encoder, obj: Metric) {
+    //             encoder.encodeString(obj.fullName)
+    //         }
+    //
+    //         override fun deserialize(decoder: Decoder): Metric {
+    //             return Metric(decoder.decode())
+    //         }
+    //     }
+    // }
 
     @Serializable
-    data class Metric(
-        @SerialName("__name__")
-        val name: String,
-        val job: String,
-        val type: String,
-        val instance: String
+    data class Metric2(
+            @SerialName("__name__")
+            val name: String,
+            val job: String,
+            val type: String,
+            val instance: String
     ) {
         override fun toString(): String {
             // TODO: return original string from export, don't parse its JSON
