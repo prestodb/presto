@@ -46,24 +46,24 @@ class VmRecordSet(
     }
 
     override fun cursor(): RecordCursor {
-        // TODO: handle multiple urls
-        val url = queryBuilder.build(constraint)[0]
+        val urls = queryBuilder.build(constraint)
 
-        val request = Request.Builder()
-                .get()
-                .url(url)
-                .build()
+        val sources = urls.map { url ->
+            val request = Request.Builder()
+                    .get()
+                    .url(url)
+                    .build()
 
-        val call = httpClient.newCall(request)
-        val response = call.execute()
+            val call = httpClient.newCall(request)
+            val response = call.execute()
 
-        if (response.code / 100 != 2) {
-            throw IOException("Response code is ${response.code}")
+            if (response.code / 100 != 2) {
+                throw IOException("Response code is ${response.code}")
+            }
+
+            response.body!!.source()
         }
-
-        val source = response.body!!.source()
-
-        return VmRecordCursor(source, fieldColumns)
+        return VmRecordCursor(sources, fieldColumns)
     }
 }
 

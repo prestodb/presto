@@ -15,17 +15,21 @@ package com.victoriametrics.presto
 
 import com.facebook.presto.spi.ColumnMetadata
 import com.facebook.presto.spi.RecordCursor
-import com.facebook.presto.spi.type.*
+import com.facebook.presto.spi.type.BigintType
+import com.facebook.presto.spi.type.BooleanType
+import com.facebook.presto.spi.type.DoubleType
+import com.facebook.presto.spi.type.Type
+import com.facebook.presto.spi.type.VarcharType
 import com.victoriametrics.presto.model.ExportResponseLine
 import io.airlift.slice.Slice
 import io.airlift.slice.Slices
 import okio.BufferedSource
 
 class VmRecordCursor(
-    private val source: BufferedSource,
+    private val sources: List<BufferedSource>,
     private val fieldColumns: List<ColumnMetadata>
 ) : RecordCursor {
-    private val linesIterator = SourceLinesIterator(source)
+    private val linesIterator = SourceLinesIterator(sources)
     private var completedBytes: Long = 0
     private var line: ExportResponseLine? = null
     private var lineIndex = -1
@@ -110,11 +114,25 @@ class VmRecordCursor(
     }
 
     override fun close() {
-        source.close()
+        for (source in sources) {
+            source.close()
+        }
     }
 
-    class SourceLinesIterator(private val source: BufferedSource) : Iterator<String> {
-        override fun hasNext() = !source.exhausted()
-        override fun next(): String = source.readUtf8LineStrict()
+    class SourceLinesIterator(sources: List<BufferedSource>) : Iterator<String> {
+        private val iterator = sources.iterator()
+        private var source = iterator.next()
+        override fun hasNext(): Boolean {
+            // Don't check iterator.hasNext() here, because the next source can be empty,
+            // so relying on this.next() to advance.
+            return !source.exhausted()
+        }
+        override fun next(): String {
+            val next = source.readUtf8LineStrict()
+            if (source.exhausted() && iterator.hasNext()) {
+                source = iterator.next()
+            }
+            return next
+        }
     }
 }
