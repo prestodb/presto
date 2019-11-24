@@ -24,11 +24,13 @@ import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 
 import javax.annotation.PreDestroy;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.file.Files;
@@ -49,6 +51,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterators.getOnlyElement;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.StrictMath.toIntExact;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
@@ -59,7 +62,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 // 3 major TODOs for this class:
 // TODO: Make cache eviction based on cache size rather than file count; add evict count stats to CacheStats as well.
 // TODO: Make cache state persistent on disk so we do not need to wipe out cache every time we reboot a server.
-// TODO: File merge and inflight requests memory control.
 @SuppressWarnings("UnstableApiUsage")
 public class LocalRangeCacheManager
         implements CacheManager
@@ -67,6 +69,10 @@ public class LocalRangeCacheManager
     private static final Logger log = Logger.get(LocalRangeCacheManager.class);
 
     private static final String EXTENSION = ".cache";
+
+    private static final int FILE_MERGE_BUFFER_SIZE = toIntExact(new DataSize(8, MEGABYTE).toBytes());
+
+    private final ThreadLocal<byte[]> buffers = ThreadLocal.withInitial(() -> new byte[FILE_MERGE_BUFFER_SIZE]);
 
     private final ExecutorService cacheFlushExecutor;
     private final ExecutorService cacheRemovalExecutor;
@@ -130,6 +136,7 @@ public class LocalRangeCacheManager
     {
         cacheFlushExecutor.shutdownNow();
         cacheRemovalExecutor.shutdownNow();
+        buffers.remove();
     }
 
     @Override
@@ -157,6 +164,7 @@ public class LocalRangeCacheManager
         // make a copy given the input data could be a reusable buffer
         stats.addInMemoryRetainedBytes(data.length());
         byte[] copy = data.getBytes();
+
         cacheFlushExecutor.submit(() -> {
             Path newFilePath = new Path(baseDirectory.toUri() + "/" + randomUUID() + EXTENSION);
             if (!write(key, copy, newFilePath)) {
@@ -249,10 +257,11 @@ public class LocalRangeCacheManager
 
         long newFileOffset;
         int newFileLength;
+        File newFile = new File(newFilePath.toUri());
         try {
             if (previousCacheFile == null) {
                 // a new file
-                Files.write((new File(newFilePath.toUri())).toPath(), data, CREATE_NEW);
+                Files.write(newFile.toPath(), data, CREATE_NEW);
 
                 // update new range info
                 newFileLength = data.length;
@@ -260,32 +269,26 @@ public class LocalRangeCacheManager
             }
             else {
                 // copy previous file's data to the new file
-                byte[] previousFileBytes = Files.readAllBytes(new File(previousCacheFile.getPath().toUri()).toPath());
-                Files.write((new File(newFilePath.toUri())).toPath(), previousFileBytes, CREATE_NEW);
-                int previousFileLength = previousFileBytes.length;
+                int previousFileLength = appendToFile(previousCacheFile, 0, newFile);
                 long previousFileOffset = previousCacheFile.getOffset();
 
                 // remove the overlapping part and append the remaining cache data
-                byte[] remainingCacheFileBytes = new byte[toIntExact((key.getLength() + key.getOffset()) - (previousFileLength + previousFileOffset))];
-                System.arraycopy(data, toIntExact(previousFileLength + previousFileOffset - key.getOffset()), remainingCacheFileBytes, 0, remainingCacheFileBytes.length);
-                Files.write((new File(newFilePath.toUri())).toPath(), remainingCacheFileBytes, APPEND);
+                int remainingCacheFileOffset = toIntExact(previousFileLength + previousFileOffset - key.getOffset());
+                int remainingCacheFileLength = toIntExact((key.getLength() + key.getOffset()) - (previousFileLength + previousFileOffset));
+
+                try (RandomAccessFile randomAccessFile = new RandomAccessFile(newFile, "rw")) {
+                    randomAccessFile.seek(randomAccessFile.length());
+                    randomAccessFile.write(data, remainingCacheFileOffset, remainingCacheFileLength);
+                }
 
                 // update new range info
-                newFileLength = previousFileLength + remainingCacheFileBytes.length;
+                newFileLength = previousFileLength + remainingCacheFileLength;
                 newFileOffset = previousFileOffset;
             }
 
             if (followingCacheFile != null) {
                 // remove the overlapping part and append the remaining following file data
-                try (RandomAccessFile followingFile = new RandomAccessFile(new File(followingCacheFile.getPath().toUri()), "r")) {
-                    byte[] remainingFollowingFileBytes = new byte[toIntExact((followingFile.length() + followingCacheFile.getOffset()) - (key.getLength() + key.getOffset()))];
-                    followingFile.seek(key.getOffset() + key.getLength() - followingCacheFile.getOffset());
-                    followingFile.readFully(remainingFollowingFileBytes, 0, remainingFollowingFileBytes.length);
-                    Files.write((new File(newFilePath.toUri())).toPath(), remainingFollowingFileBytes, APPEND);
-
-                    // update new range info
-                    newFileLength += remainingFollowingFileBytes.length;
-                }
+                newFileLength += appendToFile(followingCacheFile, key.getOffset() + key.getLength() - followingCacheFile.getOffset(), newFile);
             }
         }
         catch (IOException e) {
@@ -343,6 +346,35 @@ public class LocalRangeCacheManager
 
         cacheFilesToDelete.forEach(LocalRangeCacheManager::tryDeleteFile);
         return true;
+    }
+
+    private int appendToFile(LocalCacheFile source, long offset, File destination)
+            throws IOException
+    {
+        int totalBytesRead = 0;
+        try (FileInputStream fileInputStream = new FileInputStream(new File(source.getPath().toUri()))) {
+            fileInputStream.getChannel().position(offset);
+            int readBytes;
+            byte[] buffer = buffers.get();
+
+            while ((readBytes = fileInputStream.read(buffer)) > 0) {
+                if (!Files.exists(destination.toPath())) {
+                    Files.createFile(destination.toPath());
+                }
+                totalBytesRead += readBytes;
+
+                if (readBytes != FILE_MERGE_BUFFER_SIZE) {
+                    try (RandomAccessFile randomAccessFile = new RandomAccessFile(destination, "rw")) {
+                        randomAccessFile.seek(destination.length());
+                        randomAccessFile.write(buffer, 0, readBytes);
+                    }
+                }
+                else {
+                    Files.write(destination.toPath(), buffer, APPEND);
+                }
+            }
+        }
+        return totalBytesRead;
     }
 
     private static void tryDeleteFile(Path path)
