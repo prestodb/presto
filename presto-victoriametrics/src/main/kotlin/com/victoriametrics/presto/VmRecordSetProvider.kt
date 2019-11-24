@@ -21,41 +21,21 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle
 import com.victoriametrics.presto.model.VmColumnHandle
 import com.victoriametrics.presto.model.VmSplit
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.io.IOException
 
 class VmRecordSetProvider(
-    private val httpClient: OkHttpClient = OkHttpClient.Builder().build(),
-    private val queryBuilder: QueryBuilder
+        private val httpClient: OkHttpClient = OkHttpClient.Builder().build(),
+        private val queryBuilder: QueryBuilder
 ) : ConnectorRecordSetProvider {
 
     override fun getRecordSet(
-        transactionHandle: ConnectorTransactionHandle,
-        session: ConnectorSession,
-        split: ConnectorSplit,
-        columns: List<ColumnHandle>
+            transactionHandle: ConnectorTransactionHandle,
+            session: ConnectorSession,
+            split: ConnectorSplit,
+            columns: List<ColumnHandle>
     ): VmRecordSet {
         split as VmSplit
-
-        val constraint = split.constraint
-        // TODO: handle multiple urls
-        val url = queryBuilder.build(constraint)[0]
-
-        val request = Request.Builder()
-            .get()
-            .url(url)
-            .build()
-
-        val response = httpClient.newCall(request).execute()
-
-        if (response.code / 100 != 2) {
-            throw IOException("Response code is ${response.code}")
-        }
-
-        val source = response.body!!.source()
-
         val vmColumns = columns.map { it as VmColumnHandle }
-        return VmRecordSet(source, vmColumns)
-    }
 
+        return VmRecordSet(split.constraint, queryBuilder, httpClient, vmColumns)
+    }
 }

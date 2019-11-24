@@ -24,6 +24,7 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 class QueryBuilder(private val endpoints: List<HttpUrl> = listOf("http://localhost:8428/api/v1".toHttpUrl())) {
+
     fun build(constraint: TupleDomain<ColumnHandle>): List<HttpUrl> {
         val endpoint = endpoints.random()
 

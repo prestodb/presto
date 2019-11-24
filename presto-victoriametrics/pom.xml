@@ -26,6 +26,7 @@
 		<assertj.version>3.13.2</assertj.version>
 		<kotlinx-serialization.version>0.14.0</kotlinx-serialization.version>
 		<jetbrains-annotations.version>13.0</jetbrains-annotations.version>
+		<dagger.version>2.25.2</dagger.version>
 	</properties>
 
 	<repositories>
@@ -77,10 +78,10 @@
 			<artifactId>log</artifactId>
 		</dependency>
 
-		<!--<dependency>-->
-		<!--	<groupId>com.facebook.airlift</groupId>-->
-		<!--	<artifactId>configuration</artifactId>-->
-		<!--</dependency>-->
+		<dependency>
+			<groupId>com.facebook.airlift</groupId>
+			<artifactId>configuration</artifactId>
+		</dependency>
 
 		<!--<dependency>-->
 		<!--	<groupId>com.facebook.presto</groupId>-->
@@ -92,10 +93,10 @@
 		<!--	<artifactId>guava</artifactId>-->
 		<!--</dependency>-->
 
-		<!--<dependency>-->
-		<!--	<groupId>com.google.inject</groupId>-->
-		<!--	<artifactId>guice</artifactId>-->
-		<!--</dependency>-->
+		<dependency>
+			<groupId>com.google.inject</groupId>
+			<artifactId>guice</artifactId>
+		</dependency>
 
 		<!--<dependency>-->
 		<!--	<groupId>javax.validation</groupId>-->
@@ -107,6 +108,18 @@
 		<!--	<artifactId>joda-time</artifactId>-->
 		<!--</dependency>-->
 
+		<!--<dependency>-->
+		<!--	<groupId>com.google.dagger</groupId>-->
+		<!--	<artifactId>dagger</artifactId>-->
+		<!--	<version>${dagger.version}</version>-->
+		<!--</dependency>-->
+		<!--<dependency>-->
+		<!--	<groupId>com.google.dagger</groupId>-->
+		<!--	<artifactId>dagger-compiler</artifactId>-->
+		<!--	<version>${dagger.version}</version>-->
+		<!--	&lt;!&ndash; Well, we don't need it at runtime, &ndash;&gt;-->
+		<!--	&lt;!&ndash;<scope>provided</scope>&ndash;&gt;-->
+		<!--</dependency>-->
 		<dependency>
 			<groupId>com.squareup.okhttp3</groupId>
 			<artifactId>okhttp</artifactId>
@@ -271,6 +284,22 @@
 					</dependency>
 				</dependencies>
 			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<!--<version>3.6.1</version>-->
+				<configuration>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>com.google.dagger</groupId>
+							<artifactId>dagger-compiler</artifactId>
+							<version>${dagger.version}</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
@@ -279,6 +308,18 @@
 					</excludes>
 				</configuration>
 			</plugin>
+
+			<!--<plugin>-->
+			<!--	<groupId>com.facebook.presto</groupId>-->
+			<!--	<artifactId>presto-maven-plugin</artifactId>-->
+			<!--	<extensions>true</extensions>-->
+			<!--	<configuration>-->
+			<!--		<allowedProvidedDependencies>-->
+			<!--			com.google.dagger:dagger-compiler-->
+			<!--		</allowedProvidedDependencies>-->
+			<!--	</configuration>-->
+			<!--</plugin>-->
+
 
 			<plugin>
 				<groupId>org.basepom.maven</groupId>

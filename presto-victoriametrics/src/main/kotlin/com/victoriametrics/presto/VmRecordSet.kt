@@ -13,33 +13,56 @@
  */
 package com.victoriametrics.presto
 
+import com.facebook.presto.spi.ColumnHandle
 import com.facebook.presto.spi.ColumnMetadata
 import com.facebook.presto.spi.RecordCursor
 import com.facebook.presto.spi.RecordSet
+import com.facebook.presto.spi.predicate.TupleDomain
 import com.facebook.presto.spi.type.Type
 import com.victoriametrics.presto.model.VmColumnHandle
 import com.victoriametrics.presto.model.VmSchema
-import okio.BufferedSource
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.IOException
 
 class VmRecordSet(
-    private val source: BufferedSource,
-    columnHandles: List<VmColumnHandle>
+        private val constraint: TupleDomain<ColumnHandle>,
+        private val queryBuilder: QueryBuilder,
+        private val httpClient: OkHttpClient,
+        private val columns: List<VmColumnHandle>
 ) : RecordSet {
     companion object {
         private val columnsByName = VmSchema.columns
-            .map { it.name to it }
-            .toMap()
+                .map { it.name to it }
+                .toMap()
     }
 
     /** Same as [columns], but in the same order as [columnHandles] */
-    private val fieldColumns: List<ColumnMetadata> = columnHandles
-        .map { columnsByName[it.columnName] ?: error("No field ${it.columnName}") }
+    private val fieldColumns: List<ColumnMetadata> = columns
+            .map { columnsByName[it.columnName] ?: error("No field ${it.columnName}") }
 
     override fun getColumnTypes(): List<Type> {
         return fieldColumns.map { it.type }
     }
 
     override fun cursor(): RecordCursor {
+        // TODO: handle multiple urls
+        val url = queryBuilder.build(constraint)[0]
+
+        val request = Request.Builder()
+                .get()
+                .url(url)
+                .build()
+
+        val call = httpClient.newCall(request)
+        val response = call.execute()
+
+        if (response.code / 100 != 2) {
+            throw IOException("Response code is ${response.code}")
+        }
+
+        val source = response.body!!.source()
+
         return VmRecordCursor(source, fieldColumns)
     }
 }

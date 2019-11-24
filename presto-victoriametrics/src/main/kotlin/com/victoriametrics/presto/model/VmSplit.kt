@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-@file:Suppress("ConvertSecondaryConstructorToPrimary")
+@file:Suppress("ConvertSecondaryConstructorToPrimary", "MemberVisibilityCanBePrivate")
 
 package com.victoriametrics.presto.model
 
@@ -22,7 +22,6 @@ import com.facebook.presto.spi.predicate.TupleDomain
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
 
-@Suppress("MemberVisibilityCanBePrivate")
 class VmSplit : ConnectorSplit {
 
     val config: VmConfig
