@@ -27,10 +27,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static org.testng.Assert.fail;
 
@@ -64,23 +64,29 @@ public class TestWarnings
                     .append(stageIndex);
         }
         String query = queryBuilder.toString();
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
-        assertWarnings(queryRunner, session, query, ImmutableList.of(TOO_MANY_STAGES.toWarningCode()));
-        assertWarnings(queryRunner, session, noWarningsQuery, ImmutableList.of());
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableList.of(TOO_MANY_STAGES.toWarningCode()));
+        assertWarnings(queryRunner, TEST_SESSION, noWarningsQuery, ImmutableList.of());
     }
 
     @Test
     public void testNonReservedWordWarning()
     {
         String query = "SELECT CURRENT_ROLE, t.current_role FROM (VALUES (3)) t(current_role)";
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
-        assertWarnings(queryRunner, session, query, ImmutableList.of(PARSER_WARNING.toWarningCode()));
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableList.of(PARSER_WARNING.toWarningCode()));
+    }
+
+    @Test
+    public void testNewReservedWordsWarning()
+    {
+        String query = "SELECT CALLED, t.called FROM (VALUES (3)) t(called)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableList.of(PARSER_WARNING.toWarningCode()));
+    }
+
+    @Test
+    public void testQuotedIdentifiersDoNotTriggerWarning()
+    {
+        String query = "SELECT \"CALLED\" FROM (VALUES (3)) t(\"called\")";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableList.of());
     }
 
     private static void assertWarnings(QueryRunner queryRunner, Session session, @Language("SQL") String sql, List<WarningCode> expectedWarnings)

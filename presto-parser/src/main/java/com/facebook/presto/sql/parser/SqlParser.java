@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.facebook.presto.sql.parser.SqlParserOptions.RESERVED_WORDS_WARNING;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -231,9 +232,13 @@ public class SqlParser
             context.getParent().removeLastChild();
 
             Token token = (Token) context.getChild(0).getPayload();
-            if (token.getText().equalsIgnoreCase("CURRENT_ROLE")) {
-                warningConsumer.accept(new ParsingWarning(format("Reserved word used: %s", token.getText()), token.getLine(), token.getCharPositionInLine()));
+            if (RESERVED_WORDS_WARNING.contains(token.getText().toUpperCase())) {
+                warningConsumer.accept(new ParsingWarning(
+                        format("%s should be a reserved word, please use double quote (\"%s\"). This will be made a reserved word in future release.", token.getText(), token.getText()),
+                        token.getLine(),
+                        token.getCharPositionInLine()));
             }
+
             context.getParent().addChild(new CommonToken(
                     new Pair<>(token.getTokenSource(), token.getInputStream()),
                     SqlBaseLexer.IDENTIFIER,
