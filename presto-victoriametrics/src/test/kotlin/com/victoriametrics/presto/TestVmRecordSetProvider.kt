@@ -14,6 +14,7 @@
 package com.victoriametrics.presto
 
 import com.facebook.presto.spi.ConnectorSession
+import com.facebook.presto.spi.predicate.TupleDomain
 import com.facebook.presto.spi.type.DoubleType
 import com.facebook.presto.spi.type.TimestampType
 import com.facebook.presto.spi.type.VarcharType
@@ -33,11 +34,12 @@ import org.testng.annotations.Test
 import java.nio.charset.StandardCharsets
 
 
-class VmRecordSetProviderTest {
+class TestVmRecordSetProvider {
     private val httpClient = mockk<OkHttpClient>()
-    private val queryBuilder = mockk<QueryBuilder>()
+    // private val queryBuilder = mockk<QueryBuilder>()
+    private val queryBuilder = QueryBuilder()
     private val unit = VmRecordSetProvider(httpClient, queryBuilder)
-    private val connectorSplit = mockk<VmSplit>()
+    private val split = mockk<VmSplit>()
     private val session = mockk<ConnectorSession>()
 
     @Test
@@ -45,14 +47,13 @@ class VmRecordSetProviderTest {
         val vmColumnHandles = listOf(VmColumnHandle("value"))
         val response = readFixture("export.response.ndjson")
 
+        every { split.constraint } returns TupleDomain.all()
         every { httpClient.newCall(any()).execute() } returns response
 
-        val recordSet = unit.getRecordSet(VmTransactionHandle(), session, connectorSplit, vmColumnHandles)
+        val recordSet = unit.getRecordSet(VmTransactionHandle(), session, split, vmColumnHandles)
         val cursor = recordSet.cursor()
 
         assertThat(cursor.advanceNextPosition()).isTrue()
-
-        assertThat(cursor.completedBytes).isEqualTo(226)
 
         assertThat(cursor.getType(0)).isEqualTo(DoubleType.DOUBLE)
 
@@ -61,23 +62,40 @@ class VmRecordSetProviderTest {
     }
 
     @Test
+    fun testCompletedBytes() {
+        val response = readFixture("export.response.ndjson")
+        every { split.constraint } returns TupleDomain.all()
+        every { httpClient.newCall(any()).execute() } returns response
+
+        val recordSet = unit.getRecordSet(VmTransactionHandle(), session, split, listOf(VmColumnHandle("value")))
+        val cursor = recordSet.cursor()
+
+        for (expected in listOf(226L, 475L, 719L)) {
+            for (i in 0..5) {
+                assertThat(cursor.advanceNextPosition()).isTrue()
+            }
+            assertThat(cursor.completedBytes).isEqualTo(expected)
+        }
+        assertThat(cursor.advanceNextPosition()).isFalse()
+    }
+
+    @Test
     fun testAll() {
         val response = readFixture("export.response.ndjson")
 
         every { httpClient.newCall(any()).execute() } returns response
+        every { split.constraint } returns (TupleDomain.all())
 
         val vmColumnHandles = listOf(
             VmColumnHandle("timestamp"),
             VmColumnHandle("value"),
             VmColumnHandle("name")
         )
-        val recordSet = unit.getRecordSet(VmTransactionHandle(), session, connectorSplit, vmColumnHandles)
+        val recordSet = unit.getRecordSet(VmTransactionHandle(), session, split, vmColumnHandles)
 
         val cursor = recordSet.cursor()
 
         assertThat(cursor.advanceNextPosition()).isTrue()
-
-        assertThat(cursor.completedBytes).isEqualTo(226)
 
         assertThat(cursor.getType(0)).isEqualTo(TimestampType.TIMESTAMP)
         assertThat(cursor.getType(1)).isEqualTo(DoubleType.DOUBLE)
