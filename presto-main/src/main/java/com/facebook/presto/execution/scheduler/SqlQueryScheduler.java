@@ -436,6 +436,7 @@ public class SqlQueryScheduler
             }
         });
 
+        StageLinkage stageLinkage = new StageLinkage(fragmentId, parent, childStageExecutions);
         StageScheduler stageScheduler = createStageScheduler(
                 plan,
                 nodeScheduler,
@@ -451,7 +452,6 @@ public class SqlQueryScheduler
                 splitSourceFactory,
                 tableWriteInfo,
                 childStageExecutions);
-        StageLinkage stageLinkage = new StageLinkage(fragmentId, parent, childStageExecutions);
         stageExecutionInfos.add(new StageExecutionAndScheduler(
                 stageExecution,
                 stageLinkage,
