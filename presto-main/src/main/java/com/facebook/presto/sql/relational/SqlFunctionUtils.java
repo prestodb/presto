@@ -103,7 +103,8 @@ public final class SqlFunctionUtils
                 functionMetadata.getArgumentNames().get().stream()
                         .map(Identifier::new)
                         .map(variables::get)
-                        .map(VariableReferenceExpression::getName)
+                        .map(Optional::ofNullable)
+                        .map(variable -> variable.map(VariableReferenceExpression::getName))
                         .collect(toImmutableList()),
                 arguments);
     }
@@ -217,12 +218,14 @@ public final class SqlFunctionUtils
             return ExpressionTreeRewriter.rewriteWith(new ExpressionFunctionVisitor(argumentBindings.build()), function);
         }
 
-        public static RowExpression bindFunctionArguments(RowExpression function, List<String> argumentNames, List<RowExpression> argumentValues)
+        public static RowExpression bindFunctionArguments(RowExpression function, List<Optional<String>> argumentNames, List<RowExpression> argumentValues)
         {
             checkArgument(argumentNames.size() == argumentValues.size(), format("Expect same size for argumentNames (%d) and argumentValues (%d)", argumentNames.size(), argumentValues.size()));
             ImmutableMap.Builder<String, RowExpression> argumentBindings = ImmutableMap.builder();
             for (int i = 0; i < argumentNames.size(); i++) {
-                argumentBindings.put(argumentNames.get(i), argumentValues.get(i));
+                if (argumentNames.get(i).isPresent()) {
+                    argumentBindings.put(argumentNames.get(i).get(), argumentValues.get(i));
+                }
             }
             return RowExpressionTreeRewriter.rewriteWith(new RowExpressionRewriter<Map<String, RowExpression>>()
             {
