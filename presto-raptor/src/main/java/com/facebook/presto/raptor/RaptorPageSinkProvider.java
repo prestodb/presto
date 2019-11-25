@@ -25,12 +25,12 @@ import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.raptor.RaptorSessionProperties.getWriterMaxBufferSize;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -41,7 +41,6 @@ public class RaptorPageSinkProvider
     private final StorageManager storageManager;
     private final PageSorter pageSorter;
     private final TemporalFunction temporalFunction;
-    private final DataSize maxBufferSize;
     private final int maxAllowedFilesPerWriter;
 
     @Inject
@@ -50,7 +49,6 @@ public class RaptorPageSinkProvider
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
-        this.maxBufferSize = config.getMaxBufferSize();
         this.maxAllowedFilesPerWriter = config.getMaxAllowedFilesPerWriter();
     }
 
@@ -73,7 +71,7 @@ public class RaptorPageSinkProvider
                 handle.getBucketCount(),
                 toColumnIds(handle.getBucketColumnHandles()),
                 handle.getTemporalColumnHandle(),
-                maxBufferSize,
+                getWriterMaxBufferSize(session),
                 maxAllowedFilesPerWriter);
     }
 
@@ -96,7 +94,7 @@ public class RaptorPageSinkProvider
                 handle.getBucketCount(),
                 toColumnIds(handle.getBucketColumnHandles()),
                 handle.getTemporalColumnHandle(),
-                maxBufferSize,
+                getWriterMaxBufferSize(session),
                 maxAllowedFilesPerWriter);
     }
 
