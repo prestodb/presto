@@ -17,8 +17,6 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +25,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -78,22 +77,14 @@ public class ApplyNode
             @JsonProperty("originSubqueryError") String originSubqueryError)
     {
         super(id);
-        requireNonNull(input, "input is null");
-        requireNonNull(subquery, "right is null");
-        requireNonNull(subqueryAssignments, "assignments is null");
-        requireNonNull(correlation, "correlation is null");
-        requireNonNull(originSubqueryError, "originSubqueryError is null");
-
         checkArgument(input.getOutputVariables().containsAll(correlation), "Input does not contain symbols from correlation");
-        checkArgument(
-                subqueryAssignments.getExpressions().stream().map(OriginalExpressionUtils::castToExpression).allMatch(ApplyNodeUtil::isSupportedSubqueryExpression),
-                "Unexpected expression used for subquery expression");
+        verifySubquerySupported(subqueryAssignments);
 
-        this.input = input;
-        this.subquery = subquery;
-        this.subqueryAssignments = subqueryAssignments;
-        this.correlation = ImmutableList.copyOf(correlation);
-        this.originSubqueryError = originSubqueryError;
+        this.input = requireNonNull(input, "input is null");
+        this.subquery = requireNonNull(subquery, "subquery is null");
+        this.subqueryAssignments = requireNonNull(subqueryAssignments, "assignments is null");
+        this.correlation = ImmutableList.copyOf(requireNonNull(correlation, "correlation is null"));
+        this.originSubqueryError = requireNonNull(originSubqueryError, "originSubqueryError is null");
     }
 
     @JsonProperty
