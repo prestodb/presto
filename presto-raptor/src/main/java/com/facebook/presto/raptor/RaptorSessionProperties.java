@@ -36,6 +36,7 @@ public class RaptorSessionProperties
     private static final String READER_MAX_MERGE_DISTANCE = "reader_max_merge_distance";
     private static final String READER_MAX_READ_SIZE = "reader_max_read_size";
     private static final String READER_STREAM_BUFFER_SIZE = "reader_stream_buffer_size";
+    private static final String WRITER_MAX_BUFFER_SIZE = "writer_max_buffer_size";
     private static final String READER_TINY_STRIPE_THRESHOLD = "reader_tiny_stripe_threshold";
     private static final String READER_LAZY_READ_SMALL_RANGES = "reader_lazy_read_small_ranges";
     private static final String ONE_SPLIT_PER_BUCKET_THRESHOLD = "one_split_per_bucket_threshold";
@@ -86,7 +87,12 @@ public class RaptorSessionProperties
                         ORC_ZSTD_JNI_DECOMPRESSION_ENABLED,
                         "use JNI based std decompression for reading ORC files",
                         config.isZstdJniDecompressionEnabled(),
-                        true));
+                        true),
+                dataSizeSessionProperty(
+                        WRITER_MAX_BUFFER_SIZE,
+                        "Raptor page writer max buffer size",
+                        config.getMaxBufferSize(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -117,6 +123,11 @@ public class RaptorSessionProperties
     public static DataSize getReaderTinyStripeThreshold(ConnectorSession session)
     {
         return session.getProperty(READER_TINY_STRIPE_THRESHOLD, DataSize.class);
+    }
+
+    public static DataSize getWriterMaxBufferSize(ConnectorSession session)
+    {
+        return session.getProperty(WRITER_MAX_BUFFER_SIZE, DataSize.class);
     }
 
     public static boolean isReaderLazyReadSmallRanges(ConnectorSession session)
