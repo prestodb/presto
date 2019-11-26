@@ -16,15 +16,16 @@ package com.victoriametrics.presto
 import com.facebook.presto.spi.Plugin
 import com.facebook.presto.spi.connector.ConnectorContext
 import com.facebook.presto.spi.connector.ConnectorFactory
+import com.victoriametrics.presto.inject.VmModule
+import com.victoriametrics.presto.inject.DaggerVmComponent
 import com.victoriametrics.presto.model.VmConfig
 import com.victoriametrics.presto.model.VmHandleResolver
-import com.victoriametrics.presto.model.VmSchema
 
 class VictoriaMetricsPlugin : Plugin {
     override fun getConnectorFactories() = listOf(VmConnectorFactory())
 
     class VmConnectorFactory : ConnectorFactory {
-        override fun getName() = VmSchema.connectorName
+        override fun getName() = "victoriametrics"
 
         override fun getHandleResolver() = VmHandleResolver
 
@@ -34,13 +35,23 @@ class VictoriaMetricsPlugin : Plugin {
                 context: ConnectorContext
         ): VmConnector {
             val vmConfig = VmConfig(config)
-            return VmConnector(vmConfig)
+
+            val vmModule = VmModule(
+                    catalogName,
+                    vmConfig,
+                    context
+            )
+
+            val component = DaggerVmComponent.builder()
+                    .vmModule(vmModule)
+                    .build()
+
+            return component.connector()
             //
             // val app = Bootstrap(
             //         // JsonModule(),
             //         VmModule(),
             //         Module { binder: Binder ->
-            //             // binder.bind(RedisConnectorId::class.java).toInstance(RedisConnectorId(catalogName))
             //             binder.bind(TypeManager::class.java).toInstance(context.typeManager)
             //             binder.bind(NodeManager::class.java).toInstance(context.nodeManager)
             //             // if (tableDescriptionSupplier.isPresent()) {
@@ -60,7 +71,6 @@ class VictoriaMetricsPlugin : Plugin {
             //         .initialize()
             //
             // return injector.getInstance(VmConnector::class.java)
-
         }
     }
 }

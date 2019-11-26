@@ -15,7 +15,10 @@
 
 	<properties>
 		<air.main.basedir>${project.parent.basedir}</air.main.basedir>
+
 		<kotlin.version>1.3.60</kotlin.version>
+		<kotlin.code.style>official</kotlin.code.style>
+
 		<okhttp.version>4.2.2</okhttp.version>
 		<okio.version>2.2.2</okio.version>
 		<clikt.version>2.2.0</clikt.version>
@@ -25,7 +28,7 @@
 		<mockk.version>1.9.3</mockk.version>
 		<assertj.version>3.13.2</assertj.version>
 		<kotlinx-serialization.version>0.14.0</kotlinx-serialization.version>
-		<jetbrains-annotations.version>13.0</jetbrains-annotations.version>
+		<jetbrains-annotations.version>17.0.0</jetbrains-annotations.version>
 		<dagger.version>2.25.2</dagger.version>
 	</properties>
 
@@ -93,10 +96,10 @@
 		<!--	<artifactId>guava</artifactId>-->
 		<!--</dependency>-->
 
-		<dependency>
-			<groupId>com.google.inject</groupId>
-			<artifactId>guice</artifactId>
-		</dependency>
+		<!--<dependency>-->
+		<!--	<groupId>com.google.inject</groupId>-->
+		<!--	<artifactId>guice</artifactId>-->
+		<!--</dependency>-->
 
 		<!--<dependency>-->
 		<!--	<groupId>javax.validation</groupId>-->
@@ -108,18 +111,23 @@
 		<!--	<artifactId>joda-time</artifactId>-->
 		<!--</dependency>-->
 
-		<!--<dependency>-->
-		<!--	<groupId>com.google.dagger</groupId>-->
-		<!--	<artifactId>dagger</artifactId>-->
-		<!--	<version>${dagger.version}</version>-->
-		<!--</dependency>-->
+		<dependency>
+			<groupId>com.google.dagger</groupId>
+			<artifactId>dagger</artifactId>
+			<version>${dagger.version}</version>
+		</dependency>
 		<!--<dependency>-->
 		<!--	<groupId>com.google.dagger</groupId>-->
 		<!--	<artifactId>dagger-compiler</artifactId>-->
 		<!--	<version>${dagger.version}</version>-->
-		<!--	&lt;!&ndash; Well, we don't need it at runtime, &ndash;&gt;-->
 		<!--	&lt;!&ndash;<scope>provided</scope>&ndash;&gt;-->
 		<!--</dependency>-->
+		<!--<dependency>-->
+		<!--	<groupId>com.google.errorprone</groupId>-->
+		<!--	<artifactId>error_prone_annotations</artifactId>-->
+		<!--	<version>2.1.3</version>-->
+		<!--</dependency>-->
+
 		<dependency>
 			<groupId>com.squareup.okhttp3</groupId>
 			<artifactId>okhttp</artifactId>
@@ -147,10 +155,10 @@
 		<!--	<artifactId>javax.annotation-api</artifactId>-->
 		<!--</dependency>-->
 
-		<!--<dependency>-->
-		<!--	<groupId>javax.inject</groupId>-->
-		<!--	<artifactId>javax.inject</artifactId>-->
-		<!--</dependency>-->
+		<dependency>
+			<groupId>javax.inject</groupId>
+			<artifactId>javax.inject</artifactId>
+		</dependency>
 
 		<!--<dependency>-->
 		<!--	<groupId>com.fasterxml.jackson.core</groupId>-->
@@ -161,7 +169,6 @@
 		<!--	<groupId>com.fasterxml.jackson.core</groupId>-->
 		<!--	<artifactId>jackson-databind</artifactId>-->
 		<!--</dependency>-->
-
 		<!-- Presto SPI -->
 		<dependency>
 			<groupId>com.facebook.presto</groupId>
@@ -258,10 +265,36 @@
 
 				<executions>
 					<execution>
+						<id>kapt</id>
+						<goals>
+							<goal>kapt</goal>
+						</goals>
+						<configuration>
+							<sourceDirs>
+								<sourceDir>src/main/kotlin</sourceDir>
+								<!--<sourceDir>src/main/java</sourceDir>-->
+							</sourceDirs>
+							<annotationProcessorPaths>
+								<annotationProcessorPath>
+									<groupId>com.google.dagger</groupId>
+									<artifactId>dagger-compiler</artifactId>
+									<version>${dagger.version}</version>
+								</annotationProcessorPath>
+							</annotationProcessorPaths>
+						</configuration>
+					</execution>
+
+					<execution>
 						<id>compile</id>
 						<goals>
 							<goal>compile</goal>
 						</goals>
+						<configuration>
+							<sourceDirs>
+								<sourceDir>src/main/kotlin</sourceDir>
+								<!--<sourceDir>src/main/java</sourceDir>-->
+							</sourceDirs>
+						</configuration>
 					</execution>
 
 					<execution>
@@ -288,27 +321,59 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<!--<version>3.6.1</version>-->
+				<version>3.8.1</version>
 				<configuration>
-					<annotationProcessorPaths>
-						<path>
-							<groupId>com.google.dagger</groupId>
-							<artifactId>dagger-compiler</artifactId>
-							<version>${dagger.version}</version>
-						</path>
-					</annotationProcessorPaths>
+					<source>1.8</source>
+					<target>1.8</target>
 				</configuration>
+				<!--
+				Below is required if javac cannot find any of the kotlin classes
+				From: https://github.com/Kotlin/kotlin-examples/blob/master/maven/dagger-maven-example/pom.xml
+				-->
+				<executions>
+					<!-- Replacing default-compile as it is treated specially by maven -->
+					<execution>
+						<id>default-compile</id>
+						<phase>none</phase>
+					</execution>
+					<!-- Replacing default-testCompile as it is treated specially by maven -->
+					<execution>
+						<id>default-testCompile</id>
+						<phase>none</phase>
+					</execution>
+					<execution>
+						<id>java-compile</id>
+						<phase>compile</phase>
+						<goals>
+							<goal>compile</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>java-test-compile</id>
+						<phase>test-compile</phase>
+						<goals>
+							<goal>testCompile</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<configuration>
-					<excludes>
-					</excludes>
-				</configuration>
-			</plugin>
-
+			<!--<plugin>-->
+			<!--	<groupId>org.bsc.maven</groupId>-->
+			<!--	<artifactId>maven-processor-plugin</artifactId>-->
+			<!--	<executions>-->
+			<!--		<execution>-->
+			<!--			<id>process</id>-->
+			<!--			<goals>-->
+			<!--				<goal>process</goal>-->
+			<!--			</goals>-->
+			<!--			<phase>generate-sources</phase>-->
+			<!--			<configuration>-->
+			<!--				<outputDirectory>target/generated-sources/annotations</outputDirectory>-->
+			<!--			</configuration>-->
+			<!--		</execution>-->
+			<!--	</executions>-->
+			<!--</plugin>-->
 			<!--<plugin>-->
 			<!--	<groupId>com.facebook.presto</groupId>-->
 			<!--	<artifactId>presto-maven-plugin</artifactId>-->

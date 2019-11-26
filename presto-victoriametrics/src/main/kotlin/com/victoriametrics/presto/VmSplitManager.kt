@@ -21,8 +21,12 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle
 import com.victoriametrics.presto.model.VmConfig
 import com.victoriametrics.presto.model.VmSplit
 import com.victoriametrics.presto.model.VmTableLayoutHandle
+import javax.inject.Inject
 
-class VmSplitManager(private val config: VmConfig) : ConnectorSplitManager {
+class VmSplitManager
+@Inject constructor(
+        private val config: VmConfig
+) : ConnectorSplitManager {
     override fun getSplits(
         transactionHandle: ConnectorTransactionHandle,
         session: ConnectorSession,
@@ -32,7 +36,6 @@ class VmSplitManager(private val config: VmConfig) : ConnectorSplitManager {
         layout as VmTableLayoutHandle
 
         val constraint = layout.constraint
-
 
         val splits = listOf(VmSplit(config, constraint))
 

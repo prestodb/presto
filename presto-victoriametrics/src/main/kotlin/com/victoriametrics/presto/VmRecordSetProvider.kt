@@ -21,10 +21,13 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle
 import com.victoriametrics.presto.model.VmColumnHandle
 import com.victoriametrics.presto.model.VmSplit
 import okhttp3.OkHttpClient
+import javax.inject.Inject
 
-class VmRecordSetProvider(
-        private val httpClient: OkHttpClient = OkHttpClient.Builder().build(),
-        private val queryBuilder: QueryBuilder
+class VmRecordSetProvider
+@Inject constructor(
+        private val httpClient: OkHttpClient,
+        private val queryBuilder: QueryBuilder,
+        private val metadata: VmMetadata
 ) : ConnectorRecordSetProvider {
 
     override fun getRecordSet(
@@ -35,7 +38,16 @@ class VmRecordSetProvider(
     ): VmRecordSet {
         split as VmSplit
         val vmColumns = columns.map { it as VmColumnHandle }
+        val allColumnsByName = metadata.columns
+                        .map { it.name to it }
+                        .toMap()
 
-        return VmRecordSet(split.constraint, queryBuilder, httpClient, vmColumns)
+        return VmRecordSet(
+                split.constraint,
+                queryBuilder,
+                httpClient,
+                vmColumns,
+                allColumnsByName
+        )
     }
 }

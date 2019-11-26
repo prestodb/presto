@@ -16,42 +16,48 @@
 package com.victoriametrics.presto.model
 
 import com.facebook.presto.spi.ColumnHandle
-import com.facebook.presto.spi.SchemaTableName
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonProperty
 
 class VmColumnHandle : ColumnHandle {
-    val tableName: SchemaTableName
-        @JsonProperty("tableName") get // For Jackson
+    // val tableName: SchemaTableName
+    //     @JsonProperty("tableName") get // For Jackson
 
     val columnName: String
         @JsonProperty("columnName") get // For Jackson
 
     @JsonCreator
-    constructor(@JsonProperty("columnName") columnName: String, @JsonProperty("tableName") tableName: SchemaTableName = VmSchema.metricsTableName) {
-        this.tableName = tableName
+    constructor(@JsonProperty("columnName") columnName: String) {
+        // this.tableName = tableName
         this.columnName = columnName
     }
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as VmColumnHandle
-
-        if (tableName != other.tableName) return false
-        if (columnName != other.columnName) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = tableName.hashCode()
-        result = 31 * result + columnName.hashCode()
-        return result
-    }
 
     override fun toString(): String {
-        return "VmColumnHandle(tableName=$tableName, columnName='$columnName')"
+        return "VmColumnHandle('$columnName')"
     }
 }
+
+// Doesn't work, still wants default constructor on VmColumnHandle
+// @JsonDeserialize(using = VmColumnHandleDeserializer::class)
+// @Serializable
+// data class VmColumnHandle(
+//         val columnName: String
+// ) : ColumnHandle {
+//     companion object {
+//         private val json = Json(JsonConfiguration.Stable)
+//         private val serializer = serializer()
+//         fun deserialize(content: String): VmColumnHandle {
+//             return json.parse(serializer, content)
+//         }
+//     }
+// }
+// class VmColumnHandleDeserializer : StdDeserializer<VmColumnHandle>(VmColumnHandle::class.java) {
+//     @Throws(IOException::class, JsonProcessingException::class)
+//     override fun deserialize(jp: JsonParser, ctxt: DeserializationContext): VmColumnHandle {
+//         val sw = StringWriter()
+//         val jsonGenerator = jp.codec.factory.createGenerator(sw)
+//         jp.codec.writeValue(jsonGenerator, jp)
+//         return VmColumnHandle.deserialize(sw.toString())
+//     }
+// }

@@ -16,6 +16,7 @@ package com.victoriametrics.presto
 import com.facebook.airlift.log.Logger
 import com.facebook.presto.spi.ColumnHandle
 import com.facebook.presto.spi.ColumnMetadata
+import com.facebook.presto.spi.ConnectorPushdownFilterResult
 import com.facebook.presto.spi.ConnectorSession
 import com.facebook.presto.spi.ConnectorTableHandle
 import com.facebook.presto.spi.ConnectorTableLayout
@@ -25,26 +26,71 @@ import com.facebook.presto.spi.ConnectorTableMetadata
 import com.facebook.presto.spi.Constraint
 import com.facebook.presto.spi.SchemaTableName
 import com.facebook.presto.spi.SchemaTablePrefix
+import com.facebook.presto.spi.block.MethodHandleUtil
+import com.facebook.presto.spi.connector.ConnectorContext
 import com.facebook.presto.spi.connector.ConnectorMetadata
+import com.facebook.presto.spi.function.OperatorType
+import com.facebook.presto.spi.relation.CallExpression
+import com.facebook.presto.spi.relation.RowExpression
+import com.facebook.presto.spi.type.DoubleType
+import com.facebook.presto.spi.type.MapType
+import com.facebook.presto.spi.type.TimestampType
+import com.facebook.presto.spi.type.VarcharType
 import com.victoriametrics.presto.model.VmColumnHandle
-import com.victoriametrics.presto.model.VmSchema
 import com.victoriametrics.presto.model.VmTableHandle
 import com.victoriametrics.presto.model.VmTableLayoutHandle
 import java.util.*
+import javax.inject.Inject
 
-object VmMetadata : ConnectorMetadata {
+class VmMetadata
+@Inject constructor(
+        private val context: ConnectorContext
+) : ConnectorMetadata {
     private val log = Logger.get(VmMetadata::class.java)!!
 
+    private val schemaName = "default"
+    private val metricsTableName = SchemaTableName(schemaName, "metrics")
+
+    val columns = listOf(
+            // TODO: proper uint32 type http://prestodb.github.io/docs/current/develop/types.html
+            // ColumnMetadata("account_id", BigintType.BIGINT),
+            // ColumnMetadata("project_id", BigintType.BIGINT),
+            ColumnMetadata("name", VarcharType.VARCHAR),
+            ColumnMetadata("labels", getLabelsType()),
+            ColumnMetadata("timestamp", TimestampType.TIMESTAMP),
+            ColumnMetadata("value", DoubleType.DOUBLE)
+    )
+
+    private fun getLabelsType(): MapType {
+        val keyType = VarcharType.VARCHAR
+        val valueType = VarcharType.VARCHAR
+        val keyTypeNativeGetter = MethodHandleUtil.nativeValueGetter(keyType)
+
+        val keyNativeEquals = context.typeManager.resolveOperator(OperatorType.EQUAL, listOf(keyType, keyType))
+        val keyNativeHashCode = context.typeManager.resolveOperator(OperatorType.HASH_CODE, listOf(keyType))
+
+        val keyBlockNativeEquals = MethodHandleUtil.compose(keyNativeEquals, keyTypeNativeGetter)
+        val keyBlockEquals = MethodHandleUtil.compose(keyNativeEquals, keyTypeNativeGetter, keyTypeNativeGetter)
+        val keyBlockHashCode = MethodHandleUtil.compose(keyNativeHashCode, keyTypeNativeGetter)
+        return MapType(
+                keyType,
+                valueType,
+                keyBlockNativeEquals,
+                keyBlockEquals,
+                keyNativeHashCode,
+                keyBlockHashCode)
+    }
+
     override fun listSchemaNames(session: ConnectorSession): List<String> {
-        return listOf(VmSchema.schemaName)
+        return listOf(schemaName)
     }
 
     override fun listTables(session: ConnectorSession?, schemaName: Optional<String>): List<SchemaTableName> {
-        return listOf(VmSchema.metricsTableName)
+        return listOf(metricsTableName)
     }
 
     override fun getTableHandle(session: ConnectorSession, tableName: SchemaTableName): ConnectorTableHandle? {
-        if (tableName != VmSchema.metricsTableName) {
+        if (tableName != metricsTableName) {
             return null
         }
 
@@ -54,24 +100,35 @@ object VmMetadata : ConnectorMetadata {
     override fun getTableMetadata(session: ConnectorSession, table: ConnectorTableHandle): ConnectorTableMetadata? {
         table as VmTableHandle
         return ConnectorTableMetadata(
-                VmSchema.metricsTableName,
-                VmSchema.columns
+                metricsTableName,
+                columns
         )
     }
 
     override fun getTableLayout(session: ConnectorSession, tableLayoutHandle: ConnectorTableLayoutHandle): ConnectorTableLayout {
         tableLayoutHandle as VmTableLayoutHandle
         return ConnectorTableLayout(tableLayoutHandle)
-        // val tableHandle = VmTableHandle()
-        // val columnHandles = getColumnHandles(session, tableHandle).values.toList()
-        // return ConnectorTableLayout(tableLayoutHandle,
-        //         Optional.of(columnHandles),
-        //         TupleDomain.all(),
-        //         Optional.empty(),
-        //         Optional.empty(),
-        //         Optional.empty(),
-        //         emptyList()
-        // )
+    }
+
+    override fun isPushdownFilterSupported(session: ConnectorSession, tableHandle: ConnectorTableHandle): Boolean {
+        return true
+    }
+
+    override fun pushdownFilter(
+            session: ConnectorSession,
+            table: ConnectorTableHandle,
+            filter: RowExpression,
+            tableLayoutHandle: Optional<ConnectorTableLayoutHandle>
+    ): ConnectorPushdownFilterResult {
+        table as VmTableHandle
+        if (filter is CallExpression) {
+            for (argument in filter.arguments) {
+                argument.type
+            }
+        }
+
+        val tableLayout = ConnectorTableLayout(tableLayoutHandle.get())
+        return ConnectorPushdownFilterResult(tableLayout, filter)
     }
 
     override fun getTableLayouts(
@@ -101,11 +158,11 @@ object VmMetadata : ConnectorMetadata {
             session: ConnectorSession,
             prefix: SchemaTablePrefix
     ): Map<SchemaTableName, List<ColumnMetadata>> {
-        if (!prefix.matches(VmSchema.metricsTableName)) {
+        if (!prefix.matches(metricsTableName)) {
             log.warn("prefix didn't match anything: {}", prefix)
             return emptyMap()
         }
-        return mapOf(VmSchema.metricsTableName to VmSchema.columns)
+        return mapOf(metricsTableName to columns)
     }
 
     override fun getColumnHandles(
@@ -113,7 +170,7 @@ object VmMetadata : ConnectorMetadata {
             tableHandle: ConnectorTableHandle
     ): Map<String, ColumnHandle> {
         tableHandle as VmTableHandle
-        return VmSchema.columns
+        return columns
                 .map { it.name to VmColumnHandle(it.name) }
                 .toMap()
     }
@@ -125,6 +182,6 @@ object VmMetadata : ConnectorMetadata {
     ): ColumnMetadata? {
         tableHandle as VmTableHandle
         columnHandle as VmColumnHandle
-        return VmSchema.columns.find { it.name == columnHandle.columnName }
+        return columns.find { it.name == columnHandle.columnName }
     }
 }

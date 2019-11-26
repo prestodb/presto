@@ -18,6 +18,7 @@ import com.facebook.presto.spi.predicate.TupleDomain
 import com.facebook.presto.spi.type.DoubleType
 import com.facebook.presto.spi.type.TimestampType
 import com.facebook.presto.spi.type.VarcharType
+import com.facebook.presto.testing.TestingConnectorContext
 import com.victoriametrics.presto.model.VmColumnHandle
 import com.victoriametrics.presto.model.VmSplit
 import com.victoriametrics.presto.model.VmTransactionHandle
@@ -35,20 +36,16 @@ import java.nio.charset.StandardCharsets
 
 
 class TestVmRecordSetProvider {
-    private val httpClient = mockk<OkHttpClient>()
-    // private val queryBuilder = mockk<QueryBuilder>()
-    private val queryBuilder = QueryBuilder()
-    private val unit = VmRecordSetProvider(httpClient, queryBuilder)
-    private val split = mockk<VmSplit>()
-    private val session = mockk<ConnectorSession>()
-
     @Test
     fun testOneColumn() {
+        val split = mockk<VmSplit>()
+        val session = mockk<ConnectorSession>()
+
+        val unit = getUnit()
+
         val vmColumnHandles = listOf(VmColumnHandle("value"))
-        val response = readFixture("export.response.ndjson")
 
         every { split.constraint } returns TupleDomain.all()
-        every { httpClient.newCall(any()).execute() } returns response
 
         val recordSet = unit.getRecordSet(VmTransactionHandle(), session, split, vmColumnHandles)
         val cursor = recordSet.cursor()
@@ -63,9 +60,12 @@ class TestVmRecordSetProvider {
 
     @Test
     fun testCompletedBytes() {
-        val response = readFixture("export.response.ndjson")
+        val split = mockk<VmSplit>()
+        val session = mockk<ConnectorSession>()
+
+        val unit = getUnit()
+
         every { split.constraint } returns TupleDomain.all()
-        every { httpClient.newCall(any()).execute() } returns response
 
         val recordSet = unit.getRecordSet(VmTransactionHandle(), session, split, listOf(VmColumnHandle("value")))
         val cursor = recordSet.cursor()
@@ -79,11 +79,24 @@ class TestVmRecordSetProvider {
         assertThat(cursor.advanceNextPosition()).isFalse()
     }
 
+    private fun getUnit(): VmRecordSetProvider {
+        val httpClient = mockk<OkHttpClient>()
+        val unit = VmRecordSetProvider(httpClient, QueryBuilder(), VmMetadata(TestingConnectorContext()))
+
+        // Don't put to field, otherwise tests fail (concurrent?)
+        val response = readFixture("export.response.ndjson")
+        every { httpClient.newCall(any()).execute() } returns response
+
+        return unit
+    }
+
     @Test
     fun testAll() {
-        val response = readFixture("export.response.ndjson")
+        val split = mockk<VmSplit>()
+        val session = mockk<ConnectorSession>()
 
-        every { httpClient.newCall(any()).execute() } returns response
+        val unit = getUnit()
+
         every { split.constraint } returns (TupleDomain.all())
 
         val vmColumnHandles = listOf(
@@ -124,15 +137,15 @@ class TestVmRecordSetProvider {
         // assertThrows<IllegalArgumentException> { cursor.getLong(3) }
         // assertThrows<IllegalArgumentException> { cursor.getType(3) }
 
-        cursor.advanceNextPosition()
-        cursor.advanceNextPosition()
+        assertThat(cursor.advanceNextPosition()).isTrue()
+        assertThat(cursor.advanceNextPosition()).isTrue()
         assertThat(cursor.getLong(0)).isEqualTo(1571978365646L)
         assertThat(cursor.getDouble(1)).isEqualTo(23.0)
 
-        cursor.advanceNextPosition()
-        cursor.advanceNextPosition()
-        cursor.advanceNextPosition()
-        cursor.advanceNextPosition()
+        assertThat(cursor.advanceNextPosition()).isTrue()
+        assertThat(cursor.advanceNextPosition()).isTrue()
+        assertThat(cursor.advanceNextPosition()).isTrue()
+        assertThat(cursor.advanceNextPosition()).isTrue()
         assertThat(cursor.getLong(0)).isEqualTo(1571978321645L)
         assertThat(cursor.getDouble(1)).isEqualTo(61488.0)
         val name2 = """{"__name__":"vm_blocks","job":"vm","type":"storage/small","instance":"victoriametrics:8428"}"""

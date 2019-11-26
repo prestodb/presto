@@ -15,16 +15,18 @@ package com.victoriametrics.presto
 
 import com.facebook.airlift.log.Logger
 import com.facebook.presto.spi.connector.Connector
-import com.facebook.presto.spi.connector.ConnectorRecordSetProvider
-import com.facebook.presto.spi.connector.ConnectorSplitManager
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle
 import com.facebook.presto.spi.transaction.IsolationLevel
-import com.victoriametrics.presto.model.VmConfig
 import com.victoriametrics.presto.model.VmTransactionHandle
-import okhttp3.OkHttpClient
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class VmConnector(
-    private val config: VmConfig
+@Singleton
+class VmConnector
+@Inject constructor(
+        private val recordSetProvider: VmRecordSetProvider,
+        private val splitManager: VmSplitManager,
+        private val metadata: VmMetadata
 ) : Connector {
     companion object {
         val log = Logger.get(VmConnector::class.java)!!
@@ -36,16 +38,10 @@ class VmConnector(
     }
 
     override fun getMetadata(transactionHandle: ConnectorTransactionHandle): VmMetadata {
-        return VmMetadata
+        return metadata
     }
 
-    override fun getSplitManager(): ConnectorSplitManager {
-        return VmSplitManager(config)
-    }
+    override fun getSplitManager() = splitManager
 
-    override fun getRecordSetProvider(): ConnectorRecordSetProvider {
-        val queryBuilder = QueryBuilder(config.httpUrls)
-        val httpClient = OkHttpClient()
-        return VmRecordSetProvider(httpClient,  queryBuilder)
-    }
+    override fun getRecordSetProvider() = recordSetProvider
 }

@@ -24,7 +24,7 @@ import okhttp3.HttpUrl
 import org.assertj.core.api.Assertions.assertThat
 import org.testng.annotations.Test
 
-class QueryBuilderTest {
+class TestQueryBuilder {
     /**
      * WHERE timestamp > TIMESTAMP '2019-10-26 21:40:10.646'
      */
@@ -95,8 +95,8 @@ class QueryBuilderTest {
         val urls = test(range1, range2)
 
         assertThat(urls[0].queryParameter("start")).isNull()
-        assertThat(urls[0].queryParameter("end")).isEqualTo("1572151210.000")
-        assertThat(urls[1].queryParameter("start")).isEqualTo("1572151210.999")
+        assertThat(urls[0].queryParameter("end")).isEqualTo("1572151209.999")
+        assertThat(urls[1].queryParameter("start")).isEqualTo("1572151211.000")
         assertThat(urls[1].queryParameter("end")).isNull()
     }
 

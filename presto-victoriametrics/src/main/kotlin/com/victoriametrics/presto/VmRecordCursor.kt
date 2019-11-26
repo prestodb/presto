@@ -71,7 +71,7 @@ class VmRecordCursor(
 
     override fun getSlice(field: Int): Slice {
         checkCursorAndField(field, "name")
-        return Slices.utf8Slice(line!!.metric.toString())
+        return Slices.utf8Slice(line!!.metricName)
     }
 
     override fun getObject(field: Int): Any {
