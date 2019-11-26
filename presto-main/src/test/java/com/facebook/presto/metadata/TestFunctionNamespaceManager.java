@@ -59,8 +59,6 @@ public class TestFunctionNamespaceManager
         assertEquals(
                 ImmutableSet.copyOf(functionNamespaceManager.listFunctions()),
                 ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1)));
-
-        System.out.println(FUNCTION_POWER_TOWER_DOUBLE);
     }
 
     @Test

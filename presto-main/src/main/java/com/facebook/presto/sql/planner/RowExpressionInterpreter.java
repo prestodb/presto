@@ -18,6 +18,7 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.RowBlockBuilder;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -80,6 +81,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CO
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
@@ -96,6 +98,7 @@ import static com.facebook.presto.sql.planner.LiteralEncoder.isSupportedLiteralT
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.changed;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.SpecialCallResult.notChanged;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionRowExpression;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
@@ -292,6 +295,11 @@ public class RowExpressionInterpreter
             if (optimizationLevel.ordinal() < EVALUATED.ordinal()) {
                 // TODO: enable optimization related to lambda expression
                 // Currently, we are not able to determine if lambda is deterministic.
+                // context is passed down as null here since lambda argument can only be resolved under the evaluation context.
+                RowExpression rewrittenBody = toRowExpression(processWithExceptionHandling(node.getBody(), null), node.getBody());
+                if (!rewrittenBody.equals(node.getBody())) {
+                    return new LambdaDefinitionExpression(node.getArgumentTypes(), node.getArguments(), rewrittenBody);
+                }
                 return node;
             }
             RowExpression body = node.getBody();
@@ -681,10 +689,14 @@ public class RowExpressionInterpreter
             String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
             FunctionHandle jsonParse = metadata.getFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
             Object json = functionInvoker.invoke(jsonParse, session, utf8Slice(failureInfo));
+            FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, UNKNOWN.getTypeSignature(), type.getTypeSignature());
+            if (exception instanceof PrestoException) {
+                long errorCode = ((PrestoException) exception).getErrorCode().getCode();
+                FunctionHandle failureFunction = metadata.getFunctionManager().lookupFunction("fail", fromTypes(INTEGER, JSON));
+                return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, constant(errorCode, INTEGER), LiteralEncoder.toRowExpression(json, JSON)));
+            }
 
             FunctionHandle failureFunction = metadata.getFunctionManager().lookupFunction("fail", fromTypes(JSON));
-            FunctionHandle cast = metadata.getFunctionManager().lookupCast(CAST, UNKNOWN.getTypeSignature(), type.getTypeSignature());
-
             return call(CAST.name(), cast, type, call("fail", failureFunction, UNKNOWN, LiteralEncoder.toRowExpression(json, JSON)));
         }
 

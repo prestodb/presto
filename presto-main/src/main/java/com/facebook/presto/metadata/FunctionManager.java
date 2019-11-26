@@ -45,6 +45,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -97,6 +98,8 @@ public class FunctionManager
     private final HandleResolver handleResolver;
     private final Map<CatalogSchemaPrefix, FunctionNamespaceManager<?>> functionNamespaces = new ConcurrentHashMap<>();
 
+    private final boolean listNonBuiltInFunctions;
+
     @Inject
     public FunctionManager(
             TypeManager typeManager,
@@ -116,6 +119,7 @@ public class FunctionManager
         }
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
         transactionManager.registerFunctionNamespaceManager(BuiltInFunctionNamespaceManager.NAME, builtInFunctionNamespaceManager);
+        this.listNonBuiltInFunctions = featuresConfig.isListNonBuiltInFunctions();
     }
 
     @VisibleForTesting
@@ -160,7 +164,12 @@ public class FunctionManager
 
     public List<SqlFunction> listFunctions()
     {
-        return builtInFunctionNamespaceManager.listFunctions().stream()
+        Set<FunctionNamespaceManager<?>> functionNamespaceManagers = listNonBuiltInFunctions ?
+                ImmutableSet.copyOf(functionNamespaces.values()) :
+                ImmutableSet.of(builtInFunctionNamespaceManager);
+
+        return functionNamespaceManagers.stream()
+                .flatMap(manager -> manager.listFunctions().stream())
                 .filter(function -> !function.isHidden())
                 .collect(toImmutableList());
     }
@@ -172,6 +181,17 @@ public class FunctionManager
             throw new PrestoException(GENERIC_USER_ERROR, format("Cannot create function in function namespace: %s", function.getFunctionId().getFunctionName().getFunctionNamespace()));
         }
         functionNamespaceManager.get().createFunction(function, replace);
+    }
+
+    public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace());
+        if (functionNamespaceManager.isPresent()) {
+            functionNamespaceManager.get().dropFunction(functionName, parameterTypes, exists);
+        }
+        else if (!exists) {
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName.getFunctionNamespace()));
+        }
     }
 
     /**

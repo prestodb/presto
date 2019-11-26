@@ -34,7 +34,7 @@ public class TestRowExpressionVariableInliner
         @Override
         public CatalogSchemaName getFunctionNamespace()
         {
-            return QualifiedFunctionName.of("a.b.c").getFunctionNamespace();
+            return QualifiedFunctionName.of(new CatalogSchemaName("a", "b"), "c").getFunctionNamespace();
         }
     }
 

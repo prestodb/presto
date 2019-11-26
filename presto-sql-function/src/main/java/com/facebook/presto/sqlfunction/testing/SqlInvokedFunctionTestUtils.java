@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sqlfunction.testing;
 
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -35,7 +36,7 @@ public class SqlInvokedFunctionTestUtils
     {
     }
 
-    public static final QualifiedFunctionName POWER_TOWER = QualifiedFunctionName.of("unittest.memory.power_tower");
+    public static final QualifiedFunctionName POWER_TOWER = QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "power_tower");
 
     public static final SqlInvokedFunction FUNCTION_POWER_TOWER_DOUBLE = new SqlInvokedFunction(
             POWER_TOWER,

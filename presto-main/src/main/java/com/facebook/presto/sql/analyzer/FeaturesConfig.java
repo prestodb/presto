@@ -143,6 +143,8 @@ public class FeaturesConfig
 
     private Duration indexLoaderTimeout = new Duration(20, SECONDS);
 
+    private boolean listNonBuiltInFunctions;
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -1099,6 +1101,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizedRepartitioningEnabled(boolean optimizedRepartitioningEnabled)
     {
         this.optimizedRepartitioningEnabled = optimizedRepartitioningEnabled;
+        return this;
+    }
+
+    public boolean isListNonBuiltInFunctions()
+    {
+        return listNonBuiltInFunctions;
+    }
+
+    @Config("list-non-built-in-functions")
+    public FeaturesConfig setListNonBuiltInFunctions(boolean listNonBuiltInFunctions)
+    {
+        this.listNonBuiltInFunctions = listNonBuiltInFunctions;
         return this;
     }
 }

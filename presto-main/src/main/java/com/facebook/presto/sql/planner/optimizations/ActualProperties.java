@@ -403,10 +403,10 @@ public class ActualProperties
             return new Global(Optional.empty(), Optional.empty(), false);
         }
 
-        public static Global partitionedOn(
+        public static <T extends RowExpression, U extends RowExpression> Global partitionedOn(
                 PartitioningHandle nodePartitioningHandle,
-                List<VariableReferenceExpression> nodePartitioning,
-                Optional<List<VariableReferenceExpression>> streamPartitioning)
+                List<T> nodePartitioning,
+                Optional<List<U>> streamPartitioning)
         {
             return new Global(
                     Optional.of(Partitioning.create(nodePartitioningHandle, nodePartitioning)),

@@ -29,7 +29,7 @@ public class TestSqlFunctions
     {
         assertQueryFails(
                 "CREATE FUNCTION testing.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' RETURN sin(x) / cos(x)",
-                "Invalid function name: testing\\.tan, require exactly 3 parts");
+                ".*Function name should be in the form of catalog\\.schema\\.function_name, found: testing\\.tan");
         assertQueryFails(
                 "CREATE FUNCTION presto.default.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' RETURN sin(x) / cos(x)",
                 "Cannot create function in built-in function namespace: presto\\.default\\.tan");
@@ -47,5 +47,16 @@ public class TestSqlFunctions
         assertQueryFails(
                 "CREATE FUNCTION testing.default.tan (x double) RETURNS double COMMENT 'tangent trigonometric function' RETURN sum(x)",
                 ".*CREATE FUNCTION body cannot contain aggregations, window functions or grouping operations:.*");
+    }
+
+    @Test
+    public void testDropFunctionInvalidFunctionName()
+    {
+        assertQueryFails(
+                "DROP FUNCTION IF EXISTS testing.tan",
+                ".*Function name should be in the form of catalog\\.schema\\.function_name, found: testing\\.tan");
+        assertQueryFails(
+                "DROP FUNCTION presto.default.tan (double)",
+                "Cannot drop function in built-in function namespace: presto\\.default\\.tan");
     }
 }

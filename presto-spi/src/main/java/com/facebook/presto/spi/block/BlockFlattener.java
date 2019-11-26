@@ -53,7 +53,7 @@ public class BlockFlattener
     {
         Block dictionary = dictionaryBlock.getDictionary();
         int positionCount = dictionaryBlock.getPositionCount();
-        int[] currentRemappedIds = (int[]) dictionaryBlock.getIds().getBase();
+        int[] currentRemappedIds = dictionaryBlock.getRawIds();
         // Initially, the below variable is null.  After the first pass of the loop, it will be a borrowed array from the allocator,
         // and it will have reference equality with currentRemappedIds
         int[] newRemappedIds = null;
@@ -61,7 +61,7 @@ public class BlockFlattener
         while (true) {
             if (dictionary instanceof DictionaryBlock) {
                 dictionaryBlock = (DictionaryBlock) dictionary;
-                int[] ids = (int[]) dictionaryBlock.getIds().getBase();
+                int[] ids = dictionaryBlock.getRawIds();
 
                 if (newRemappedIds == null) {
                     newRemappedIds = allocator.borrowIntArray(positionCount);

@@ -377,12 +377,14 @@ public final class LogicalRowExpressions
 
         List<RowExpression> result = new ArrayList<>();
         for (RowExpression expression : expressions) {
-            if (!determinismEvaluator.isDeterministic(expression)) {
-                result.add(expression);
+            if (determinismEvaluator.isDeterministic(expression)) {
+                if (!seen.contains(expression)) {
+                    result.add(expression);
+                    seen.add(expression);
+                }
             }
-            else if (!seen.contains(expression)) {
+            else {
                 result.add(expression);
-                seen.add(expression);
             }
         }
 
