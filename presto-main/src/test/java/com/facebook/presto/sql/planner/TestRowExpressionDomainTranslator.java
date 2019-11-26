@@ -1130,6 +1130,15 @@ public class TestRowExpressionDomainTranslator
         assertUnsupportedPredicate(equal(cast(C_CHAR, charType), cast(stringLiteral("abc12345678"), charType)));
     }
 
+    @Test
+    public void testBooleanAll()
+    {
+        RowExpression rowExpression = or(or(equal(C_BOOLEAN, constant(true, BOOLEAN)), equal(C_BOOLEAN, constant(false, BOOLEAN))), isNull(C_BOOLEAN));
+        ExtractionResult result = fromPredicate(rowExpression);
+        TupleDomain tupleDomain = result.getTupleDomain();
+        assertTrue(tupleDomain.isAll());
+    }
+
     private void assertPredicateTranslates(RowExpression expression, TupleDomain<VariableReferenceExpression> tupleDomain)
     {
         ExtractionResult result = fromPredicate(expression);
