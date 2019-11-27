@@ -16,8 +16,8 @@ package com.victoriametrics.presto
 import com.facebook.presto.spi.Plugin
 import com.facebook.presto.spi.connector.ConnectorContext
 import com.facebook.presto.spi.connector.ConnectorFactory
-import com.victoriametrics.presto.inject.VmModule
 import com.victoriametrics.presto.inject.DaggerVmComponent
+import com.victoriametrics.presto.inject.VmModule
 import com.victoriametrics.presto.model.VmConfig
 import com.victoriametrics.presto.model.VmHandleResolver
 
@@ -45,7 +45,6 @@ class VictoriaMetricsPlugin : Plugin {
             val component = DaggerVmComponent.builder()
                     .vmModule(vmModule)
                     .build()
-
             return component.connector()
             //
             // val app = Bootstrap(

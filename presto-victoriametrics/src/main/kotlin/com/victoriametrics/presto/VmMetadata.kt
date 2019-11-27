@@ -14,6 +14,7 @@
 package com.victoriametrics.presto
 
 import com.facebook.airlift.log.Logger
+import com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT
 import com.facebook.presto.spi.ColumnHandle
 import com.facebook.presto.spi.ColumnMetadata
 import com.facebook.presto.spi.ConnectorPushdownFilterResult
@@ -30,12 +31,15 @@ import com.facebook.presto.spi.block.MethodHandleUtil
 import com.facebook.presto.spi.connector.ConnectorContext
 import com.facebook.presto.spi.connector.ConnectorMetadata
 import com.facebook.presto.spi.function.OperatorType
-import com.facebook.presto.spi.relation.CallExpression
+import com.facebook.presto.spi.predicate.SortedRangeSet
+import com.facebook.presto.spi.relation.DomainTranslator
 import com.facebook.presto.spi.relation.RowExpression
+import com.facebook.presto.spi.relation.VariableReferenceExpression
 import com.facebook.presto.spi.type.DoubleType
 import com.facebook.presto.spi.type.MapType
 import com.facebook.presto.spi.type.TimestampType
 import com.facebook.presto.spi.type.VarcharType
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.victoriametrics.presto.model.VmColumnHandle
 import com.victoriametrics.presto.model.VmTableHandle
 import com.victoriametrics.presto.model.VmTableLayoutHandle
@@ -44,7 +48,9 @@ import javax.inject.Inject
 
 class VmMetadata
 @Inject constructor(
-        private val context: ConnectorContext
+        private val context: ConnectorContext,
+        private val queryBuilder: QueryBuilder,
+        private val objectMapper: ObjectMapper
 ) : ConnectorMetadata {
     private val log = Logger.get(VmMetadata::class.java)!!
 
@@ -60,6 +66,8 @@ class VmMetadata
             ColumnMetadata("timestamp", TimestampType.TIMESTAMP),
             ColumnMetadata("value", DoubleType.DOUBLE)
     )
+
+    val columnsByName = columns.map { it.name to it }.toMap()
 
     private fun getLabelsType(): MapType {
         val keyType = VarcharType.VARCHAR
@@ -118,17 +126,43 @@ class VmMetadata
             session: ConnectorSession,
             table: ConnectorTableHandle,
             filter: RowExpression,
-            tableLayoutHandle: Optional<ConnectorTableLayoutHandle>
+            currentLayoutHandle: Optional<ConnectorTableLayoutHandle>
     ): ConnectorPushdownFilterResult {
         table as VmTableHandle
-        if (filter is CallExpression) {
-            for (argument in filter.arguments) {
-                argument.type
-            }
+
+        if (TRUE_CONSTANT == filter && currentLayoutHandle.isPresent) {
+            return ConnectorPushdownFilterResult(getTableLayout(session, currentLayoutHandle.get()), TRUE_CONSTANT)
         }
 
-        val tableLayout = ConnectorTableLayout(tableLayoutHandle.get())
-        return ConnectorPushdownFilterResult(tableLayout, filter)
+        val domainTranslator: DomainTranslator = context.rowExpressionService.domainTranslator
+        val extractionResult = domainTranslator.fromPredicate(session, filter) { expr, domain ->
+            println(expr.type)
+            if (expr is VariableReferenceExpression && expr.name == "timestamp" && domain.values is SortedRangeSet) {
+                Optional.of(VmColumnHandle("timestamp") as ColumnHandle)
+            } else {
+                Optional.empty()
+            }
+        }
+        println(extractionResult)
+
+
+        // Cannot write, LongArrayBlock doesn't have serializer.
+        // println(objectMapper.writeValueAsString(filter))
+
+        // val vmQuery = queryBuilder.buildFromPushdown(filter)
+        // val tableLayoutHandle = currentLayoutHandle.orElseGet {
+        //     VmTableLayoutHandle(extractionResult.tupleDomain)
+        // }
+
+        val tableLayoutHandle = VmTableLayoutHandle(extractionResult.tupleDomain)
+        val tableLayout = ConnectorTableLayout(tableLayoutHandle)
+
+        // Cannot just pass 'filter' as unenforced constraint, must be OriginalExpression.
+        // val unenforcedFiler = TRUE_CONSTANT
+
+        // Doesn't work, must be OriginalExpression.
+        val unenforcedFiler = extractionResult.remainingExpression
+        return ConnectorPushdownFilterResult(tableLayout, unenforcedFiler)
     }
 
     override fun getTableLayouts(

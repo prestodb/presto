@@ -18,14 +18,13 @@ import com.facebook.presto.spi.predicate.TupleDomain
 import com.facebook.presto.spi.type.DoubleType
 import com.facebook.presto.spi.type.TimestampType
 import com.facebook.presto.spi.type.VarcharType
-import com.facebook.presto.testing.TestingConnectorContext
+import com.victoriametrics.presto.inject.TestVmModule
 import com.victoriametrics.presto.model.VmColumnHandle
 import com.victoriametrics.presto.model.VmSplit
 import com.victoriametrics.presto.model.VmTransactionHandle
 import io.airlift.slice.Slices
 import io.mockk.every
 import io.mockk.mockk
-import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -80,12 +79,12 @@ class TestVmRecordSetProvider {
     }
 
     private fun getUnit(): VmRecordSetProvider {
-        val httpClient = mockk<OkHttpClient>()
-        val unit = VmRecordSetProvider(httpClient, QueryBuilder(), VmMetadata(TestingConnectorContext()))
+        val unit = TestVmModule.init().connector().recordSetProvider
+        // val unit = VmRecordSetProvider(VmMetadata(TestingConnectorContext(), queryBuilder), httpClient, queryBuilder)
 
         // Don't put to field, otherwise tests fail (concurrent?)
         val response = readFixture("export.response.ndjson")
-        every { httpClient.newCall(any()).execute() } returns response
+        every { unit.httpClient.newCall(any()).execute() } returns response
 
         return unit
     }
@@ -100,9 +99,9 @@ class TestVmRecordSetProvider {
         every { split.constraint } returns (TupleDomain.all())
 
         val vmColumnHandles = listOf(
-            VmColumnHandle("timestamp"),
-            VmColumnHandle("value"),
-            VmColumnHandle("name")
+                VmColumnHandle("timestamp"),
+                VmColumnHandle("value"),
+                VmColumnHandle("name")
         )
         val recordSet = unit.getRecordSet(VmTransactionHandle(), session, split, vmColumnHandles)
 
@@ -159,11 +158,11 @@ class TestVmRecordSetProvider {
         val content = resource.readText(StandardCharsets.UTF_8)
 
         return Response.Builder()
-            .request(mockk())
-            .code(200)
-            .protocol(Protocol.HTTP_2)
-            .message("Ok")
-            .body(content.toResponseBody())
-            .build()
+                .request(mockk())
+                .code(200)
+                .protocol(Protocol.HTTP_2)
+                .message("Ok")
+                .body(content.toResponseBody())
+                .build()
     }
 }

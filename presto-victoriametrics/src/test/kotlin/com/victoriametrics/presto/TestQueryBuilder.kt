@@ -19,12 +19,15 @@ import com.facebook.presto.spi.predicate.Range
 import com.facebook.presto.spi.predicate.TupleDomain
 import com.facebook.presto.spi.predicate.ValueSet
 import com.facebook.presto.spi.type.TimestampType
+import com.victoriametrics.presto.inject.TestVmModule
 import com.victoriametrics.presto.model.VmColumnHandle
 import okhttp3.HttpUrl
 import org.assertj.core.api.Assertions.assertThat
 import org.testng.annotations.Test
 
 class TestQueryBuilder {
+    val unit = TestVmModule.init().queryBuilder()
+
     /**
      * WHERE timestamp > TIMESTAMP '2019-10-26 21:40:10.646'
      */
@@ -113,7 +116,12 @@ class TestQueryBuilder {
         val map = mapOf(timestampHandle to domain)
         val constraint = TupleDomain.withColumnDomains(map)
 
-        val unit = QueryBuilder()
         return unit.build(constraint)
+    }
+
+    @Test
+    fun testPushdown() {
+        // BuiltInFunctionHandle
+        // CallExpression("BETWEEN", )
     }
 }

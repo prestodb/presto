@@ -13,15 +13,15 @@
  */
 package com.victoriametrics.presto.inject
 
-import com.victoriametrics.presto.QueryBuilder
-import com.victoriametrics.presto.VmConnector
-import dagger.Component
-import javax.inject.Singleton
+import com.victoriametrics.presto.model.VmTransactionHandle
+import dagger.Module
+import dagger.Provides
 
-@Component(modules = [VmModule::class])
-@Singleton
-interface VmComponent {
-    fun withRequest(requestModule: VmRequestModule): VmRequestComponent
-    fun connector(): VmConnector
-    fun queryBuilder(): QueryBuilder
+@Module
+class VmRequestModule(
+        private val transaction: VmTransactionHandle
+) {
+    @Provides
+    @RequestScope
+    fun provideTransaction() = transaction
 }

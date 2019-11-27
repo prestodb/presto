@@ -19,28 +19,35 @@ import com.facebook.presto.spi.predicate.Range
 import com.facebook.presto.spi.predicate.SortedRangeSet
 import com.facebook.presto.spi.predicate.TupleDomain
 import com.facebook.presto.spi.predicate.ValueSet
+import com.facebook.presto.spi.relation.RowExpression
 import com.victoriametrics.presto.model.VmColumnHandle
+import com.victoriametrics.presto.model.VmConfig
 import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrl
+import javax.inject.Inject
 
-class QueryBuilder(private val endpoints: List<HttpUrl> = listOf("http://localhost:8428/api/v1".toHttpUrl())) {
+class QueryBuilder
+@Inject constructor(private val config: VmConfig) {
+
+    private fun getBaseQuery(): HttpUrl {
+        return config.httpUrls
+                .random()
+                .newBuilder()
+                .addPathSegment("export")
+                .addQueryParameter("match", getMatch())
+                .build()
+    }
 
     fun build(constraint: TupleDomain<ColumnHandle>): List<HttpUrl> {
-        val endpoint = endpoints.random()
-
-        val query = endpoint.newBuilder()
-            .addPathSegment("export")
-            .addQueryParameter("match", getMatch())
-            .build()
+        val baseQuery = getBaseQuery()
 
         val timestampRanges = getTimestampRanges(constraint)
         if (timestampRanges.isEmpty()) {
-            return listOf(query)
+            return listOf(baseQuery)
         }
 
         return timestampRanges.map {
             val queryParams = toQueryParams(it)
-            val queryBuilder = query.newBuilder()
+            val queryBuilder = baseQuery.newBuilder()
             queryParams.forEach { (key, value) ->
                 queryBuilder.addQueryParameter(key, value)
             }
@@ -92,4 +99,32 @@ class QueryBuilder(private val endpoints: List<HttpUrl> = listOf("http://localho
 
         return ranges
     }
+
+    /**
+     * @return unenforced expression
+     */
+    fun buildFromPushdown(filter: RowExpression): VmQuery {
+        val baseQuery = getBaseQuery()
+
+        // if (filter !is CallExpression) {
+            return VmQuery(listOf(baseQuery), unenforced = filter)
+        // }
+
+
+        // for (argument in filter.arguments) {
+        //     if (argument is) {
+        //
+        //     }
+        // }
+        //
+        //
+        // filter.arguments
+
+    }
+
+    data class VmQuery(
+            val urls: List<HttpUrl>,
+            val unenforced: RowExpression,
+            val constraint: TupleDomain<ColumnHandle> = TupleDomain.all()
+    )
 }

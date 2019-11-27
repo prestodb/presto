@@ -37,9 +37,7 @@ class VmConnector
         return VmTransactionHandle()
     }
 
-    override fun getMetadata(transactionHandle: ConnectorTransactionHandle): VmMetadata {
-        return metadata
-    }
+    override fun getMetadata(transactionHandle: ConnectorTransactionHandle) = metadata
 
     override fun getSplitManager() = splitManager
 

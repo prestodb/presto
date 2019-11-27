@@ -13,16 +13,18 @@
  */
 package com.victoriametrics.presto.inject
 
+import com.facebook.airlift.json.ObjectMapperProvider
 import com.facebook.presto.spi.connector.ConnectorContext
-import com.victoriametrics.presto.QueryBuilder
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.victoriametrics.presto.model.VmConfig
 import dagger.Module
 import dagger.Provides
+import okhttp3.Call
 import okhttp3.OkHttpClient
 import javax.inject.Singleton
 
 @Module
-class VmModule(
+open class VmModule(
         private val catalogName: String,
         private val config: VmConfig,
         private val context: ConnectorContext
@@ -41,12 +43,14 @@ class VmModule(
 
     @Provides
     @Singleton
-    fun provideHttpClient(): OkHttpClient {
+    open fun provideHttpClient(): Call.Factory {
         return OkHttpClient.Builder().build()
     }
 
     @Provides
-    fun provideQueryBuilder(config: VmConfig): QueryBuilder {
-        return QueryBuilder(config.httpUrls)
+    @Singleton
+    open fun provideObjectMapper(): ObjectMapper {
+        val provider = ObjectMapperProvider()
+        return provider.get()
     }
 }

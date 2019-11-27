@@ -13,15 +13,11 @@
  */
 package com.victoriametrics.presto.inject
 
-import com.victoriametrics.presto.QueryBuilder
-import com.victoriametrics.presto.VmConnector
-import dagger.Component
-import javax.inject.Singleton
+import com.victoriametrics.presto.VmMetadata
+import dagger.Subcomponent
 
-@Component(modules = [VmModule::class])
-@Singleton
-interface VmComponent {
-    fun withRequest(requestModule: VmRequestModule): VmRequestComponent
-    fun connector(): VmConnector
-    fun queryBuilder(): QueryBuilder
+@Subcomponent(modules = [VmRequestModule::class])
+@RequestScope
+interface VmRequestComponent {
+    fun metadata(): VmMetadata
 }

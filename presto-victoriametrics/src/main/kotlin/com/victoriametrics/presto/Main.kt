@@ -27,6 +27,7 @@ class Main : CliktCommand() {
 
     }
 
+    // TODO: move to integration tests
     private fun connectToPresto() {
         val url = "jdbc:presto://localhost:8080/jmx/current"
         val connection = DriverManager.getConnection(url, "test", null)

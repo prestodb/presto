@@ -16,7 +16,7 @@
 	<properties>
 		<air.main.basedir>${project.parent.basedir}</air.main.basedir>
 
-		<kotlin.version>1.3.60</kotlin.version>
+		<kotlin.version>1.3.61</kotlin.version>
 		<kotlin.code.style>official</kotlin.code.style>
 
 		<okhttp.version>4.2.2</okhttp.version>
@@ -24,10 +24,12 @@
 		<clikt.version>2.2.0</clikt.version>
 
 		<kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
-		<!--<kotlin.compiler.incremental>true</kotlin.compiler.incremental>-->
+		<kotlin.compiler.incremental>true</kotlin.compiler.incremental>
+
 		<mockk.version>1.9.3</mockk.version>
 		<assertj.version>3.13.2</assertj.version>
 		<kotlinx-serialization.version>0.14.0</kotlinx-serialization.version>
+		<kotlinx-coroutines.version>1.3.2</kotlinx-coroutines.version>
 		<jetbrains-annotations.version>17.0.0</jetbrains-annotations.version>
 		<dagger.version>2.25.2</dagger.version>
 	</properties>
@@ -59,6 +61,11 @@
 			<artifactId>kotlinx-serialization-runtime</artifactId>
 			<version>${kotlinx-serialization.version}</version>
 		</dependency>
+		<!--<dependency>-->
+		<!--    <groupId>org.jetbrains.kotlinx</groupId>-->
+		<!--    <artifactId>kotlinx-coroutines-jdk8</artifactId>-->
+		<!--    <version>${kotlinx-coroutines.version}</version>-->
+		<!--</dependency>-->
 
 		<dependency>
 			<groupId>org.jetbrains</groupId>
@@ -71,20 +78,20 @@
 		<!--	<artifactId>bootstrap</artifactId>-->
 		<!--</dependency>-->
 
-		<!--<dependency>-->
-		<!--	<groupId>com.facebook.airlift</groupId>-->
-		<!--	<artifactId>json</artifactId>-->
-		<!--</dependency>-->
+		<dependency>
+			<groupId>com.facebook.airlift</groupId>
+			<artifactId>json</artifactId>
+		</dependency>
 
 		<dependency>
 			<groupId>com.facebook.airlift</groupId>
 			<artifactId>log</artifactId>
 		</dependency>
 
-		<dependency>
-			<groupId>com.facebook.airlift</groupId>
-			<artifactId>configuration</artifactId>
-		</dependency>
+		<!--<dependency>-->
+		<!--	<groupId>com.facebook.airlift</groupId>-->
+		<!--	<artifactId>configuration</artifactId>-->
+		<!--</dependency>-->
 
 		<!--<dependency>-->
 		<!--	<groupId>com.facebook.presto</groupId>-->
@@ -165,15 +172,20 @@
 		<!--	<artifactId>jackson-core</artifactId>-->
 		<!--</dependency>-->
 
-		<!--<dependency>-->
-		<!--	<groupId>com.fasterxml.jackson.core</groupId>-->
-		<!--	<artifactId>jackson-databind</artifactId>-->
-		<!--</dependency>-->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+		</dependency>
 		<!-- Presto SPI -->
 		<dependency>
 			<groupId>com.facebook.presto</groupId>
 			<artifactId>presto-spi</artifactId>
 			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.facebook.presto</groupId>
+			<artifactId>presto-expressions</artifactId>
 		</dependency>
 
 		<dependency>

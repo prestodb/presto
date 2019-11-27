@@ -13,37 +13,40 @@
  */
 package com.victoriametrics.presto
 
-import com.facebook.presto.spi.ColumnHandle
 import com.facebook.presto.spi.ColumnMetadata
 import com.facebook.presto.spi.RecordCursor
 import com.facebook.presto.spi.RecordSet
-import com.facebook.presto.spi.predicate.TupleDomain
 import com.facebook.presto.spi.type.Type
 import com.victoriametrics.presto.model.VmColumnHandle
-import okhttp3.OkHttpClient
+import com.victoriametrics.presto.model.VmSplit
+import okhttp3.Call
 import okhttp3.Request
 import java.io.IOException
+import java.util.concurrent.CompletableFuture
 
 class VmRecordSet(
-        private val constraint: TupleDomain<ColumnHandle>,
-        private val queryBuilder: QueryBuilder,
-        private val httpClient: OkHttpClient,
-        private val columns: List<VmColumnHandle>,
-        private val allColumnsByName: Map<String, ColumnMetadata>
+        metadata: VmMetadata,
+        private val httpClient: Call.Factory,
+        queryBuilder: QueryBuilder,
+        split: VmSplit,
+        requestedColumns: List<VmColumnHandle>
 ) : RecordSet {
 
-    /** Same as [columns], but in the same order as [columnHandles] */
-    private val fieldColumns: List<ColumnMetadata> = columns
-            .map { allColumnsByName[it.columnName] ?: error("No field ${it.columnName}") }
+    /** In the same order as `requestedColumns` */
+    private val fieldColumns: List<ColumnMetadata> = requestedColumns
+            .map { metadata.columnsByName[it.columnName] ?: error("No field ${it.columnName}") }
+
+    private val urls = queryBuilder.build(split.constraint)
 
     override fun getColumnTypes(): List<Type> {
         return fieldColumns.map { it.type }
     }
 
     override fun cursor(): RecordCursor {
-        val urls = queryBuilder.build(constraint)
-
-        val sources = urls.map { url ->
+        // TODO: parallelize requests
+        val sources = urls
+                .map { url ->
+                    CompletableFuture.runAsync {  }
             val request = Request.Builder()
                     .get()
                     .url(url)

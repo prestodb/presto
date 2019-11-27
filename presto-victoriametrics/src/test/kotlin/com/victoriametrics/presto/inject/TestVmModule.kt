@@ -14,37 +14,27 @@
 package com.victoriametrics.presto.inject
 
 import com.facebook.presto.testing.TestingConnectorContext
-import com.victoriametrics.presto.QueryBuilder
 import com.victoriametrics.presto.model.VmConfig
 import dagger.Module
-import dagger.Provides
 import io.mockk.mockk
+import okhttp3.Call
 import okhttp3.OkHttpClient
-import javax.inject.Singleton
 
 @Module
-class TestVmModule(
-        val httpClient: OkHttpClient = mockk(),
-        val config: VmConfig = VmConfig(mapOf()),
-        val context: TestingConnectorContext = TestingConnectorContext()
+class TestVmModule : VmModule(
+        "testCatalog",
+        VmConfig(mapOf("victoriametrics.vmselect-endpoints" to "localhost:8428")),
+        TestingConnectorContext()
 ) {
-
-    @Provides
-    @Singleton
-    fun provideHttpClient(): OkHttpClient {
-        return httpClient
+    override fun provideHttpClient(): Call.Factory {
+        return mockk<OkHttpClient>()
     }
 
-    @Provides
-    @Singleton
-    fun provideConfig() = config
-
-    @Provides
-    @Singleton
-    fun provideContext() = context
-
-    @Provides
-    fun provideQueryBuilder(config: VmConfig): QueryBuilder {
-        return QueryBuilder(config.httpUrls)
+    companion object {
+        fun init(): VmComponent {
+            return DaggerVmComponent.builder()
+                    .vmModule(TestVmModule())
+                    .build()
+        }
     }
 }

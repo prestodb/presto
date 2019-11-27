@@ -20,14 +20,17 @@ import com.facebook.presto.spi.connector.ConnectorRecordSetProvider
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle
 import com.victoriametrics.presto.model.VmColumnHandle
 import com.victoriametrics.presto.model.VmSplit
-import okhttp3.OkHttpClient
+import okhttp3.Call
 import javax.inject.Inject
 
+/**
+ * Pretty much just for partial (aka assisted) injecting [VmRecordSet]-s.
+ */
 class VmRecordSetProvider
 @Inject constructor(
-        private val httpClient: OkHttpClient,
-        private val queryBuilder: QueryBuilder,
-        private val metadata: VmMetadata
+        internal val metadata: VmMetadata,
+        internal val httpClient: Call.Factory,
+        internal val queryBuilder: QueryBuilder
 ) : ConnectorRecordSetProvider {
 
     override fun getRecordSet(
@@ -37,17 +40,14 @@ class VmRecordSetProvider
             columns: List<ColumnHandle>
     ): VmRecordSet {
         split as VmSplit
-        val vmColumns = columns.map { it as VmColumnHandle }
-        val allColumnsByName = metadata.columns
-                        .map { it.name to it }
-                        .toMap()
+        val requestedColumns = columns.map { it as VmColumnHandle }
 
         return VmRecordSet(
-                split.constraint,
-                queryBuilder,
+                metadata,
                 httpClient,
-                vmColumns,
-                allColumnsByName
+                queryBuilder,
+                split,
+                requestedColumns
         )
     }
 }

@@ -13,11 +13,13 @@
  */
 package com.victoriametrics.presto
 
+import com.facebook.presto.spi.ColumnHandle
 import com.facebook.presto.spi.ConnectorSession
 import com.facebook.presto.spi.ConnectorTableLayoutHandle
 import com.facebook.presto.spi.FixedSplitSource
 import com.facebook.presto.spi.connector.ConnectorSplitManager
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle
+import com.facebook.presto.spi.predicate.TupleDomain
 import com.victoriametrics.presto.model.VmConfig
 import com.victoriametrics.presto.model.VmSplit
 import com.victoriametrics.presto.model.VmTableLayoutHandle
@@ -35,7 +37,7 @@ class VmSplitManager
     ): FixedSplitSource {
         layout as VmTableLayoutHandle
 
-        val constraint = layout.constraint
+        val constraint: TupleDomain<ColumnHandle> = layout.constraint
 
         val splits = listOf(VmSplit(config, constraint))
 
