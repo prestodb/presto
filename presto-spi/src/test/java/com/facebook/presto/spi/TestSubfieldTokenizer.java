@@ -33,7 +33,6 @@ public class TestSubfieldTokenizer
     {
         List<PathElement> elements = ImmutableList.of(
                 new NestedField("b"),
-                new NestedField("$bucket"),
                 new Subfield.LongSubscript(2),
                 new Subfield.StringSubscript("z"),
                 Subfield.allSubscripts(),
@@ -68,6 +67,13 @@ public class TestSubfieldTokenizer
         SubfieldTokenizer tokenizer = new SubfieldTokenizer(path.serialize());
         assertTrue(tokenizer.hasNext());
         assertEquals(new Subfield(((NestedField) tokenizer.next()).getName(), Streams.stream(tokenizer).collect(toImmutableList())), path);
+    }
+
+    @Test
+    public void testColumnNames()
+    {
+        assertPath(new Subfield("$bucket", ImmutableList.of()));
+        assertPath(new Subfield("apollo-11", ImmutableList.of()));
     }
 
     @Test
