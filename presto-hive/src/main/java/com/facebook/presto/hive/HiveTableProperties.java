@@ -170,6 +170,9 @@ public class HiveTableProperties
         if (bucketCount < 0) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be greater than zero", BUCKET_COUNT_PROPERTY));
         }
+        if (bucketCount > 1_000_000) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s should be no more than 1000000", BUCKET_COUNT_PROPERTY));
+        }
         if (bucketedBy.isEmpty() || bucketCount == 0) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
