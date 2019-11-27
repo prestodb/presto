@@ -4254,6 +4254,16 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testBucketedTablesFailWithTooManyBuckets()
+            throws Exception
+    {
+        @Language("SQL") String createSql = "CREATE TABLE t (dummy VARCHAR)\n" +
+                "WITH (bucket_count = 1000001, bucketed_by=ARRAY['dummy'])";
+
+        assertQueryFails(createSql, "bucket_count should be no more than 1000000");
+    }
+
+    @Test
     public void testBucketedTablesFailWithAvroSchemaUrl()
             throws Exception
     {
