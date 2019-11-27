@@ -92,12 +92,14 @@ import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WR
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TEMP_PATH_SUBDIRECTORY_COUNT;
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TO_TEMP_PATH_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
+import static com.facebook.presto.hive.HiveSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
+import static com.facebook.presto.spi.predicate.Marker.Bound.ABOVE;
 import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -207,39 +209,73 @@ public class TestHiveIntegrationSmokeTest
         computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey', 'processing']) AS SELECT custkey, orderkey, orderstatus = 'P' processing FROM orders WHERE orderkey < 3");
 
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey, processing FROM test_orders where custkey <= 10");
+        ImmutableSet.Builder<ColumnConstraint> expectedConstraints = ImmutableSet.builder();
+        expectedConstraints.add(new ColumnConstraint(
+                "orderkey",
+                BIGINT.getTypeSignature(),
+                new FormattedDomain(
+                        false,
+                        ImmutableSet.of(
+                                new FormattedRange(
+                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                new FormattedRange(
+                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                        new FormattedMarker(Optional.of("2"), EXACTLY))))));
+        expectedConstraints.add(new ColumnConstraint(
+                "processing",
+                BOOLEAN.getTypeSignature(),
+                new FormattedDomain(
+                        false,
+                        ImmutableSet.of(
+                                new FormattedRange(
+                                        new FormattedMarker(Optional.of("false"), EXACTLY),
+                                        new FormattedMarker(Optional.of("false"), EXACTLY))))));
+        if (isPushdownFilterEnabled(getConnectorSession(getSession()))) {
+            expectedConstraints.add(new ColumnConstraint(
+                    "custkey",
+                    BIGINT.getTypeSignature(),
+                    new FormattedDomain(
+                            false,
+                            ImmutableSet.of(
+                                    new FormattedRange(
+                                            new FormattedMarker(Optional.empty(), ABOVE),
+                                            new FormattedMarker(Optional.of("10"), EXACTLY))))));
+        }
         assertEquals(
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
-                                ImmutableSet.of(
-                                        new ColumnConstraint(
-                                                "orderkey",
-                                                BIGINT.getTypeSignature(),
-                                                new FormattedDomain(
-                                                        false,
-                                                        ImmutableSet.of(
-                                                                new FormattedRange(
-                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                new FormattedRange(
-                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                        new ColumnConstraint(
-                                                "processing",
-                                                BOOLEAN.getTypeSignature(),
-                                                new FormattedDomain(
-                                                        false,
-                                                        ImmutableSet.of(
-                                                                new FormattedRange(
-                                                                        new FormattedMarker(Optional.of("false"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("false"), EXACTLY)))))))),
+                                expectedConstraints.build())),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
 
-        // Test IO explain with large number of discrete components where Domain::simpify comes into play.
+        // Test IO explain with large number of discrete components where Domain::simplify comes into play.
         computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS select custkey, orderkey FROM orders where orderkey < 200");
+
+        expectedConstraints = ImmutableSet.builder();
+        expectedConstraints.add(new ColumnConstraint(
+                "orderkey",
+                BIGINT.getTypeSignature(),
+                new FormattedDomain(
+                        false,
+                        ImmutableSet.of(
+                                new FormattedRange(
+                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                        new FormattedMarker(Optional.of("199"), EXACTLY))))));
+        if (isPushdownFilterEnabled(getConnectorSession(getSession()))) {
+            expectedConstraints.add(new ColumnConstraint(
+                    "custkey",
+                    BIGINT.getTypeSignature(),
+                    new FormattedDomain(
+                            false,
+                            ImmutableSet.of(
+                                    new FormattedRange(
+                                            new FormattedMarker(Optional.empty(), ABOVE),
+                                            new FormattedMarker(Optional.of("10"), EXACTLY))))));
+        }
 
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders where custkey <= 10");
         assertEquals(
@@ -247,16 +283,7 @@ public class TestHiveIntegrationSmokeTest
                 new IOPlan(
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
-                                ImmutableSet.of(
-                                        new ColumnConstraint(
-                                                "orderkey",
-                                                BIGINT.getTypeSignature(),
-                                                new FormattedDomain(
-                                                        false,
-                                                        ImmutableSet.of(
-                                                                new FormattedRange(
-                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("199"), EXACTLY)))))))),
+                                expectedConstraints.build())),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");

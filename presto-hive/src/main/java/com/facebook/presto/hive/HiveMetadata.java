@@ -2137,8 +2137,6 @@ public class HiveMetadata
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(hiveLayoutHandle.getPartitionColumns());
         List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
 
-        TupleDomain<ColumnHandle> predicate = createPredicate(partitionColumns, partitions);
-
         Optional<DiscretePredicates> discretePredicates = Optional.empty();
         if (!partitionColumns.isEmpty()) {
             // Do not create tuple domains for every partition at the same time!
@@ -2165,6 +2163,19 @@ public class HiveMetadata
                     hiveBucketHandle.getColumns().stream()
                             .map(ColumnHandle.class::cast)
                             .collect(toList())));
+        }
+
+        TupleDomain<ColumnHandle> predicate;
+        Map<ColumnHandle, ConstantExpression> constants;
+        if (hiveLayoutHandle.isPushdownFilterEnabled()) {
+            predicate = hiveLayoutHandle.getDomainPredicate()
+                    .transform(Subfield::getRootName)
+                    .transform(hiveLayoutHandle.getPredicateColumns()::get)
+                    .transform(ColumnHandle.class::cast)
+                    .intersect(createPredicate(partitionColumns, partitions));
+        }
+        else {
+            predicate = createPredicate(partitionColumns, partitions);
         }
 
         return new ConnectorTableLayout(
