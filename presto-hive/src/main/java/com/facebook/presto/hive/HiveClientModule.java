@@ -64,6 +64,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static java.lang.Math.toIntExact;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
@@ -225,13 +226,13 @@ public class HiveClientModule
         if (orcCacheConfig.isStripeMetadataCacheEnabled()) {
             Cache<StripeId, Slice> footerCache = CacheBuilder.newBuilder()
                     .maximumWeight(orcCacheConfig.getStripeFooterCacheSize().toBytes())
-                    .weigher((id, footer) -> ((Slice) footer).length())
+                    .weigher((id, footer) -> toIntExact(((Slice) footer).getRetainedSize()))
                     .expireAfterAccess(orcCacheConfig.getStripeFooterCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
                     .recordStats()
                     .build();
             Cache<StripeStreamId, Slice> streamCache = CacheBuilder.newBuilder()
                     .maximumWeight(orcCacheConfig.getStripeStreamCacheSize().toBytes())
-                    .weigher((id, stream) -> ((Slice) stream).length())
+                    .weigher((id, stream) -> toIntExact(((Slice) stream).getRetainedSize()))
                     .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), TimeUnit.MILLISECONDS)
                     .recordStats()
                     .build();
