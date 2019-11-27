@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
 
 import java.util.Optional;
 
@@ -40,11 +39,5 @@ public class TestHivePushdownIntegrationSmokeTest
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 HIVE_CATALOG,
                 new HiveTypeTranslator());
-    }
-
-    // TODO Enable this test after we fix the query plan to retain information about the pushed down filter on the Join column so that we need not perform an exchange for it.
-    @Test
-    public void testMaterializedPartitioning()
-    {
     }
 }

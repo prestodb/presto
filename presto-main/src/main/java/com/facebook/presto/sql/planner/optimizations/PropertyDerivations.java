@@ -774,9 +774,14 @@ public class PropertyDerivations
 
             if (planWithTableNodePartitioning(session) && layout.getTablePartitioning().isPresent()) {
                 TablePartitioning tablePartitioning = layout.getTablePartitioning().get();
-                if (assignments.keySet().containsAll(tablePartitioning.getPartitioningColumns())) {
-                    List<VariableReferenceExpression> arguments = tablePartitioning.getPartitioningColumns().stream()
-                            .map(assignments::get)
+
+                Set<ColumnHandle> assignmentsAndConstants = ImmutableSet.<ColumnHandle>builder()
+                        .addAll(assignments.keySet())
+                        .addAll(constants.keySet())
+                        .build();
+                if (assignmentsAndConstants.containsAll(tablePartitioning.getPartitioningColumns())) {
+                    List<RowExpression> arguments = tablePartitioning.getPartitioningColumns().stream()
+                            .map(column -> assignments.containsKey(column) ? assignments.get(column) : constants.get(column))
                             .collect(toImmutableList());
 
                     return partitionedOn(tablePartitioning.getPartitioningHandle(), arguments, streamPartitioning);
