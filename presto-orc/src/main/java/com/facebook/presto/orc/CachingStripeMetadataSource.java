@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.Map;
@@ -91,7 +92,7 @@ public class CachingStripeMetadataSource
         for (Entry<StreamId, OrcDataSourceInput> entry : uncachedInputs.entrySet()) {
             if (isCachedStream(entry.getKey().getStreamKind())) {
                 // We need to rewind the input after eagerly reading the slice.
-                Slice streamSlice = entry.getValue().getInput().readSlice(toIntExact(entry.getValue().getInput().length()));
+                Slice streamSlice = Slices.wrappedBuffer(entry.getValue().getInput().readSlice(toIntExact(entry.getValue().getInput().length())).getBytes());
                 stripeStreamCache.put(new StripeStreamId(stripeId, entry.getKey()), streamSlice);
                 inputsBuilder.put(entry.getKey(), new OrcDataSourceInput(new BasicSliceInput(streamSlice), toIntExact(streamSlice.getRetainedSize())));
             }
