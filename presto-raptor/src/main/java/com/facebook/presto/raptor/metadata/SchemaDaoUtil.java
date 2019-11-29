@@ -57,6 +57,22 @@ public final class SchemaDaoUtil
         dao.createTableDeletedShards();
         dao.createTableBuckets();
         dao.createTableShardOrganizerJobs();
+
+        // for upgrading compatibility
+        alterTable(dao::alterTableTablesWithDeltaDelete);
+        alterTable(dao::alterTableTablesWithDeltaCount);
+        alterTable(dao::alterTableShardsWithIsDelta);
+        alterTable(dao::alterTableShardsWithDeltaUuid);
+    }
+
+    private static void alterTable(Runnable alterTableFunction)
+    {
+        try {
+            alterTableFunction.run();
+        }
+        catch (Exception e) {
+            log.warn("Alter table failed: %s", e.getMessage());
+        }
     }
 
     private static void sleep(Duration duration)
