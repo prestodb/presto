@@ -41,8 +41,8 @@ public class TestMetastoreClientConfig
                 .setRecordingPath(null)
                 .setRecordingDuration(new Duration(0, TimeUnit.MINUTES))
                 .setReplay(false)
-                .setHmsImpersonationEnabled(false)
-                .setHmsImpersonationDefaultUser(""));
+                .setMetastoreImpersonationEnabled(false)
+                .setMetastoreDefaultImpersonationUser(""));
     }
 
     @Test
@@ -61,8 +61,8 @@ public class TestMetastoreClientConfig
                 .put("hive.metastore-recording-path", "/foo/bar")
                 .put("hive.metastore-recoding-duration", "42s")
                 .put("hive.replay-metastore-recording", "true")
-                .put("hive.hms.impersonation.enabled", "true")
-                .put("hive.hms.impersonation.user", "test")
+                .put("hive.metastore.impersonation.enabled", "true")
+                .put("hive.metastore.impersonation.user", "test")
                 .build();
 
         MetastoreClientConfig expected = new MetastoreClientConfig()
@@ -78,8 +78,8 @@ public class TestMetastoreClientConfig
                 .setRecordingPath("/foo/bar")
                 .setRecordingDuration(new Duration(42, TimeUnit.SECONDS))
                 .setReplay(true)
-                .setHmsImpersonationEnabled(true)
-                .setHmsImpersonationDefaultUser("test");
+                .setMetastoreImpersonationEnabled(true)
+                .setMetastoreDefaultImpersonationUser("test");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

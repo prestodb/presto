@@ -19,7 +19,7 @@ public interface HiveMetastoreAuthentication
 {
     TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost);
 
-    TTransport authenticateWithToken(TTransport rawTransport, String tokenStrForm);
+    TTransport authenticateWithToken(TTransport rawTransport, String tokenString);
 
     <R, E extends Exception> R doAs(String user, GenericExceptionAction<R, E> action)
             throws E;
