@@ -18,6 +18,7 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
+import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
@@ -274,6 +275,12 @@ public abstract class AbstractVerification
                 status,
                 skippedReason,
                 determinismAnalysis,
+                determinismAnalysis.isPresent() ?
+                        Optional.of(new DeterminismAnalysisDetails(
+                                verificationContext.getDeterminismAnalysisRuns(),
+                                verificationContext.getLimitQueryAnalysis(),
+                                verificationContext.getLimitQueryAnalysisQueryId())) :
+                        Optional.empty(),
                 resolveMessage,
                 Optional.of(buildQueryInfo(
                         sourceQuery.getControlConfiguration(),

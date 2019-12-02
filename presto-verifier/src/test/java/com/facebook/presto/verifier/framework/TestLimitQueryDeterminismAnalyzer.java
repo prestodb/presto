@@ -39,6 +39,8 @@ import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalys
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestLimitQueryDeterminismAnalyzer
 {
@@ -94,30 +96,30 @@ public class TestLimitQueryDeterminismAnalyzer
     public void testNotRun()
     {
         // Unsupported statement types
-        assertEquals(analyze("CREATE TABLE test (x varchar, ds varhcar) WITH (partitioned_by = ARRAY[\"ds\"])"), NOT_RUN);
-        assertEquals(analyze("SELECT * FROM source LIMIT 10"), NOT_RUN);
+        assertAnalysis("CREATE TABLE test (x varchar, ds varhcar) WITH (partitioned_by = ARRAY[\"ds\"])", NOT_RUN);
+        assertAnalysis("SELECT * FROM source LIMIT 10", NOT_RUN);
 
         // Order by clause
-        assertEquals(analyze("INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source ORDER BY 1 LIMIT 1000"), NOT_RUN);
-        assertEquals(analyze("INSERT INTO test SELECT * FROM source ORDER BY 1 LIMIT 1000"), NOT_RUN);
+        assertAnalysis("INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source ORDER BY 1 LIMIT 1000", NOT_RUN);
+        assertAnalysis("INSERT INTO test SELECT * FROM source ORDER BY 1 LIMIT 1000", NOT_RUN);
 
         // not outer limit clause
-        assertEquals(analyze("INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source"), NOT_RUN);
-        assertEquals(analyze("INSERT INTO test SELECT * FROM source"), NOT_RUN);
-        assertEquals(analyze("INSERT INTO test SELECT * FROM (SELECT * FROM source LIMIT 1000)"), NOT_RUN);
+        assertAnalysis("INSERT INTO test SELECT * FROM source UNION ALL SELECT * FROM source", NOT_RUN);
+        assertAnalysis("INSERT INTO test SELECT * FROM source", NOT_RUN);
+        assertAnalysis("INSERT INTO test SELECT * FROM (SELECT * FROM source LIMIT 1000)", NOT_RUN);
     }
 
     @Test
     public void testNonDeterministic()
     {
         rowCount.set(1001);
-        assertEquals(analyze("INSERT INTO test SELECT * FROM source LIMIT 1000"), NON_DETERMINISTIC);
+        assertAnalysis("INSERT INTO test SELECT * FROM source LIMIT 1000", NON_DETERMINISTIC);
         assertRowCountQuery("SELECT count(1) FROM (SELECT * FROM source)");
 
-        assertEquals(analyze("CREATE TABLE test AS (WITH f AS (select * from g) ((SELECT * FROM source UNION ALL SELECT * FROM source LIMIT 1000)))"), NON_DETERMINISTIC);
+        assertAnalysis("CREATE TABLE test AS (WITH f AS (select * from g) ((SELECT * FROM source UNION ALL SELECT * FROM source LIMIT 1000)))", NON_DETERMINISTIC);
         assertRowCountQuery("SELECT count(1) FROM (WITH f AS (select * from g) SELECT * FROM source UNION ALL SELECT * FROM source)");
 
-        assertEquals(analyze("CREATE TABLE test AS (WITH f AS (select * from g) (SELECT * FROM source LIMIT 1000))"), NON_DETERMINISTIC);
+        assertAnalysis("CREATE TABLE test AS (WITH f AS (select * from g) (SELECT * FROM source LIMIT 1000))", NON_DETERMINISTIC);
         assertRowCountQuery("SELECT count(1) FROM (WITH f AS (select * from g) SELECT * FROM source)");
     }
 
@@ -125,26 +127,36 @@ public class TestLimitQueryDeterminismAnalyzer
     public void testDeterministic()
     {
         rowCount.set(1000);
-        assertEquals(analyze("INSERT INTO test SELECT * FROM source LIMIT 1000"), DETERMINISTIC);
+        assertAnalysis("INSERT INTO test SELECT * FROM source LIMIT 1000", DETERMINISTIC);
     }
 
     @Test
     public void testFailedDataChanged()
     {
         rowCount.set(999);
-        assertEquals(analyze("INSERT INTO test SELECT * FROM source LIMIT 1000"), FAILED_DATA_CHANGED);
+        assertAnalysis("INSERT INTO test SELECT * FROM source LIMIT 1000", FAILED_DATA_CHANGED);
     }
 
-    private LimitQueryDeterminismAnalysis analyze(String query)
+    private void assertAnalysis(String query, LimitQueryDeterminismAnalysis expectedAnalysis)
     {
-        return analyzer.analyze(
+        VerificationContext verificationContext = new VerificationContext();
+        LimitQueryDeterminismAnalysis analysis = analyzer.analyze(
                 new QueryBundle(
                         TABLE_NAME,
                         ImmutableList.of(),
                         sqlParser.createStatement(query, PARSING_OPTIONS),
                         ImmutableList.of(),
                         CONTROL),
-                ROW_COUNT_WITH_LIMIT);
+                ROW_COUNT_WITH_LIMIT,
+                verificationContext);
+
+        assertEquals(analysis, expectedAnalysis);
+        if (expectedAnalysis == NOT_RUN) {
+            assertFalse(verificationContext.getLimitQueryAnalysisQueryId().isPresent());
+        }
+        else {
+            assertTrue(verificationContext.getLimitQueryAnalysisQueryId().isPresent());
+        }
     }
 
     private void assertRowCountQuery(String expectedQuery)

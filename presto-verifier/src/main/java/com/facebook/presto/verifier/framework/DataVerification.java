@@ -20,12 +20,14 @@ import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
+import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +49,7 @@ import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEM
 import static com.facebook.presto.verifier.framework.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
+import static com.facebook.presto.verifier.framework.VerifierUtil.runWithQueryStatsConsumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -99,28 +102,33 @@ public class DataVerification
     }
 
     @Override
-    protected DeterminismAnalysis analyzeDeterminism(QueryBundle control, ChecksumResult firstChecksum)
+    protected DeterminismAnalysis analyzeDeterminism(QueryBundle control, ChecksumResult controlChecksum)
     {
         List<Column> columns = getColumns(control.getTableName());
+        List<QueryBundle> queryBundles = new ArrayList<>();
 
-        QueryBundle secondRun = null;
-        QueryBundle thirdRun = null;
         try {
-            secondRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
-            setupAndRun(secondRun, true);
-            DeterminismAnalysis determinismAnalysis = matchResultToDeterminism(match(columns, columns, firstChecksum, computeChecksum(secondRun, columns).getResult()));
-            if (determinismAnalysis != DETERMINISTIC) {
-                return determinismAnalysis;
+            for (int i = 0; i < 2; i++) {
+                QueryBundle queryBundle = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
+                queryBundles.add(queryBundle);
+                DeterminismAnalysisRun.Builder run = getVerificationContext().startDeterminismAnalysisRun().setTableName(queryBundle.getTableName().toString());
+
+                runWithQueryStatsConsumer(() -> setupAndRun(queryBundle, true), stats -> run.setQueryId(stats.getQueryId()));
+
+                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getTableName(), columns);
+                ChecksumResult testChecksum = getOnlyElement(callWithQueryStatsConsumer(
+                        () -> executeChecksumQuery(checksumQuery),
+                        stats -> run.setChecksumQueryId(stats.getQueryId())).getResults());
+
+                DeterminismAnalysis determinismAnalysis = matchResultToDeterminism(match(columns, columns, controlChecksum, testChecksum));
+                if (determinismAnalysis != DETERMINISTIC) {
+                    return determinismAnalysis;
+                }
             }
 
-            thirdRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
-            setupAndRun(thirdRun, true);
-            determinismAnalysis = matchResultToDeterminism(match(columns, columns, firstChecksum, computeChecksum(thirdRun, columns).getResult()));
-            if (determinismAnalysis != DETERMINISTIC) {
-                return determinismAnalysis;
-            }
+            LimitQueryDeterminismAnalysis analysis = limitQueryDeterminismAnalyzer.analyze(control, controlChecksum.getRowCount(), getVerificationContext());
+            getVerificationContext().setLimitQueryAnalysis(analysis);
 
-            LimitQueryDeterminismAnalysis analysis = limitQueryDeterminismAnalyzer.analyze(control, firstChecksum.getRowCount());
             switch (analysis) {
                 case NON_DETERMINISTIC:
                     return NON_DETERMINISTIC_LIMIT_CLAUSE;
@@ -140,8 +148,7 @@ public class DataVerification
             return ANALYSIS_FAILED;
         }
         finally {
-            teardownSafely(secondRun);
-            teardownSafely(thirdRun);
+            queryBundles.forEach(this::teardownSafely);
         }
     }
 
@@ -207,47 +214,5 @@ public class DataVerification
     private QueryResult<ChecksumResult> executeChecksumQuery(Query query)
     {
         return getPrestoAction().execute(query, CHECKSUM, ChecksumResult::fromResultSet);
-    }
-
-    private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns)
-    {
-        Query checksumQuery = checksumValidator.generateChecksumQuery(bundle.getTableName(), columns);
-        QueryResult<ChecksumResult> queryResult = getPrestoAction().execute(
-                checksumQuery,
-                CHECKSUM,
-                ChecksumResult::fromResultSet);
-        return new ChecksumQueryAndResult(
-                queryResult.getQueryStats().getQueryId(),
-                checksumQuery,
-                getOnlyElement(queryResult.getResults()));
-    }
-
-    private class ChecksumQueryAndResult
-    {
-        private final String queryId;
-        private final Query query;
-        private final ChecksumResult result;
-
-        public ChecksumQueryAndResult(String queryId, Query query, ChecksumResult result)
-        {
-            this.queryId = requireNonNull(queryId, "queryId is null");
-            this.query = requireNonNull(query, "query is null");
-            this.result = requireNonNull(result, "result is null");
-        }
-
-        public String getQueryId()
-        {
-            return queryId;
-        }
-
-        public Query getQuery()
-        {
-            return query;
-        }
-
-        public ChecksumResult getResult()
-        {
-            return result;
-        }
     }
 }

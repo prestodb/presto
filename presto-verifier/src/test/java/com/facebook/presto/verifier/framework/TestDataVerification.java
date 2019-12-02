@@ -22,6 +22,7 @@ import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
 import com.facebook.presto.verifier.checksum.OrderableArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
+import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
@@ -231,6 +232,10 @@ public class TestDataVerification
                         "Control 1 rows, Test 1 rows\n" +
                         "Mismatched Columns:\n" +
                         "  _col0 \\(double\\): control\\(sum: .*\\) test\\(sum: 2.0\\) relative error: .*\n"));
+
+        List<DeterminismAnalysisRun> runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), 1);
+        assertDeterminismAnalysisRun(runs.get(0));
     }
 
     @Test
@@ -252,6 +257,11 @@ public class TestDataVerification
                         "Control 1 rows, Test 1 rows\n" +
                         "Mismatched Columns:\n" +
                         "  _col0 \\(array\\(row\\(integer, varchar\\(1\\)\\)\\)\\): control\\(checksum: 71 b5 2f 7f 1e 9b a6 a4\\) test\\(checksum: b4 3c 7d 02 2b 14 77 12\\)\n"));
+
+        List<DeterminismAnalysisRun> runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), 2);
+        assertDeterminismAnalysisRun(runs.get(0));
+        assertDeterminismAnalysisRun(runs.get(1));
     }
 
     @Test
@@ -291,5 +301,12 @@ public class TestDataVerification
             assertTrue(expectedErrorMessageRegex.isPresent());
             assertTrue(Pattern.compile(expectedErrorMessageRegex.get(), MULTILINE + DOTALL).matcher(event.getErrorMessage()).matches());
         }
+    }
+
+    private void assertDeterminismAnalysisRun(DeterminismAnalysisRun run)
+    {
+        assertNotNull(run.getTableName());
+        assertNotNull(run.getQueryId());
+        assertNotNull(run.getChecksumQueryId());
     }
 }
