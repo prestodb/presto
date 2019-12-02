@@ -60,6 +60,7 @@ public class DataVerification
     private final TypeManager typeManager;
     private final ChecksumValidator checksumValidator;
     private final LimitQueryDeterminismAnalyzer limitQueryDeterminismAnalyzer;
+    private final boolean runTeardownForDeterminismAnalysis;
 
     private final int maxDeterminismAnalysisRuns;
 
@@ -79,6 +80,7 @@ public class DataVerification
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.limitQueryDeterminismAnalyzer = requireNonNull(limitQueryDeterminismAnalyzer, "limitQueryDeterminismAnalyzer is null");
+        this.runTeardownForDeterminismAnalysis = verifierConfig.isRunTeardownForDeterminismAnalysis();
         this.maxDeterminismAnalysisRuns = verifierConfig.getMaxDeterminismAnalysisRuns();
     }
 
@@ -151,7 +153,9 @@ public class DataVerification
             return ANALYSIS_FAILED;
         }
         finally {
-            queryBundles.forEach(this::teardownSafely);
+            if (runTeardownForDeterminismAnalysis) {
+                queryBundles.forEach(this::teardownSafely);
+            }
         }
     }
 

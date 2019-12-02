@@ -45,6 +45,8 @@ public class VerifierConfig
     private double relativeErrorMargin = 1e-4;
     private double absoluteErrorMargin = 1e-12;
     private boolean runTeardownOnResultMismatch;
+    private boolean runTeardownForDeterminismAnalysis;
+
     private int maxDeterminismAnalysisRuns = 2;
     private boolean enableLimitQueryDeterminismAnalyzer = true;
     private int verificationResubmissionLimit = 2;
@@ -230,6 +232,19 @@ public class VerifierConfig
     public VerifierConfig setRunTeardownOnResultMismatch(boolean runTeardownOnResultMismatch)
     {
         this.runTeardownOnResultMismatch = runTeardownOnResultMismatch;
+        return this;
+    }
+
+    public boolean isRunTeardownForDeterminismAnalysis()
+    {
+        return runTeardownForDeterminismAnalysis;
+    }
+
+    @ConfigDescription("When set to false, temporary tables are not dropped for determinism analysis runs")
+    @Config("run-teardown-for-determinism-analysis")
+    public VerifierConfig setRunTeardownForDeterminismAnalysis(boolean runTeardownForDeterminismAnalysis)
+    {
+        this.runTeardownForDeterminismAnalysis = runTeardownForDeterminismAnalysis;
         return this;
     }
 
