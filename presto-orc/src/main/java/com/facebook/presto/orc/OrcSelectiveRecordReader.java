@@ -28,6 +28,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockLease;
+import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +41,10 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -372,6 +377,7 @@ public class OrcSelectiveRecordReader
         }
 
         boolean filterFunctionsApplied = filterFunctionsWithInputs.isEmpty();
+        int offset = getNextRowInGroup();
 
         for (int columnIndex : streamReaderOrder) {
             if (!filterFunctionsApplied && !hasAnyFilter(columnIndex)) {
@@ -384,8 +390,12 @@ public class OrcSelectiveRecordReader
                 filterFunctionsApplied = true;
             }
 
+            if (!hasAnyFilter(columnIndex)) {
+                break;
+            }
+
             SelectiveStreamReader streamReader = getStreamReader(columnIndex);
-            positionCount = streamReader.read(getNextRowInGroup(), positionsToRead, positionCount);
+            positionCount = streamReader.read(offset, positionsToRead, positionCount);
             if (positionCount == 0) {
                 break;
             }
@@ -424,6 +434,9 @@ public class OrcSelectiveRecordReader
             int columnIndex = outputColumns.get(i);
             if (constantValues[columnIndex] != null) {
                 blocks[i] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex] == NULL_MARKER ? null : constantValues[columnIndex], positionCount);
+            }
+            else if (!hasAnyFilter(columnIndex)) {
+                blocks[i] = new LazyBlock(positionCount, new OrcBlockLoader(getStreamReader(columnIndex), coercers[columnIndex], offset, positionsToRead, positionCount));
             }
             else {
                 Block block = getStreamReader(columnIndex).getBlock(positionsToRead, positionCount);
@@ -567,5 +580,49 @@ public class OrcSelectiveRecordReader
         }
 
         super.close();
+    }
+
+    private static final class OrcBlockLoader
+            implements LazyBlockLoader<LazyBlock>
+    {
+        private final SelectiveStreamReader reader;
+        @Nullable
+        private final Function<Block, Block> coercer;
+        private final int offset;
+        private final int[] positions;
+        private final int positionCount;
+        private boolean loaded;
+
+        public OrcBlockLoader(SelectiveStreamReader reader, @Nullable Function<Block, Block> coercer, int offset, int[] positions, int positionCount)
+        {
+            this.reader = requireNonNull(reader, "reader is null");
+            this.coercer = coercer; // can be null
+            this.offset = offset;
+            this.positions = requireNonNull(positions, "positions is null");
+            this.positionCount = positionCount;
+        }
+
+        @Override
+        public final void load(LazyBlock lazyBlock)
+        {
+            if (loaded) {
+                return;
+            }
+
+            try {
+                reader.read(offset, positions, positionCount);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+
+            Block block = reader.getBlock(positions, positionCount);
+            if (coercer != null) {
+                block = coercer.apply(block);
+            }
+            lazyBlock.setBlock(block);
+
+            loaded = true;
+        }
     }
 }
