@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.Metadata;
@@ -23,17 +22,12 @@ import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
-import com.facebook.presto.sql.analyzer.Field;
-import com.facebook.presto.sql.analyzer.RelationId;
-import com.facebook.presto.sql.analyzer.RelationType;
-import com.facebook.presto.sql.analyzer.Scope;
-import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -51,14 +45,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeSqlFunctionExpression;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlFunctionUtils
@@ -68,16 +61,13 @@ public final class SqlFunctionUtils
     public static Expression getSqlFunctionExpression(FunctionMetadata functionMetadata, SqlInvokedScalarFunctionImplementation implementation, SqlFunctionProperties sqlFunctionProperties, List<Expression> arguments)
     {
         checkArgument(functionMetadata.getImplementationType().equals(SQL), format("Expect SQL function, get %s", functionMetadata.getImplementationType()));
-        ParsingOptions parsingOptions = ParsingOptions.builder()
-                .setDecimalLiteralTreatment(sqlFunctionProperties.isParseDecimalLiteralAsDouble() ? AS_DOUBLE : AS_DECIMAL)
-                .build();
         Expression expression = parseSqlFunctionExpression(implementation, sqlFunctionProperties);
         return SqlFunctionArgumentBinder.bindFunctionArguments(expression, functionMetadata.getArgumentNames().get(), arguments);
     }
 
     public static RowExpression getSqlFunctionRowExpression(FunctionMetadata functionMetadata, SqlInvokedScalarFunctionImplementation functionImplementation, Metadata metadata, SqlFunctionProperties sqlFunctionProperties, List<RowExpression> arguments)
     {
-        Expression expression = parseSqlFunctionExpression(functionImplementation, sqlFunctionProperties);
+        Expression expression = coerceIfNecessary(functionMetadata, parseSqlFunctionExpression(functionImplementation, sqlFunctionProperties), sqlFunctionProperties, metadata);
 
         // Allocate variables for identifiers
         PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
@@ -93,7 +83,7 @@ public final class SqlFunctionUtils
         return SqlFunctionArgumentBinder.bindFunctionArguments(
                 SqlToRowExpressionTranslator.translate(
                         lambdaCaptureDesugaredExpression,
-                        getSqlFunctionExpressionTypes(metadata, sqlFunctionProperties, lambdaCaptureDesugaredExpression, variableAllocator.getTypes().allTypes()),
+                        analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, lambdaCaptureDesugaredExpression, variableAllocator.getTypes().allTypes()).getExpressionTypes(),
                         ImmutableMap.of(),
                         metadata.getFunctionManager(),
                         metadata.getTypeManager(),
@@ -117,34 +107,6 @@ public final class SqlFunctionUtils
         return new SqlParser().createExpression(functionImplementation.getImplementation(), parsingOptions);
     }
 
-    private static Map<NodeRef<Expression>, Type> getSqlFunctionExpressionTypes(
-            Metadata metadata,
-            SqlFunctionProperties sqlFunctionProperties,
-            Expression expression,
-            Map<String, Type> argumentTypes)
-    {
-        ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionManager(),
-                metadata.getTypeManager(),
-                Optional.empty(),
-                sqlFunctionProperties,
-                TypeProvider.copyOf(argumentTypes),
-                emptyList(),
-                node -> new SemanticException(NOT_SUPPORTED, node, "SQL function does not support subquery"),
-                WarningCollector.NOOP,
-                false);
-
-        analyzer.analyze(
-                expression,
-                Scope.builder()
-                        .withRelationType(
-                                RelationId.anonymous(),
-                                new RelationType(argumentTypes.entrySet().stream()
-                                        .map(entry -> Field.newUnqualified(entry.getKey(), entry.getValue()))
-                                        .collect(toImmutableList()))).build());
-        return analyzer.getExpressionTypes();
-    }
-
     private static Map<String, Type> getFunctionArgumentTypes(FunctionMetadata functionMetadata, Metadata metadata)
     {
         List<String> argumentNames = functionMetadata.getArgumentNames().get();
@@ -161,7 +123,7 @@ public final class SqlFunctionUtils
     {
         // Allocate variables for identifiers
         Map<String, Type> argumentTypes = getFunctionArgumentTypes(functionMetadata, metadata);
-        Map<NodeRef<Expression>, Type> expressionTypes = getSqlFunctionExpressionTypes(metadata, sqlFunctionProperties, sqlFunction, argumentTypes);
+        Map<NodeRef<Expression>, Type> expressionTypes = analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, sqlFunction, argumentTypes).getExpressionTypes();
         Map<Identifier, VariableReferenceExpression> variables = new LinkedHashMap<>();
         for (Map.Entry<NodeRef<Expression>, Type> entry : expressionTypes.entrySet()) {
             Expression node = entry.getKey().getNode();
@@ -202,6 +164,30 @@ public final class SqlFunctionUtils
                 return new SymbolReference(context.get(node).getName());
             }
         }, sqlFunction, variableMap);
+    }
+
+    private static Expression coerceIfNecessary(FunctionMetadata functionMetadata, Expression sqlFunction, SqlFunctionProperties sqlFunctionProperties, Metadata metadata)
+    {
+        ExpressionAnalysis analysis = analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, sqlFunction, getFunctionArgumentTypes(functionMetadata, metadata));
+
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<ExpressionAnalysis>()
+        {
+            @Override
+            public Expression rewriteExpression(Expression expression, ExpressionAnalysis context, ExpressionTreeRewriter<ExpressionAnalysis> treeRewriter)
+            {
+                Expression rewritten = treeRewriter.defaultRewrite(expression, null);
+
+                Type coercion = analysis.getCoercion(expression);
+                if (coercion != null) {
+                    return new Cast(
+                            rewritten,
+                            coercion.getTypeSignature().toString(),
+                            false,
+                            analysis.isTypeOnlyCoercion(expression));
+                }
+                return rewritten;
+            }
+        }, sqlFunction, analysis);
     }
 
     private static final class SqlFunctionArgumentBinder
