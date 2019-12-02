@@ -46,6 +46,7 @@ import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_C
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
 import static com.facebook.presto.verifier.framework.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
+import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -76,22 +77,25 @@ public class DataVerification
     }
 
     @Override
-    public VerificationResult verify(QueryBundle control, QueryBundle test)
+    public MatchResult verify(QueryBundle control, QueryBundle test)
     {
         List<Column> controlColumns = getColumns(control.getTableName());
         List<Column> testColumns = getColumns(test.getTableName());
-        ChecksumQueryAndResult controlChecksum = computeChecksum(control, controlColumns);
-        ChecksumQueryAndResult testChecksum = computeChecksum(test, testColumns);
-        return new VerificationResult(
-                controlChecksum.getQueryId(),
-                testChecksum.getQueryId(),
-                formatSql(controlChecksum.getQuery()),
-                formatSql(testChecksum.getQuery()),
-                match(
-                        controlColumns,
-                        testColumns,
-                        controlChecksum.getResult(),
-                        testChecksum.getResult()));
+
+        Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getTableName(), controlColumns);
+        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getTableName(), testColumns);
+
+        getVerificationContext().setControlChecksumQuery(formatSql(controlChecksumQuery));
+        getVerificationContext().setTestChecksumQuery(formatSql(testChecksumQuery));
+
+        QueryResult<ChecksumResult> controlChecksum = callWithQueryStatsConsumer(
+                () -> executeChecksumQuery(controlChecksumQuery),
+                stats -> getVerificationContext().setControlChecksumQueryId(stats.getQueryId()));
+        QueryResult<ChecksumResult> testChecksum = callWithQueryStatsConsumer(
+                () -> executeChecksumQuery(testChecksumQuery),
+                stats -> getVerificationContext().setTestChecksumQueryId(stats.getQueryId()));
+
+        return match(controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));
     }
 
     @Override
@@ -198,6 +202,11 @@ public class DataVerification
         return getPrestoAction()
                 .execute(new ShowColumns(tableName), DESCRIBE, resultSet -> Column.fromResultSet(typeManager, resultSet))
                 .getResults();
+    }
+
+    private QueryResult<ChecksumResult> executeChecksumQuery(Query query)
+    {
+        return getPrestoAction().execute(query, CHECKSUM, ChecksumResult::fromResultSet);
     }
 
     private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns)

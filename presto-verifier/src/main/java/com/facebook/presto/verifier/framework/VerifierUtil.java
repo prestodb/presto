@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.tree.Identifier;
+
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 
@@ -29,5 +33,28 @@ public class VerifierUtil
     public static Identifier delimitedIdentifier(String name)
     {
         return new Identifier(name, true);
+    }
+
+    public static <V> QueryResult<V> callWithQueryStatsConsumer(Callable<QueryResult<V>> callable, Consumer<QueryStats> queryStatsConsumer)
+    {
+        return callWithQueryStatsConsumer(callable, QueryResult::getQueryStats, queryStatsConsumer);
+    }
+
+    private static <V> V callWithQueryStatsConsumer(Callable<V> callable, Function<V, QueryStats> queryStatsTransformer, Consumer<QueryStats> queryStatsConsumer)
+    {
+        try {
+            V result = callable.call();
+            queryStatsConsumer.accept(queryStatsTransformer.apply(result));
+            return result;
+        }
+        catch (QueryException e) {
+            e.getQueryStats().ifPresent(queryStatsConsumer);
+            throw e;
+        }
+    }
+
+    public interface Callable<V>
+    {
+        V call();
     }
 }

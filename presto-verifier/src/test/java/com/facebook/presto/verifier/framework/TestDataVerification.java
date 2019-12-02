@@ -31,14 +31,17 @@ import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
@@ -55,10 +58,14 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.regex.Pattern.DOTALL;
 import static java.util.regex.Pattern.MULTILINE;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -245,6 +252,23 @@ public class TestDataVerification
                         "Control 1 rows, Test 1 rows\n" +
                         "Mismatched Columns:\n" +
                         "  _col0 \\(array\\(row\\(integer, varchar\\(1\\)\\)\\)\\): control\\(checksum: 71 b5 2f 7f 1e 9b a6 a4\\) test\\(checksum: b4 3c 7d 02 2b 14 77 12\\)\n"));
+    }
+
+    @Test
+    public void testChecksumQueryFailed()
+    {
+        List<String> columns = IntStream.range(0, 1000).mapToObj(i -> "c" + i).collect(toImmutableList());
+        queryRunner.execute(format("CREATE TABLE checksum_test (%s)", columns.stream().map(column -> column + " double").collect(joining(","))));
+
+        String query = format("SELECT %s FROM checksum_test", Joiner.on(",").join(columns));
+        Optional<VerifierQueryEvent> event = createVerification(query, query).run();
+
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), FAILED.name());
+        assertEquals(event.get().getErrorCode(), "PRESTO(COMPILER_ERROR)");
+        assertNotNull(event.get().getControlQueryInfo().getChecksumQuery());
+        assertNotNull(event.get().getControlQueryInfo().getChecksumQueryId());
+        assertNotNull(event.get().getTestQueryInfo().getChecksumQuery());
     }
 
     private void assertEvent(
