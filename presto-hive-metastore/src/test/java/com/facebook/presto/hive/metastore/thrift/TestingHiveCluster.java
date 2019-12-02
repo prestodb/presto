@@ -15,10 +15,10 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHiveMetastoreAuthentication;
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import org.apache.thrift.TException;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -39,7 +39,7 @@ public class TestingHiveCluster
     @Override
     public List<HostAndPort> getAddresses()
     {
-        return Collections.singletonList(address);
+        return ImmutableList.of(address);
     }
 
     @Override

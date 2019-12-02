@@ -25,7 +25,7 @@ public class NoHiveMetastoreAuthentication
     }
 
     @Override
-    public TTransport authenticateWithToken(TTransport rawTransport, String tokenStrForm)
+    public TTransport authenticateWithToken(TTransport rawTransport, String tokenString)
     {
         return rawTransport;
     }

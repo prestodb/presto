@@ -42,8 +42,8 @@ public class MetastoreClientConfig
     private String recordingPath;
     private boolean replay;
     private Duration recordingDuration = new Duration(0, MINUTES);
-    private String hmsImpersonationDefaultUser = "";
-    private boolean hmsImpersonationEnabled;
+    private String metastoreDefaultImpersonationUser = "";
+    private boolean metastoreImpersonationEnabled;
 
     public HostAndPort getMetastoreSocksProxy()
     {
@@ -198,29 +198,29 @@ public class MetastoreClientConfig
         return this;
     }
 
-    public boolean isHmsImpersonationEnabled()
+    public boolean isMetastoreImpersonationEnabled()
     {
-        return hmsImpersonationEnabled;
+        return metastoreImpersonationEnabled;
     }
 
-    @Config("hive.hms.impersonation.enabled")
-    @ConfigDescription("Should Presto user be impersonated when communicating with HMS")
-    public MetastoreClientConfig setHmsImpersonationEnabled(boolean hmsImpersonationEnabled)
+    @Config("hive.metastore.impersonation.enabled")
+    @ConfigDescription("Should Presto user be impersonated when communicating with Hive Metastore")
+    public MetastoreClientConfig setMetastoreImpersonationEnabled(boolean metastoreImpersonationEnabled)
     {
-        this.hmsImpersonationEnabled = hmsImpersonationEnabled;
+        this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
         return this;
     }
 
-    public String getHmsImpersonationDefaultUser()
+    public String getMetastoreDefaultImpersonationUser()
     {
-        return hmsImpersonationDefaultUser;
+        return metastoreDefaultImpersonationUser;
     }
 
-    @Config("hive.hms.impersonation.user")
-    @ConfigDescription("Default impersonation user when communicating with HMS")
-    public MetastoreClientConfig setHmsImpersonationDefaultUser(String hmsImpersonationDefaultUser)
+    @Config("hive.metastore.impersonation.user")
+    @ConfigDescription("Default impersonation user when communicating with Hive Metastore")
+    public MetastoreClientConfig setMetastoreDefaultImpersonationUser(String metastoreDefaultImpersonationUser)
     {
-        this.hmsImpersonationDefaultUser = hmsImpersonationDefaultUser;
+        this.metastoreDefaultImpersonationUser = metastoreDefaultImpersonationUser;
         return this;
     }
 }

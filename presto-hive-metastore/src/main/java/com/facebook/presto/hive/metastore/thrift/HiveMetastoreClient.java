@@ -40,7 +40,7 @@ public interface HiveMetastoreClient
 
     HostAndPort getAddress();
 
-    Client getHMSClient();
+    Client getMetastoreClient();
 
     List<String> getAllDatabases()
             throws TException;

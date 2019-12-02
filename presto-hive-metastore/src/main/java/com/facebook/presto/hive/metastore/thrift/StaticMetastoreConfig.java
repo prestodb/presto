@@ -31,7 +31,7 @@ public class StaticMetastoreConfig
 
     private List<URI> metastoreUris;
     private String metastoreUsername;
-    private boolean isMultiHMSEnabled;
+    private boolean isMultipleMetastoreEnabled;
 
     @NotNull
     public List<URI> getMetastoreUris()
@@ -52,16 +52,16 @@ public class StaticMetastoreConfig
         return this;
     }
 
-    public boolean isMultiHMSEnabled()
+    public boolean isMultipleMetastoreEnabled()
     {
-        return isMultiHMSEnabled;
+        return isMultipleMetastoreEnabled;
     }
 
-    @Config("hive.metastore.multi-instance.enabled")
-    @ConfigDescription("Whether enable the load balancing between all configured HMS instance")
-    public StaticMetastoreConfig setMultiHMSEnabled(boolean enabled)
+    @Config("hive.metastore.multiple-instance.enabled")
+    @ConfigDescription("Enable load balancing between multiple Metastore instances")
+    public StaticMetastoreConfig setMultipleMetastoreEnabled(boolean enabled)
     {
-        this.isMultiHMSEnabled = enabled;
+        this.isMultipleMetastoreEnabled = enabled;
         return this;
     }
 
