@@ -116,7 +116,7 @@ public class DataVerification
                 return determinismAnalysis;
             }
 
-            LimitQueryDeterminismAnalyzer.Analysis analysis = limitQueryDeterminismAnalyzer.analyze(control, firstChecksum.getRowCount());
+            LimitQueryDeterminismAnalysis analysis = limitQueryDeterminismAnalyzer.analyze(control, firstChecksum.getRowCount());
             switch (analysis) {
                 case NON_DETERMINISTIC:
                     return NON_DETERMINISTIC_LIMIT_CLAUSE;
