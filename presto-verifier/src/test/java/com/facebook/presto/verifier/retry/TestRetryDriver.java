@@ -32,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestRetryDriver
 {
     private static class MockOperation
@@ -108,7 +109,6 @@ public class TestRetryDriver
     @Test(timeOut = 5000)
     public void testBackoffTimeCapped()
     {
-        verificationContext = new VerificationContext();
         RetryDriver retryDriver = new RetryDriver<>(
                 new RetryConfig()
                         .setMaxAttempts(5)
