@@ -139,7 +139,7 @@ public class TestLimitQueryDeterminismAnalyzer
     {
         return analyzer.analyze(
                 new QueryBundle(
-                        Optional.of(TABLE_NAME),
+                        TABLE_NAME,
                         ImmutableList.of(),
                         sqlParser.createStatement(query, PARSING_OPTIONS),
                         ImmutableList.of(),
