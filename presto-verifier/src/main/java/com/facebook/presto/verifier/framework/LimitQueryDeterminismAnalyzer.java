@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -32,24 +31,16 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.DETERMINISTIC;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.FAILED_DATA_CHANGED;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.NON_DETERMINISTIC;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.NOT_RUN;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class LimitQueryDeterminismAnalyzer
 {
-    public enum Analysis
-    {
-        NOT_RUN,
-        NON_DETERMINISTIC,
-        DETERMINISTIC,
-        FAILED_DATA_CHANGED,
-    }
-
     private final PrestoAction prestoAction;
     private final boolean enabled;
 
@@ -59,7 +50,7 @@ public class LimitQueryDeterminismAnalyzer
         this.enabled = verifierConfig.isEnableLimitQueryDeterminismAnalyzer();
     }
 
-    public Analysis analyze(QueryBundle control, long rowCount)
+    public LimitQueryDeterminismAnalysis analyze(QueryBundle control, long rowCount)
     {
         if (!enabled) {
             return NOT_RUN;

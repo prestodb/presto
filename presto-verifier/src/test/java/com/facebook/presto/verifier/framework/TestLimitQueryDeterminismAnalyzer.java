@@ -19,7 +19,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeMethod;
@@ -33,10 +32,10 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.DETERMINISTIC;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.FAILED_DATA_CHANGED;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.NON_DETERMINISTIC;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.NOT_RUN;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -136,7 +135,7 @@ public class TestLimitQueryDeterminismAnalyzer
         assertEquals(analyze("INSERT INTO test SELECT * FROM source LIMIT 1000"), FAILED_DATA_CHANGED);
     }
 
-    private Analysis analyze(String query)
+    private LimitQueryDeterminismAnalysis analyze(String query)
     {
         return analyzer.analyze(
                 new QueryBundle(
