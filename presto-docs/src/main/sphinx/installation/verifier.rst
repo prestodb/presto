@@ -22,12 +22,13 @@ Create a MySQL database with the following table and load it with the queries yo
         control_query text NOT NULL,
         control_username varchar(256) DEFAULT NULL,
         control_password varchar(256) DEFAULT NULL,
-        session_properties_json text DEFAULT NULL,
+        control_session_properties text DEFAULT NULL,
         test_catalog varchar(256) NOT NULL,
         test_schema varchar(256) NOT NULL,
         test_query text NOT NULL,
         test_username varchar(256) DEFAULT NULL,
-        test_password varchar(256) DEFAULT NULL)
+        test_password varchar(256) DEFAULT NULL,
+        test_session_properties text DEFAULT NULL)
 
 Next, create a properties file to configure the verifier:
 

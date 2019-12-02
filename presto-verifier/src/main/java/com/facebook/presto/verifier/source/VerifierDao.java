@@ -35,12 +35,13 @@ public interface VerifierDao
             "  control_query text NOT NULL,\n" +
             "  control_username varchar(256) DEFAULT NULL,\n" +
             "  control_password varchar(256) DEFAULT NULL,\n" +
+            "  control_session_properties text DEFAULT NULL,\n" +
             "  test_catalog varchar(256) NOT NULL,\n" +
             "  test_schema varchar(256) NOT NULL,\n" +
             "  test_query text NOT NULL,\n" +
             "  test_username varchar(256) DEFAULT NULL,\n" +
             "  test_password varchar(256) DEFAULT NULL,\n" +
-            "  session_properties_json text DEFAULT NULL)")
+            "  test_session_properties text DEFAULT NULL)")
     void createVerifierQueriesTable(@Define("table_name") String tableName);
 
     @SqlQuery("SELECT\n" +
@@ -51,13 +52,13 @@ public interface VerifierDao
             "  control_schema,\n" +
             "  control_username,\n" +
             "  control_password,\n" +
-            "  session_properties_json test_session_properties,\n" +
+            "  control_session_properties,\n" +
             "  test_query,\n" +
             "  test_catalog,\n" +
             "  test_schema,\n" +
             "  test_username,\n" +
             "  test_password,\n" +
-            "  session_properties_json control_session_properties\n" +
+            "  test_session_properties\n" +
             "FROM\n" +
             "  <table_name>\n" +
             "WHERE\n" +
