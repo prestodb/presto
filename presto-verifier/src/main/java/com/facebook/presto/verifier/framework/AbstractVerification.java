@@ -92,7 +92,7 @@ public abstract class AbstractVerification
         this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
         this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
-        this.runTearDownOnResultMismatch = verifierConfig.isRunTearDownOnResultMismatch();
+        this.runTearDownOnResultMismatch = verifierConfig.isRunTeardownOnResultMismatch();
     }
 
     protected abstract MatchResult verify(QueryBundle control, QueryBundle test);
