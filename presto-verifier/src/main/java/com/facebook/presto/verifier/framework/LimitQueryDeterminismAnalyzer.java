@@ -36,6 +36,7 @@ import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalys
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
+import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -50,7 +51,7 @@ public class LimitQueryDeterminismAnalyzer
         this.enabled = verifierConfig.isEnableLimitQueryDeterminismAnalyzer();
     }
 
-    public LimitQueryDeterminismAnalysis analyze(QueryBundle control, long rowCount)
+    public LimitQueryDeterminismAnalysis analyze(QueryBundle control, long rowCount, VerificationContext verificationContext)
     {
         if (!enabled) {
             return NOT_RUN;
@@ -121,8 +122,12 @@ public class LimitQueryDeterminismAnalyzer
         Query rowCountQuery = simpleQuery(
                 new Select(false, ImmutableList.of(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new LongLiteral("1")))))),
                 new TableSubquery(queryNoLimit));
-        long rowCountNoLimit = getOnlyElement(prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS, resultSet -> resultSet.getLong(1)).getResults());
 
+        QueryResult<Long> result = callWithQueryStatsConsumer(
+                () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS, resultSet -> resultSet.getLong(1)),
+                stats -> verificationContext.setLimitQueryAnalysisQueryId(stats.getQueryId()));
+
+        long rowCountNoLimit = getOnlyElement(result.getResults());
         if (rowCountNoLimit > rowCount) {
             return NON_DETERMINISTIC;
         }

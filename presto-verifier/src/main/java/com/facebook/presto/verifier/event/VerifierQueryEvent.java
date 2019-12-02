@@ -48,6 +48,7 @@ public class VerifierQueryEvent
 
     private final Boolean deterministic;
     private final String determinismAnalysis;
+    private final DeterminismAnalysisDetails determinismAnalysisDetails;
     private final String resolveMessage;
 
     private final QueryInfo controlQueryInfo;
@@ -66,6 +67,7 @@ public class VerifierQueryEvent
             EventStatus status,
             Optional<SkippedReason> skippedReason,
             Optional<DeterminismAnalysis> determinismAnalysis,
+            Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<String> resolveMessage,
             Optional<QueryInfo> controlQueryInfo,
             Optional<QueryInfo> testQueryInfo,
@@ -81,6 +83,7 @@ public class VerifierQueryEvent
         this.skippedReason = skippedReason.map(SkippedReason::name).orElse(null);
         this.deterministic = determinismAnalysis.filter(d -> !d.isUnknown()).map(DeterminismAnalysis::isDeterministic).orElse(null);
         this.determinismAnalysis = determinismAnalysis.map(DeterminismAnalysis::name).orElse(null);
+        this.determinismAnalysisDetails = determinismAnalysisDetails.orElse(null);
         this.resolveMessage = resolveMessage.orElse(null);
         this.controlQueryInfo = controlQueryInfo.orElse(null);
         this.testQueryInfo = testQueryInfo.orElse(null);
@@ -102,6 +105,7 @@ public class VerifierQueryEvent
                 name,
                 SKIPPED,
                 Optional.of(skippedReason),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -153,6 +157,12 @@ public class VerifierQueryEvent
     public String getDeterminismAnalysis()
     {
         return determinismAnalysis;
+    }
+
+    @EventField
+    public DeterminismAnalysisDetails getDeterminismAnalysisDetails()
+    {
+        return determinismAnalysisDetails;
     }
 
     @EventField

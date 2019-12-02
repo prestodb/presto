@@ -21,6 +21,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static com.google.common.base.Functions.identity;
 
 public class VerifierUtil
 {
@@ -33,6 +34,11 @@ public class VerifierUtil
     public static Identifier delimitedIdentifier(String name)
     {
         return new Identifier(name, true);
+    }
+
+    public static void runWithQueryStatsConsumer(Callable<QueryStats> callable, Consumer<QueryStats> queryStatsConsumer)
+    {
+        callWithQueryStatsConsumer(callable, identity(), queryStatsConsumer);
     }
 
     public static <V> QueryResult<V> callWithQueryStatsConsumer(Callable<QueryResult<V>> callable, Consumer<QueryStats> queryStatsConsumer)
