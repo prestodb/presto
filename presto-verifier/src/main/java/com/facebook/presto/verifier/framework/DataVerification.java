@@ -61,6 +61,8 @@ public class DataVerification
     private final ChecksumValidator checksumValidator;
     private final LimitQueryDeterminismAnalyzer limitQueryDeterminismAnalyzer;
 
+    private final int maxDeterminismAnalysisRuns;
+
     public DataVerification(
             VerificationResubmitter verificationResubmitter,
             PrestoAction prestoAction,
@@ -77,6 +79,7 @@ public class DataVerification
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.limitQueryDeterminismAnalyzer = requireNonNull(limitQueryDeterminismAnalyzer, "limitQueryDeterminismAnalyzer is null");
+        this.maxDeterminismAnalysisRuns = verifierConfig.getMaxDeterminismAnalysisRuns();
     }
 
     @Override
@@ -108,7 +111,7 @@ public class DataVerification
         List<QueryBundle> queryBundles = new ArrayList<>();
 
         try {
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < maxDeterminismAnalysisRuns; i++) {
                 QueryBundle queryBundle = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
                 queryBundles.add(queryBundle);
                 DeterminismAnalysisRun.Builder run = getVerificationContext().startDeterminismAnalysisRun().setTableName(queryBundle.getTableName().toString());

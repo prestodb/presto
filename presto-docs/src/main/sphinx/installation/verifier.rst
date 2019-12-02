@@ -79,4 +79,6 @@ Name                              Description
                                   test clusters combined.
 ``relative-error-margin``         Specified the maximum tolerable relative error between control and test
                                   queries for floating point columns.
+``max-determinism-analysis-runs`` Maximum number of reruns of the control queries in case of a result
+                                  mismatch to determine whether the query is deterministic.
 ================================= =======================================================================

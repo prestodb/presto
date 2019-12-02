@@ -87,10 +87,14 @@ public class TestDataVerification
 
     private DataVerification createVerification(String controlQuery, String testQuery)
     {
+        return createVerification(controlQuery, testQuery, new VerifierConfig().setTestId(TEST_ID));
+    }
+
+    private DataVerification createVerification(String controlQuery, String testQuery, VerifierConfig verifierConfig)
+    {
         QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
         VerificationContext verificationContext = new VerificationContext();
         RetryConfig retryConfig = new RetryConfig();
-        VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         PrestoAction prestoAction = new JdbcPrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
                 configuration,
@@ -241,7 +245,9 @@ public class TestDataVerification
     @Test
     public void testArrayOfRow()
     {
-        Optional<VerifierQueryEvent> event = createVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]").run();
+        Optional<VerifierQueryEvent> event = createVerification(
+                "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]",
+                new VerifierConfig().setTestId(TEST_ID).setMaxDeterminismAnalysisRuns(3)).run();
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
 

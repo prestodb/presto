@@ -45,6 +45,7 @@ public class VerifierConfig
     private double relativeErrorMargin = 1e-4;
     private double absoluteErrorMargin = 1e-12;
     private boolean runTearDownOnResultMismatch;
+    private int maxDeterminismAnalysisRuns = 2;
     private boolean enableLimitQueryDeterminismAnalyzer = true;
     private int verificationResubmissionLimit = 2;
 
@@ -229,6 +230,19 @@ public class VerifierConfig
     public VerifierConfig setRunTearDownOnResultMismatch(boolean runTearDownOnResultMismatch)
     {
         this.runTearDownOnResultMismatch = runTearDownOnResultMismatch;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxDeterminismAnalysisRuns()
+    {
+        return maxDeterminismAnalysisRuns;
+    }
+
+    @Config("max-determinism-analysis-runs")
+    public VerifierConfig setMaxDeterminismAnalysisRuns(int maxDeterminismAnalysisRuns)
+    {
+        this.maxDeterminismAnalysisRuns = maxDeterminismAnalysisRuns;
         return this;
     }
 
