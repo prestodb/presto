@@ -44,7 +44,7 @@ public class VerifierConfig
 
     private double relativeErrorMargin = 1e-4;
     private double absoluteErrorMargin = 1e-12;
-    private boolean runTearDownOnResultMismatch;
+    private boolean runTeardownOnResultMismatch;
     private int maxDeterminismAnalysisRuns = 2;
     private boolean enableLimitQueryDeterminismAnalyzer = true;
     private int verificationResubmissionLimit = 2;
@@ -220,16 +220,16 @@ public class VerifierConfig
         return this;
     }
 
-    public boolean isRunTearDownOnResultMismatch()
+    public boolean isRunTeardownOnResultMismatch()
     {
-        return runTearDownOnResultMismatch;
+        return runTeardownOnResultMismatch;
     }
 
     @ConfigDescription("When set to false, temporary tables are not dropped in case of checksum failure")
     @Config("run-teardown-on-result-mismatch")
-    public VerifierConfig setRunTearDownOnResultMismatch(boolean runTearDownOnResultMismatch)
+    public VerifierConfig setRunTeardownOnResultMismatch(boolean runTeardownOnResultMismatch)
     {
-        this.runTearDownOnResultMismatch = runTearDownOnResultMismatch;
+        this.runTeardownOnResultMismatch = runTeardownOnResultMismatch;
         return this;
     }
 

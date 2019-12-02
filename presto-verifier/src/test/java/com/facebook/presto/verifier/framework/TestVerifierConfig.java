@@ -40,7 +40,7 @@ public class TestVerifierConfig
                 .setQueryRepetitions(1)
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
-                .setRunTearDownOnResultMismatch(false)
+                .setRunTeardownOnResultMismatch(false)
                 .setMaxDeterminismAnalysisRuns(2)
                 .setEnableLimitQueryDeterminismAnalyzer(true)
                 .setVerificationResubmissionLimit(2));
@@ -80,7 +80,7 @@ public class TestVerifierConfig
                 .setQueryRepetitions(3)
                 .setRelativeErrorMargin(2e-5)
                 .setAbsoluteErrorMargin(1e-14)
-                .setRunTearDownOnResultMismatch(true)
+                .setRunTeardownOnResultMismatch(true)
                 .setMaxDeterminismAnalysisRuns(3)
                 .setEnableLimitQueryDeterminismAnalyzer(false)
                 .setVerificationResubmissionLimit(1);
