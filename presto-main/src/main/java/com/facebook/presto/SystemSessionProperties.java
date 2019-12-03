@@ -135,6 +135,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE = "optimize_full_outer_join_with_coalesce";
     public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
+    public static final String SIMPLIFY_ARRAY_OPERATIONS = "simplify_array_operations";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -664,6 +665,11 @@ public final class SystemSessionProperties
                         OPTIMIZED_REPARTITIONING_ENABLED,
                         "Experimental: Use optimized repartitioning",
                         featuresConfig.isOptimizedRepartitioningEnabled(),
+                        false),
+                booleanProperty(
+                        SIMPLIFY_ARRAY_OPERATIONS,
+                        "Simplify and optimize array operations.",
+                        true,
                         false));
     }
 
@@ -1133,5 +1139,9 @@ public final class SystemSessionProperties
     public static boolean isOptimizedRepartitioningEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZED_REPARTITIONING_ENABLED, Boolean.class);
+    }
+    public static boolean isSimplifyArrayOperations(Session session)
+    {
+        return session.getSystemProperty(SIMPLIFY_ARRAY_OPERATIONS, Boolean.class);
     }
 }

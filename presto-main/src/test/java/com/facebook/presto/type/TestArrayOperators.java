@@ -1892,6 +1892,15 @@ public class TestArrayOperators
         assertOperator(HASH_CODE, inputArray, BIGINT, arrayType.hash(arrayArrayBuilder.build(), 0));
     }
 
+    @Test
+    public void CardinalityOfFilterSimplification()
+    {
+        assertFunction("cardinality(filter(ARRAY[3,4,6,9,10], x -> x % 2 = 0))", BIGINT, 3L);
+        assertFunction("cardinality(filter(ARRAY[3,4,6,9,10], x -> x % 3 = 0)) = 3", BOOLEAN, true);
+        assertFunction("cardinality(filter(ARRAY[3,4,6,9,10], x -> x % 2 = 0)) > 0", BOOLEAN, true);
+        assertFunction("cardinality(filter(ARRAY[3,4,6,9,10], x -> x > 2)) = 0", BOOLEAN, false);
+    }
+
     private static SqlDate sqlDate(String dateString)
             throws ParseException
     {

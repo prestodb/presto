@@ -88,6 +88,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarAp
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
+import com.facebook.presto.sql.planner.iterative.rule.SimplifyArrayOperations;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
@@ -258,6 +259,11 @@ public class PlanOptimizers
         PlanOptimizer rowExpressionPredicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new RowExpressionPredicatePushDown(metadata, sqlParser));
 
         builder.add(
+                new IterativeOptimizer(
+                                ruleStats,
+                                statsCalculator,
+                                estimatedExchangesCostCalculator,
+                                new SimplifyArrayOperations().rules()),
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new IterativeOptimizer(
                         ruleStats,
