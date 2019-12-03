@@ -85,6 +85,11 @@ public abstract class AbstractLongType
         }
     }
 
+    public final void appendNonNullTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        blockBuilder.writeLong(block.getLong(position)).closeEntry();
+    }
+
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {

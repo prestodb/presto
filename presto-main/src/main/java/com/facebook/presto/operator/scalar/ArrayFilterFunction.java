@@ -41,18 +41,53 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterLongLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Long input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = elementType.getLong(arrayBlock, position);
+        int position = 0;
+        BlockBuilder resultBuilder;
+
+        if (arrayBlock.mayHaveNull()) {
+            while (position < positionCount &&
+                    TRUE.equals(function.apply(
+                            arrayBlock.isNull(position)
+                                    ? null : elementType.getLong(arrayBlock, position)))) {
+                position++;
             }
 
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
+            if (position == positionCount) {
+                // Nothing fitered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(
+                        arrayBlock.isNull(position)
+                                ? null : elementType.getLong(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
             }
         }
+        else {
+            while (position < positionCount && TRUE.equals(function.apply(elementType.getLong(arrayBlock, position)))) { position++; }
+            if (position == positionCount) {
+                // Nothing filtered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(elementType.getLong(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
+            }
+        }
+
         return resultBuilder.build();
     }
 
@@ -65,18 +100,52 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterDoubleLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Double input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = elementType.getDouble(arrayBlock, position);
+        int position = 0;
+        BlockBuilder resultBuilder;
+
+        if (arrayBlock.mayHaveNull()) {
+            while (position < positionCount &&
+                    TRUE.equals(function.apply(
+                            arrayBlock.isNull(position)
+                                    ? null : elementType.getDouble(arrayBlock, position)))) {
+                position++;
             }
 
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
+            if (position == positionCount) {
+                // Nothing fitered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(
+                        arrayBlock.isNull(position)
+                                ? null : elementType.getDouble(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
             }
         }
+        else {
+            while (position < positionCount && TRUE.equals(function.apply(elementType.getDouble(arrayBlock, position)))) { position++; }
+            if (position == positionCount) {
+                // Nothing filtered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(elementType.getDouble(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
+            }
+        }
+
         return resultBuilder.build();
     }
 
@@ -89,18 +158,52 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterBooleanLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Boolean input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = elementType.getBoolean(arrayBlock, position);
+        int position = 0;
+        BlockBuilder resultBuilder;
+
+        if (arrayBlock.mayHaveNull()) {
+            while (position < positionCount &&
+                    TRUE.equals(function.apply(
+                            arrayBlock.isNull(position)
+                                    ? null : elementType.getBoolean(arrayBlock, position)))) {
+                position++;
             }
 
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
+            if (position == positionCount) {
+                // Nothing fitered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(
+                        arrayBlock.isNull(position)
+                                ? null : elementType.getBoolean(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
             }
         }
+        else {
+            while (position < positionCount && TRUE.equals(function.apply(elementType.getBoolean(arrayBlock, position)))) { position++; }
+            if (position == positionCount) {
+                // Nothing filtered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(elementType.getBoolean(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
+            }
+        }
+
         return resultBuilder.build();
     }
 
@@ -113,18 +216,52 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterSliceLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Slice input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = elementType.getSlice(arrayBlock, position);
+        int position = 0;
+        BlockBuilder resultBuilder;
+
+        if (arrayBlock.mayHaveNull()) {
+            while (position < positionCount &&
+                    TRUE.equals(function.apply(
+                            arrayBlock.isNull(position)
+                                    ? null : elementType.getSlice(arrayBlock, position)))) {
+                position++;
             }
 
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
+            if (position == positionCount) {
+                // Nothing fitered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(
+                        arrayBlock.isNull(position)
+                                ? null : elementType.getSlice(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
             }
         }
+        else {
+            while (position < positionCount && TRUE.equals(function.apply(elementType.getSlice(arrayBlock, position)))) { position++; }
+            if (position == positionCount) {
+                // Nothing filtered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(elementType.getSlice(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
+            }
+        }
+
         return resultBuilder.build();
     }
 
@@ -137,18 +274,52 @@ public final class ArrayFilterFunction
             @SqlType("function(T, boolean)") FilterBlockLambda function)
     {
         int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Block input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = (Block) elementType.getObject(arrayBlock, position);
+        int position = 0;
+        BlockBuilder resultBuilder;
+
+        if (arrayBlock.mayHaveNull()) {
+            while (position < positionCount &&
+                    TRUE.equals(function.apply(
+                            arrayBlock.isNull(position)
+                                    ? null : (Block)elementType.getObject(arrayBlock, position)))) {
+                position++;
             }
 
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
+            if (position == positionCount) {
+                // Nothing fitered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply(
+                        arrayBlock.isNull(position)
+                                ? null : (Block)elementType.getObject(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
             }
         }
+        else {
+            while (position < positionCount && TRUE.equals(function.apply((Block) elementType.getObject(arrayBlock, position)))) { position++; }
+            if (position == positionCount) {
+                // Nothing filtered out. So just return the original.
+                return arrayBlock;
+            }
+
+            resultBuilder = elementType.createBlockBuilder(null, positionCount);
+            for (int i = 0; i < position; i++) {
+                elementType.appendTo(arrayBlock, i, resultBuilder);
+            }
+            for (position++; position < positionCount; position++) {
+                if (TRUE.equals(function.apply((Block) elementType.getObject(arrayBlock, position)))) {
+                    elementType.appendTo(arrayBlock, position, resultBuilder);
+                }
+            }
+        }
+
         return resultBuilder.build();
     }
 

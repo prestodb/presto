@@ -276,7 +276,8 @@ public final class MapTransformKeyFunction
                         .append(new IfStatement()
                                 .condition(typedSet.invoke("contains", boolean.class, blockBuilder.cast(Block.class), position))
                                 .ifTrue(throwDuplicatedKeyException)
-                                .ifFalse(typedSet.invoke("add", void.class, blockBuilder.cast(Block.class), position)))));
+                                .ifFalse(typedSet.invoke("add", boolean.class, blockBuilder.cast(Block.class), position)
+                                .pop()))));
 
         body.append(mapBlockBuilder
                 .invoke("closeEntry", BlockBuilder.class)
