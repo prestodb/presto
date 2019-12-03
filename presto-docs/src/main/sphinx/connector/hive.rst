@@ -428,10 +428,10 @@ Alluxio Configuration
 
 `Alluxio <https://www.alluxio.io/?utm_source=prestodb&utm_medium=prestodocs>`_
 is world’s first open source data orchestration technology for analytics and AI for
-the cloud. It bridges the gap between data driven applications and storage systems, bringing
-data from the storage tier closer to the data driven applications and makes it easily
-accessible enabling applications to connect to numerous storage systems through a common
-interface.
+the cloud. It bridges the gap between data driven applications and storage systems, by
+bringing data from the storage tier closer to the data driven applications, and makes it
+easily accessible by enabling applications to connect to numerous storage systems through
+a common interface.
 
 Presto can read and write tables stored in the Alluxio Data Orchestration System
 `Alluxio <https://www.alluxio.io/?utm_source=prestodb&utm_medium=prestodocs>`_,
