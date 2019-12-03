@@ -96,7 +96,7 @@ public class BenchmarkArrayDistinct
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({"array_distinct", "old_array_distinct"})
+        @Param({"array_distinct"})
         private String name = "array_distinct";
 
         private Page page;
@@ -131,6 +131,8 @@ public class BenchmarkArrayDistinct
                 BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
                 for (int i = 0; i < arraySize; i++) {
                     if (arrayType.getElementType().getJavaType() == long.class) {
+                        // We make sure at least one dupe exists.
+                        if (i == 0 || i == arraySize - 1) arrayType.getElementType().writeLong(entryBuilder, 0);
                         arrayType.getElementType().writeLong(entryBuilder, ThreadLocalRandom.current().nextLong());
                     }
                     else if (arrayType.getElementType().equals(VARCHAR)) {
