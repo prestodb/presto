@@ -586,6 +586,10 @@ public class TestHiveLogicalPlanner
         assertPushdownSubfields(legacyUnnest, "SELECT id, x.a FROM test_pushdown_struct_subfields CROSS JOIN UNNEST(y) as t(y)", "test_pushdown_struct_subfields",
                 ImmutableMap.of("x", toSubfields("x.a")));
 
+        // Case sensitivity
+        assertPushdownSubfields("SELECT x.a, x.b, x.A + 2 FROM test_pushdown_struct_subfields WHERE x.B LIKE 'abc%'", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.a", "x.b")));
+
         assertUpdate("DROP TABLE test_pushdown_struct_subfields");
     }
 

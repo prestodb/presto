@@ -71,6 +71,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -366,7 +367,7 @@ public class PushdownSubfields
                     for (VariableReferenceExpression field : entry.getValue()) {
                         if (context.get().variables.contains(field)) {
                             found = true;
-                            newSubfields.add(new Subfield(container.getName(), ImmutableList.of(allSubscripts(), new NestedField(field.getName()))));
+                            newSubfields.add(new Subfield(container.getName(), ImmutableList.of(allSubscripts(), nestedField(field.getName()))));
                         }
                         else {
                             List<Subfield> matchingSubfields = context.get().findSubfields(field.getName());
@@ -376,7 +377,7 @@ public class PushdownSubfields
                                         .map(Subfield::getPath)
                                         .map(path -> new Subfield(container.getName(), ImmutableList.<Subfield.PathElement>builder()
                                                 .add(allSubscripts())
-                                                .add(new NestedField(field.getName()))
+                                                .add(nestedField(field.getName()))
                                                 .addAll(path)
                                                 .build()))
                                         .forEach(newSubfields::add);
@@ -473,7 +474,7 @@ public class PushdownSubfields
 
                 if (expression instanceof DereferenceExpression) {
                     DereferenceExpression dereference = (DereferenceExpression) expression;
-                    elements.add(new NestedField(dereference.getField().getValue()));
+                    elements.add(nestedField(dereference.getField().getValue()));
                     expression = dereference.getBase();
                 }
                 else if (expression instanceof SubscriptExpression) {
@@ -506,6 +507,11 @@ public class PushdownSubfields
                     return Optional.empty();
                 }
             }
+        }
+
+        private static NestedField nestedField(String name)
+        {
+            return new NestedField(name.toLowerCase(Locale.ENGLISH));
         }
 
         private static final class SubfieldExtractor
