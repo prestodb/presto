@@ -660,7 +660,7 @@ public class StructSelectiveStreamReader
         Map<String, List<Subfield>> fields = new HashMap<>();
         for (Subfield subfield : requiredSubfields) {
             List<Subfield.PathElement> path = subfield.getPath();
-            String name = ((Subfield.NestedField) path.get(0)).getName();
+            String name = ((Subfield.NestedField) path.get(0)).getName().toLowerCase(Locale.ENGLISH);
             fields.computeIfAbsent(name, k -> new ArrayList<>());
             if (path.size() > 1) {
                 fields.get(name).add(new Subfield("c", path.subList(1, path.size())));

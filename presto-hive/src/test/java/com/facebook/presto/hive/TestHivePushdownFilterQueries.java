@@ -649,6 +649,11 @@ public class TestHivePushdownFilterQueries
 
         assertQueryUsingH2Cte("SELECT info.shipdate.ship_day FROM lineitem_ex WHERE info.shipdate.ship_day < 15", rewriter);
         assertQueryUsingH2Cte("SELECT info.linenumber FROM lineitem_ex WHERE info.shipdate.ship_day < 15", rewriter);
+
+        // case sensitivity
+        assertQuery("SELECT INFO.orderkey FROM lineitem_ex", "SELECT CASE WHEN orderkey % 23 = 0 THEN null ELSE orderkey END FROM lineitem");
+        assertQuery("SELECT INFO.ORDERKEY FROM lineitem_ex", "SELECT CASE WHEN orderkey % 23 = 0 THEN null ELSE orderkey END FROM lineitem");
+        assertQuery("SELECT iNfO.oRdErKeY FROM lineitem_ex", "SELECT CASE WHEN orderkey % 23 = 0 THEN null ELSE orderkey END FROM lineitem");
     }
 
     @Test
