@@ -47,8 +47,7 @@ public final class ArrayExceptFunction
             typedSet.add(rightArray, i);
         }
         for (int i = 0; i < leftPositionCount; i++) {
-            if (!typedSet.contains(leftArray, i)) {
-                typedSet.add(leftArray, i);
+            if (typedSet.add(leftArray, i)) {
                 type.appendTo(leftArray, i, distinctElementBlockBuilder);
             }
         }
