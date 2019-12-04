@@ -34,6 +34,7 @@ import static org.testng.Assert.assertNotNull;
  * Test the correctness of metadata after upgrading
  * from environment without delta delete to environment with delta delete
  */
+@Test(singleThreaded = true)
 public class TestUpgradeMetadata
 {
     private IDBI dbi;
