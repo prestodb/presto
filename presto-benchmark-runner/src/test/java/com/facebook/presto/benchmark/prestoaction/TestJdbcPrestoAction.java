@@ -15,11 +15,13 @@ package com.facebook.presto.benchmark.prestoaction;
 
 import com.facebook.presto.benchmark.framework.BenchmarkQuery;
 import com.facebook.presto.benchmark.framework.QueryResult;
+import com.facebook.presto.benchmark.retry.RetryConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -56,10 +58,12 @@ public class TestJdbcPrestoAction
     public void setup()
     {
         prestoAction = new JdbcPrestoAction(
+                new PrestoExceptionClassifier(ImmutableSet.of()),
                 new BenchmarkQuery("Test-Query", "SELECT 1", CATALOG, SCHEMA),
                 new PrestoClusterConfig()
                         .setJdbcUrl(queryRunner.getServer().getBaseUrl().toString().replace("http", "jdbc:presto")),
-                new HashMap<>());
+                new HashMap<>(),
+                new RetryConfig());
     }
 
     @Test
