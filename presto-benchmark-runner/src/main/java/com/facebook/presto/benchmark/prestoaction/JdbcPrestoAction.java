@@ -16,6 +16,8 @@ package com.facebook.presto.benchmark.prestoaction;
 import com.facebook.presto.benchmark.framework.BenchmarkQuery;
 import com.facebook.presto.benchmark.framework.QueryException;
 import com.facebook.presto.benchmark.framework.QueryResult;
+import com.facebook.presto.benchmark.retry.RetryConfig;
+import com.facebook.presto.benchmark.retry.RetryDriver;
 import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
@@ -32,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.benchmark.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -41,20 +44,30 @@ public class JdbcPrestoAction
 {
     private static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
 
+    private final SqlExceptionClassifier exceptionClassifier;
     private final BenchmarkQuery benchmarkQuery;
     private final String jdbcUrl;
     private final Duration queryTimeout;
     private final Map<String, String> sessionProperties;
+    private final RetryDriver networkRetry;
 
     public JdbcPrestoAction(
+            SqlExceptionClassifier exceptionClassifier,
             BenchmarkQuery benchmarkQuery,
             PrestoClusterConfig prestoClusterConfig,
-            Map<String, String> sessionProperties)
+            Map<String, String> sessionProperties,
+            RetryConfig networkRetryConfig)
     {
+        this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.benchmarkQuery = requireNonNull(benchmarkQuery, "benchmarkQuery is null");
         this.jdbcUrl = requireNonNull(prestoClusterConfig.getJdbcUrl(), "jdbcUrl is null");
         this.queryTimeout = requireNonNull(prestoClusterConfig.getQueryTimeout(), "queryTimeout is null");
         this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
+
+        this.networkRetry = new RetryDriver(
+                networkRetryConfig,
+                (exception) -> exception instanceof QueryException
+                                   && (((QueryException) exception).getType() == CLUSTER_CONNECTION));
     }
 
     @Override
@@ -70,6 +83,13 @@ public class JdbcPrestoAction
     }
 
     private <R> QueryResult<R> execute(Statement statement, Optional<ResultSetConverter<R>> converter)
+    {
+        return networkRetry.run(
+                "presto-cluster-connection",
+                () -> executeOnce(statement, converter));
+    }
+
+    private <R> QueryResult<R> executeOnce(Statement statement, Optional<ResultSetConverter<R>> converter)
     {
         String query = formatSql(statement, Optional.empty());
         ProgressMonitor progressMonitor = new ProgressMonitor();
@@ -106,7 +126,7 @@ public class JdbcPrestoAction
             }
         }
         catch (SQLException e) {
-            throw new QueryException(e, progressMonitor.getLastQueryStats());
+            throw exceptionClassifier.createException(progressMonitor.getLastQueryStats(), e);
         }
     }
 
