@@ -67,6 +67,7 @@ public class OrcSelectiveRecordReader
 {
     // Marks a SQL null when occurring in constantValues.
     private static final byte[] NULL_MARKER = new byte[0];
+    private static final Page EMPTY_PAGE = new Page(0);
 
     private final int[] hiveColumnIndices;                            // elements are hive column indices
     private final List<Integer> outputColumns;                        // elements are hive column indices
@@ -370,7 +371,7 @@ public class OrcSelectiveRecordReader
 
             if (positionCount == 0) {
                 batchRead(batchSize);
-                return new Page(0);
+                return EMPTY_PAGE;
             }
 
             positionsToRead = outputPositions;
@@ -412,7 +413,7 @@ public class OrcSelectiveRecordReader
         batchRead(batchSize);
 
         if (positionCount == 0) {
-            return new Page(0);
+            return EMPTY_PAGE;
         }
 
         if (filterFunctionsWithInputs.isEmpty() && filterFunctionWithoutInput.isPresent()) {
