@@ -2169,7 +2169,7 @@ public class HiveMetadata
         Map<ColumnHandle, ConstantExpression> constants;
         if (hiveLayoutHandle.isPushdownFilterEnabled()) {
             predicate = hiveLayoutHandle.getDomainPredicate()
-                    .transform(Subfield::getRootName)
+                    .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
                     .transform(hiveLayoutHandle.getPredicateColumns()::get)
                     .transform(ColumnHandle.class::cast)
                     .intersect(createPredicate(partitionColumns, partitions));
