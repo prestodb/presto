@@ -20,6 +20,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.Optional;
 
+import static com.facebook.presto.benchmark.event.BenchmarkPhaseEvent.Status.COMPLETED_WITH_FAILURES;
 import static com.facebook.presto.benchmark.event.BenchmarkPhaseEvent.Status.FAILED;
 import static com.facebook.presto.benchmark.event.BenchmarkPhaseEvent.Status.SUCCEEDED;
 import static java.util.Objects.requireNonNull;
@@ -31,6 +32,7 @@ public class BenchmarkPhaseEvent
     public enum Status
     {
         SUCCEEDED,
+        COMPLETED_WITH_FAILURES,
         FAILED
     }
 
@@ -56,6 +58,11 @@ public class BenchmarkPhaseEvent
     public static BenchmarkPhaseEvent failed(String name, String errorMessage)
     {
         return new BenchmarkPhaseEvent(name, FAILED, Optional.of(errorMessage));
+    }
+
+    public static BenchmarkPhaseEvent completedWithFailures(String name, String errorMessage)
+    {
+        return new BenchmarkPhaseEvent(name, COMPLETED_WITH_FAILURES, Optional.of(errorMessage));
     }
 
     @EventField

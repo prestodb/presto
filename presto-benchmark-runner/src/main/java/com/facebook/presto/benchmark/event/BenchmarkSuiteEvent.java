@@ -18,6 +18,7 @@ import com.facebook.airlift.event.client.EventType;
 
 import javax.annotation.concurrent.Immutable;
 
+import static com.facebook.presto.benchmark.event.BenchmarkSuiteEvent.Status.COMPLETED_WITH_FAILURES;
 import static com.facebook.presto.benchmark.event.BenchmarkSuiteEvent.Status.FAILED;
 import static com.facebook.presto.benchmark.event.BenchmarkSuiteEvent.Status.SUCCEEDED;
 import static java.util.Objects.requireNonNull;
@@ -29,6 +30,7 @@ public class BenchmarkSuiteEvent
     public enum Status
     {
         SUCCEEDED,
+        COMPLETED_WITH_FAILURES,
         FAILED
     }
 
@@ -51,6 +53,11 @@ public class BenchmarkSuiteEvent
     public static BenchmarkSuiteEvent failed(String name)
     {
         return new BenchmarkSuiteEvent(name, FAILED);
+    }
+
+    public static BenchmarkSuiteEvent completedWithFailures(String name)
+    {
+        return new BenchmarkSuiteEvent(name, COMPLETED_WITH_FAILURES);
     }
 
     @EventField
