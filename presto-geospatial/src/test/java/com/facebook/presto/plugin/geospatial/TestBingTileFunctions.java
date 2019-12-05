@@ -36,11 +36,13 @@ import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
-import static com.facebook.presto.plugin.geospatial.WebMercator.MAX_LATITUDE;
-import static com.facebook.presto.plugin.geospatial.WebMercator.MIN_LONGITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
+import static com.facebook.presto.plugin.geospatial.WebMercator.MAX_LATITUDE;
+import static com.facebook.presto.plugin.geospatial.WebMercator.MAX_LONGITUDE;
+import static com.facebook.presto.plugin.geospatial.WebMercator.MIN_LONGITUDE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -140,6 +142,27 @@ public class TestBingTileFunctions
         assertFunction("bing_tile_coordinates(bing_tile('123030123010121')).y", INTEGER, 13506);
 
         assertCachedInstanceHasBoundedRetainedSize("bing_tile_coordinates(bing_tile('213'))");
+    }
+
+    @Test
+    public void testBingTileBounds()
+    {
+        assertFunction("ST_XMax(bing_tile(0, 0, 0))", DOUBLE, MAX_LONGITUDE);
+        assertFunction("ST_XMin(bing_tile(0, 0, 0))", DOUBLE, MIN_LONGITUDE);
+        // Unfortunately not MAX_LATITUDE due to precision issues
+        assertFunction("ST_YMax(bing_tile(0, 0, 0))", DOUBLE, 85.05112877980659);
+        assertFunction("ST_YMin(bing_tile(0, 0, 0))", DOUBLE, -85.05112877980659);
+        assertFunction("ST_XMax(bing_tile(6, 8, 4))", DOUBLE, -22.5);
+        assertFunction("ST_XMin(bing_tile(6, 8, 4))", DOUBLE, -45.0);
+        assertFunction("ST_YMax(bing_tile(6, 8, 4))", DOUBLE, 0.0);
+        assertFunction("ST_YMin(bing_tile(6, 8, 4))", DOUBLE, -21.94304553343818);
+    }
+
+    @Test
+    public void testBingTileCentroid()
+    {
+        assertFunction("ST_AsText(ST_Centroid(bing_tile(0, 0, 0)))", VARCHAR, "POINT (0 0)");
+        assertFunction("ST_AsText(ST_Centroid(bing_tile(6, 8, 4)))", VARCHAR, "POINT (-33.75 -10.97152276671909)");
     }
 
     private void assertBingTilesAroundWithRadius(

@@ -16,12 +16,14 @@ package com.facebook.presto.plugin.geospatial;
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
+import com.esri.core.geometry.ogc.OGCPoint;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -53,6 +55,7 @@ import static com.facebook.presto.plugin.geospatial.WebMercator.tileYToLatitude;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -154,6 +157,64 @@ public class BingTileFunctions
     {
         checkQuadKey(quadKey);
         return BingTile.fromQuadKey(quadKey.toStringUtf8()).encode();
+    }
+
+    @SqlNullable
+    @Description("Returns maximum longitude of a Bing tile")
+    @ScalarFunction("ST_XMax")
+    @SqlType(DOUBLE)
+    public static Double stXMax(@SqlType(BingTileType.NAME) long input)
+    {
+        BingTile tile = BingTile.decode(input);
+        return tileXToLongitude(tile.getX() + 1, tile.getZoomLevel());
+    }
+
+    @SqlNullable
+    @Description("Returns minimum longitude of a Bing tile")
+    @ScalarFunction("ST_XMin")
+    @SqlType(DOUBLE)
+    public static Double stXMin(@SqlType(BingTileType.NAME) long input)
+    {
+        BingTile tile = BingTile.decode(input);
+        return tileXToLongitude(tile.getX(), tile.getZoomLevel());
+    }
+
+    @SqlNullable
+    @Description("Returns maximum latitude of a Bing tile")
+    @ScalarFunction("ST_YMax")
+    @SqlType(DOUBLE)
+    public static Double stYMax(@SqlType(BingTileType.NAME) long input)
+    {
+        BingTile tile = BingTile.decode(input);
+        return tileYToLatitude(tile.getY(), tile.getZoomLevel());
+    }
+
+    @SqlNullable
+    @Description("Returns maximum latitude of a Bing tile")
+    @ScalarFunction("ST_YMin")
+    @SqlType(DOUBLE)
+    public static Double stYMin(@SqlType(BingTileType.NAME) long input)
+    {
+        BingTile tile = BingTile.decode(input);
+        return tileYToLatitude(tile.getY() + 1, tile.getZoomLevel());
+    }
+
+    @SqlNullable
+    @Description("Returns the centroid of a Bing tile")
+    @ScalarFunction("ST_Centroid")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice stCentroid(@SqlType(BingTileType.NAME) long input)
+    {
+        BingTile tile = BingTile.decode(input);
+        double x = (
+                tileXToLongitude(tile.getX(), tile.getZoomLevel()) +
+                tileXToLongitude(tile.getX() + 1, tile.getZoomLevel())
+        ) / 2;
+        double y = (
+                tileYToLatitude(tile.getY(), tile.getZoomLevel()) +
+                tileYToLatitude(tile.getY() + 1, tile.getZoomLevel())
+        ) / 2;
+        return serialize(new OGCPoint(new Point(x, y), null));
     }
 
     @Description("Given a (latitude, longitude) point, returns the containing Bing tile at the specified zoom level")
