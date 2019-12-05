@@ -25,7 +25,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -39,6 +38,18 @@ import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.BingTile.MIN_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
+import static com.facebook.presto.plugin.geospatial.WebMercator.EARTH_RADIUS_KM;
+import static com.facebook.presto.plugin.geospatial.WebMercator.MAX_LATITUDE;
+import static com.facebook.presto.plugin.geospatial.WebMercator.MAX_LONGITUDE;
+import static com.facebook.presto.plugin.geospatial.WebMercator.MIN_LATITUDE;
+import static com.facebook.presto.plugin.geospatial.WebMercator.MIN_LONGITUDE;
+import static com.facebook.presto.plugin.geospatial.WebMercator.TILE_PIXELS;
+import static com.facebook.presto.plugin.geospatial.WebMercator.bingTileAtLatitudeLongitude;
+import static com.facebook.presto.plugin.geospatial.WebMercator.latitudeToTileY;
+import static com.facebook.presto.plugin.geospatial.WebMercator.longitudeToTileX;
+import static com.facebook.presto.plugin.geospatial.WebMercator.mapSize;
+import static com.facebook.presto.plugin.geospatial.WebMercator.tileXToLongitude;
+import static com.facebook.presto.plugin.geospatial.WebMercator.tileYToLatitude;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -64,15 +75,6 @@ import static java.lang.String.format;
  */
 public class BingTileFunctions
 {
-    private static final int TILE_PIXELS = 256;
-
-    @VisibleForTesting
-    static final double MAX_LATITUDE = 85.05112878;
-    private static final double MIN_LATITUDE = -85.05112878;
-    @VisibleForTesting
-    static final double MIN_LONGITUDE = -180;
-    private static final double MAX_LONGITUDE = 180;
-    private static final double EARTH_RADIUS_KM = 6371.01;
     private static final int OPTIMIZED_TILING_MIN_ZOOM_LEVEL = 10;
     private static final Block EMPTY_TILE_ARRAY = BIGINT.createFixedSizeBlockBuilder(0).build();
 
@@ -166,7 +168,7 @@ public class BingTileFunctions
         checkLongitude(longitude, LONGITUDE_OUT_OF_RANGE);
         checkZoomLevel(zoomLevel);
 
-        return latitudeLongitudeToTile(latitude, longitude, toIntExact(zoomLevel)).encode();
+        return bingTileAtLatitudeLongitude(latitude, longitude, toIntExact(zoomLevel)).encode();
     }
 
     @Description("Given a (longitude, latitude) point, returns the surrounding Bing tiles at the specified zoom level")
@@ -575,13 +577,7 @@ public class BingTileFunctions
 
     private static Point tileXYToLatitudeLongitude(int tileX, int tileY, int zoomLevel)
     {
-        long mapSize = mapSize(zoomLevel);
-        double x = (clip(tileX * TILE_PIXELS, 0, mapSize) / mapSize) - 0.5;
-        double y = 0.5 - (clip(tileY * TILE_PIXELS, 0, mapSize) / mapSize);
-
-        double latitude = 90 - 360 * Math.atan(Math.exp(-y * 2 * Math.PI)) / Math.PI;
-        double longitude = 360 * x;
-        return new Point(longitude, latitude);
+        return new Point(tileXToLongitude(tileX, zoomLevel), tileYToLatitude(tileY, zoomLevel));
     }
 
     /**
@@ -597,45 +593,13 @@ public class BingTileFunctions
         return BingTile.fromCoordinates(tileX, tileY, zoomLevel);
     }
 
-    /**
-     * Given latitude and longitude in degrees, and the level of detail, the pixel XY coordinates can be calculated as follows:
-     * sinLatitude = sin(latitude * pi/180)
-     * pixelX = ((longitude + 180) / 360) * 256 * 2level
-     * pixelY = (0.5 – log((1 + sinLatitude) / (1 – sinLatitude)) / (4 * pi)) * 256 * 2level
-     * The latitude and longitude are assumed to be on the WGS 84 datum. Even though Bing Maps uses a spherical projection,
-     * it’s important to convert all geographic coordinates into a common datum, and WGS 84 was chosen to be that datum.
-     * The longitude is assumed to range from -180 to +180 degrees, and the latitude must be clipped to range from -85.05112878 to 85.05112878.
-     * This avoids a singularity at the poles, and it causes the projected map to be square.
-     * <p>
-     * reference: https://msdn.microsoft.com/en-us/library/bb259689.aspx
-     */
-    private static int longitudeToTileX(double longitude, long mapSize)
-    {
-        double x = (longitude + 180) / 360;
-        return axisToCoordinates(x, mapSize);
-    }
-
-    private static int latitudeToTileY(double latitude, long mapSize)
-    {
-        double sinLatitude = Math.sin(latitude * Math.PI / 180);
-        double y = 0.5 - Math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
-        return axisToCoordinates(y, mapSize);
-    }
-
-    /**
-     * Take axis and convert it to Tile coordinates
-     */
-    private static int axisToCoordinates(double axis, long mapSize)
-    {
-        int tileAxis = (int) clip(axis * mapSize, 0, mapSize - 1);
-        return tileAxis / TILE_PIXELS;
-    }
-
     private static Envelope tileToEnvelope(BingTile tile)
     {
-        Point upperLeftCorner = tileXYToLatitudeLongitude(tile.getX(), tile.getY(), tile.getZoomLevel());
-        Point lowerRightCorner = tileXYToLatitudeLongitude(tile.getX() + 1, tile.getY() + 1, tile.getZoomLevel());
-        return new Envelope(upperLeftCorner.getX(), lowerRightCorner.getY(), lowerRightCorner.getX(), upperLeftCorner.getY());
+        double minLongitude = tileXToLongitude(tile.getX(), tile.getZoomLevel());
+        double minLatitude = tileYToLatitude(tile.getY() + 1, tile.getZoomLevel());
+        double maxLongitude = tileXToLongitude(tile.getX() + 1, tile.getZoomLevel());
+        double maxLatitude = tileYToLatitude(tile.getY(), tile.getZoomLevel());
+        return new Envelope(minLongitude, minLatitude, maxLongitude, maxLatitude);
     }
 
     private static void checkZoomLevel(long zoomLevel)
@@ -706,15 +670,5 @@ public class BingTileFunctions
         if (!condition) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format(formatString, args));
         }
-    }
-
-    private static double clip(double n, double minValue, double maxValue)
-    {
-        return Math.min(Math.max(n, minValue), maxValue);
-    }
-
-    private static long mapSize(int zoomLevel)
-    {
-        return 256L << zoomLevel;
     }
 }
