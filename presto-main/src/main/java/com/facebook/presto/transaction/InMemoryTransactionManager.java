@@ -581,7 +581,7 @@ public class InMemoryTransactionManager
             return abortInternal();
         }
 
-        private synchronized ListenableFuture<?> abortInternal()
+        private synchronized ListenableFuture<List<Object>> abortInternal()
         {
             // the callbacks in statement performed on another thread so are safe
             return nonCancellationPropagating(Futures.allAsList(Stream.concat(

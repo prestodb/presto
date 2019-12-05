@@ -1,0 +1,194 @@
+[
+{
+  "name":"com.facebook.presto.cli.ClientOptions",
+  "allDeclaredFields":true
+},
+{
+  "name":"com.facebook.presto.cli.Console",
+  "allDeclaredFields":true,
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+{
+  "name":"com.facebook.presto.cli.VersionOption",
+  "allDeclaredFields":true
+},
+{
+  "name":"io.airlift.airline.HelpOption",
+  "allDeclaredFields":true,
+  "methods":[{"name":"<init>","parameterTypes":[] }]
+},
+  {
+    "name" : "sun.nio.cs.ext.ExtendedCharsets",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "allDeclaredClasses" : true,
+    "allPublicClasses" : true
+  },
+  {
+    "name": "org.slf4j.impl.StaticLoggerBinder",
+    "allDeclaredFields": true,
+    "allPublicFields": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "com.fasterxml.jackson.databind.ObjectMapper",
+    "allDeclaredFields": true,
+    "allPublicFields": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.slf4j.impl.StaticLoggerBinder",
+    "allDeclaredFields": true,
+    "allPublicFields": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "com.facebook.presto.client.QueryResults",
+    "allDeclaredFields": true,
+    "allPublicFields": true,
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  },
+  {
+    "name":"com.facebook.presto.cli.ClientOptions",
+    "allDeclaredFields":true
+  },
+  {
+    "name":"com.facebook.presto.cli.Console",
+    "allDeclaredFields":true,
+    "methods":[{"name":"<init>","parameterTypes":[] }]
+  },
+  {
+    "name":"com.facebook.presto.cli.VersionOption",
+    "allDeclaredFields":true
+  },
+  {
+    "name":"com.facebook.presto.client.ClientTypeSignature",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"com.facebook.presto.client.ClientTypeSignatureParameter$ClientTypeSignatureParameterDeserializer",
+    "methods":[{"name":"<init>","parameterTypes":[] }]
+  },
+  {
+    "name":"com.facebook.presto.client.Column",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"com.facebook.presto.client.ErrorLocation",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"com.facebook.presto.client.FailureInfo",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"com.facebook.presto.client.QueryData",
+    "allDeclaredMethods":true
+  },
+  {
+    "name":"com.facebook.presto.client.QueryError",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"com.facebook.presto.client.QueryResults",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"com.facebook.presto.client.QueryStatusInfo",
+    "allDeclaredMethods":true
+  },
+  {
+    "name":"com.facebook.presto.client.StageStats",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"com.facebook.presto.client.StatementStats",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"com.facebook.presto.spi.PrestoWarning",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"com.facebook.presto.spi.WarningCode",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"com.facebook.presto.spi.type.ParameterKind",
+    "allDeclaredFields":true,
+    "allDeclaredMethods":true
+  },
+  {
+    "name":"com.fasterxml.jackson.databind.ext.Java7SupportImpl",
+    "methods":[{"name":"<init>","parameterTypes":[] }]
+  },
+  {
+    "name":"io.airlift.airline.HelpOption",
+    "allDeclaredFields":true,
+    "methods":[{"name":"<init>","parameterTypes":[] }]
+  },
+  {
+    "name":"java.lang.Enum",
+    "allDeclaredMethods":true
+  },
+  {
+    "name":"java.lang.ProcessBuilder",
+    "methods":[{"name":"redirectInput","parameterTypes":["java.lang.ProcessBuilder$Redirect"] }]
+  },
+  {
+    "name":"java.lang.ProcessBuilder$Redirect",
+    "fields":[{"name":"INHERIT"}]
+  },
+  {
+    "name":"java.lang.System",
+    "methods":[{"name":"console","parameterTypes":[] }]
+  },
+  {
+    "name":"java.util.ArrayList",
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"java.util.LinkedHashMap",
+    "allDeclaredMethods":true,
+    "allDeclaredConstructors":true
+  },
+  {
+    "name":"javax.net.ssl.SSLParameters",
+    "methods":[{"name":"setApplicationProtocols","parameterTypes":["java.lang.String[]"] }]
+  },
+  {
+    "name":"javax.net.ssl.SSLSocket",
+    "methods":[{"name":"getApplicationProtocol","parameterTypes":[] }]
+  },
+  {
+    "name":"jline.UnixTerminal",
+    "methods":[{"name":"<init>","parameterTypes":[] }]
+  }
+]

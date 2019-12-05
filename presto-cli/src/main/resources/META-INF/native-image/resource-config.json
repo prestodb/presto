@@ -1,0 +1,20 @@
+{
+  "resources":[
+    {"pattern": ".*properties$"},
+    {"pattern": "META-INF/native/windows64/jansi.dll"},
+    {"pattern":"META-INF/native/osx/libjansi.jnilib"},
+    {"pattern":"org/fusesource/jansi/META-INF/native/osx/libjansi.jnilib"},
+    {"pattern":"org/fusesource/jansi/jansi/META-INF/native/osx/libjansi.jnilib"},
+    {"pattern":"org/fusesource/jansi/jansi/jansi/META-INF/native/osx/libjansi.jnilib"},
+    {"pattern":".*/libjansi.jnilib$"},
+    {"pattern":"META-INF/native/osx/libjansi.jnilib"},
+    {"pattern":"com/facebook/presto/spi/type/zone-index.properties"},
+    {"pattern":"jline/console/completer/CandidateListCompletionHandler.properties"},
+    {"pattern":"META-INF/services/org.jline.terminal.spi.JansiSupport"},
+    {"pattern":"META-INF/services/org.jline.terminal.spi.JnaSupport"},
+    {"pattern":"logback.xml"},
+    {"pattern":"org/jline/utils/capabilities.txt"},
+    {"pattern":"org/jline/utils/xterm-256color.caps"},
+    {"pattern":"org/slf4j/impl/StaticLoggerBinder.class"}
+  ]
+}

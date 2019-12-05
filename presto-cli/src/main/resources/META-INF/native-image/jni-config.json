@@ -1,0 +1,338 @@
+[
+  {
+    "name" : "org.fusesource.jansi.internal.CLibrary",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "HAVE_ISATTY" },
+      { "name" : "HAVE_TTYNAME" },
+      { "name" : "LIBRARY", "allowWrite" : true },
+      { "name" : "STDERR_FILENO" },
+      { "name" : "STDIN_FILENO" },
+      { "name" : "STDOUT_FILENO" },
+      { "name" : "TCSADRAIN" },
+      { "name" : "TCSAFLUSH" },
+      { "name" : "TCSANOW" },
+      { "name" : "TIOCGETA" },
+      { "name" : "TIOCGETD" },
+      { "name" : "TIOCGWINSZ" },
+      { "name" : "TIOCSETA" },
+      { "name" : "TIOCSETD" },
+      { "name" : "TIOCSWINSZ" }
+    ],
+    "methods" : [
+      { "name" : "access$000", "parameterTypes" : [] },
+      { "name" : "init", "parameterTypes" : [] },
+      { "name" : "ioctl", "parameterTypes" : ["int", "long", "[I"] },
+      { "name" : "ioctl", "parameterTypes" : ["int", "long", "org.fusesource.jansi.internal.CLibrary$WinSize"] },
+      { "name" : "isatty", "parameterTypes" : ["int"] },
+      { "name" : "openpty", "parameterTypes" : ["[I", "[I", "[B", "org.fusesource.jansi.internal.CLibrary$Termios", "org.fusesource.jansi.internal.CLibrary$WinSize"] },
+      { "name" : "tcgetattr", "parameterTypes" : ["int", "org.fusesource.jansi.internal.CLibrary$Termios"] },
+      { "name" : "tcsetattr", "parameterTypes" : ["int", "int", "org.fusesource.jansi.internal.CLibrary$Termios"] },
+      { "name" : "ttyname", "parameterTypes" : ["int"] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.CLibrary$Termios",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "SIZEOF" },
+      { "name" : "c_cc" },
+      { "name" : "c_cflag" },
+      { "name" : "c_iflag" },
+      { "name" : "c_ispeed" },
+      { "name" : "c_lflag" },
+      { "name" : "c_oflag" },
+      { "name" : "c_ospeed" }
+    ],
+    "methods" : [
+      { "name" : "init", "parameterTypes" : [] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.CLibrary$WinSize",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "SIZEOF" },
+      { "name" : "ws_col" },
+      { "name" : "ws_row" },
+      { "name" : "ws_xpixel" },
+      { "name" : "ws_ypixel" }
+    ],
+    "methods" : [
+      { "name" : "init", "parameterTypes" : [] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "BACKGROUND_BLUE" },
+      { "name" : "BACKGROUND_GREEN" },
+      { "name" : "BACKGROUND_INTENSITY" },
+      { "name" : "BACKGROUND_RED" },
+      { "name" : "COMMON_LVB_GRID_HORIZONTAL" },
+      { "name" : "COMMON_LVB_GRID_LVERTICAL" },
+      { "name" : "COMMON_LVB_GRID_RVERTICAL" },
+      { "name" : "COMMON_LVB_LEADING_BYTE" },
+      { "name" : "COMMON_LVB_REVERSE_VIDEO" },
+      { "name" : "COMMON_LVB_TRAILING_BYTE" },
+      { "name" : "COMMON_LVB_UNDERSCORE" },
+      { "name" : "FOREGROUND_BLUE" },
+      { "name" : "FOREGROUND_GREEN" },
+      { "name" : "FOREGROUND_INTENSITY" },
+      { "name" : "FOREGROUND_RED" },
+      { "name" : "FORMAT_MESSAGE_FROM_SYSTEM" },
+      { "name" : "INVALID_HANDLE_VALUE" },
+      { "name" : "LIBRARY", "allowWrite" : true },
+      { "name" : "STD_ERROR_HANDLE" },
+      { "name" : "STD_INPUT_HANDLE" },
+      { "name" : "STD_OUTPUT_HANDLE" }
+    ],
+    "methods" : [
+      { "name" : "CloseHandle", "parameterTypes" : ["long"] },
+      { "name" : "FillConsoleOutputAttribute", "parameterTypes" : ["long", "short", "int", "org.fusesource.jansi.internal.Kernel32$COORD", "[I"] },
+      { "name" : "FillConsoleOutputCharacterW", "parameterTypes" : ["long", "char", "int", "org.fusesource.jansi.internal.Kernel32$COORD", "[I"] },
+      { "name" : "FlushConsoleInputBuffer", "parameterTypes" : ["long"] },
+      { "name" : "FormatMessageW", "parameterTypes" : ["int", "long", "int", "int", "[B", "int", "[J"] },
+      { "name" : "GetConsoleMode", "parameterTypes" : ["long", "[I"] },
+      { "name" : "GetConsoleOutputCP", "parameterTypes" : [] },
+      { "name" : "GetConsoleScreenBufferInfo", "parameterTypes" : ["long", "org.fusesource.jansi.internal.Kernel32$CONSOLE_SCREEN_BUFFER_INFO"] },
+      { "name" : "GetLastError", "parameterTypes" : [] },
+      { "name" : "GetNumberOfConsoleInputEvents", "parameterTypes" : ["long", "[I"] },
+      { "name" : "GetStdHandle", "parameterTypes" : ["int"] },
+      { "name" : "PeekConsoleInputW", "parameterTypes" : ["long", "long", "int", "[I"] },
+      { "name" : "ReadConsoleInputW", "parameterTypes" : ["long", "long", "int", "[I"] },
+      { "name" : "ScrollConsoleScreenBuffer", "parameterTypes" : ["long", "org.fusesource.jansi.internal.Kernel32$SMALL_RECT", "org.fusesource.jansi.internal.Kernel32$SMALL_RECT", "org.fusesource.jansi.internal.Kernel32$COORD", "org.fusesource.jansi.internal.Kernel32$CHAR_INFO"] },
+      { "name" : "SetConsoleCursorPosition", "parameterTypes" : ["long", "org.fusesource.jansi.internal.Kernel32$COORD"] },
+      { "name" : "SetConsoleMode", "parameterTypes" : ["long", "int"] },
+      { "name" : "SetConsoleOutputCP", "parameterTypes" : ["int"] },
+      { "name" : "SetConsoleTextAttribute", "parameterTypes" : ["long", "short"] },
+      { "name" : "SetConsoleTitle", "parameterTypes" : ["java.lang.String"] },
+      { "name" : "WaitForSingleObject", "parameterTypes" : ["long", "int"] },
+      { "name" : "WriteConsoleW", "parameterTypes" : ["long", "[C", "int", "[I", "long"] },
+      { "name" : "_getch", "parameterTypes" : [] },
+      { "name" : "access$000", "parameterTypes" : [] },
+      { "name" : "free", "parameterTypes" : ["long"] },
+      { "name" : "init", "parameterTypes" : [] },
+      { "name" : "malloc", "parameterTypes" : ["long"] },
+      { "name" : "readConsoleInputHelper", "parameterTypes" : ["long", "int", "boolean"] },
+      { "name" : "readConsoleKeyInput", "parameterTypes" : ["long", "int", "boolean"] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32$INPUT_RECORD",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "FOCUS_EVENT" },
+      { "name" : "KEY_EVENT" },
+      { "name" : "MENU_EVENT" },
+      { "name" : "MOUSE_EVENT" },
+      { "name" : "SIZEOF" },
+      { "name" : "WINDOW_BUFFER_SIZE_EVENT" },
+      { "name" : "eventType" },
+      { "name" : "focusEvent" },
+      { "name" : "keyEvent" },
+      { "name" : "menuEvent" },
+      { "name" : "mouseEvent" },
+      { "name" : "windowBufferSizeEvent" }
+    ],
+    "methods" : [
+      { "name" : "init", "parameterTypes" : [] },
+      { "name" : "memmove", "parameterTypes" : ["org.fusesource.jansi.internal.Kernel32$INPUT_RECORD", "long", "long"] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32$MENU_EVENT_RECORD",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "SIZEOF" },
+      { "name" : "commandId" }
+    ],
+    "methods" : [
+      { "name" : "init", "parameterTypes" : [] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32$FOCUS_EVENT_RECORD",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "SIZEOF" },
+      { "name" : "setFocus" }
+    ],
+    "methods" : [
+      { "name" : "init", "parameterTypes" : [] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32$WINDOW_BUFFER_SIZE_RECORD",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "SIZEOF" },
+      { "name" : "size" }
+    ],
+    "methods" : [
+      { "name" : "init", "parameterTypes" : [] },
+      { "name" : "toString", "parameterTypes" : [] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32$MOUSE_EVENT_RECORD",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "CAPSLOCK_ON" },
+      { "name" : "DOUBLE_CLICK" },
+      { "name" : "ENHANCED_KEY" },
+      { "name" : "FROM_LEFT_1ST_BUTTON_PRESSED" },
+      { "name" : "FROM_LEFT_2ND_BUTTON_PRESSED" },
+      { "name" : "FROM_LEFT_3RD_BUTTON_PRESSED" },
+      { "name" : "FROM_LEFT_4TH_BUTTON_PRESSED" },
+      { "name" : "LEFT_ALT_PRESSED" },
+      { "name" : "LEFT_CTRL_PRESSED" },
+      { "name" : "MOUSE_HWHEELED" },
+      { "name" : "MOUSE_MOVED" },
+      { "name" : "MOUSE_WHEELED" },
+      { "name" : "NUMLOCK_ON" },
+      { "name" : "RIGHTMOST_BUTTON_PRESSED" },
+      { "name" : "RIGHT_ALT_PRESSED" },
+      { "name" : "RIGHT_CTRL_PRESSED" },
+      { "name" : "SCROLLLOCK_ON" },
+      { "name" : "SHIFT_PRESSED" },
+      { "name" : "SIZEOF" },
+      { "name" : "buttonState" },
+      { "name" : "controlKeyState" },
+      { "name" : "eventFlags" },
+      { "name" : "mousePosition" }
+    ],
+    "methods" : [
+      { "name" : "init", "parameterTypes" : [] },
+      { "name" : "toString", "parameterTypes" : [] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32$KEY_EVENT_RECORD",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "CAPSLOCK_ON" },
+      { "name" : "ENHANCED_KEY" },
+      { "name" : "LEFT_ALT_PRESSED" },
+      { "name" : "LEFT_CTRL_PRESSED" },
+      { "name" : "NUMLOCK_ON" },
+      { "name" : "RIGHT_ALT_PRESSED" },
+      { "name" : "RIGHT_CTRL_PRESSED" },
+      { "name" : "SCROLLLOCK_ON" },
+      { "name" : "SHIFT_PRESSED" },
+      { "name" : "SIZEOF" },
+      { "name" : "controlKeyState" },
+      { "name" : "keyCode" },
+      { "name" : "keyDown" },
+      { "name" : "repeatCount" },
+      { "name" : "scanCode" },
+      { "name" : "uchar" }
+    ],
+    "methods" : [
+      { "name" : "init", "parameterTypes" : [] },
+      { "name" : "toString", "parameterTypes" : [] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32$CHAR_INFO",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "SIZEOF" },
+      { "name" : "attributes" },
+      { "name" : "unicodeChar" }
+    ],
+    "methods" : [
+      { "name" : "init", "parameterTypes" : [] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32$CONSOLE_SCREEN_BUFFER_INFO",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "SIZEOF" },
+      { "name" : "attributes" },
+      { "name" : "cursorPosition" },
+      { "name" : "maximumWindowSize" },
+      { "name" : "size" },
+      { "name" : "window" }
+    ],
+    "methods" : [
+      { "name" : "init", "parameterTypes" : [] },
+      { "name" : "windowHeight", "parameterTypes" : [] },
+      { "name" : "windowWidth", "parameterTypes" : [] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32$COORD",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "SIZEOF" },
+      { "name" : "x" },
+      { "name" : "y" }
+    ],
+    "methods" : [
+      { "name" : "copy", "parameterTypes" : [] },
+      { "name" : "init", "parameterTypes" : [] }
+    ]
+  },
+  {
+    "name" : "org.fusesource.jansi.internal.Kernel32$SMALL_RECT",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "fields" : [
+      { "name" : "SIZEOF" },
+      { "name" : "bottom" },
+      { "name" : "left" },
+      { "name" : "right" },
+      { "name" : "top" }
+    ],
+    "methods" : [
+      { "name" : "copy", "parameterTypes" : [] },
+      { "name" : "height", "parameterTypes" : [] },
+      { "name" : "init", "parameterTypes" : [] },
+      { "name" : "width", "parameterTypes" : [] }
+    ]
+  }
+]
