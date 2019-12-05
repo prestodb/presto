@@ -25,8 +25,8 @@ import java.util.Set;
 
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
-import static com.facebook.presto.plugin.geospatial.KdbTreeType.KDB_TREE;
 import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static com.facebook.presto.spi.type.KdbTreeType.KDB_TREE;
 
 public class GeoPlugin
         implements Plugin
