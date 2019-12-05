@@ -37,6 +37,7 @@ import static com.facebook.presto.geospatial.GeometryUtils.isPointOrRectangle;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
+import static com.facebook.presto.plugin.geospatial.BingTile.MIN_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -586,7 +587,7 @@ public class BingTileFunctions
     /**
      * Returns a Bing tile at a given zoom level containing a point at a given latitude and longitude.
      * Latitude must be within [-85.05112878, 85.05112878] range. Longitude must be within [-180, 180] range.
-     * Zoom levels from 1 to 23 are supported.
+     * Zoom levels from 0 to 23 are supported.
      */
     private static BingTile latitudeLongitudeToTile(double latitude, double longitude, int zoomLevel)
     {
@@ -639,7 +640,7 @@ public class BingTileFunctions
 
     private static void checkZoomLevel(long zoomLevel)
     {
-        checkCondition(zoomLevel >= 0, ZOOM_LEVEL_TOO_SMALL);
+        checkCondition(zoomLevel >= MIN_ZOOM_LEVEL, ZOOM_LEVEL_TOO_SMALL);
         checkCondition(zoomLevel <= MAX_ZOOM_LEVEL, ZOOM_LEVEL_TOO_LARGE);
     }
 

@@ -25,6 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 public final class BingTile
 {
+    public static final int MIN_ZOOM_LEVEL = 0;
     public static final int MAX_ZOOM_LEVEL = 23;
 
     private final int x;
