@@ -1003,6 +1003,21 @@ public class TestHivePushdownFilterQueries
         }
     }
 
+    @Test
+    public void testNans()
+    {
+        assertUpdate("CREATE TABLE test_nan (double_value DOUBLE, float_value REAL)");
+        try {
+            assertUpdate("INSERT INTO test_nan VALUES (cast('NaN' as DOUBLE), cast('NaN' as REAL)), ((1, 1)), ((2, 2))", 3);
+            assertQuery("SELECT double_value FROM test_nan WHERE double_value != 1", "SELECT cast('NaN' as DOUBLE) UNION SELECT 2");
+            assertQuery("SELECT float_value FROM test_nan WHERE float_value != 1", "SELECT CAST('NaN' as REAL) UNION SELECT 2");
+            assertQuery("SELECT double_value FROM test_nan WHERE double_value NOT IN (1, 2)", "SELECT CAST('NaN' as DOUBLE)");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_nan");
+        }
+    }
+
     private Path getPartitionDirectory(String tableName, String partitionClause)
     {
         String filePath = ((String) computeActual(noPushdownFilter(getSession()), format("SELECT \"$path\" FROM %s WHERE %s LIMIT 1", tableName, partitionClause)).getOnlyValue())

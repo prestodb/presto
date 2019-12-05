@@ -964,7 +964,7 @@ public class TestSelectiveOrcReader
     {
         return TupleDomainFilter.MultiRange.of(ImmutableList.of(
                 BytesRange.of(null, false, value.getBytes(), true, nullAllowed),
-                BytesRange.of(value.getBytes(), true, null, false, nullAllowed)), nullAllowed);
+                BytesRange.of(value.getBytes(), true, null, false, nullAllowed)), nullAllowed, false);
     }
 
     private static TupleDomainFilter stringIn(boolean nullAllowed, String... values)
