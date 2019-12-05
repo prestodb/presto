@@ -100,7 +100,8 @@ public class TupleDomainFilterUtils
             return nullAllowed ? IS_NULL : ALWAYS_FALSE;
         }
 
-        if (rangeFilters.get(0) instanceof BigintRange) {
+        TupleDomainFilter firstRangeFilter = rangeFilters.get(0);
+        if (firstRangeFilter instanceof BigintRange) {
             List<BigintRange> bigintRanges = rangeFilters.stream()
                     .map(BigintRange.class::cast)
                     .collect(toImmutableList());
@@ -116,7 +117,7 @@ public class TupleDomainFilterUtils
             return BigintMultiRange.of(bigintRanges, nullAllowed);
         }
 
-        if (rangeFilters.get(0) instanceof BytesRange) {
+        if (firstRangeFilter instanceof BytesRange) {
             List<BytesRange> bytesRanges = rangeFilters.stream()
                     .map(BytesRange.class::cast)
                     .collect(toImmutableList());
@@ -129,7 +130,50 @@ public class TupleDomainFilterUtils
                         nullAllowed);
             }
         }
-        return MultiRange.of(rangeFilters, nullAllowed);
+
+        return MultiRange.of(rangeFilters, nullAllowed, isNanAllowed(ranges));
+    }
+
+    /**
+     * Returns true is ranges represent != or NOT IN filter. These types of filters should
+     * return true when applied to NaN.
+     *
+     * E.g. NaN != 1.0 as well as NaN NOT IN (1.0, 2.5, 3.6) should return true; otherwise false.
+     *
+     * The logic is to return true if ranges are next to each other, but don't include the touch value.
+     */
+    private static boolean isNanAllowed(List<Range> ranges)
+    {
+        if (ranges.size() <= 1) {
+            return false;
+        }
+
+        Range firstRange = ranges.get(0);
+        Marker previousHigh = firstRange.getHigh();
+
+        Type type = previousHigh.getType();
+        if (type != DOUBLE && type != REAL) {
+            return false;
+        }
+
+        Range lastRange = ranges.get(ranges.size() - 1);
+        if (!firstRange.getLow().isLowerUnbounded() || !lastRange.getHigh().isUpperUnbounded()) {
+            return false;
+        }
+
+        for (int i = 1; i < ranges.size(); i++) {
+            Range current = ranges.get(i);
+
+            if (previousHigh.getBound() != Marker.Bound.BELOW ||
+                    current.getLow().getBound() != Marker.Bound.ABOVE ||
+                    type.compareTo(previousHigh.getValueBlock().get(), 0, current.getLow().getValueBlock().get(), 0) != 0) {
+                return false;
+            }
+
+            previousHigh = current.getHigh();
+        }
+
+        return true;
     }
 
     private static TupleDomainFilter createBooleanFilter(List<Range> ranges, boolean nullAllowed)

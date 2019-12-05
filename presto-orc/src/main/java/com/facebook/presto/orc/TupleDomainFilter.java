@@ -1288,24 +1288,30 @@ public interface TupleDomainFilter
             extends AbstractTupleDomainFilter
     {
         private final TupleDomainFilter[] filters;
+        private final boolean nanAllowed;
 
-        private MultiRange(List<TupleDomainFilter> filters, boolean nullAllowed)
+        private MultiRange(List<TupleDomainFilter> filters, boolean nullAllowed, boolean nanAllowed)
         {
             super(true, nullAllowed);
             requireNonNull(filters, "filters is null");
             checkArgument(filters.size() > 1, "filters must contain at least 2 entries");
 
             this.filters = filters.toArray(new TupleDomainFilter[0]);
+            this.nanAllowed = nanAllowed;
         }
 
-        public static MultiRange of(List<TupleDomainFilter> filters, boolean nullAllowed)
+        public static MultiRange of(List<TupleDomainFilter> filters, boolean nullAllowed, boolean nanAllowed)
         {
-            return new MultiRange(filters, nullAllowed);
+            return new MultiRange(filters, nullAllowed, nanAllowed);
         }
 
         @Override
         public boolean testDouble(double value)
         {
+            if (Double.isNaN(value)) {
+                return nanAllowed;
+            }
+
             for (TupleDomainFilter filter : filters) {
                 if (filter.testDouble(value)) {
                     return true;
@@ -1317,6 +1323,10 @@ public interface TupleDomainFilter
         @Override
         public boolean testFloat(float value)
         {
+            if (Float.isNaN(value)) {
+                return nanAllowed;
+            }
+
             for (TupleDomainFilter filter : filters) {
                 if (filter.testFloat(value)) {
                     return true;
@@ -1371,13 +1381,14 @@ public interface TupleDomainFilter
 
             MultiRange that = (MultiRange) o;
             return Arrays.equals(filters, that.filters) &&
-                    nullAllowed == that.nullAllowed;
+                    nullAllowed == that.nullAllowed &&
+                    nanAllowed == that.nanAllowed;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(filters, nullAllowed);
+            return Objects.hash(filters, nullAllowed, nanAllowed);
         }
 
         @Override
@@ -1386,6 +1397,7 @@ public interface TupleDomainFilter
             return toStringHelper(this)
                     .add("filters", filters)
                     .add("nullAllowed", nullAllowed)
+                    .add("nanAllowed", nanAllowed)
                     .toString();
         }
     }
