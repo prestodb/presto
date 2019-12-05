@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.CATALOG;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.SCHEMA;
+import static com.facebook.presto.benchmark.event.BenchmarkPhaseEvent.Status.COMPLETED_WITH_FAILURES;
 import static com.facebook.presto.benchmark.event.BenchmarkPhaseEvent.Status.FAILED;
 import static com.facebook.presto.benchmark.event.BenchmarkPhaseEvent.Status.SUCCEEDED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -121,7 +122,7 @@ public class TestConcurrentPhaseExecutor
     public void testSuccess()
     {
         MockEventClient eventClient = new MockEventClient();
-        BenchmarkPhaseEvent phaseEvent = createConcurrentPhaseExecutor(false, eventClient).run();
+        BenchmarkPhaseEvent phaseEvent = createConcurrentPhaseExecutor(false, eventClient).run(false);
         assertNotNull(phaseEvent);
         assertBenchmarkPhaseEvent(phaseEvent, SUCCEEDED);
         List<BenchmarkPhaseEvent> postedEvents = eventClient.getEvents();
@@ -130,14 +131,26 @@ public class TestConcurrentPhaseExecutor
     }
 
     @Test
-    public void testFailure()
+    public void testFailOnFailure()
     {
         MockEventClient eventClient = new MockEventClient();
-        BenchmarkPhaseEvent phaseEvent = createConcurrentPhaseExecutor(true, eventClient).run();
+        BenchmarkPhaseEvent phaseEvent = createConcurrentPhaseExecutor(true, eventClient).run(false);
         assertNotNull(phaseEvent);
         assertBenchmarkPhaseEvent(phaseEvent, FAILED);
         List<BenchmarkPhaseEvent> postedEvents = eventClient.getEvents();
         assertEquals(postedEvents.size(), 1);
         assertBenchmarkPhaseEvent(postedEvents.get(0), FAILED);
+    }
+
+    @Test
+    public void testContinueOnFailure()
+    {
+        MockEventClient eventClient = new MockEventClient();
+        BenchmarkPhaseEvent phaseEvent = createConcurrentPhaseExecutor(true, eventClient).run(true);
+        assertNotNull(phaseEvent);
+        assertBenchmarkPhaseEvent(phaseEvent, COMPLETED_WITH_FAILURES);
+        List<BenchmarkPhaseEvent> postedEvents = eventClient.getEvents();
+        assertEquals(postedEvents.size(), 1);
+        assertBenchmarkPhaseEvent(postedEvents.get(0), COMPLETED_WITH_FAILURES);
     }
 }

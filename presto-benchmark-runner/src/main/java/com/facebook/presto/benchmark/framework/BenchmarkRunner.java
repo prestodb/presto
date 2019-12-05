@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.benchmark.event.BenchmarkPhaseEvent.Status.FAILED;
+import static com.facebook.presto.benchmark.event.BenchmarkPhaseEvent.Status.SUCCEEDED;
 import static java.util.Objects.requireNonNull;
 
 public class BenchmarkRunner
@@ -35,16 +36,19 @@ public class BenchmarkRunner
     private final BenchmarkSuiteSupplier benchmarkSuiteSupplier;
     private final PhaseExecutorFactory phaseExecutorFactory;
     private final Set<EventClient> eventClients;
+    private final boolean continueOnFailure;
 
     @Inject
     public BenchmarkRunner(
             BenchmarkSuiteSupplier benchmarkSuiteSupplier,
             PhaseExecutorFactory phaseExecutorFactory,
-            Set<EventClient> eventClients)
+            Set<EventClient> eventClients,
+            BenchmarkRunnerConfig benchmarkRunnerConfig)
     {
         this.benchmarkSuiteSupplier = requireNonNull(benchmarkSuiteSupplier, "benchmarkSuiteSupplier is null");
         this.phaseExecutorFactory = requireNonNull(phaseExecutorFactory, "phaseExecutorFactory is null");
         this.eventClients = ImmutableSet.copyOf(requireNonNull(eventClients, "eventClients is null"));
+        this.continueOnFailure = requireNonNull(benchmarkRunnerConfig, "benchmarkRunnerConfig is null").isContinueOnFailure();
     }
 
     @PostConstruct
@@ -53,16 +57,26 @@ public class BenchmarkRunner
         BenchmarkSuite benchmarkSuite = benchmarkSuiteSupplier.get();
         BenchmarkSuiteInfo benchmarkSuiteInfo = benchmarkSuite.getSuiteInfo();
         List<PhaseSpecification> phases = benchmarkSuiteInfo.getPhases();
+        int successfulPhases = 0;
 
         for (PhaseSpecification phase : phases) {
             PhaseExecutor phaseExecutor = phaseExecutorFactory.get(phase, benchmarkSuite);
-            BenchmarkPhaseEvent phaseEvent = phaseExecutor.run();
-            if (phaseEvent.getEventStatus() == FAILED) {
+            BenchmarkPhaseEvent phaseEvent = phaseExecutor.run(continueOnFailure);
+            if (phaseEvent.getEventStatus() == SUCCEEDED) {
+                successfulPhases++;
+            }
+            else if (phaseEvent.getEventStatus() == FAILED && !continueOnFailure) {
                 postEvent(BenchmarkSuiteEvent.failed(benchmarkSuite.getName()));
                 break;
             }
         }
-        postEvent(BenchmarkSuiteEvent.succeeded(benchmarkSuite.getName()));
+
+        if (successfulPhases < phases.size()) {
+            postEvent(BenchmarkSuiteEvent.completedWithFailures(benchmarkSuite.getName()));
+        }
+        else {
+            postEvent(BenchmarkSuiteEvent.succeeded(benchmarkSuite.getName()));
+        }
     }
 
     private void postEvent(BenchmarkSuiteEvent event)

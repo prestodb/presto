@@ -17,5 +17,5 @@ import com.facebook.presto.benchmark.event.BenchmarkPhaseEvent;
 
 public interface PhaseExecutor
 {
-    BenchmarkPhaseEvent run();
+    BenchmarkPhaseEvent run(boolean continueOnFailure);
 }

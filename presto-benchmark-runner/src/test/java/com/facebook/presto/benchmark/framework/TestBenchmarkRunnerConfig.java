@@ -31,7 +31,8 @@ public class TestBenchmarkRunnerConfig
                 .setTestId(null)
                 .setBenchmarkSuiteSupplier("mysql")
                 .setEventClients("json")
-                .setJsonEventLogFile(null));
+                .setJsonEventLogFile(null)
+                .setContinueOnFailure(false));
     }
 
     @Test
@@ -42,13 +43,15 @@ public class TestBenchmarkRunnerConfig
                 .put("benchmark-suite-supplier", "custom-supplier")
                 .put("event-clients", "human-readable")
                 .put("json.log-file", "verifier-json.log")
+                .put("continue-on-failure", "true")
                 .build();
 
         BenchmarkRunnerConfig expected = new BenchmarkRunnerConfig()
                 .setTestId("12345")
                 .setBenchmarkSuiteSupplier("custom-supplier")
                 .setEventClients("human-readable")
-                .setJsonEventLogFile("verifier-json.log");
+                .setJsonEventLogFile("verifier-json.log")
+                .setContinueOnFailure(true);
 
         assertFullMapping(properties, expected);
     }

@@ -31,6 +31,7 @@ public class BenchmarkRunnerConfig
     private String benchmarkSuiteSupplier = BENCHMARK_SUITE_SUPPLIER;
     private Set<String> eventClients = ImmutableSet.of("json");
     private Optional<String> jsonEventLogFile = Optional.empty();
+    private boolean continueOnFailure;
 
     @NotNull
     public String getTestId()
@@ -83,6 +84,18 @@ public class BenchmarkRunnerConfig
     public BenchmarkRunnerConfig setJsonEventLogFile(String jsonEventLogFile)
     {
         this.jsonEventLogFile = Optional.ofNullable(jsonEventLogFile);
+        return this;
+    }
+
+    public boolean isContinueOnFailure()
+    {
+        return continueOnFailure;
+    }
+
+    @Config("continue-on-failure")
+    public BenchmarkRunnerConfig setContinueOnFailure(boolean continueOnFailure)
+    {
+        this.continueOnFailure = continueOnFailure;
         return this;
     }
 }

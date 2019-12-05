@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.benchmark.event.BenchmarkQueryEvent.Status;
 import static com.facebook.presto.benchmark.event.BenchmarkQueryEvent.Status.FAILED;
 import static com.facebook.presto.benchmark.event.BenchmarkQueryEvent.Status.SUCCEEDED;
+import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -69,7 +70,7 @@ public class ConcurrentPhaseExecutor
     }
 
     @Override
-    public BenchmarkPhaseEvent run()
+    public BenchmarkPhaseEvent run(boolean continueOnFailure)
     {
         this.executor = newFixedThreadPool(maxConcurrency);
         this.completionService = new ExecutorCompletionService<>(executor);
@@ -78,10 +79,10 @@ public class ConcurrentPhaseExecutor
             completionService.submit(() -> queryExecutor.run(query, sessionProperties));
         }
 
-        return reportProgressUntilFinished(queries.size());
+        return reportProgressUntilFinished(queries.size(), continueOnFailure);
     }
 
-    private BenchmarkPhaseEvent reportProgressUntilFinished(int queriesSubmitted)
+    private BenchmarkPhaseEvent reportProgressUntilFinished(int queriesSubmitted, boolean continueOnFailure)
     {
         int completed = 0;
         double lastProgress = 0;
@@ -92,15 +93,16 @@ public class ConcurrentPhaseExecutor
                 BenchmarkQueryEvent event = completionService.take().get();
                 completed++;
                 statusCount.compute(event.getEventStatus(), (status, count) -> count == null ? 1 : count + 1);
-                if (event.getEventStatus() == FAILED) {
+                if (event.getEventStatus() == FAILED && !continueOnFailure) {
                     executor.shutdownNow();
                     return postEvent(BenchmarkPhaseEvent.failed(phaseName, event.getErrorMessage()));
                 }
 
                 double progress = ((double) completed) / queriesSubmitted * 100;
                 if (progress - lastProgress > 0.5 || completed == queriesSubmitted) {
-                    log.info("Progress: %s succeeded, %s submitted, %.2f%% done",
+                    log.info("Progress: %s succeeded, %s failed, %s submitted, %.2f%% done",
                             statusCount.getOrDefault(SUCCEEDED, 0),
+                            statusCount.getOrDefault(FAILED, 0),
                             queriesSubmitted,
                             progress);
                     lastProgress = progress;
@@ -108,14 +110,23 @@ public class ConcurrentPhaseExecutor
             }
             catch (InterruptedException e) {
                 currentThread().interrupt();
-                executor.shutdownNow();
-                return postEvent(BenchmarkPhaseEvent.failed(phaseName, e.toString()));
+                if (!continueOnFailure) {
+                    executor.shutdownNow();
+                    return postEvent(BenchmarkPhaseEvent.failed(phaseName, e.toString()));
+                }
             }
             catch (ExecutionException e) {
                 executor.shutdownNow();
-                return postEvent(BenchmarkPhaseEvent.failed(phaseName, e.toString()));
+                if (!continueOnFailure) {
+                    executor.shutdownNow();
+                    return postEvent(BenchmarkPhaseEvent.failed(phaseName, e.toString()));
+                }
             }
         }
+        if (statusCount.getOrDefault(FAILED, 0) > 0) {
+            return postEvent(BenchmarkPhaseEvent.completedWithFailures(phaseName, format("%s out of %s submitted queries failed", statusCount.get(FAILED), queriesSubmitted)));
+        }
+
         return postEvent(BenchmarkPhaseEvent.succeeded(phaseName));
     }
 
