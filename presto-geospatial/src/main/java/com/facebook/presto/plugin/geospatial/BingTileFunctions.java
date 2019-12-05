@@ -184,7 +184,7 @@ public class BingTileFunctions
         long maxTileIndex = (mapSize / TILE_PIXELS) - 1;
 
         int tileX = longitudeToTileX(longitude, mapSize);
-        int tileY = longitudeToTileY(latitude, mapSize);
+        int tileY = latitudeToTileY(latitude, mapSize);
 
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 9);
         for (int i = -1; i <= 1; i++) {
@@ -220,7 +220,7 @@ public class BingTileFunctions
         long mapSize = mapSize(zoomLevel);
         int maxTileIndex = (int) (mapSize / TILE_PIXELS) - 1;
 
-        int tileY = longitudeToTileY(latitude, mapSize);
+        int tileY = latitudeToTileY(latitude, mapSize);
         int tileX = longitudeToTileX(longitude, mapSize);
 
         // Find top, bottom, left and right tiles from center of circle
@@ -592,7 +592,7 @@ public class BingTileFunctions
     {
         long mapSize = mapSize(zoomLevel);
         int tileX = longitudeToTileX(longitude, mapSize);
-        int tileY = longitudeToTileY(latitude, mapSize);
+        int tileY = latitudeToTileY(latitude, mapSize);
         return BingTile.fromCoordinates(tileX, tileY, zoomLevel);
     }
 
@@ -614,7 +614,7 @@ public class BingTileFunctions
         return axisToCoordinates(x, mapSize);
     }
 
-    private static int longitudeToTileY(double latitude, long mapSize)
+    private static int latitudeToTileY(double latitude, long mapSize)
     {
         double sinLatitude = Math.sin(latitude * Math.PI / 180);
         double y = 0.5 - Math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
