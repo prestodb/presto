@@ -36,15 +36,15 @@ import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.Response.Status.OK;
 
-public class HttpPrestoResourceClient
-        implements PrestoResourceClient
+public class HttpNodeResourceClient
+        implements NodeResourceClient
 {
     private final HttpClient httpClient;
     private final PrestoAddress prestoAddress;
     private final RetryDriver<RuntimeException> networkRetry;
 
     @Inject
-    public HttpPrestoResourceClient(
+    public HttpNodeResourceClient(
             HttpClient httpClient,
             PrestoClusterConfig prestoAddress,
             RetryConfig networkRetryConfig)

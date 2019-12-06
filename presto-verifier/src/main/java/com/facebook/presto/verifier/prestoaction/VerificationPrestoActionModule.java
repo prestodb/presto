@@ -52,11 +52,11 @@ public class VerificationPrestoActionModule
     @Provides
     @ForTest
     @Singleton
-    public PrestoResourceClient providesTestHttpPrestoResourceClient(
+    public NodeResourceClient providesTestHttpPrestoResourceClient(
             @ForTest HttpClient httpClient,
             @ForTest PrestoClusterConfig prestoClusterConfig,
             @ForClusterConnection RetryConfig networkRetryConfig)
     {
-        return new HttpPrestoResourceClient(httpClient, prestoClusterConfig, networkRetryConfig);
+        return new HttpNodeResourceClient(httpClient, prestoClusterConfig, networkRetryConfig);
     }
 }

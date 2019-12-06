@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-public interface PrestoResourceClient
+public interface NodeResourceClient
 {
     int getClusterSize(String path);
 }
