@@ -115,7 +115,7 @@ public class BenchmarkTestUtil
         PhaseSpecification streamExecutionPhase = new StreamExecutionPhase("Phase-1", STREAM, streams);
 
         List<String> queries = ImmutableList.of("Q1", "Q2", "Q3");
-        PhaseSpecification concurrentExecutionPhase = new ConcurrentExecutionPhase("Phase-2", CONCURRENT, queries);
+        PhaseSpecification concurrentExecutionPhase = new ConcurrentExecutionPhase("Phase-2", CONCURRENT, queries, 50);
 
         return ImmutableList.of(streamExecutionPhase, concurrentExecutionPhase);
     }
