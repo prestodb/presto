@@ -27,13 +27,15 @@ public class ConcurrentExecutionPhase
 {
     private final ExecutionStrategy executionStrategy;
     private final List<String> queries;
+    private int maxConcurrency = 50;
 
     @JsonCreator
-    public ConcurrentExecutionPhase(String name, ExecutionStrategy executionStrategy, List<String> queries)
+    public ConcurrentExecutionPhase(String name, ExecutionStrategy executionStrategy, List<String> queries, int maxConcurrency)
     {
         super(name);
         this.executionStrategy = requireNonNull(executionStrategy, "executionStrategy is null");
         this.queries = requireNonNull(ImmutableList.copyOf(queries), "queries is null");
+        this.maxConcurrency = maxConcurrency;
     }
 
     @JsonProperty
@@ -47,6 +49,12 @@ public class ConcurrentExecutionPhase
     public List<String> getQueries()
     {
         return queries;
+    }
+
+    @JsonProperty
+    public int getMaxConcurrency()
+    {
+        return maxConcurrency;
     }
 
     @Override
