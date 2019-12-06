@@ -14,7 +14,6 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.event.client.AbstractEventClient;
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -88,7 +87,7 @@ public class TestVerificationManager
             implements PrestoResourceClient
     {
         @Override
-        public <V> V getJsonResponse(String path, JsonCodec<V> responseCodec)
+        public int getClusterSize(String path)
         {
             throw new UnsupportedOperationException();
         }
