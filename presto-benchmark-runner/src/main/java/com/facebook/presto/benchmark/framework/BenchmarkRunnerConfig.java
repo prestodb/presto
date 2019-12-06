@@ -14,8 +14,14 @@
 package com.facebook.presto.benchmark.framework;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 
 import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.benchmark.source.DbBenchmarkSuiteSupplier.BENCHMARK_SUITE_SUPPLIER;
 
@@ -23,6 +29,8 @@ public class BenchmarkRunnerConfig
 {
     private String testId;
     private String benchmarkSuiteSupplier = BENCHMARK_SUITE_SUPPLIER;
+    private Set<String> eventClients = ImmutableSet.of("json");
+    private Optional<String> jsonEventLogFile = Optional.empty();
 
     @NotNull
     public String getTestId()
@@ -47,6 +55,34 @@ public class BenchmarkRunnerConfig
     public BenchmarkRunnerConfig setBenchmarkSuiteSupplier(String benchmarkSuiteSupplier)
     {
         this.benchmarkSuiteSupplier = benchmarkSuiteSupplier;
+        return this;
+    }
+
+    @NotNull
+    public Set<String> getEventClients()
+    {
+        return eventClients;
+    }
+
+    @ConfigDescription("The event client(s) to log the results to")
+    @Config("event-clients")
+    public BenchmarkRunnerConfig setEventClients(String eventClients)
+    {
+        this.eventClients = ImmutableSet.copyOf(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(eventClients));
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getJsonEventLogFile()
+    {
+        return jsonEventLogFile;
+    }
+
+    @ConfigDescription("The file to log json events. Used with event-clients=json. Print to standard output stream if not specified.")
+    @Config("json.log-file")
+    public BenchmarkRunnerConfig setJsonEventLogFile(String jsonEventLogFile)
+    {
+        this.jsonEventLogFile = Optional.ofNullable(jsonEventLogFile);
         return this;
     }
 }

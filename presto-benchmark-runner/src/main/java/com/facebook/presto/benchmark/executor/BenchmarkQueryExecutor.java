@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark.executor;
 
+import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.benchmark.event.BenchmarkQueryEvent;
 import com.facebook.presto.benchmark.framework.BenchmarkQuery;
@@ -30,6 +31,7 @@ import com.google.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.benchmark.event.BenchmarkQueryEvent.Status;
 import static com.facebook.presto.benchmark.event.BenchmarkQueryEvent.Status.FAILED;
@@ -45,6 +47,7 @@ public class BenchmarkQueryExecutor
     private final PrestoActionFactory prestoActionFactory;
     private final SqlParser sqlParser;
     private final ParsingOptions parsingOptions;
+    private final Set<EventClient> eventClients;
     private final String testId;
 
     @Inject
@@ -52,11 +55,13 @@ public class BenchmarkQueryExecutor
             PrestoActionFactory prestoActionFactory,
             SqlParser sqlParser,
             ParsingOptions parsingOptions,
+            Set<EventClient> eventClients,
             BenchmarkRunnerConfig benchmarkRunnerConfig)
     {
         this.prestoActionFactory = requireNonNull(prestoActionFactory, "prestoAction is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.parsingOptions = requireNonNull(parsingOptions, "parsingOptions is null");
+        this.eventClients = requireNonNull(eventClients, "eventClients is null");
         this.testId = requireNonNull(benchmarkRunnerConfig, "testId is null").getTestId();
     }
 
@@ -69,14 +74,14 @@ public class BenchmarkQueryExecutor
 
         try {
             queryStats = prestoAction.execute(statement);
-            return buildEvent(benchmarkQuery, Optional.ofNullable(queryStats), Optional.empty());
+            return postEvent(buildEvent(benchmarkQuery, Optional.ofNullable(queryStats), Optional.empty()));
         }
         catch (QueryException e) {
-            return buildEvent(benchmarkQuery, Optional.ofNullable(queryStats), Optional.of(e));
+            return postEvent(buildEvent(benchmarkQuery, Optional.ofNullable(queryStats), Optional.of(e)));
         }
         catch (Throwable t) {
             log.error(t);
-            return buildEvent(benchmarkQuery, Optional.ofNullable(queryStats), Optional.empty());
+            return postEvent(buildEvent(benchmarkQuery, Optional.ofNullable(queryStats), Optional.empty()));
         }
     }
 
@@ -109,5 +114,13 @@ public class BenchmarkQueryExecutor
                 errorCode,
                 Optional.ofNullable(errorMessage),
                 Optional.ofNullable(stackTrace));
+    }
+
+    private BenchmarkQueryEvent postEvent(BenchmarkQueryEvent event)
+    {
+        for (EventClient eventClient : eventClients) {
+            eventClient.post(event);
+        }
+        return event;
     }
 }

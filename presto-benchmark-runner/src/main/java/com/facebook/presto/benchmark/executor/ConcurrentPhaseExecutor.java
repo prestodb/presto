@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark.executor;
 
+import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.benchmark.event.BenchmarkPhaseEvent;
 import com.facebook.presto.benchmark.event.BenchmarkQueryEvent;
@@ -23,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
@@ -43,6 +45,7 @@ public class ConcurrentPhaseExecutor
     private final String phaseName;
     private final QueryExecutor queryExecutor;
     private final List<BenchmarkQuery> queries;
+    private final Set<EventClient> eventClients;
     private final Map<String, String> sessionProperties;
     private final int maxConcurrency;
 
@@ -53,12 +56,14 @@ public class ConcurrentPhaseExecutor
             String phaseName,
             QueryExecutor queryExecutor,
             List<BenchmarkQuery> queries,
+            Set<EventClient> eventClients,
             Map<String, String> sessionProperties,
             int maxConcurrency)
     {
         this.phaseName = requireNonNull(phaseName, "phaseName is null");
         this.queryExecutor = requireNonNull(queryExecutor, "benchmarkQueryExecutor is null");
         this.queries = ImmutableList.copyOf(requireNonNull(queries, "queries is null"));
+        this.eventClients = requireNonNull(eventClients, "eventClients is null");
         this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.maxConcurrency = maxConcurrency;
     }
@@ -89,7 +94,7 @@ public class ConcurrentPhaseExecutor
                 statusCount.compute(event.getEventStatus(), (status, count) -> count == null ? 1 : count + 1);
                 if (event.getEventStatus() == FAILED) {
                     executor.shutdownNow();
-                    return BenchmarkPhaseEvent.failed(phaseName, event.getErrorMessage());
+                    return postEvent(BenchmarkPhaseEvent.failed(phaseName, event.getErrorMessage()));
                 }
 
                 double progress = ((double) completed) / queriesSubmitted * 100;
@@ -104,13 +109,21 @@ public class ConcurrentPhaseExecutor
             catch (InterruptedException e) {
                 currentThread().interrupt();
                 executor.shutdownNow();
-                return BenchmarkPhaseEvent.failed(phaseName, e.toString());
+                return postEvent(BenchmarkPhaseEvent.failed(phaseName, e.toString()));
             }
             catch (ExecutionException e) {
                 executor.shutdownNow();
-                return BenchmarkPhaseEvent.failed(phaseName, e.toString());
+                return postEvent(BenchmarkPhaseEvent.failed(phaseName, e.toString()));
             }
         }
-        return BenchmarkPhaseEvent.succeeded(phaseName);
+        return postEvent(BenchmarkPhaseEvent.succeeded(phaseName));
+    }
+
+    private BenchmarkPhaseEvent postEvent(BenchmarkPhaseEvent event)
+    {
+        for (EventClient eventClient : eventClients) {
+            eventClient.post(event);
+        }
+        return event;
     }
 }
