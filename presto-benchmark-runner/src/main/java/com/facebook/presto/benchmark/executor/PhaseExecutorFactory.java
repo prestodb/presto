@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark.executor;
 
+import com.facebook.airlift.event.client.EventClient;
 import com.facebook.presto.benchmark.framework.BenchmarkQuery;
 import com.facebook.presto.benchmark.framework.BenchmarkSuite;
 import com.facebook.presto.benchmark.framework.ConcurrentExecutionPhase;
@@ -20,6 +21,7 @@ import com.facebook.presto.benchmark.framework.PhaseSpecification;
 import com.google.inject.Inject;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.benchmark.framework.PhaseSpecification.ExecutionStrategy;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -29,11 +31,13 @@ import static java.util.Objects.requireNonNull;
 public class PhaseExecutorFactory
 {
     private BenchmarkQueryExecutor benchmarkQueryExecutor;
+    private Set<EventClient> eventClients;
 
     @Inject
-    public PhaseExecutorFactory(BenchmarkQueryExecutor benchmarkQueryExecutor)
+    public PhaseExecutorFactory(BenchmarkQueryExecutor benchmarkQueryExecutor, Set<EventClient> eventClients)
     {
         this.benchmarkQueryExecutor = requireNonNull(benchmarkQueryExecutor, "benchmarkQueryExecutor is null");
+        this.eventClients = requireNonNull(eventClients, "eventClients is null");
     }
 
     public PhaseExecutor get(PhaseSpecification phaseSpecification, BenchmarkSuite benchmarkSuite)
@@ -50,6 +54,7 @@ public class PhaseExecutorFactory
                         phase.getName(),
                         benchmarkQueryExecutor,
                         queryList,
+                        eventClients,
                         benchmarkSuite.getSuiteInfo().getSessionProperties(),
                         phase.getMaxConcurrency());
 
