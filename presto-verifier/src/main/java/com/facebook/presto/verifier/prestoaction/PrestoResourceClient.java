@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import com.facebook.airlift.json.JsonCodec;
-
 public interface PrestoResourceClient
 {
-    <V> V getJsonResponse(String path, JsonCodec<V> responseCodec);
+    int getClusterSize(String path);
 }

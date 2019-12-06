@@ -14,12 +14,9 @@
 package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
-import com.facebook.presto.failureDetector.HeartbeatFailureDetector;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import org.testng.annotations.Test;
-
-import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 
 public class TestHttpPrestoResourceClient
 {
@@ -41,6 +38,6 @@ public class TestHttpPrestoResourceClient
     @Test
     public void testNodeResource()
     {
-        client.getJsonResponse("/v1/node", listJsonCodec(HeartbeatFailureDetector.Stats.class));
+        client.getClusterSize("/v1/node");
     }
 }

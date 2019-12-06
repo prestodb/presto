@@ -14,7 +14,6 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.failureDetector.HeartbeatFailureDetector;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.sql.parser.ParsingOptions;
@@ -30,7 +29,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
@@ -106,7 +104,7 @@ public class TooManyOpenPartitionsFailureResolver
         public FailureResolver create(FailureResolverFactoryContext context)
         {
             Supplier<Integer> testClusterSizeSupplier = memoizeWithExpiration(
-                    () -> context.getTestResourceClient().getJsonResponse(NODE_RESOURCE_PATH, listJsonCodec(HeartbeatFailureDetector.Stats.class)).size(),
+                    () -> context.getTestResourceClient().getClusterSize(NODE_RESOURCE_PATH),
                     context.getClusterSizeExpiration().toMillis(),
                     MILLISECONDS);
 
