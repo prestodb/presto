@@ -23,16 +23,24 @@ import static java.util.function.UnaryOperator.identity;
 
 public class BenchmarkSuite
 {
+    private final String name;
     private final BenchmarkSuiteInfo suiteInfo;
     private final Map<String, BenchmarkQuery> queries;
 
     public BenchmarkSuite(
+            String name,
             BenchmarkSuiteInfo suiteInfo,
             List<BenchmarkQuery> queries)
     {
+        this.name = requireNonNull(name, "name is null");
         this.suiteInfo = requireNonNull(suiteInfo, "SuiteInfo is null");
         this.queries = queries.stream()
                 .collect(toImmutableMap(BenchmarkQuery::getName, identity()));
+    }
+
+    public String getName()
+    {
+        return name;
     }
 
     public BenchmarkSuiteInfo getSuiteInfo()

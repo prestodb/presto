@@ -133,7 +133,7 @@ public class BenchmarkTestUtil
         BenchmarkQuery benchmarkQuery2 = new BenchmarkQuery("Q2", "SELECT 2", CATALOG, SCHEMA);
         BenchmarkQuery benchmarkQuery3 = new BenchmarkQuery("Q3", "SELECT 3", CATALOG, SCHEMA);
 
-        return new BenchmarkSuite(new BenchmarkSuiteInfo(suite, querySet, getBenchmarkSuitePhases(), getBenchmarkSuiteSessionProperties()),
+        return new BenchmarkSuite(suite, new BenchmarkSuiteInfo(suite, querySet, getBenchmarkSuitePhases(), getBenchmarkSuiteSessionProperties()),
                 ImmutableList.of(benchmarkQuery1, benchmarkQuery2, benchmarkQuery3));
     }
 }
