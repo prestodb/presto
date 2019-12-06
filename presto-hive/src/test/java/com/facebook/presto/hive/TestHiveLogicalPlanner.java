@@ -99,6 +99,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestHiveLogicalPlanner
@@ -736,6 +737,79 @@ public class TestHiveLogicalPlanner
         }
     }
 
+    @Test
+    public void testBucketPruning()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.execute("CREATE TABLE orders_bucketed WITH (bucket_count = 11, bucketed_by = ARRAY['orderkey']) AS " +
+                "SELECT * FROM orders");
+
+        try {
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 100",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 100 OR orderkey = 101",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1, 2)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey IN (100, 101, 133)",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1, 2)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey > 100",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey != 100",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE orders_bucketed");
+        }
+
+        queryRunner.execute("CREATE TABLE orders_bucketed WITH (bucket_count = 11, bucketed_by = ARRAY['orderkey', 'custkey']) AS " +
+                "SELECT * FROM orders");
+
+        try {
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 101 AND custkey = 280",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey IN (101, 71) AND custkey = 280",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1, 6)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey IN (101, 71) AND custkey IN (280, 34)",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1, 2, 6, 8)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 101 AND custkey = 280 AND orderstatus <> '0'",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 101",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE custkey = 280",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 101 AND custkey > 280",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE orders_bucketed");
+        }
+    }
+
     private static Set<Subfield> toSubfields(String... subfieldPaths)
     {
         return Arrays.stream(subfieldPaths)
@@ -813,6 +887,35 @@ public class TestHiveLogicalPlanner
         assertEquals(layoutHandle.getPredicateColumns().keySet(), predicateColumnNames);
         assertEquals(layoutHandle.getDomainPredicate(), domainPredicate);
         assertEquals(layoutHandle.getRemainingPredicate(), remainingPredicate);
+        assertEquals(layoutHandle.getRemainingPredicate(), remainingPredicate);
+    }
+
+    private void assertBucketFilter(Plan plan, String tableName, int readBucketCount, Set<Integer> bucketsToKeep)
+    {
+        TableScanNode tableScan = searchFrom(plan.getRoot())
+                .where(node -> isTableScanNode(node, tableName))
+                .findOnlyElement();
+
+        assertTrue(tableScan.getTable().getLayout().isPresent());
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+
+        assertTrue(layoutHandle.getBucketHandle().isPresent());
+        assertTrue(layoutHandle.getBucketFilter().isPresent());
+        assertEquals(layoutHandle.getBucketHandle().get().getReadBucketCount(), readBucketCount);
+        assertEquals(layoutHandle.getBucketFilter().get().getBucketsToKeep(), bucketsToKeep);
+    }
+
+    private void assertNoBucketFilter(Plan plan, String tableName, int readBucketCount)
+    {
+        TableScanNode tableScan = searchFrom(plan.getRoot())
+                .where(node -> isTableScanNode(node, tableName))
+                .findOnlyElement();
+
+        assertTrue(tableScan.getTable().getLayout().isPresent());
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+
+        assertEquals(layoutHandle.getBucketHandle().get().getReadBucketCount(), readBucketCount);
+        assertFalse(layoutHandle.getBucketFilter().isPresent());
     }
 
     private static PlanMatchPattern tableScan(String tableName, TupleDomain<String> domainPredicate, RowExpression remainingPredicate, Set<String> predicateColumnNames)
