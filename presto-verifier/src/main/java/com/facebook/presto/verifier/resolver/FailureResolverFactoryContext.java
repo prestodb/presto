@@ -14,8 +14,8 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoResourceClient;
 import io.airlift.units.Duration;
 
 import static java.util.Objects.requireNonNull;
@@ -24,14 +24,14 @@ public class FailureResolverFactoryContext
 {
     private final SqlParser sqlParser;
     private final PrestoAction prestoAction;
-    private final PrestoResourceClient testResourceClient;
+    private final NodeResourceClient testResourceClient;
     private final int maxBucketPerWriter;
     private final Duration clusterSizeExpiration;
 
     public FailureResolverFactoryContext(
             SqlParser sqlParser,
             PrestoAction prestoAction,
-            PrestoResourceClient testResourceClient,
+            NodeResourceClient testResourceClient,
             FailureResolverConfig config)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -51,7 +51,7 @@ public class FailureResolverFactoryContext
         return prestoAction;
     }
 
-    public PrestoResourceClient getTestResourceClient()
+    public NodeResourceClient getTestResourceClient()
     {
         return testResourceClient;
     }

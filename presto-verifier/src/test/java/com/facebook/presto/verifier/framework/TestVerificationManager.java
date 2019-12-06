@@ -26,8 +26,8 @@ import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
 import com.facebook.presto.verifier.checksum.OrderableArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
+import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoResourceClient;
 import com.facebook.presto.verifier.resolver.FailureResolverConfig;
 import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
@@ -83,8 +83,8 @@ public class TestVerificationManager
         }
     }
 
-    private static class MockPrestoResourceClient
-            implements PrestoResourceClient
+    private static class MockNodeResourceClient
+            implements NodeResourceClient
     {
         @Override
         public int getClusterSize(String path)
@@ -209,7 +209,7 @@ public class TestVerificationManager
                         (sourceQuery, verificationContext) -> prestoAction,
                         presto -> new QueryRewriter(SQL_PARSER, presto, ImmutableList.of(), ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX)),
                         new FailureResolverManagerFactory(ImmutableList.of(), new FailureResolverConfig().setEnabled(false)),
-                        new MockPrestoResourceClient(),
+                        new MockNodeResourceClient(),
                         new ChecksumValidator(new SimpleColumnValidator(), new FloatingPointColumnValidator(verifierConfig), new OrderableArrayColumnValidator()),
                         verifierConfig,
                         new TypeRegistry(),
