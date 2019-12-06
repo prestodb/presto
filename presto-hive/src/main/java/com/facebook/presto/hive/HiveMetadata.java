@@ -147,6 +147,7 @@ import static com.facebook.presto.hive.HiveAnalyzeProperties.getPartitionList;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
 import static com.facebook.presto.hive.HiveBucketHandle.createVirtualBucketHandle;
+import static com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -1937,7 +1938,7 @@ public class HiveMetadata
                                 hivePartitionResult.getBucketHandle(),
                                 hivePartitionResult.getBucketFilter(),
                                 true,
-                                createTableLayoutString(session, tableName, hivePartitionResult.getBucketHandle(), decomposedFilter.getRemainingExpression(), domainPredicate))),
+                                createTableLayoutString(session, tableName, hivePartitionResult.getBucketHandle(), hivePartitionResult.getBucketFilter(), decomposedFilter.getRemainingExpression(), domainPredicate))),
                 TRUE_CONSTANT);
     }
 
@@ -2027,12 +2028,14 @@ public class HiveMetadata
             ConnectorSession session,
             SchemaTableName tableName,
             Optional<HiveBucketHandle> bucketHandle,
+            Optional<HiveBucketFilter> bucketFilter,
             RowExpression remainingPredicate,
             TupleDomain<Subfield> domainPredicate)
     {
         return toStringHelper(tableName.toString())
                 .omitNullValues()
                 .add("buckets", bucketHandle.map(HiveBucketHandle::getReadBucketCount).orElse(null))
+                .add("bucketsToKeep", bucketFilter.map(HiveBucketFilter::getBucketsToKeep).orElse(null))
                 .add("filter", TRUE_CONSTANT.equals(remainingPredicate) ? null : rowExpressionService.formatRowExpression(session, remainingPredicate))
                 .add("domains", domainPredicate.isAll() ? null : domainPredicate.toString(session))
                 .toString();
@@ -2097,7 +2100,7 @@ public class HiveMetadata
                                 hiveBucketHandle,
                                 hivePartitionResult.getBucketFilter(),
                                 false,
-                                createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), TRUE_CONSTANT, domainPredicate))),
+                                createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), hivePartitionResult.getBucketFilter(), TRUE_CONSTANT, domainPredicate))),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
