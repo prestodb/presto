@@ -24,6 +24,7 @@ import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -110,6 +111,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
     public AbstractOrcRecordReader(
             Map<Integer, Type> includedColumns,
+            Map<Integer, List<Subfield>> requiredSubfields,
             T[] streamReaders,
             OrcPredicate predicate,
             long numberOfRows,
@@ -221,6 +223,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 decompressor,
                 types,
                 this.presentColumns,
+                requiredSubfields,
                 rowsInRowGroup,
                 predicate,
                 hiveWriterVersion,
