@@ -27,6 +27,7 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.ConstantPageProjection;
+import com.facebook.presto.operator.project.DereferencePageProjection;
 import com.facebook.presto.operator.project.GeneratedPageProjection;
 import com.facebook.presto.operator.project.InputChannels;
 import com.facebook.presto.operator.project.InputPageProjection;
@@ -179,6 +180,11 @@ public class PageFunctionCompiler
             ConstantExpression constant = (ConstantExpression) projection;
             ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.getValue(), constant.getType());
             return () -> projectionFunction;
+        }
+
+        Optional<DereferencePageProjection> dereferencePageProjection = DereferencePageProjection.fromRowExpression(projection);
+        if (dereferencePageProjection.isPresent()) {
+            return () -> dereferencePageProjection.get();
         }
 
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.block;
 
+import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -115,6 +116,26 @@ public class RowBlock
             retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
         }
         this.retainedSizeInBytes = retainedSizeInBytes;
+    }
+
+    public Block getFieldBlock(int field, Type type)
+    {
+        Block fieldBlock = getRawFieldBlocks()[field];
+        if (!mayHaveNull()) {
+            return fieldBlock.getRegion(startOffset, positionCount);
+        }
+
+        BlockBuilder builder = type.createBlockBuilder(null, positionCount);
+        int[] offsets = getFieldBlockOffsets();
+        for (int position = 0; position < positionCount; position++) {
+            if (isNull(position)) {
+                builder.appendNull();
+            }
+            else {
+                type.appendTo(fieldBlock, offsets[startOffset + position], builder);
+            }
+        }
+        return builder.build();
     }
 
     @Override
