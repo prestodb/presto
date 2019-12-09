@@ -31,6 +31,8 @@ import com.facebook.presto.spi.block.BlockLease;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +57,16 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createStreamReader;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -223,7 +235,7 @@ public class OrcSelectiveRecordReader
         //  - readers with filters
         //  - followed by readers for columns that provide input to filter functions
         //  - followed by readers for columns that doesn't have any filtering
-        streamReaderOrder = orderStreamReaders(columnTypes.keySet().stream().filter(index -> this.constantValues[index] == null).collect(toImmutableSet()), columnsWithFilterScores, filterFunctionInputs);
+        streamReaderOrder = orderStreamReaders(columnTypes.keySet().stream().filter(index -> this.constantValues[index] == null).collect(toImmutableSet()), columnsWithFilterScores, filterFunctionInputs, columnTypes);
     }
 
     private static Optional<FilterFunction> getFilterFunctionWithoutInputs(List<FilterFunction> filterFunctions)
@@ -274,7 +286,36 @@ public class OrcSelectiveRecordReader
         return 100;
     }
 
-    private static int[] orderStreamReaders(Collection<Integer> columnIndices, Map<Integer, Integer> columnToScore, Set<Integer> filterFunctionInputs)
+    private static int scoreType(Type type)
+    {
+        if (type == BOOLEAN) {
+            return 10;
+        }
+
+        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type == TIMESTAMP || type == DATE) {
+            return 20;
+        }
+
+        if (type == REAL || type == DOUBLE) {
+            return 30;
+        }
+
+        if (type instanceof DecimalType) {
+            return 40;
+        }
+
+        if (isVarcharType(type) || type instanceof CharType) {
+            return 50;
+        }
+
+        return 100;
+    }
+
+    private static int[] orderStreamReaders(
+            Collection<Integer> columnIndices,
+            Map<Integer, Integer> columnToScore,
+            Set<Integer> filterFunctionInputs,
+            Map<Integer, Type> columnTypes)
     {
         List<Integer> sortedColumnsByFilterScore = columnToScore.entrySet()
                 .stream()
@@ -289,11 +330,22 @@ public class OrcSelectiveRecordReader
                 order[i++] = columnIndex;
             }
         }
-        for (int columnIndex : filterFunctionInputs) {
+
+        // read primitive types first
+        List<Integer> sortedFilterFunctionInputs = filterFunctionInputs.stream()
+                .collect(toImmutableMap(Function.identity(), columnIndex -> scoreType(columnTypes.get(columnIndex))))
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .collect(toImmutableList());
+
+        for (int columnIndex : sortedFilterFunctionInputs) {
             if (columnIndices.contains(columnIndex) && !sortedColumnsByFilterScore.contains(columnIndex)) {
                 order[i++] = columnIndex;
             }
         }
+
         for (int columnIndex : columnIndices) {
             if (!sortedColumnsByFilterScore.contains(columnIndex) && !filterFunctionInputs.contains(columnIndex)) {
                 order[i++] = columnIndex;
