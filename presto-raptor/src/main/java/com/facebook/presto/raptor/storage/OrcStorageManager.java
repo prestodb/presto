@@ -335,19 +335,19 @@ public class OrcStorageManager
                         tableSupportsDeltaDelete,
                         allColumnTypes.get()));
             }
-            return new OrcPageSource(
-                    uuid -> this.getRowsFromUuid(fileSystem, uuid),
+            return new OrcUpdatablePageSource(
                     shardRewriter,
                     recordReader,
-                    dataSource,
-                    columnIds,
-                    columnTypes,
-                    columnIndexes.build(),
-                    shardUuid,
-                    tableSupportsDeltaDelete,
-                    bucketNumber,
-                    systemMemoryUsage,
-                    deltaShardUuid);
+                    new OrcPageSource(
+                            recordReader,
+                            dataSource,
+                            columnIds,
+                            columnTypes,
+                            columnIndexes.build(),
+                            shardUuid,
+                            bucketNumber,
+                            systemMemoryUsage,
+                            new DeltaShardLoader(deltaShardUuid, tableSupportsDeltaDelete, this, fileSystem)));
         }
         catch (IOException | RuntimeException e) {
             closeQuietly(dataSource);
