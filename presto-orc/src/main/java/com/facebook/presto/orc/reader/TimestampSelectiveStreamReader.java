@@ -44,6 +44,7 @@ import static com.facebook.presto.orc.reader.ApacheHiveTimestampDecoder.decodeTi
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -428,6 +429,14 @@ public class TimestampSelectiveStreamReader
         }
 
         outputPositionCount = positionCount;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .addValue(streamDescriptor)
+                .toString();
     }
 
     @Override
