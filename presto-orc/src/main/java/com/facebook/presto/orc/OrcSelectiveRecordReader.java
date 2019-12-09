@@ -51,13 +51,17 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createStreamReader;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -76,6 +80,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class OrcSelectiveRecordReader
@@ -102,6 +107,8 @@ public class OrcSelectiveRecordReader
     private List<FilterFunctionWithStats>[] filterFunctionsOrder;     // aligned with streamReaderOrder order; each filter function is placed
                                                                       // into a list positioned at the last necessary input
     private Set<Integer>[] filterFunctionInputs;                      // aligned with filterFunctionsOrder
+    private boolean reorderFilters;
+    private int[] reorderableColumns;                                 // values are hiveColumnIndices
 
     // non-deterministic filter functions with only constant inputs; evaluated before any column is read
     private List<FilterFunctionWithStats> filterFunctionsWithConstantInputs;
@@ -272,8 +279,16 @@ public class OrcSelectiveRecordReader
                 .collect(toImmutableList());
 
         // figure out when to evaluate filter functions; a function is ready for evaluation as soon as the last input has been read
-        filterFunctionsOrder = orderFilterFunctionsWithInputs(streamReaderOrder, filterFunctionsWithInputs, this.filterFunctionInputMapping);
+        List<FilterFunctionWithStats> filterFunctionsWithStats = filterFunctionsWithInputs.stream()
+                .map(function -> new FilterFunctionWithStats(function, new FilterStats()))
+                .collect(toImmutableList());
+        filterFunctionsOrder = orderFilterFunctionsWithInputs(streamReaderOrder, filterFunctionsWithStats, this.filterFunctionInputMapping);
         filterFunctionInputs = collectFilterFunctionInputs(filterFunctionsOrder, this.filterFunctionInputMapping);
+        reorderableColumns = Arrays.stream(streamReaderOrder)
+                .filter(columnIndex -> !columnsWithFilterScores.containsKey(columnIndex))
+                .filter(this.filterFunctionInputMapping::containsKey)
+                .toArray();
+        reorderFilters = filterFunctionsWithStats.size() > 1 && reorderableColumns.length > 1;
 
         filterFunctionsWithConstantInputs = filterFunctions.stream()
                 .filter(not(FilterFunction::isDeterministic))
@@ -329,11 +344,60 @@ public class OrcSelectiveRecordReader
                 .allMatch(columnIndex -> constantValues[columnIndex] != null);
     }
 
-    private static List<FilterFunctionWithStats>[] orderFilterFunctionsWithInputs(int[] streamReaderOrder, List<FilterFunction> filterFunctions, Map<Integer, Integer> inputMapping)
+    private void reorderFiltersIfNeeded()
+    {
+        List<FilterFunctionWithStats> filters = Arrays.stream(filterFunctionsOrder)
+                .filter(Objects::nonNull)
+                .flatMap(functions -> functions.stream())
+                .sorted(Comparator.comparingDouble(function -> function.getStats().getElapsedNanonsPerDroppedPosition()))
+                .collect(toImmutableList());
+
+        assert filters.size() > 1;
+
+        Map<Integer, Integer> columnScore = new HashMap<>();
+        for (int i = 0; i < filters.size(); i++) {
+            int score = i;
+            Arrays.stream(filters.get(i).getFunction().getInputChannels())
+                    .map(filterFunctionInputMapping::get)
+                    // exclude columns with range filters
+                    .filter(columnIndex -> !columnsWithFilterScores.containsKey(columnIndex))
+                    // exclude constant columns
+                    .filter(columnIndex -> constantValues[columnIndex] == null)
+                    .forEach(columnIndex -> columnScore.compute(columnIndex, (k, v) -> v == null ? score : min(score, v)));
+        }
+
+        int[] newColumnOrder = columnScore.entrySet().stream()
+                .sorted(Comparator.comparing(Map.Entry::getValue))
+                .mapToInt(Map.Entry::getKey)
+                .toArray();
+
+        // Update streamReaderOrder,
+        // filterFunctionsOrder (aligned with streamReaderOrder),
+        // filterFunctionInputs (aligned with filterFunctionsOrder)
+        boolean sameOrder = true;
+        for (int i = 0; i < streamReaderOrder.length; i++) {
+            if (!columnsWithFilterScores.containsKey(streamReaderOrder[i])) {
+                for (int j = 0; j < newColumnOrder.length; j++) {
+                    if (streamReaderOrder[i] != newColumnOrder[j]) {
+                        sameOrder = false;
+                    }
+                    streamReaderOrder[i++] = newColumnOrder[j];
+                }
+                break;
+            }
+        }
+
+        if (!sameOrder) {
+            filterFunctionsOrder = orderFilterFunctionsWithInputs(streamReaderOrder, filters, this.filterFunctionInputMapping);
+            filterFunctionInputs = collectFilterFunctionInputs(filterFunctionsOrder, this.filterFunctionInputMapping);
+        }
+    }
+
+    private static List<FilterFunctionWithStats>[] orderFilterFunctionsWithInputs(int[] streamReaderOrder, List<FilterFunctionWithStats> filterFunctions, Map<Integer, Integer> inputMapping)
     {
         List<FilterFunctionWithStats>[] order = new List[streamReaderOrder.length];
-        for (FilterFunction function : filterFunctions) {
-            int[] inputs = function.getInputChannels();
+        for (FilterFunctionWithStats function : filterFunctions) {
+            int[] inputs = function.getFunction().getInputChannels();
             int lastIndex = -1;
             for (int input : inputs) {
                 int columnIndex = inputMapping.get(input);
@@ -344,7 +408,7 @@ public class OrcSelectiveRecordReader
             if (order[lastIndex] == null) {
                 order[lastIndex] = new ArrayList<>();
             }
-            order[lastIndex].add(new FilterFunctionWithStats(function, new FilterStats()));
+            order[lastIndex].add(function);
         }
 
         return order;
@@ -570,6 +634,10 @@ public class OrcSelectiveRecordReader
         }
 
         int offset = getNextRowInGroup();
+
+        if (reorderFilters && offset >= MAX_BATCH_SIZE) {
+            reorderFiltersIfNeeded();
+        }
 
         for (int i = 0; i < streamReaderOrder.length; i++) {
             int columnIndex = streamReaderOrder[i];
