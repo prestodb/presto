@@ -99,12 +99,12 @@ public class OrcSelectiveRecordReader
     // Optimal order of stream readers
     private int[] streamReaderOrder;                                  // elements are indices into hiveColumnIndices array
 
-    private List<FilterFunction>[] filterFunctionsOrder;              // aligned with streamReaderOrder order; each filter function is placed
+    private List<FilterFunctionWithStats>[] filterFunctionsOrder;     // aligned with streamReaderOrder order; each filter function is placed
                                                                       // into a list positioned at the last necessary input
     private Set<Integer>[] filterFunctionInputs;                      // aligned with filterFunctionsOrder
 
     // non-deterministic filter functions with only constant inputs; evaluated before any column is read
-    private List<FilterFunction> filterFunctionsWithConstantInputs;
+    private List<FilterFunctionWithStats> filterFunctionsWithConstantInputs;
     private Set<Integer> filterFunctionConstantInputs;
 
     // An immutable list of initial positions; includes all positions: 0,1,2,3,4,..
@@ -279,9 +279,10 @@ public class OrcSelectiveRecordReader
                 .filter(not(FilterFunction::isDeterministic))
                 .filter(OrcSelectiveRecordReader::hasInputs)
                 .filter(this::allConstantInputs)
+                .map(function -> new FilterFunctionWithStats(function, new FilterStats()))
                 .collect(toImmutableList());
         filterFunctionConstantInputs = filterFunctionsWithConstantInputs.stream()
-                .flatMapToInt(function -> Arrays.stream(function.getInputChannels()))
+                .flatMapToInt(function -> Arrays.stream(function.getFunction().getInputChannels()))
                 .boxed()
                 .map(this.filterFunctionInputMapping::get)
                 .collect(toImmutableSet());
@@ -328,9 +329,9 @@ public class OrcSelectiveRecordReader
                 .allMatch(columnIndex -> constantValues[columnIndex] != null);
     }
 
-    private static List<FilterFunction>[] orderFilterFunctionsWithInputs(int[] streamReaderOrder, List<FilterFunction> filterFunctions, Map<Integer, Integer> inputMapping)
+    private static List<FilterFunctionWithStats>[] orderFilterFunctionsWithInputs(int[] streamReaderOrder, List<FilterFunction> filterFunctions, Map<Integer, Integer> inputMapping)
     {
-        List<FilterFunction>[] order = new List[streamReaderOrder.length];
+        List<FilterFunctionWithStats>[] order = new List[streamReaderOrder.length];
         for (FilterFunction function : filterFunctions) {
             int[] inputs = function.getInputChannels();
             int lastIndex = -1;
@@ -343,20 +344,20 @@ public class OrcSelectiveRecordReader
             if (order[lastIndex] == null) {
                 order[lastIndex] = new ArrayList<>();
             }
-            order[lastIndex].add(function);
+            order[lastIndex].add(new FilterFunctionWithStats(function, new FilterStats()));
         }
 
         return order;
     }
 
-    private static Set<Integer>[] collectFilterFunctionInputs(List<FilterFunction>[] functionsOrder, Map<Integer, Integer> inputMapping)
+    private static Set<Integer>[] collectFilterFunctionInputs(List<FilterFunctionWithStats>[] functionsOrder, Map<Integer, Integer> inputMapping)
     {
         Set<Integer>[] inputs = new Set[functionsOrder.length];
         for (int i = 0; i < functionsOrder.length; i++) {
-            List<FilterFunction> functions = functionsOrder[i];
+            List<FilterFunctionWithStats> functions = functionsOrder[i];
             if (functions != null) {
                 inputs[i] = functions.stream()
-                        .flatMapToInt(function -> Arrays.stream(function.getInputChannels()))
+                        .flatMapToInt(function -> Arrays.stream(function.getFunction().getInputChannels()))
                         .boxed()
                         .map(inputMapping::get)
                         .collect(toImmutableSet());
@@ -680,7 +681,7 @@ public class OrcSelectiveRecordReader
         return filterFunctionWithoutInput.get().filter(page, outputPositions, positionCount, errors);
     }
 
-    private int applyFilterFunctions(List<FilterFunction> filterFunctions, Set<Integer> filterFunctionInputs, int[] positions, int positionCount)
+    private int applyFilterFunctions(List<FilterFunctionWithStats> filterFunctions, Set<Integer> filterFunctionInputs, int[] positions, int positionCount)
     {
         BlockLease[] blockLeases = new BlockLease[hiveColumnIndices.length];
         Block[] blocks = new Block[hiveColumnIndices.length];
@@ -708,7 +709,8 @@ public class OrcSelectiveRecordReader
         try {
             initializeOutputPositions(positionCount);
 
-            for (FilterFunction function : filterFunctions) {
+            for (FilterFunctionWithStats functionWithStats : filterFunctions) {
+                FilterFunction function = functionWithStats.getFunction();
                 int[] inputs = function.getInputChannels();
                 Block[] inputBlocks = new Block[inputs.length];
 
@@ -717,7 +719,11 @@ public class OrcSelectiveRecordReader
                 }
 
                 Page page = new Page(positionCount, inputBlocks);
+                long startTime = System.nanoTime();
+                int inputPositionCount = positionCount;
                 positionCount = function.filter(page, outputPositions, positionCount, tmpErrors);
+                functionWithStats.getStats().update(inputPositionCount, positionCount, System.nanoTime() - startTime);
+
                 if (positionCount == 0) {
                     break;
                 }
@@ -818,6 +824,47 @@ public class OrcSelectiveRecordReader
             lazyBlock.setBlock(block);
 
             loaded = true;
+        }
+    }
+
+    private static final class FilterFunctionWithStats
+    {
+        private final FilterFunction function;
+        private final FilterStats stats;
+
+        private FilterFunctionWithStats(FilterFunction function, FilterStats stats)
+        {
+            this.function = function;
+            this.stats = stats;
+        }
+
+        public FilterFunction getFunction()
+        {
+            return function;
+        }
+
+        public FilterStats getStats()
+        {
+            return stats;
+        }
+    }
+
+    private static final class FilterStats
+    {
+        private long inputPositions;
+        private long outputPositions;
+        private long elapsedNanos;
+
+        public void update(int inputPositions, int outputPositions, long elapsedNanos)
+        {
+            this.inputPositions += inputPositions;
+            this.outputPositions += outputPositions;
+            this.elapsedNanos += elapsedNanos;
+        }
+
+        public double getElapsedNanonsPerDroppedPosition()
+        {
+            return (double) elapsedNanos / (1 + inputPositions - outputPositions);
         }
     }
 }
