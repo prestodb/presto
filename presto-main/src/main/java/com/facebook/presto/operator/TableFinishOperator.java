@@ -343,18 +343,28 @@ public class TableFinishOperator
         public void update(Page page, TableCommitContext tableCommitContext)
         {
             LifespanAndStage lifespanAndStage = LifespanAndStage.fromTableCommitContext(tableCommitContext);
-            if (committedRecoverableLifespanAndStages.containsKey(lifespanAndStage)) {
-                checkState(
-                        !committedRecoverableLifespanAndStages.get(lifespanAndStage).getTaskId().equals(tableCommitContext.getTaskId()),
-                        "Received page from same task of committed lifespan and stage");
-                return;
-            }
 
+            // Case 1: lifespan commit is not required, this can be one of the following cases:
+            //  - The source fragment is ungrouped execution (lifespan is TASK_WIDE).
+            //  - The source fragment is grouped execution but not recoverable.
             if (!tableCommitContext.isLifespanCommitRequired()) {
                 unrecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new LifespanAndStageState(tableCommitContext.getTaskId())).update(page);
                 return;
             }
 
+            // Case 2: lifespan commit is required
+            checkState(lifespanAndStage.lifespan != Lifespan.taskWide(), "Recoverable lifespan cannot be TASK_WIDE");
+
+            // Case 2a: current (stage, lifespan) combination is already committed
+            if (committedRecoverableLifespanAndStages.containsKey(lifespanAndStage)) {
+                checkState(
+                        !committedRecoverableLifespanAndStages.get(lifespanAndStage).getTaskId().equals(tableCommitContext.getTaskId()),
+                        "Received page from same task of committed lifespan and stage combination");
+
+                return;
+            }
+
+            // Case 2b: current (stage, lifespan) combination is not yet committed
             Map<TaskId, LifespanAndStageState> lifespanStageStatesPerTask = uncommittedRecoverableLifespanAndStageStates.computeIfAbsent(lifespanAndStage, ignored -> new HashMap<>());
             lifespanStageStatesPerTask.computeIfAbsent(tableCommitContext.getTaskId(), ignored -> new LifespanAndStageState(tableCommitContext.getTaskId())).update(page);
 
