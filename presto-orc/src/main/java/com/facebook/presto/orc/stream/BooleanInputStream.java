@@ -222,7 +222,7 @@ public class BooleanInputStream
         // handle the head
         int count = Math.min(batchSize, bitsInData);
         if (count != 0) {
-            int value = (data >>> (8 - count)) & 0x7f;
+            int value = (data & 0xFF) >>> (8 - count);
             countBitsSet += Integer.bitCount(value);
             switch (count) {
                 case 7:
@@ -250,7 +250,7 @@ public class BooleanInputStream
 
         // the middle part
         while (offset < batchSize - 7) {
-            int value = byteStream.next() & 0xff;
+            int value = byteStream.next() & 0xFF;
             countBitsSet += Integer.bitCount(value);
             vector[offset + 0] = ((value & 128) >>> 7) == 1;
             vector[offset + 1] = ((value & 64) >>> 6) == 1;
@@ -266,8 +266,8 @@ public class BooleanInputStream
         // the tail
         int remaining = batchSize - offset;
         if (remaining > 0) {
-            int data = byteStream.next() & 0xff;
-            int value = (data >>> (8 - remaining)) & 0x7f;
+            byte data = byteStream.next();
+            int value = (data & 0xFF) >> (8 - remaining);
             countBitsSet += Integer.bitCount(value);
             switch (remaining) {
                 case 7:
@@ -365,7 +365,7 @@ public class BooleanInputStream
         int remaining = batchSize - offset;
         if (remaining > 0) {
             byte data = byteStream.next();
-            int value = (data & 0xff) >> (8 - remaining);
+            int value = (data & 0xFF) >> (8 - remaining);
             unsetCount += (remaining - Integer.bitCount(value));
             switch (remaining) {
                 case 7:
