@@ -777,13 +777,15 @@ public class OrcSelectiveRecordReader
         try {
             initializeOutputPositions(positionCount);
 
-            for (FilterFunctionWithStats functionWithStats : filterFunctions) {
+            for (int i = 0; i < filterFunctions.size(); i++) {
+                FilterFunctionWithStats functionWithStats = filterFunctions.get(i);
+
                 FilterFunction function = functionWithStats.getFunction();
                 int[] inputs = function.getInputChannels();
                 Block[] inputBlocks = new Block[inputs.length];
 
-                for (int i = 0; i < inputs.length; i++) {
-                    inputBlocks[i] = blocks[filterFunctionInputMapping.get(inputs[i])];
+                for (int j = 0; j < inputs.length; j++) {
+                    inputBlocks[j] = blocks[filterFunctionInputMapping.get(inputs[j])];
                 }
 
                 Page page = new Page(positionCount, inputBlocks);
