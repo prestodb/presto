@@ -185,6 +185,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -799,8 +800,8 @@ public class OrcTester
                 for (int i = 0; i < types.size(); i++) {
                     Type type = types.get(i);
                     Block block = page.getBlock(i);
-
                     assertEquals(block.getPositionCount(), positionCount);
+                    checkNullValues(type, block);
 
                     List<Object> data = new ArrayList<>(positionCount);
                     for (int position = 0; position < positionCount; position++) {
@@ -893,6 +894,7 @@ public class OrcTester
                         Type type = types.get(i);
                         Block block = recordReader.readBlock(i);
                         assertEquals(block.getPositionCount(), batchSize);
+                        checkNullValues(type, block);
 
                         List<Object> data = new ArrayList<>(block.getPositionCount());
                         for (int position = 0; position < block.getPositionCount(); position++) {
@@ -1897,6 +1899,29 @@ public class OrcTester
             return newStruct;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
+    }
+
+    private static void checkNullValues(Type type, Block block)
+    {
+        if (!block.mayHaveNull()) {
+            return;
+        }
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                if (type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(BIGINT) || type.equals(REAL) || type.equals(DATE) || type.equals(TIMESTAMP)) {
+                    assertEquals(type.getLong(block, position), 0);
+                }
+                if (type.equals(BOOLEAN)) {
+                    assertFalse(type.getBoolean(block, position));
+                }
+                if (type.equals(DOUBLE)) {
+                    assertEquals(type.getDouble(block, position), 0.0);
+                }
+                if (type instanceof VarcharType || type instanceof CharType || type.equals(VARBINARY)) {
+                    assertEquals(type.getSlice(block, position).length(), 0);
+                }
+            }
+        }
     }
 
     private static void setDwrfLowMemoryFlag(RecordWriter recordWriter)
