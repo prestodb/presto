@@ -217,31 +217,14 @@ public class BooleanInputStream
     public int getSetBits(int batchSize, boolean[] vector)
             throws IOException
     {
-        int offset = 0;
         int countBitsSet = 0;
         // handle the head
         int count = Math.min(batchSize, bitsInData);
         if (count != 0) {
-            int value = (data >>> (8 - count)) & 0x7f;
-            countBitsSet += Integer.bitCount(value);
-            switch (count) {
-                case 7:
-                    vector[offset++] = ((value & 64) >>> 6) == 1;
-                case 6:
-                    vector[offset++] = ((value & 32) >>> 5) == 1;
-                case 5:
-                    vector[offset++] = ((value & 16) >>> 4) == 1;
-                case 4:
-                    vector[offset++] = ((value & 8) >>> 3) == 1;
-                case 3:
-                    vector[offset++] = ((value & 4) >>> 2) == 1;
-                case 2:
-                    vector[offset++] = ((value & 2) >>> 1) == 1;
-                case 1:
-                    vector[offset++] = ((value & 1) >>> 0) == 1;
+            for (int i = 0; i < count; i++) {
+                vector[i] = nextBit();
+                countBitsSet += vector[i] ? 1 : 0;
             }
-            data <<= count;
-            bitsInData -= count;
 
             if (count == batchSize) {
                 return countBitsSet;
@@ -249,6 +232,7 @@ public class BooleanInputStream
         }
 
         // the middle part
+        int offset = count;
         while (offset < batchSize - 7) {
             int value = byteStream.next() & 0xff;
             countBitsSet += Integer.bitCount(value);
@@ -264,29 +248,9 @@ public class BooleanInputStream
         }
 
         // the tail
-        int remaining = batchSize - offset;
-        if (remaining > 0) {
-            int data = byteStream.next() & 0xff;
-            int value = (data >>> (8 - remaining)) & 0x7f;
-            countBitsSet += Integer.bitCount(value);
-            switch (remaining) {
-                case 7:
-                    vector[offset++] = ((value & 64) >>> 6) == 1;
-                case 6:
-                    vector[offset++] = ((value & 32) >>> 5) == 1;
-                case 5:
-                    vector[offset++] = ((value & 16) >>> 4) == 1;
-                case 4:
-                    vector[offset++] = ((value & 8) >>> 3) == 1;
-                case 3:
-                    vector[offset++] = ((value & 4) >>> 2) == 1;
-                case 2:
-                    vector[offset++] = ((value & 2) >>> 1) == 1;
-                case 1:
-                    vector[offset++] = ((value & 1) >>> 0) == 1;
-            }
-            this.data = (byte) (data << remaining);
-            bitsInData = 8 - remaining;
+        for (int i = offset; i < batchSize; i++) {
+            vector[i] = nextBit();
+            countBitsSet += vector[i] ? 1 : 0;
         }
         return countBitsSet;
     }
