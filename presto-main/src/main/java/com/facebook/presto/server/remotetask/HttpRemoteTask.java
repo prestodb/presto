@@ -29,6 +29,7 @@ import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
@@ -55,6 +56,8 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
@@ -73,6 +76,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -167,6 +171,7 @@ public final class HttpRemoteTask
 
     private final HttpClient httpClient;
     private final Executor executor;
+    private final ListeningExecutorService listeningCoreExecutor;
     private final ScheduledExecutorService errorScheduledExecutor;
 
     private final Codec<TaskInfo> taskInfoCodec;
@@ -186,6 +191,9 @@ public final class HttpRemoteTask
 
     private final TableWriteInfo tableWriteInfo;
 
+    private final TaskManager taskManager;
+    private final ScheduledExecutorService timeoutExecutor;
+
     public HttpRemoteTask(
             Session session,
             TaskId taskId,
@@ -197,6 +205,7 @@ public final class HttpRemoteTask
             OutputBuffers outputBuffers,
             HttpClient httpClient,
             Executor executor,
+            ExecutorService coreExecutor,
             ScheduledExecutorService updateScheduledExecutor,
             ScheduledExecutorService errorScheduledExecutor,
             Duration maxErrorDuration,
@@ -211,7 +220,9 @@ public final class HttpRemoteTask
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled,
             TableWriteInfo tableWriteInfo,
-            int maxTaskUpdateSizeInBytes)
+            int maxTaskUpdateSizeInBytes,
+            TaskManager taskManager,
+            ScheduledExecutorService timeoutExecutor)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -220,7 +231,6 @@ public final class HttpRemoteTask
         requireNonNull(planFragment, "planFragment is null");
         requireNonNull(totalPartitions, "totalPartitions is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
-        requireNonNull(httpClient, "httpClient is null");
         requireNonNull(executor, "executor is null");
         requireNonNull(taskStatusCodec, "taskStatusCodec is null");
         requireNonNull(taskInfoCodec, "taskInfoCodec is null");
@@ -239,20 +249,31 @@ public final class HttpRemoteTask
             this.planFragment = planFragment;
             this.totalPartitions = totalPartitions;
             this.outputBuffers.set(outputBuffers);
-            this.httpClient = httpClient;
             this.executor = executor;
             this.errorScheduledExecutor = errorScheduledExecutor;
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
-            this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.maxErrorDuration = maxErrorDuration;
             this.stats = stats;
             this.isBinaryTransportEnabled = isBinaryTransportEnabled;
             this.tableWriteInfo = tableWriteInfo;
             this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
-
+            Backoff backoff;
+            if (taskManager != null) {
+                this.taskManager = taskManager;
+                this.httpClient = null;
+                backoff = Backoff.createNeverBackingOff();
+            }
+            else {
+                this.taskManager = null;
+                this.httpClient = requireNonNull(httpClient, "httpClient is null");
+                backoff = new Backoff(maxErrorDuration);
+            }
+            this.updateErrorTracker = new RequestErrorTracker(taskId, location, backoff, errorScheduledExecutor, "updating task");
+            this.timeoutExecutor = timeoutExecutor;
+            this.listeningCoreExecutor = MoreExecutors.listeningDecorator(coreExecutor);
             this.tableScanPlanNodeIds = ImmutableSet.copyOf(planFragment.getTableScanSchedulingOrder());
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
                     .map(PlanNode::getId)
@@ -284,7 +305,9 @@ public final class HttpRemoteTask
                     maxErrorDuration,
                     errorScheduledExecutor,
                     stats,
-                    isBinaryTransportEnabled);
+                    isBinaryTransportEnabled,
+                    timeoutExecutor,
+                    taskManager);
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
@@ -299,7 +322,9 @@ public final class HttpRemoteTask
                     updateScheduledExecutor,
                     errorScheduledExecutor,
                     stats,
-                    isBinaryTransportEnabled);
+                    isBinaryTransportEnabled,
+                    listeningCoreExecutor,
+                    taskManager);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();
@@ -634,6 +659,22 @@ public final class HttpRemoteTask
                 outputBuffers.get(),
                 totalPartitions,
                 writeInfo);
+
+        sendUpdateHelper(taskStatus, sources, updateRequest);
+    }
+
+    private void sendUpdateHelper(TaskStatus taskStatus, List<TaskSource> sources, TaskUpdateRequest updateRequest)
+    {
+        if (taskManager != null) {
+            sendUpdateHelperRaw(sources, updateRequest);
+        }
+        else {
+            sendUpdateHelperHttp(taskStatus, sources, updateRequest.getFragment(), updateRequest);
+        }
+    }
+
+    private void sendUpdateHelperHttp(TaskStatus taskStatus, List<TaskSource> sources, Optional<PlanFragment> fragment, TaskUpdateRequest updateRequest)
+    {
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
 
         if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
@@ -677,6 +718,51 @@ public final class HttpRemoteTask
         Futures.addCallback(future, new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats), executor);
     }
 
+    private void sendUpdateHelperRaw(List<TaskSource> sources, TaskUpdateRequest updateRequest)
+    {
+        ListenableFuture<TaskInfo> future = listeningCoreExecutor.submit(() -> {
+            TaskInfo taskInfo = taskManager.updateTask(session,
+                    taskId,
+                    updateRequest.getFragment(),
+                    updateRequest.getSources(),
+                    updateRequest.getOutputIds(),
+                    updateRequest.getTotalPartitions(),
+                    updateRequest.getTableWriteInfo());
+
+            if (summarizeTaskInfo) {
+                taskInfo = taskInfo.summarize();
+            }
+            return taskInfo;
+        });
+        currentRequest = future;
+        currentRequestStartNanos = System.nanoTime();
+
+        // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
+        // and does so without grabbing the instance lock.
+        needsUpdate.set(false);
+        UpdateResponseHandler updateResponseHandler = new UpdateResponseHandler(sources);
+        Futures.addCallback(future, new FutureCallback<TaskInfo>()
+        {
+            @Override
+            public void onSuccess(TaskInfo result)
+            {
+                stats.updateSuccess();
+                updateResponseHandler.success(result);
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                stats.updateFailure();
+                updateResponseHandler.failed(t);
+            }
+        }, executor);
+
+        // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
+        // and does so without grabbing the instance lock.
+        needsUpdate.set(false);
+    }
+
     private synchronized List<TaskSource> getSources()
     {
         return Stream.concat(tableScanPlanNodeIds.stream(), remoteSourcePlanNodeIds.stream())
@@ -699,6 +785,138 @@ public final class HttpRemoteTask
         return element;
     }
 
+    private void cleanUpLocally()
+    {
+        // Update the taskInfo with the new taskStatus.
+
+        // Generally, we send a cleanup request to the worker, and update the TaskInfo on
+        // the coordinator based on what we fetched from the worker. If we somehow cannot
+        // get the cleanup request to the worker, the TaskInfo that we fetch for the worker
+        // likely will not say the task is done however many times we try. In this case,
+        // we have to set the local query info directly so that we stop trying to fetch
+        // updated TaskInfo from the worker. This way, the task on the worker eventually
+        // expires due to lack of activity.
+
+        // This is required because the query state machine depends on TaskInfo (instead of task status)
+        // to transition its own state.
+        // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
+
+        // Since this TaskInfo is updated in the client the "complete" flag will not be set,
+        // indicating that the stats may not reflect the final stats on the worker.
+        updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
+    }
+
+    private void doScheduleAsyncCleanupRequest(Optional<Request> request, Backoff cleanupBackoff, boolean abort, String actionForLogging)
+    {
+        ListenableFuture<Optional<TaskInfo>> future = abortOrCancelTask(request, abort);
+
+        Futures.addCallback(future, new FutureCallback<Optional<TaskInfo>>()
+        {
+            @Override
+            public void onSuccess(Optional<TaskInfo> result)
+            {
+                try {
+                    result.ifPresent(r -> updateTaskInfo(r));
+                }
+                finally {
+                    if (!getTaskInfo().getTaskStatus().getState().isDone()) {
+                        cleanUpLocally();
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                if (t instanceof RejectedExecutionException && request.isPresent() && httpClient.isClosed()) {
+                    logError(t, "Unable to %s task at %s. HTTP client is closed.", actionForLogging, request.get().getUri());
+                    cleanUpLocally();
+                    return;
+                }
+
+                // record failure
+                if (cleanupBackoff.failure()) {
+                    logError(t, "Unable to %s task at %s. Back off depleted.", actionForLogging, taskId);
+                    cleanUpLocally();
+                    return;
+                }
+
+                // reschedule
+                long delayNanos = cleanupBackoff.getBackoffDelayNanos();
+                if (delayNanos == 0) {
+                    doScheduleAsyncCleanupRequest(request, cleanupBackoff, abort, actionForLogging);
+                }
+                else {
+                    errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(request, cleanupBackoff, abort, actionForLogging), delayNanos, NANOSECONDS);
+                }
+            }
+        }, executor);
+    }
+
+    private ListenableFuture<Optional<TaskInfo>> abortOrCancelTask(Optional<Request> request, boolean abort)
+    {
+        if (request.isPresent()) {
+            ResponseHandler responseHandler;
+            if (isBinaryTransportEnabled) {
+                responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
+            }
+            else {
+                responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
+            }
+
+            ListenableFuture<BaseResponse<TaskInfo>> future = httpClient.executeAsync(request.get(), responseHandler);
+
+            return Futures.transform(
+                    future,
+                    baseResponse -> {
+                        try {
+                            return Optional.of(baseResponse.getValue());
+                        }
+                        catch (Exception e) {
+                            return Optional.empty();
+                        }
+                    },
+                    executor);
+        }
+        else {
+            return listeningCoreExecutor.submit(() -> {
+                TaskInfo taskInfo;
+                if (abort) {
+                    taskInfo = taskManager.abortTask(taskId);
+                }
+                else {
+                    taskInfo = taskManager.cancelTask(taskId);
+                }
+
+                if (summarizeTaskInfo) {
+                    taskInfo = taskInfo.summarize();
+                }
+                return Optional.of(taskInfo);
+            });
+        }
+    }
+
+    private void scheduleAsyncCleanupRequest(Optional<Request> request, Backoff cleanupBackoff, boolean abort, String actionForLogging)
+    {
+        if (aborting.compareAndSet(false, true)) {
+            doScheduleAsyncCleanupRequest(request, cleanupBackoff, abort, actionForLogging);
+        }
+    }
+
+    private void cancelOrAbort(TaskStatus taskStatus, boolean abort, String actionForLogging)
+    {
+        Optional<Request> request;
+        if (taskManager == null) {
+            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
+            uriBuilder.addParameter("abort", abort ? "true" : "false");
+            request = Optional.of(setContentTypeHeaders(isBinaryTransportEnabled, prepareDelete()).setUri(uriBuilder.build()).build());
+        }
+        else {
+            request = Optional.empty();
+        }
+        scheduleAsyncCleanupRequest(request, createCleanupBackoff(), abort, actionForLogging);
+    }
+
     @Override
     public synchronized void cancel()
     {
@@ -708,12 +926,7 @@ public final class HttpRemoteTask
                 return;
             }
 
-            // send cancel to task and ignore response
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
-            Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareDelete())
-                    .setUri(uriBuilder.build())
-                    .build();
-            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cancel");
+            cancelOrAbort(taskStatus, false, "cancel");
         }
     }
 
@@ -739,12 +952,8 @@ public final class HttpRemoteTask
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
-        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-        Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareDelete())
-                .setUri(uriBuilder.build())
-                .build();
 
-        scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cleanup");
+        cancelOrAbort(getTaskStatus(), true, "cleanup");
     }
 
     @Override
@@ -769,96 +978,8 @@ public final class HttpRemoteTask
             taskStatusFetcher.updateTaskStatus(status);
 
             // send abort to task
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-            Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareDelete())
-                    .setUri(uriBuilder.build())
-                    .build();
-            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "abort");
+            cancelOrAbort(status, true, "abort");
         }
-    }
-
-    private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
-    {
-        if (!aborting.compareAndSet(false, true)) {
-            // Do not initiate another round of cleanup requests if one had been initiated.
-            // Otherwise, we can get into an asynchronous recursion here. For example, when aborting a task after REMOTE_TASK_MISMATCH.
-            return;
-        }
-        doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
-    }
-
-    private void doScheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
-    {
-        ResponseHandler responseHandler;
-        if (isBinaryTransportEnabled) {
-            responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
-        }
-        else {
-            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskInfoCodec));
-        }
-
-        Futures.addCallback(httpClient.executeAsync(request, responseHandler), new FutureCallback<BaseResponse<TaskInfo>>()
-        {
-            @Override
-            public void onSuccess(BaseResponse<TaskInfo> result)
-            {
-                try {
-                    updateTaskInfo(result.getValue());
-                }
-                finally {
-                    if (!getTaskInfo().getTaskStatus().getState().isDone()) {
-                        cleanUpLocally();
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Throwable t)
-            {
-                if (t instanceof RejectedExecutionException && httpClient.isClosed()) {
-                    logError(t, "Unable to %s task at %s. HTTP client is closed.", action, request.getUri());
-                    cleanUpLocally();
-                    return;
-                }
-
-                // record failure
-                if (cleanupBackoff.failure()) {
-                    logError(t, "Unable to %s task at %s. Back off depleted.", action, request.getUri());
-                    cleanUpLocally();
-                    return;
-                }
-
-                // reschedule
-                long delayNanos = cleanupBackoff.getBackoffDelayNanos();
-                if (delayNanos == 0) {
-                    doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
-                }
-                else {
-                    errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
-                }
-            }
-
-            private void cleanUpLocally()
-            {
-                // Update the taskInfo with the new taskStatus.
-
-                // Generally, we send a cleanup request to the worker, and update the TaskInfo on
-                // the coordinator based on what we fetched from the worker. If we somehow cannot
-                // get the cleanup request to the worker, the TaskInfo that we fetch for the worker
-                // likely will not say the task is done however many times we try. In this case,
-                // we have to set the local query info directly so that we stop trying to fetch
-                // updated TaskInfo from the worker. This way, the task on the worker eventually
-                // expires due to lack of activity.
-
-                // This is required because the query state machine depends on TaskInfo (instead of task status)
-                // to transition its own state.
-                // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
-
-                // Since this TaskInfo is updated in the client the "complete" flag will not be set,
-                // indicating that the stats may not reflect the final stats on the worker.
-                updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
-            }
-        }, executor);
     }
 
     /**

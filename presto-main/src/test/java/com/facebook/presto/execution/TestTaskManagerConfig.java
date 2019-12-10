@@ -62,7 +62,8 @@ public class TestTaskManagerConfig
                 .setTaskYieldThreads(3)
                 .setLevelTimeMultiplier(new BigDecimal("2"))
                 .setStatisticsCpuTimerEnabled(true)
-                .setLegacyLifespanCompletionCondition(false));
+                .setLegacyLifespanCompletionCondition(false)
+                .setBypassHttpForLocal(false));
     }
 
     @Test
@@ -97,6 +98,7 @@ public class TestTaskManagerConfig
                 .put("task.task-notification-threads", "13")
                 .put("task.task-yield-threads", "8")
                 .put("task.level-time-multiplier", "2.1")
+                .put("task.bypass-http-for-local", "true")
                 .put("task.statistics-cpu-timer-enabled", "false")
                 .put("task.legacy-lifespan-completion-condition", "true")
                 .build();
@@ -131,7 +133,8 @@ public class TestTaskManagerConfig
                 .setTaskYieldThreads(8)
                 .setLevelTimeMultiplier(new BigDecimal("2.1"))
                 .setStatisticsCpuTimerEnabled(false)
-                .setLegacyLifespanCompletionCondition(true);
+                .setLegacyLifespanCompletionCondition(true)
+                .setBypassHttpForLocal(true);
 
         assertFullMapping(properties, expected);
     }

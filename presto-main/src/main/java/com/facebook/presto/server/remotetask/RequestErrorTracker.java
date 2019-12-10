@@ -61,10 +61,15 @@ class RequestErrorTracker
 
     public RequestErrorTracker(TaskId taskId, URI taskUri, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
     {
+        this(taskId, taskUri, new Backoff(requireNonNull(maxErrorDuration, "maxErrorDuration is null")), scheduledExecutor, jobDescription);
+    }
+
+    public RequestErrorTracker(TaskId taskId, URI taskUri, Backoff backoff, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskUri = requireNonNull(taskUri, "taskUri is null");
         this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
-        this.backoff = new Backoff(requireNonNull(maxErrorDuration, "maxErrorDuration is null"));
+        this.backoff = requireNonNull(backoff, "backoff is null");
         this.jobDescription = requireNonNull(jobDescription, "jobDescription is null");
     }
 

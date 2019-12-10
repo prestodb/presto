@@ -26,6 +26,7 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
@@ -36,8 +37,11 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.server.ForAsyncHttp;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.SmileCodec;
@@ -65,6 +69,7 @@ import com.google.inject.Scopes;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import javax.inject.Singleton;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
@@ -82,13 +87,16 @@ import javax.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -106,9 +114,11 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestHttpRemoteTask
@@ -123,6 +133,8 @@ public class TestHttpRemoteTask
             .setInfoUpdateInterval(new Duration(IDLE_TIMEOUT.roundTo(MILLISECONDS) / 10, MILLISECONDS));
 
     private static final boolean TRACE_HTTP = false;
+    private static final InternalNode TASK_NODE = new InternalNode("local", URI.create("http://fake.invalid/"), new NodeVersion("version"), false);
+    private static final TaskId TASK_ID = new TaskId("test", 1, 2, 3);
 
     @Test(timeOut = 30000)
     public void testRemoteTaskMismatch()
@@ -152,7 +164,7 @@ public class TestHttpRemoteTask
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
         TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
 
-        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, false);
 
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
@@ -177,13 +189,35 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
+    @Test(timeOut = 30000)
+    public void testBypassLocal()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+        HttpRemoteTaskFactoryAndTaskManager httpRemoteTaskFactoryAndTaskManager = createHttpRemoteTaskFactoryAndTaskManager(testingTaskResource, true);
+        HttpRemoteTaskFactory httpRemoteTaskFactory = httpRemoteTaskFactoryAndTaskManager.getHttpRemoteTaskFactory();
+        TaskManager taskManager = httpRemoteTaskFactoryAndTaskManager.getTaskManager();
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+
+        remoteTask.start();
+        Thread.sleep(POLL_TIMEOUT.toMillis());
+        assertNull(testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID));
+
+        Optional<TaskInfo> createdTask = taskManager.getAllTaskInfo().stream().filter(ti -> Objects.equals(TASK_ID, ti.getTaskStatus().getTaskId())).findFirst();
+        assertTrue(createdTask.isPresent());
+        assertEquals(TaskState.RUNNING, createdTask.get().getTaskStatus().getState());
+        assertNull(testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID));
+
+        httpRemoteTaskFactory.stop();
+    }
+
     private void runTest(FailureScenario failureScenario)
             throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
         TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, failureScenario);
-
-        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, false);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
@@ -214,8 +248,8 @@ public class TestHttpRemoteTask
     {
         return httpRemoteTaskFactory.createRemoteTask(
                 TEST_SESSION,
-                new TaskId("test", 1, 0, 2),
-                new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
+                TASK_ID,
+                TASK_NODE,
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
                 OptionalInt.empty(),
@@ -225,9 +259,32 @@ public class TestHttpRemoteTask
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
     }
 
-    private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
+    private static class HttpRemoteTaskFactoryAndTaskManager
+    {
+        private final HttpRemoteTaskFactory httpRemoteTaskFactory;
+        private final TaskManager taskManager;
+
+        public HttpRemoteTaskFactoryAndTaskManager(HttpRemoteTaskFactory httpRemoteTaskFactory, TaskManager taskManager)
+        {
+            this.httpRemoteTaskFactory = httpRemoteTaskFactory;
+            this.taskManager = taskManager;
+        }
+
+        public HttpRemoteTaskFactory getHttpRemoteTaskFactory()
+        {
+            return httpRemoteTaskFactory;
+        }
+
+        public TaskManager getTaskManager()
+        {
+            return taskManager;
+        }
+    }
+
+    private static HttpRemoteTaskFactoryAndTaskManager createHttpRemoteTaskFactoryAndTaskManager(TestingTaskResource testingTaskResource, boolean bypassHttpForLocal)
             throws Exception
     {
+        TaskManagerConfig taskManagerConfig = TASK_MANAGER_CONFIG.setBypassHttpForLocal(bypassHttpForLocal);
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new SmileModule(),
@@ -240,7 +297,11 @@ public class TestHttpRemoteTask
                         binder.bind(JsonMapper.class);
                         configBinder(binder).bindConfig(FeaturesConfig.class);
                         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
+                        binder.bind(TaskManagerConfig.class).toInstance(taskManagerConfig);
                         binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+                        InternalNodeManager mockNodeManager = new InMemoryNodeManager(TASK_NODE.getInternalUri());
+                        binder.bind(InternalNodeManager.class).toInstance(mockNodeManager);
+                        binder.bind(TaskManager.class).toInstance(new TestSqlTaskManager().createSqlTaskManager(taskManagerConfig));
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         newSetBinder(binder, Type.class);
                         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
@@ -254,6 +315,14 @@ public class TestHttpRemoteTask
                     }
 
                     @Provides
+                    @Singleton
+                    @ForAsyncHttp
+                    public ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
+                    {
+                        return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("async-http-timeout-%s"));
+                    }
+
+                    @Provides
                     private HttpRemoteTaskFactory createHttpRemoteTaskFactory(
                             JsonMapper jsonMapper,
                             JsonCodec<TaskStatus> taskStatusJsonCodec,
@@ -261,14 +330,17 @@ public class TestHttpRemoteTask
                             JsonCodec<TaskInfo> taskInfoJsonCodec,
                             SmileCodec<TaskInfo> taskInfoSmileCodec,
                             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
-                            SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec)
+                            SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
+                            TaskManager taskManager,
+                            InternalNodeManager nodeManager,
+                            @ForAsyncHttp ScheduledExecutorService timeoutExecutor)
                     {
                         JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper);
                         TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
                         testingTaskResource.setHttpClient(testingHttpClient);
                         return new HttpRemoteTaskFactory(
                                 new QueryManagerConfig(),
-                                TASK_MANAGER_CONFIG,
+                                taskManagerConfig,
                                 testingHttpClient,
                                 new TestSqlTaskManager.MockLocationFactory(),
                                 taskStatusJsonCodec,
@@ -278,7 +350,10 @@ public class TestHttpRemoteTask
                                 taskUpdateRequestJsonCodec,
                                 taskUpdateRequestSmileCodec,
                                 new RemoteTaskStats(),
-                                new InternalCommunicationConfig());
+                                new InternalCommunicationConfig(),
+                                taskManager,
+                                nodeManager,
+                                timeoutExecutor);
                     }
                 });
         Injector injector = app
@@ -288,7 +363,13 @@ public class TestHttpRemoteTask
                 .initialize();
         HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
         handleResolver.addConnectorName("test", new TestingHandleResolver());
-        return injector.getInstance(HttpRemoteTaskFactory.class);
+        return new HttpRemoteTaskFactoryAndTaskManager(injector.getInstance(HttpRemoteTaskFactory.class), injector.getInstance(TaskManager.class));
+    }
+
+    private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, boolean bypassHttpForLocal)
+            throws Exception
+    {
+        return createHttpRemoteTaskFactoryAndTaskManager(testingTaskResource, bypassHttpForLocal).getHttpRemoteTaskFactory();
     }
 
     private static void poll(BooleanSupplier success)

@@ -15,7 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.server.ForAsyncHttp;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -23,6 +27,7 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.inject.Provider;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -47,12 +52,29 @@ public class ExchangeClientFactory
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutorMBean executorMBean;
     private final ExecutorService pageBufferClientCallbackExecutor;
+    private final Provider<TaskManager> taskManagerProvider;
+    private final ScheduledExecutorService timeoutExecutor;
+    private final InternalNodeManager nodeManager;
+    private final boolean bypassHttpForLocal;
+
+    public ExchangeClientFactory(
+            ExchangeClientConfig config,
+            TaskManagerConfig taskManagerConfig,
+            @ForExchange HttpClient httpClient,
+            @ForExchange ScheduledExecutorService scheduler)
+    {
+        this(config, taskManagerConfig, httpClient, scheduler, null, null, null);
+    }
 
     @Inject
     public ExchangeClientFactory(
             ExchangeClientConfig config,
+            TaskManagerConfig taskManagerConfig,
             @ForExchange HttpClient httpClient,
-            @ForExchange ScheduledExecutorService scheduler)
+            @ForExchange ScheduledExecutorService scheduler,
+            @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
+            InternalNodeManager nodeManager,
+            Provider<TaskManager> taskManagerProvider)
     {
         this(
                 config.getMaxBufferSize(),
@@ -63,7 +85,11 @@ public class ExchangeClientFactory
                 config.getPageBufferClientMaxCallbackThreads(),
                 config.getResponseSizeExponentialMovingAverageDecayingAlpha(),
                 httpClient,
-                scheduler);
+                nodeManager,
+                scheduler,
+                taskManagerConfig,
+                taskManagerProvider,
+                timeoutExecutor);
     }
 
     public ExchangeClientFactory(
@@ -75,7 +101,11 @@ public class ExchangeClientFactory
             int pageBufferClientMaxCallbackThreads,
             double responseSizeExponentialMovingAverageDecayingAlpha,
             HttpClient httpClient,
-            ScheduledExecutorService scheduler)
+            InternalNodeManager nodeManager,
+            ScheduledExecutorService scheduler,
+            TaskManagerConfig taskManagerConfig,
+            Provider<TaskManager> taskManagerProvider,
+            ScheduledExecutorService timeoutExecutor)
     {
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -93,6 +123,10 @@ public class ExchangeClientFactory
 
         this.pageBufferClientCallbackExecutor = newFixedThreadPool(pageBufferClientMaxCallbackThreads, daemonThreadsNamed("page-buffer-client-callback-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) pageBufferClientCallbackExecutor);
+        this.timeoutExecutor = timeoutExecutor;
+        this.taskManagerProvider = taskManagerProvider;
+        this.nodeManager = nodeManager;
+        this.bypassHttpForLocal = taskManagerConfig.isBypassHttpForLocal();
 
         this.responseSizeExponentialMovingAverageDecayingAlpha = responseSizeExponentialMovingAverageDecayingAlpha;
 
@@ -128,6 +162,10 @@ public class ExchangeClientFactory
                 httpClient,
                 scheduler,
                 systemMemoryContext,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                nodeManager,
+                taskManagerProvider,
+                bypassHttpForLocal,
+                timeoutExecutor);
     }
 }

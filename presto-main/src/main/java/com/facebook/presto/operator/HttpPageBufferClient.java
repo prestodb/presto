@@ -22,14 +22,22 @@ import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.http.client.ResponseTooLargeException;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.server.remotetask.Backoff;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.Splitter;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
@@ -46,19 +54,20 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.airlift.http.client.HttpStatus.familyForStatusCode;
 import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.ResponseHandlerUtils.propagate;
-import static com.facebook.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
@@ -78,9 +87,11 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -89,6 +100,7 @@ public final class HttpPageBufferClient
         implements Closeable
 {
     private static final Logger log = Logger.get(HttpPageBufferClient.class);
+    private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
     /**
      * For each request, the addPage method will be called zero or more times,
@@ -115,11 +127,16 @@ public final class HttpPageBufferClient
     private final ClientCallback clientCallback;
     private final ScheduledExecutorService scheduler;
     private final Backoff backoff;
+    private final TaskManager taskManager;
+    private final ListeningScheduledExecutorService taskManagerScheduler;
+    private final ScheduledExecutorService timeoutExecutor;
+    private final TaskId taskId;
+    private final OutputBuffers.OutputBufferId outputBufferId;
 
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
-    private HttpResponseFuture<?> future;
+    private ListenableFuture<?> future;
     @GuardedBy("this")
     private DateTime lastUpdate = DateTime.now();
     @GuardedBy("this")
@@ -152,7 +169,7 @@ public final class HttpPageBufferClient
             ScheduledExecutorService scheduler,
             Executor pageBufferClientCallbackExecutor)
     {
-        this(httpClient, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
+        this(httpClient, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor, null, null);
     }
 
     public HttpPageBufferClient(
@@ -165,15 +182,59 @@ public final class HttpPageBufferClient
             Ticker ticker,
             Executor pageBufferClientCallbackExecutor)
     {
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this(httpClient, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, ticker, pageBufferClientCallbackExecutor, null, null);
+    }
+
+    public HttpPageBufferClient(
+            HttpClient httpClient,
+            Duration maxErrorDuration,
+            boolean acknowledgePages,
+            URI location,
+            ClientCallback clientCallback,
+            ScheduledExecutorService scheduler,
+            Executor pageBufferClientCallbackExecutor,
+            TaskManager taskManager,
+            ScheduledExecutorService timeoutExecutor)
+    {
+        this(httpClient, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor, taskManager, timeoutExecutor);
+    }
+
+    public HttpPageBufferClient(
+            HttpClient httpClient,
+            Duration maxErrorDuration,
+            boolean acknowledgePages,
+            URI location,
+            ClientCallback clientCallback,
+            ScheduledExecutorService scheduler,
+            Ticker ticker,
+            Executor pageBufferClientCallbackExecutor,
+            TaskManager taskManager,
+            ScheduledExecutorService timeoutExecutor)
+    {
         this.acknowledgePages = acknowledgePages;
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
+        taskManagerScheduler = MoreExecutors.listeningDecorator(scheduler);
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
-        this.backoff = new Backoff(maxErrorDuration, ticker);
+        this.timeoutExecutor = timeoutExecutor;
+        List<String> strings = Splitter.on("/").omitEmptyStrings().splitToList(location.getPath());
+        if (taskManager != null && strings.size() == 5 && "v1".equals(strings.get(0)) && "task".equals(strings.get(1)) && "results".equals(strings.get(3))) {
+            this.taskId = TaskId.valueOf(strings.get(2));
+            this.outputBufferId = OutputBuffers.OutputBufferId.fromString(strings.get(4));
+            this.taskManager = taskManager;
+            this.httpClient = null;
+            this.backoff = Backoff.createNeverBackingOff();
+        }
+        else {
+            this.taskId = null;
+            this.outputBufferId = null;
+            this.taskManager = null;
+            this.httpClient = requireNonNull(httpClient, "httpClient is null");
+            this.backoff = new Backoff(maxErrorDuration, ticker);
+        }
     }
 
     public synchronized PageBufferClientStatus getStatus()
@@ -195,8 +256,8 @@ public final class HttpPageBufferClient
             state = "queued";
         }
         String httpRequestState = "not scheduled";
-        if (future != null) {
-            httpRequestState = future.getState();
+        if (future != null && future instanceof HttpResponseFuture) {
+            httpRequestState = ((HttpResponseFuture) future).getState();
         }
 
         long rejectedRows = rowsRejected.get();
@@ -225,7 +286,7 @@ public final class HttpPageBufferClient
     public void close()
     {
         boolean shouldSendDelete;
-        Future<?> future;
+        ListenableFuture<?> future;
         synchronized (this) {
             shouldSendDelete = !closed;
 
@@ -290,166 +351,281 @@ public final class HttpPageBufferClient
         lastUpdate = DateTime.now();
     }
 
+    private synchronized void sendAcknowledgeRaw(PagesResponse result)
+    {
+        Futures.addCallback(
+                taskManagerScheduler.submit(() ->
+                        taskManager.acknowledgeTaskResults(taskId, outputBufferId, result.getNextToken())),
+                new FutureCallback<Object>()
+                {
+                    @Override
+                    public void onSuccess(Object result)
+                    {
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t)
+                    {
+                        log.debug(t, "Acknowledge request failed: %s", taskId);
+                    }
+                }, directExecutor());
+    }
+
+    private synchronized void sendAcknowledgeHttp(PagesResponse result)
+    {
+        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getNextToken())).appendPath("acknowledge").build();
+        httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
+        {
+            @Override
+            public Void handleException(Request request, Exception exception)
+            {
+                log.debug(exception, "Acknowledge request failed: %s", uri);
+                return null;
+            }
+
+            @Override
+            public Void handle(Request request, Response response)
+            {
+                if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
+                    log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
+                }
+                return null;
+            }
+        });
+    }
+
+    private synchronized void sendAcknowledge(PagesResponse response)
+    {
+        if (taskManager != null) {
+            sendAcknowledgeRaw(response);
+        }
+        else {
+            sendAcknowledgeHttp(response);
+        }
+    }
+
     private synchronized void sendGetResults(DataSize maxResponseSize)
     {
-        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
-        HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
+        Optional<URI> uri;
+        ListenableFuture<PagesResponse> resultFuture;
+        if (taskManager != null) {
+            resultFuture = sendGetResultsRaw(maxResponseSize);
+            uri = Optional.empty();
+        }
+        else {
+            uri = Optional.of(HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build());
+            resultFuture = sendGetResultsHttp(uri.get(), maxResponseSize);
+        }
+        future = resultFuture;
+        Futures.addCallback(resultFuture, new GetResponseHandler(resultFuture, uri), pageBufferClientCallbackExecutor);
+    }
+
+    private static Duration randomizeWaitTime(Duration waitTime)
+    {
+        // Randomize in [T/2, T], so wait is not near zero and the client-supplied max wait time is respected
+        long halfWaitMillis = waitTime.toMillis() / 2;
+        return new Duration(halfWaitMillis + ThreadLocalRandom.current().nextLong(halfWaitMillis), MILLISECONDS);
+    }
+
+    private synchronized ListenableFuture<PagesResponse> sendGetResultsRaw(DataSize maxResponseSize)
+    {
+        // Potentially different from the this.taskInstanceId
+        String localTaskInstanceId = taskManager.getTaskInstanceId(taskId);
+        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, outputBufferId, token, maxResponseSize);
+        Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
+        bufferResultFuture = addTimeout(
+                bufferResultFuture,
+                () -> BufferResult.emptyResults(localTaskInstanceId, token, false),
+                waitTime,
+                timeoutExecutor);
+
+        return Futures.transform(bufferResultFuture, result -> {
+            List<SerializedPage> serializedPages = result.getSerializedPages();
+            if (serializedPages.isEmpty()) {
+                return createEmptyPagesResponse(localTaskInstanceId, token, result.getNextToken(), result.isBufferComplete());
+            }
+            else {
+                return createPagesResponse(localTaskInstanceId, token, result.getNextToken(), serializedPages, result.isBufferComplete());
+            }
+        }, directExecutor());
+    }
+
+    private class GetResponseHandler
+            implements FutureCallback<PagesResponse>
+    {
+        private final ListenableFuture<PagesResponse> resultFuture;
+        private final Optional<URI> uri;
+
+        public GetResponseHandler(ListenableFuture<PagesResponse> resultFuture, Optional<URI> uri)
+        {
+            this.resultFuture = resultFuture;
+            this.uri = uri;
+        }
+
+        @Override
+        public void onSuccess(PagesResponse result)
+        {
+            checkNotHoldsLock(this);
+
+            backoff.success();
+
+            List<SerializedPage> pages;
+            try {
+                boolean shouldAcknowledge = false;
+                synchronized (HttpPageBufferClient.this) {
+                    if (taskInstanceId == null) {
+                        taskInstanceId = result.getTaskInstanceId();
+                    }
+
+                    if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
+                        // TODO: update error message
+                        throw new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, uri.isPresent() ? fromUri(uri.get()) : taskId));
+                    }
+
+                    if (result.getToken() == token) {
+                        pages = result.getPages();
+                        token = result.getNextToken();
+                        shouldAcknowledge = pages.size() > 0;
+                    }
+                    else {
+                        pages = ImmutableList.of();
+                    }
+                }
+
+                if (shouldAcknowledge && acknowledgePages) {
+                    // Acknowledge token without handling the response.
+                    // The next request will also make sure the token is acknowledged.
+                    // This is to fast release the pages on the buffer side.
+                    sendAcknowledge(result);
+                }
+            }
+            catch (PrestoException e) {
+                handleFailure(e, resultFuture);
+                return;
+            }
+
+            // add pages:
+            // addPages must be called regardless of whether pages is an empty list because
+            // clientCallback can keep stats of requests and responses. For example, it may
+            // keep track of how often a client returns empty response and adjust request
+            // frequency or buffer size.
+            if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
+                pagesReceived.addAndGet(pages.size());
+                rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+            }
+            else {
+                pagesRejected.addAndGet(pages.size());
+                rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+            }
+
+            synchronized (HttpPageBufferClient.this) {
+                // client is complete, acknowledge it by sending it a delete in the next request
+                if (result.isClientComplete()) {
+                    completed = true;
+                }
+                if (future == resultFuture) {
+                    future = null;
+                }
+                lastUpdate = DateTime.now();
+            }
+            requestsCompleted.incrementAndGet();
+            clientCallback.requestComplete(HttpPageBufferClient.this);
+        }
+
+        @Override
+        public void onFailure(Throwable t)
+        {
+            log.debug("Request to %s failed %s", uri, t);
+            checkNotHoldsLock(this);
+
+            t = rewriteException(t);
+            if (!(t instanceof PrestoException) && backoff.failure()) {
+                String message = format("%s (%s - %s failures, failure duration %s, total failed request time %s)",
+                        WORKER_NODE_ERROR,
+                        uri.isPresent() ? uri.get() : (taskId != null) ? taskId : null,
+                        backoff.getFailureCount(),
+                        backoff.getFailureDuration().convertTo(SECONDS),
+                        backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
+                if (uri.isPresent()) {
+                    t = new PageTransportTimeoutException(fromUri(uri.get()), message, t);
+                }
+            }
+            handleFailure(t, resultFuture);
+        }
+    }
+
+    private synchronized ListenableFuture<PagesResponse> sendGetResultsHttp(URI uri, DataSize maxResponseSize)
+    {
+        return httpClient.executeAsync(
                 prepareGet()
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                         .setUri(uri).build(),
                 new PageResponseHandler());
-
-        future = resultFuture;
-        Futures.addCallback(resultFuture, new FutureCallback<PagesResponse>()
-        {
-            @Override
-            public void onSuccess(PagesResponse result)
-            {
-                checkNotHoldsLock(this);
-
-                backoff.success();
-
-                List<SerializedPage> pages;
-                try {
-                    boolean shouldAcknowledge = false;
-                    synchronized (HttpPageBufferClient.this) {
-                        if (taskInstanceId == null) {
-                            taskInstanceId = result.getTaskInstanceId();
-                        }
-
-                        if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
-                            // TODO: update error message
-                            throw new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, fromUri(uri)));
-                        }
-
-                        if (result.getToken() == token) {
-                            pages = result.getPages();
-                            token = result.getNextToken();
-                            shouldAcknowledge = pages.size() > 0;
-                        }
-                        else {
-                            pages = ImmutableList.of();
-                        }
-                    }
-
-                    if (shouldAcknowledge && acknowledgePages) {
-                        // Acknowledge token without handling the response.
-                        // The next request will also make sure the token is acknowledged.
-                        // This is to fast release the pages on the buffer side.
-                        URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(result.getNextToken())).appendPath("acknowledge").build();
-                        httpClient.executeAsync(prepareGet().setUri(uri).build(), new ResponseHandler<Void, RuntimeException>()
-                        {
-                            @Override
-                            public Void handleException(Request request, Exception exception)
-                            {
-                                log.debug(exception, "Acknowledge request failed: %s", uri);
-                                return null;
-                            }
-
-                            @Override
-                            public Void handle(Request request, Response response)
-                            {
-                                if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
-                                    log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
-                                }
-                                return null;
-                            }
-                        });
-                    }
-                }
-                catch (PrestoException e) {
-                    handleFailure(e, resultFuture);
-                    return;
-                }
-
-                // add pages:
-                // addPages must be called regardless of whether pages is an empty list because
-                // clientCallback can keep stats of requests and responses. For example, it may
-                // keep track of how often a client returns empty response and adjust request
-                // frequency or buffer size.
-                if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
-                    pagesReceived.addAndGet(pages.size());
-                    rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
-                }
-                else {
-                    pagesRejected.addAndGet(pages.size());
-                    rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
-                }
-
-                synchronized (HttpPageBufferClient.this) {
-                    // client is complete, acknowledge it by sending it a delete in the next request
-                    if (result.isClientComplete()) {
-                        completed = true;
-                    }
-                    if (future == resultFuture) {
-                        future = null;
-                    }
-                    lastUpdate = DateTime.now();
-                }
-                requestsCompleted.incrementAndGet();
-                clientCallback.requestComplete(HttpPageBufferClient.this);
-            }
-
-            @Override
-            public void onFailure(Throwable t)
-            {
-                log.debug("Request to %s failed %s", uri, t);
-                checkNotHoldsLock(this);
-
-                t = rewriteException(t);
-                if (!(t instanceof PrestoException) && backoff.failure()) {
-                    String message = format("%s (%s - %s failures, failure duration %s, total failed request time %s)",
-                            WORKER_NODE_ERROR,
-                            uri,
-                            backoff.getFailureCount(),
-                            backoff.getFailureDuration().convertTo(SECONDS),
-                            backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
-                    t = new PageTransportTimeoutException(fromUri(uri), message, t);
-                }
-                handleFailure(t, resultFuture);
-            }
-        }, pageBufferClientCallbackExecutor);
     }
 
     private synchronized void sendDelete()
     {
-        HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
-        future = resultFuture;
-        Futures.addCallback(resultFuture, new FutureCallback<StatusResponse>()
+        if (taskManager != null) {
+            future = sendDeleteRaw();
+        }
+        else {
+            future = sendDeleteHttp();
+        }
+        Futures.addCallback(future, new DeleteResponseHandler(future), pageBufferClientCallbackExecutor);
+    }
+
+    private class DeleteResponseHandler
+            implements FutureCallback
+    {
+        private final ListenableFuture<?> resultFuture;
+
+        public DeleteResponseHandler(ListenableFuture<?> resultFuture)
         {
-            @Override
-            public void onSuccess(@Nullable StatusResponse result)
-            {
-                checkNotHoldsLock(this);
-                backoff.success();
-                synchronized (HttpPageBufferClient.this) {
-                    closed = true;
-                    if (future == resultFuture) {
-                        future = null;
-                    }
-                    lastUpdate = DateTime.now();
-                }
-                requestsCompleted.incrementAndGet();
-                clientCallback.clientFinished(HttpPageBufferClient.this);
-            }
+            this.resultFuture = resultFuture;
+        }
 
-            @Override
-            public void onFailure(Throwable t)
-            {
-                checkNotHoldsLock(this);
-
-                log.error("Request to delete %s failed %s", location, t);
-                if (!(t instanceof PrestoException) && backoff.failure()) {
-                    String message = format("Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
-                            location,
-                            backoff.getFailureCount(),
-                            backoff.getFailureDuration().convertTo(SECONDS),
-                            backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
-                    t = new PrestoException(REMOTE_BUFFER_CLOSE_FAILED, message, t);
+        @Override
+        public void onSuccess(@Nullable Object result)
+        {
+            checkNotHoldsLock(this);
+            backoff.success();
+            synchronized (HttpPageBufferClient.this) {
+                closed = true;
+                if (future == resultFuture) {
+                    future = null;
                 }
-                handleFailure(t, resultFuture);
+                lastUpdate = DateTime.now();
             }
-        }, pageBufferClientCallbackExecutor);
+            requestsCompleted.incrementAndGet();
+            clientCallback.clientFinished(HttpPageBufferClient.this);
+        }
+
+        @Override
+        public void onFailure(Throwable t)
+        {
+            checkNotHoldsLock(this);
+
+            log.error("Request to delete %s failed %s", location, t);
+            if (!(t instanceof PrestoException) && backoff.failure()) {
+                String message = format("Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
+                        location,
+                        backoff.getFailureCount(),
+                        backoff.getFailureDuration().convertTo(SECONDS),
+                        backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
+                t = new PrestoException(REMOTE_BUFFER_CLOSE_FAILED, message, t);
+            }
+            handleFailure(t, resultFuture);
+        }
+    }
+
+    private synchronized ListenableFuture<?> sendDeleteRaw()
+    {
+        return taskManagerScheduler.submit(() -> taskManager.abortTaskResults(taskId, outputBufferId));
+    }
+
+    private synchronized ListenableFuture<?> sendDeleteHttp()
+    {
+        return httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
     }
 
     private static void checkNotHoldsLock(Object lock)
@@ -457,7 +633,7 @@ public final class HttpPageBufferClient
         checkState(!Thread.holdsLock(lock), "Cannot execute this method while holding a lock");
     }
 
-    private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
+    private void handleFailure(Throwable t, ListenableFuture<?> expectedFuture)
     {
         // Can not delegate to other callback while holding a lock on this
         checkNotHoldsLock(this);

@@ -41,7 +41,7 @@ public class Backoff
             .add(new Duration(500, MILLISECONDS))
             .build();
 
-    private final int minTries;
+    private final long minTries;
     private final long maxFailureIntervalNanos;
     private final Ticker ticker;
     private final long[] backoffDelayIntervalsNanos;
@@ -64,7 +64,7 @@ public class Backoff
     }
 
     @VisibleForTesting
-    public Backoff(int minTries, Duration maxFailureInterval, Ticker ticker, List<Duration> backoffDelayIntervals)
+    public Backoff(long minTries, Duration maxFailureInterval, Ticker ticker, List<Duration> backoffDelayIntervals)
     {
         checkArgument(minTries > 0, "minTries must be at least 1");
         requireNonNull(maxFailureInterval, "maxFailureInterval is null");
@@ -83,6 +83,11 @@ public class Backoff
     public synchronized long getFailureCount()
     {
         return failureCount;
+    }
+
+    public static Backoff createNeverBackingOff()
+    {
+        return new Backoff(Long.MAX_VALUE, new Duration(Long.MAX_VALUE, NANOSECONDS), Ticker.systemTicker(), ImmutableList.of(new Duration(0, NANOSECONDS)));
     }
 
     public synchronized Duration getFailureDuration()

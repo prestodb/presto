@@ -15,11 +15,14 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.buffer.PageCodecMarker;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
+import com.facebook.presto.spi.Node;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,6 +33,7 @@ import io.airlift.units.Duration;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Provider;
 
 import java.io.Closeable;
 import java.net.URI;
@@ -83,6 +87,7 @@ public class ExchangeClient
     private final boolean acknowledgePages;
     private final HttpClient httpClient;
     private final ScheduledExecutorService scheduler;
+    private final boolean bypassHttpForLocal;
 
     @GuardedBy("this")
     private boolean noMoreLocations;
@@ -114,7 +119,10 @@ public class ExchangeClient
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
     private final LocalMemoryContext systemMemoryContext;
+    private Provider<TaskManager> taskManagerProvider;
+    private ScheduledExecutorService timeoutExecutor;
     private final Executor pageBufferClientCallbackExecutor;
+    private final Node localNode;
 
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
@@ -130,6 +138,27 @@ public class ExchangeClient
             LocalMemoryContext systemMemoryContext,
             Executor pageBufferClientCallbackExecutor)
     {
+        this(bufferCapacity, maxResponseSize, concurrentRequestMultiplier, maxErrorDuration, acknowledgePages, responseSizeExponentialMovingAverageDecayingAlpha, httpClient, scheduler, systemMemoryContext, pageBufferClientCallbackExecutor, null, null, false, null);
+    }
+
+    // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
+    // Please change that method accordingly when this assumption becomes not true.
+    public ExchangeClient(
+            DataSize bufferCapacity,
+            DataSize maxResponseSize,
+            int concurrentRequestMultiplier,
+            Duration maxErrorDuration,
+            boolean acknowledgePages,
+            double responseSizeExponentialMovingAverageDecayingAlpha,
+            HttpClient httpClient,
+            ScheduledExecutorService scheduler,
+            LocalMemoryContext systemMemoryContext,
+            Executor pageBufferClientCallbackExecutor,
+            InternalNodeManager nodeManager,
+            Provider<TaskManager> taskManagerProvider,
+            boolean bypassHttpForLocal,
+            ScheduledExecutorService timeoutExecutor)
+    {
         checkArgument(responseSizeExponentialMovingAverageDecayingAlpha >= 0.0 && responseSizeExponentialMovingAverageDecayingAlpha <= 1.0, "responseSizeExponentialMovingAverageDecayingAlpha must be between 0 and 1: %s", responseSizeExponentialMovingAverageDecayingAlpha);
         this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
@@ -139,9 +168,13 @@ public class ExchangeClient
         this.httpClient = httpClient;
         this.scheduler = scheduler;
         this.systemMemoryContext = systemMemoryContext;
+        this.taskManagerProvider = taskManagerProvider;
+        this.timeoutExecutor = timeoutExecutor;
         this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.responseSizeExponentialMovingAverage = new ExponentialMovingAverage(responseSizeExponentialMovingAverageDecayingAlpha, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        this.bypassHttpForLocal = bypassHttpForLocal;
+        this.localNode = nodeManager == null ? null : nodeManager.getCurrentNode();
     }
 
     public ExchangeClientStatus getStatus()
@@ -192,7 +225,9 @@ public class ExchangeClient
                 location,
                 new ExchangeClientCallback(),
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                bypassHttpForLocal && isLocalUri(location) ? taskManagerProvider.get() : null,
+                timeoutExecutor);
         allClients.put(location, client);
         checkState(taskIdToLocationMap.put(remoteSourceTaskId, location) == null, "Duplicate remoteSourceTaskId: " + remoteSourceTaskId);
         queuedClients.add(client);
@@ -224,6 +259,11 @@ public class ExchangeClient
         closeQuietly(client);
         removedClients.add(client);
         completedClients.add(client);
+    }
+
+    private boolean isLocalUri(URI location)
+    {
+        return localNode != null && localNode.getHttpUri().relativize(location) != location;
     }
 
     public synchronized void noMoreLocations()
