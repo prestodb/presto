@@ -51,8 +51,8 @@ final class ReaderUtils
 
         int position = 0;
         for (int i = 0; i < isNull.length; i++) {
-            result[i] = values[position];
             if (!isNull[i]) {
+                result[i] = values[position];
                 position++;
             }
         }
@@ -65,8 +65,8 @@ final class ReaderUtils
 
         int position = 0;
         for (int i = 0; i < isNull.length; i++) {
-            result[i] = values[position];
             if (!isNull[i]) {
+                result[i] = values[position];
                 position++;
             }
         }
@@ -79,8 +79,8 @@ final class ReaderUtils
 
         int position = 0;
         for (int i = 0; i < isNull.length; i++) {
-            result[i] = values[position];
             if (!isNull[i]) {
+                result[i] = values[position];
                 position++;
             }
         }
@@ -93,8 +93,8 @@ final class ReaderUtils
 
         int position = 0;
         for (int i = 0; i < isNull.length; i++) {
-            result[i] = values[position];
             if (!isNull[i]) {
+                result[i] = values[position];
                 position++;
             }
         }
