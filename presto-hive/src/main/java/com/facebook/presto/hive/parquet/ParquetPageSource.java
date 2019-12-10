@@ -24,7 +24,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -64,11 +63,9 @@ public class ParquetPageSource
             MessageColumnIO messageColumnIO,
             TypeManager typeManager,
             List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
             boolean useParquetColumnNames)
     {
         requireNonNull(columns, "columns is null");
-        requireNonNull(effectivePredicate, "effectivePredicate is null");
         requireNonNull(fileSchema, "fileSchema is null");
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
 
