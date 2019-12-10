@@ -23,8 +23,11 @@ import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.builder.HashAggregationBuilder;
 import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.ByteArrayBlock;
 import com.facebook.presto.spi.block.PageBuilderStatus;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
@@ -657,6 +660,44 @@ public class TestHashAggregationOperator
                 fail("Exception other than expected was thrown", expected);
             }
         }
+    }
+
+    @Test
+    public void testMask()
+    {
+        int positions = 4;
+        Block groupingBlock = RunLengthEncodedBlock.create(BIGINT, 1L, positions);
+        Block countBlock = RunLengthEncodedBlock.create(BIGINT, 1L, positions);
+        Block maskBlock = new ByteArrayBlock(positions, Optional.of(new boolean[] {false, false, true, true}), new byte[] {(byte) 0, (byte) 1, (byte) 0, (byte) 1});
+        Page page = new Page(groupingBlock, countBlock, maskBlock);
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),
+                ImmutableList.of(),
+                Step.SINGLE,
+                false,
+                ImmutableList.of(COUNT.bind(ImmutableList.of(1), Optional.of(2))),
+                Optional.empty(),
+                Optional.empty(),
+                1,
+                Optional.of(new DataSize(16, MEGABYTE)),
+                false,
+                new DataSize(16, MEGABYTE),
+                new DataSize(16, MEGABYTE),
+                new FailingSpillerFactory(),
+                joinCompiler,
+                false);
+
+        List<Page> outputPages = toPages(operatorFactory, createDriverContext(), ImmutableList.of(page)).stream()
+                .filter(p -> p.getPositionCount() > 0)
+                .collect(toImmutableList());
+        assertEquals(outputPages.size(), 1);
+        Page outputPage = outputPages.get(0);
+        assertEquals(outputPage.getBlock(0).getLong(0), 1L);
+        assertEquals(outputPage.getBlock(1).getLong(0), 1L);
     }
 
     @Test
