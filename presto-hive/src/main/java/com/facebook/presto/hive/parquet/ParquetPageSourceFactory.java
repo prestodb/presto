@@ -230,7 +230,6 @@ public class ParquetPageSourceFactory
                     messageColumnIO,
                     typeManager,
                     columns,
-                    effectivePredicate,
                     useParquetColumnNames);
         }
         catch (Exception e) {
