@@ -282,20 +282,20 @@ public abstract class AbstractVerification
                                 verificationContext.getLimitQueryAnalysisQueryId())) :
                         Optional.empty(),
                 resolveMessage,
-                Optional.of(buildQueryInfo(
+                buildQueryInfo(
                         sourceQuery.getControlConfiguration(),
                         sourceQuery.getControlQuery(),
                         verificationContext.getControlChecksumQueryId(),
                         verificationContext.getControlChecksumQuery(),
                         control,
-                        controlStats)),
-                Optional.of(buildQueryInfo(
+                        controlStats),
+                buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
                         verificationContext.getTestChecksumQueryId(),
                         verificationContext.getTestChecksumQuery(),
                         test,
-                        testStats)),
+                        testStats),
                 errorCode,
                 Optional.ofNullable(errorMessage),
                 queryException.map(QueryException::toQueryFailure),

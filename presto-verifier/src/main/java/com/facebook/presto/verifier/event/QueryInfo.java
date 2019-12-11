@@ -42,6 +42,14 @@ public class QueryInfo
     public QueryInfo(
             String catalog,
             String schema,
+            String originalQuery)
+    {
+        this(catalog, schema, originalQuery, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    public QueryInfo(
+            String catalog,
+            String schema,
             String originalQuery,
             Optional<String> queryId,
             Optional<String> checksumQueryId,

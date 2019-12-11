@@ -17,6 +17,7 @@ import com.facebook.airlift.event.client.EventField;
 import com.facebook.airlift.event.client.EventType;
 import com.facebook.presto.verifier.framework.DeterminismAnalysis;
 import com.facebook.presto.verifier.framework.SkippedReason;
+import com.facebook.presto.verifier.framework.SourceQuery;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -69,8 +70,8 @@ public class VerifierQueryEvent
             Optional<DeterminismAnalysis> determinismAnalysis,
             Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<String> resolveMessage,
-            Optional<QueryInfo> controlQueryInfo,
-            Optional<QueryInfo> testQueryInfo,
+            QueryInfo controlQueryInfo,
+            QueryInfo testQueryInfo,
             Optional<String> errorCode,
             Optional<String> errorMessage,
             Optional<QueryFailure> finalQueryFailure,
@@ -85,8 +86,8 @@ public class VerifierQueryEvent
         this.determinismAnalysis = determinismAnalysis.map(DeterminismAnalysis::name).orElse(null);
         this.determinismAnalysisDetails = determinismAnalysisDetails.orElse(null);
         this.resolveMessage = resolveMessage.orElse(null);
-        this.controlQueryInfo = controlQueryInfo.orElse(null);
-        this.testQueryInfo = testQueryInfo.orElse(null);
+        this.controlQueryInfo = requireNonNull(controlQueryInfo, "controlQueryInfo is null");
+        this.testQueryInfo = requireNonNull(testQueryInfo, "testQueryInfo is null");
         this.errorCode = errorCode.orElse(null);
         this.errorMessage = errorMessage.orElse(null);
         this.finalQueryFailure = finalQueryFailure.orElse(null);
@@ -96,20 +97,26 @@ public class VerifierQueryEvent
     public static VerifierQueryEvent skipped(
             String suite,
             String testId,
-            String name,
+            SourceQuery sourceQuery,
             SkippedReason skippedReason)
     {
         return new VerifierQueryEvent(
                 suite,
                 testId,
-                name,
+                sourceQuery.getName(),
                 SKIPPED,
                 Optional.of(skippedReason),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
+                new QueryInfo(
+                        sourceQuery.getControlConfiguration().getCatalog(),
+                        sourceQuery.getControlConfiguration().getSchema(),
+                        sourceQuery.getControlQuery()),
+                new QueryInfo(
+                        sourceQuery.getTestConfiguration().getCatalog(),
+                        sourceQuery.getTestConfiguration().getSchema(),
+                        sourceQuery.getTestQuery()),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
