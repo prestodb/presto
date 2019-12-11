@@ -129,7 +129,7 @@ public class HiveZeroRowFileCreator
 
     private void createFile(HdfsContext hdfsContext, Path path, byte[] content)
     {
-        try (OutputStream outputStream = hdfsEnvironment.getFileSystem(hdfsContext, path).create(path)) {
+        try (OutputStream outputStream = hdfsEnvironment.getFileSystem(hdfsContext, path).create(path, false)) {
             outputStream.write(content);
         }
         catch (IOException e) {
