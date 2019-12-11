@@ -361,7 +361,7 @@ public class BuiltInFunctionNamespaceManager
         implements FunctionNamespaceManager<BuiltInFunction>
 {
     public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
-    public static final String NAME = "_builtin";
+    public static final String ID = "builtin";
 
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
@@ -705,7 +705,7 @@ public class BuiltInFunctionNamespaceManager
 
     public String getName()
     {
-        return NAME;
+        return ID;
     }
 
     @Override

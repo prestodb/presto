@@ -23,8 +23,6 @@ import java.util.Optional;
 @Experimental
 public interface FunctionNamespaceManager<F extends SqlFunction>
 {
-    String getName();
-
     /**
      * Start a transaction.
      */
