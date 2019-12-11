@@ -231,10 +231,10 @@ public class VerificationManager
                 QueryType testQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getTestQuery(), PARSING_OPTIONS));
 
                 if (controlQueryType != testQueryType) {
-                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery.getName(), MISMATCHED_QUERY_TYPE));
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, MISMATCHED_QUERY_TYPE));
                 }
                 else if (controlQueryType.getCategory() != DATA_PRODUCING) {
-                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery.getName(), UNSUPPORTED_QUERY_TYPE));
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, UNSUPPORTED_QUERY_TYPE));
                 }
                 else {
                     selected.add(sourceQuery);
@@ -242,10 +242,10 @@ public class VerificationManager
             }
             catch (ParsingException e) {
                 log.warn("Failed to parse query: %s", sourceQuery.getName());
-                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery.getName(), SYNTAX_ERROR));
+                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, SYNTAX_ERROR));
             }
             catch (UnsupportedQueryTypeException ignored) {
-                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery.getName(), UNSUPPORTED_QUERY_TYPE));
+                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, UNSUPPORTED_QUERY_TYPE));
             }
         }
         List<SourceQuery> selectQueries = selected.build();
@@ -267,7 +267,7 @@ public class VerificationManager
                 SourceQuery sourceQuery = iterator.next();
                 if (!filter.test(sourceQuery)) {
                     iterator.remove();
-                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery.getName(), CUSTOM_FILTER));
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, CUSTOM_FILTER));
                 }
             }
             log.info("Applying custom filter %s... Remaining queries: %s", filter.getClass().getSimpleName(), sourceQueries.size());
