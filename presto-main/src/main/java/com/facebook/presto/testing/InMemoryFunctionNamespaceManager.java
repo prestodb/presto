@@ -42,19 +42,11 @@ import static java.lang.String.format;
 public class InMemoryFunctionNamespaceManager
         extends AbstractSqlInvokedFunctionNamespaceManager
 {
-    private static final String NAME = "_in_memory";
-
     private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
 
     public InMemoryFunctionNamespaceManager(SqlInvokedFunctionNamespaceManagerConfig config)
     {
         super(config);
-    }
-
-    @Override
-    public String getName()
-    {
-        return NAME;
     }
 
     @Override
