@@ -59,6 +59,7 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_LIMITATION;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.regex.Pattern.DOTALL;
@@ -280,7 +281,8 @@ public class TestDataVerification
         Optional<VerifierQueryEvent> event = createVerification(query, query).run();
 
         assertTrue(event.isPresent());
-        assertEquals(event.get().getStatus(), FAILED.name());
+        assertEquals(event.get().getStatus(), SKIPPED.name());
+        assertEquals(event.get().getSkippedReason(), VERIFIER_LIMITATION.name());
         assertEquals(event.get().getErrorCode(), "PRESTO(COMPILER_ERROR)");
         assertNotNull(event.get().getControlQueryInfo().getChecksumQuery());
         assertNotNull(event.get().getControlQueryInfo().getChecksumQueryId());

@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
@@ -40,6 +41,7 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static com.facebook.presto.verifier.framework.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
@@ -51,6 +53,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_LIMITATION;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -239,7 +242,7 @@ public abstract class AbstractVerification
         }
 
         EventStatus status;
-        Optional<SkippedReason> skippedReason = getSkippedReason(controlState, determinismAnalysis);
+        Optional<SkippedReason> skippedReason = getSkippedReason(controlState, determinismAnalysis, queryException);
         Optional<String> resolveMessage = Optional.empty();
         if (succeeded) {
             status = SUCCEEDED;
@@ -336,7 +339,10 @@ public abstract class AbstractVerification
                 .collect(toImmutableList());
     }
 
-    private static Optional<SkippedReason> getSkippedReason(QueryState controlState, Optional<DeterminismAnalysis> determinismAnalysis)
+    private static Optional<SkippedReason> getSkippedReason(
+            QueryState controlState,
+            Optional<DeterminismAnalysis> determinismAnalysis,
+            Optional<QueryException> queryException)
     {
         switch (controlState) {
             case FAILED:
@@ -350,6 +356,12 @@ public abstract class AbstractVerification
         }
         if (determinismAnalysis.isPresent() && determinismAnalysis.get().isNonDeterministic()) {
             return Optional.of(NON_DETERMINISTIC);
+        }
+        if (queryException.isPresent() &&
+                queryException.get().getQueryStage().equals(CHECKSUM) &&
+                queryException.get().getPrestoErrorCode().isPresent() &&
+                queryException.get().getPrestoErrorCode().get().equals(COMPILER_ERROR)) {
+            return Optional.of(VERIFIER_LIMITATION);
         }
         return Optional.empty();
     }
