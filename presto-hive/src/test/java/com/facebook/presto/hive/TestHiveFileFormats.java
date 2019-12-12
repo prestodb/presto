@@ -105,6 +105,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
+import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -544,6 +545,7 @@ public class TestHiveFileFormats
         TestColumn stringColumn = new TestColumn("column_name", javaStringObjectInspector, "test", utf8Slice("test"));
         TestColumn intColumn = new TestColumn("column_name", javaIntObjectInspector, 3, 3);
         TestColumn longColumn = new TestColumn("column_name", javaLongObjectInspector, 4L, 4L);
+        TestColumn timestampColumn = new TestColumn("column_name", javaTimestampObjectInspector, 4L, 4L);
         TestColumn mapLongColumn = new TestColumn("column_name",
                 getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector),
                 ImmutableMap.of(4L, 4L),
@@ -577,6 +579,13 @@ public class TestHiveFileFormats
 
         HiveErrorCode expectedErrorCode = HIVE_PARTITION_SCHEMA_MISMATCH;
         String expectedMessageFloatDouble = "The column column_name is declared as type double, but the Parquet file declares the column as type FLOAT";
+
+        // Make sure INT64 is still readable as Timestamp see https://github.com/prestodb/presto/issues/13855
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(longColumn))
+                .withReadColumns(ImmutableList.of(timestampColumn))
+                .withSession(parquetPageSourceSession)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HadoopFileOpener()));
 
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(floatColumn))
