@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.Subfield.NestedField;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -78,6 +79,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyUnnest;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.Subfield.allSubscripts;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
@@ -116,6 +118,7 @@ public class PushdownSubfields
         private final Metadata metadata;
         private final TypeProvider types;
         private final SubfieldExtractor subfieldExtractor;
+        private static final QualifiedFunctionName ARBITRARY_AGGREGATE_FUNCTION = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "arbitrary");
 
         public Rewriter(Session session, Metadata metadata, TypeProvider types)
         {
@@ -130,8 +133,19 @@ public class PushdownSubfields
         {
             context.get().variables.addAll(node.getGroupingKeys());
 
-            for (AggregationNode.Aggregation aggregation : node.getAggregations().values()) {
-                aggregation.getArguments().forEach(expression -> subfieldExtractor.process(castToExpression(expression), context.get()));
+            for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
+                VariableReferenceExpression variable = entry.getKey();
+                AggregationNode.Aggregation aggregation = entry.getValue();
+
+                // Allow sub-field pruning to pass through the arbitrary() aggregation
+                QualifiedFunctionName aggregateName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getCall().getFunctionHandle()).getName();
+                if (ARBITRARY_AGGREGATE_FUNCTION.equals(aggregateName)) {
+                    SymbolReference argument = (SymbolReference) castToExpression(aggregation.getArguments().get(0));
+                    context.get().addAssignment(variable, new VariableReferenceExpression(argument.getName(), types.get(argument)));
+                }
+                else {
+                    aggregation.getArguments().forEach(expression -> subfieldExtractor.process(castToExpression(expression), context.get()));
+                }
 
                 aggregation.getFilter().ifPresent(expression -> subfieldExtractor.process(castToExpression(expression), context.get()));
 

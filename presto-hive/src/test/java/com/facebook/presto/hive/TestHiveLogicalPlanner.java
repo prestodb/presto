@@ -490,6 +490,24 @@ public class TestHiveLogicalPlanner
         assertPushdownSubfields(format("SELECT min(a[1]) FROM %s GROUP BY id", tableName), tableName,
                 ImmutableMap.of("a", toSubfields("a[1]")));
 
+        assertPushdownSubfields(format("SELECT arbitrary(y[1]).a FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[1].a")));
+
+        assertPushdownSubfields(format("SELECT arbitrary(y[1]).d.d1 FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[1].d.d1")));
+
+        assertPushdownSubfields(format("SELECT arbitrary(y[2].d).d1 FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[2].d.d1")));
+
+        assertPushdownSubfields(format("SELECT arbitrary(y[3].d.d1) FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[3].d.d1")));
+
+        assertPushdownSubfields(format("SELECT arbitrary(z[1][2]).e.e1 FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("z", toSubfields("z[1][2].e.e1")));
+
+        assertPushdownSubfields(format("SELECT arbitrary(z[2][3].e).e2 FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("z", toSubfields("z[2][3].e.e2")));
+
         // Union
         assertPlan(format("SELECT a[1] FROM %s UNION ALL SELECT a[2] FROM %s", tableName, tableName),
                 anyTree(exchange(
@@ -531,6 +549,14 @@ public class TestHiveLogicalPlanner
 
         assertPushdownSubfields(format("SELECT a[1] FROM (SELECT DISTINCT * FROM %s) LIMIT 10", tableName), tableName,
                 ImmutableMap.of());
+
+        // No pass through subfield pruning
+        assertPushdownSubfields(format("SELECT id, min(y[1]).a FROM %s GROUP BY 1", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[1]")));
+        assertPushdownSubfields(format("SELECT id, min(y[1]).a, min(y[1].d).d1 FROM %s GROUP BY 1", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[1]")));
+        assertPushdownSubfields(format("SELECT id, min(z[1][2]).e.e1 FROM %s GROUP BY 1", tableName), tableName,
+                ImmutableMap.of("z", toSubfields("z[1][2]")));
     }
 
     @Test
@@ -580,6 +606,21 @@ public class TestHiveLogicalPlanner
         assertPushdownSubfields("SELECT id, min(x.a + length(y[2].b)) * avg(x.d.d1) FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
                 ImmutableMap.of("x", toSubfields("x.a", "x.d.d1"), "y", toSubfields("y[2].b")));
 
+        assertPushdownSubfields("SELECT id, arbitrary(x.a) FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.a")));
+
+        assertPushdownSubfields("SELECT id, arbitrary(x).a FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.a")));
+
+        assertPushdownSubfields("SELECT id, arbitrary(x).d.d1 FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.d.d1")));
+
+        assertPushdownSubfields("SELECT id, arbitrary(x.d).d1 FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.d.d1")));
+
+        assertPushdownSubfields("SELECT id, arbitrary(x.d.d2) FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.d.d2")));
+
         // Unnest
         assertPushdownSubfields("SELECT t.a, t.d.d1, x.a FROM test_pushdown_struct_subfields CROSS JOIN UNNEST(y) as t(a, b, c, d)", "test_pushdown_struct_subfields",
                 ImmutableMap.of("x", toSubfields("x.a"), "y", toSubfields("y[*].a", "y[*].d.d1")));
@@ -604,6 +645,13 @@ public class TestHiveLogicalPlanner
         // Case sensitivity
         assertPushdownSubfields("SELECT x.a, x.b, x.A + 2 FROM test_pushdown_struct_subfields WHERE x.B LIKE 'abc%'", "test_pushdown_struct_subfields",
                 ImmutableMap.of("x", toSubfields("x.a", "x.b")));
+
+        // No pass-through subfield pruning
+        assertPushdownSubfields("SELECT id, min(x.d).d1 FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.d")));
+
+        assertPushdownSubfields("SELECT id, min(x.d).d1, min(x.d.d2) FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.d")));
 
         assertUpdate("DROP TABLE test_pushdown_struct_subfields");
     }
@@ -640,6 +688,44 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of(
                         "a", toSubfields("a[1]"),
                         "d", toSubfields("d.d3[5]")));
+
+        // Subfield pruning should pass-through arbitrary() function
+        assertPushdownSubfields("SELECT id, " +
+                        "arbitrary(x.a), " +
+                        "arbitrary(x).a, " +
+                        "arbitrary(x).d.d1, " +
+                        "arbitrary(x.d).d1, " +
+                        "arbitrary(x.d.d2), " +
+                        "arbitrary(y[1]).a, " +
+                        "arbitrary(y[1]).d.d1, " +
+                        "arbitrary(y[2]).d.d1, " +
+                        "arbitrary(y[3].d.d1), " +
+                        "arbitrary(z).c, " +
+                        "arbitrary(w[1][2]).e.e1, " +
+                        "arbitrary(w[2][3].e.e2) " +
+                        "FROM test_pushdown_subfields " +
+                        "GROUP BY 1", "test_pushdown_subfields",
+                ImmutableMap.of("x", toSubfields("x.a", "x.d.d1", "x.d.d2"),
+                        "y", toSubfields("y[1].a", "y[1].d.d1", "y[2].d.d1", "y[3].d.d1"),
+                        "z", toSubfields("z.c"),
+                        "w", toSubfields("w[1][2].e.e1", "w[2][3].e.e2")));
+
+        // Subfield pruning should not pass-through other aggregate functions e.g. min() function
+        assertPushdownSubfields("SELECT id, " +
+                        "min(x.d).d1, " +
+                        "min(x.d.d2), " +
+                        "min(z).c, " +
+                        "min(z.b), " +
+                        "min(y[1]).a, " +
+                        "min(y[1]).d.d1, " +
+                        "min(y[2].d.d1), " +
+                        "min(w[1][2]).e.e1, " +
+                        "min(w[2][3].e.e2) " +
+                        "FROM test_pushdown_subfields " +
+                        "GROUP BY 1", "test_pushdown_subfields",
+                ImmutableMap.of("x", toSubfields("x.d"),
+                        "y", toSubfields("y[1]", "y[2].d.d1"),
+                        "w", toSubfields("w[1][2]", "w[2][3].e.e2")));
 
         assertUpdate("DROP TABLE test_pushdown_subfields");
     }
