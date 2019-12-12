@@ -339,7 +339,11 @@ public class TestHiveLogicalPlanner
     @Test
     public void testPushdownArraySubscripts()
     {
-        assertUpdate("CREATE TABLE test_pushdown_array_subscripts(id bigint, a array(bigint), b array(array(varchar)))");
+        assertUpdate("CREATE TABLE test_pushdown_array_subscripts(id bigint, " +
+                "a array(bigint), " +
+                "b array(array(varchar)), " +
+                "y array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))), " +
+                "z array(array(row(p bigint, e row(e1 bigint, e2 varchar)))))");
 
         assertPushdownSubscripts("test_pushdown_array_subscripts");
 
@@ -372,7 +376,12 @@ public class TestHiveLogicalPlanner
     @Test
     public void testPushdownMapSubscripts()
     {
-        assertUpdate("CREATE TABLE test_pushdown_map_subscripts(id bigint, a map(bigint, bigint), b map(bigint, map(bigint, varchar)), c map(varchar, bigint))");
+        assertUpdate("CREATE TABLE test_pushdown_map_subscripts(id bigint, " +
+                "a map(bigint, bigint), " +
+                "b map(bigint, map(bigint, varchar)), " +
+                "c map(varchar, bigint), \n" +
+                "y map(bigint, row(a bigint, b varchar, c double, d row(d1 bigint, d2 double)))," +
+                "z map(bigint, map(bigint, row(p bigint, e row(e1 bigint, e2 varchar)))))");
 
         assertPushdownSubscripts("test_pushdown_map_subscripts");
 
@@ -607,7 +616,11 @@ public class TestHiveLogicalPlanner
                 "a array(bigint), " +
                 "b map(bigint, bigint), " +
                 "c map(varchar, bigint), " +
-                "d row(d1 bigint, d2 array(bigint), d3 map(bigint, bigint), d4 row(x double, y double)))");
+                "d row(d1 bigint, d2 array(bigint), d3 map(bigint, bigint), d4 row(x double, y double)), " +
+                "w array(array(row(p bigint, e row(e1 bigint, e2 varchar)))), " +
+                "x row(a bigint, b varchar, c double, d row(d1 bigint, d2 double)), " +
+                "y array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))), " +
+                "z row(a bigint, b varchar, c double))");
 
         assertPushdownSubfields("SELECT id, a[1], mod(a[2], 3), b[10], c['cat'] + c['dog'], d.d1 * d.d2[5] / d.d3[2], d.d4.x FROM test_pushdown_subfields", "test_pushdown_subfields",
                 ImmutableMap.of(
