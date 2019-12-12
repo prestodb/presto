@@ -126,6 +126,7 @@ public class LongDirectSelectiveStreamReader
                     if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                         if (outputRequired) {
                             nulls[outputPositionCount] = true;
+                            values[outputPositionCount] = 0;
                         }
                         if (filter != null) {
                             outputPositions[outputPositionCount] = position;
