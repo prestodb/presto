@@ -31,7 +31,10 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.PrestoSparkExecutionFactory.PrestoSparkExecution;
-import com.facebook.presto.spark.execution.PrestoSparkTaskCompiler;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkExecutionFactory;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskCompiler;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskCompilerFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
@@ -235,7 +238,7 @@ public class SparkQueryRunner
     @Override
     public MaterializedResult execute(Session session, String sql)
     {
-        PrestoSparkExecutionFactory executionFactory = prestoSparkService.createExecutionFactory();
+        IPrestoSparkExecutionFactory executionFactory = prestoSparkService.createExecutionFactory();
         PrestoSparkExecution execution = (PrestoSparkExecution) executionFactory.create(
                 sparkContext,
                 createSessionInfo(session),
@@ -345,7 +348,8 @@ public class SparkQueryRunner
             this.instanceId = requireNonNull(instanceId, "instanceId is null");
         }
 
-        public PrestoSparkTaskCompiler create()
+        @Override
+        public IPrestoSparkTaskCompiler create()
         {
             return instances.get(instanceId).getPrestoSparkService().createTaskCompiler();
         }

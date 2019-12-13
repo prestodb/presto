@@ -28,6 +28,10 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.QuerySessionSupplier;
 import com.facebook.presto.server.SessionContext;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkExecution;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkExecutionFactory;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskCompilerFactory;
 import com.facebook.presto.spark.planner.PreparedPlan;
 import com.facebook.presto.spark.planner.SparkPlanFragmenter;
 import com.facebook.presto.spark.planner.SparkPlanPreparer;
@@ -66,6 +70,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class PrestoSparkExecutionFactory
+        implements IPrestoSparkExecutionFactory
 {
     private final QueryIdGenerator queryIdGenerator;
     private final QuerySessionSupplier sessionSupplier;
@@ -109,7 +114,8 @@ public class PrestoSparkExecutionFactory
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
-    public PrestoSparkExecution create(SparkContext sparkContext, PrestoSparkSession prestoSparkSession, String sql, PrestoSparkTaskCompilerFactory taskCompilerFactory)
+    @Override
+    public IPrestoSparkExecution create(SparkContext sparkContext, PrestoSparkSession prestoSparkSession, String sql, PrestoSparkTaskCompilerFactory taskCompilerFactory)
     {
         QueryId queryId = queryIdGenerator.createNextQueryId();
         SessionContext sessionContext = SparkSessionContext.createFromSessionInfo(prestoSparkSession);
@@ -151,6 +157,7 @@ public class PrestoSparkExecutionFactory
     }
 
     public static class PrestoSparkExecution
+            implements IPrestoSparkExecution
     {
         private final Session session;
         private final QueryMonitor queryMonitor;
@@ -184,6 +191,7 @@ public class PrestoSparkExecutionFactory
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         }
 
+        @Override
         public List<List<Object>> execute()
         {
             List<Tuple2<Integer, byte[]>> collectedRdd;

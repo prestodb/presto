@@ -17,8 +17,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
-import com.facebook.presto.spark.PrestoSparkTaskCompilerFactory;
 import com.facebook.presto.spark.SparkTaskDescriptor;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskCompilerFactory;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -40,7 +40,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.spark.TaskProcessors.createTaskProcessor;
+import static com.facebook.presto.spark.classloader_interface.TaskProcessors.createTaskProcessor;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;

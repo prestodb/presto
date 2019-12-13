@@ -11,14 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.spark.classloader_interface;
 
-import com.facebook.presto.spark.execution.PrestoSparkTaskCompiler;
-
-import java.io.Serializable;
-
-public interface PrestoSparkTaskCompilerFactory
-        extends Serializable
+public interface IPrestoSparkServiceFactory
 {
-    PrestoSparkTaskCompiler create();
+    IPrestoSparkService createService(PrestoSparkConfiguration configuration);
 }

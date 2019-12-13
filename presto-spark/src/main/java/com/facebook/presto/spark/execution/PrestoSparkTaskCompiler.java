@@ -35,6 +35,7 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.SparkTaskDescriptor;
+import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskCompiler;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -75,6 +76,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkTaskCompiler
+        implements IPrestoSparkTaskCompiler
 {
     private static final Logger log = Logger.get(PrestoSparkTaskCompiler.class);
 
@@ -152,6 +154,7 @@ public class PrestoSparkTaskCompiler
         this.cpuTimerEnabled = cpuTimerEnabled;
     }
 
+    @Override
     public Iterator<Tuple2<Integer, byte[]>> compile(
             int sparkTaskId,
             byte[] serializedTaskDescriptor,
