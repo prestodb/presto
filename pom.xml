@@ -148,6 +148,7 @@
         <module>presto-benchmark-runner</module>
         <module>presto-spark-classloader-interface</module>
         <module>presto-spark</module>
+        <module>presto-spark-package</module>
     </modules>
 
     <dependencyManagement>

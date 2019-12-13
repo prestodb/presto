@@ -1,0 +1,64 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
+    <id>presto-server</id>
+    <includeBaseDirectory>true</includeBaseDirectory>
+
+    <files>
+        <file>
+            <source>README.txt</source>
+        </file>
+        <file>
+            <source>NOTICE</source>
+        </file>
+    </files>
+    
+    <dependencySets>
+        <!-- lib -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <scope>runtime</scope>
+            <outputDirectory>lib</outputDirectory>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+        </dependencySet>
+    </dependencySets>
+
+    <fileSets>
+        <!-- plugins -->
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-ml-${project.version}</directory>
+            <outputDirectory>plugin/ml</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-geospatial-${project.version}</directory>
+            <outputDirectory>plugin/geospatial</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-teradata-functions-${project.version}</directory>
+            <outputDirectory>plugin/teradata-functions</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-hive-hadoop2-${project.version}</directory>
+            <outputDirectory>plugin/hive-hadoop2</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-tpch-${project.version}</directory>
+            <outputDirectory>plugin/tpch</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-tpcds-${project.version}</directory>
+            <outputDirectory>plugin/tpcds</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-thrift-connector-${project.version}</directory>
+            <outputDirectory>plugin/presto-thrift</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-mysql-${project.version}</directory>
+            <outputDirectory>plugin/mysql</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-postgresql-${project.version}</directory>
+            <outputDirectory>plugin/postgresql</outputDirectory>
+        </fileSet>
+    </fileSets>
+</assembly>
