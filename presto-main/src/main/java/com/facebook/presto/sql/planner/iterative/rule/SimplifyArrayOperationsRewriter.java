@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression.Operator;
@@ -23,15 +22,11 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SearchedCaseExpression;
-import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -129,65 +124,7 @@ public class SimplifyArrayOperationsRewriter
                 return simplifyCardinalityOfFilterComparedToZero(cardinalityOfFilter.getLocation().orElse(new NodeLocation(0, 0)), array, operator.get(), origLambda);
             }
 
-            // Rewrite CARDINALITY(FILTER(arr, x -> f(x))) as REDUCE(arr, cast(0 as bigint), (s, x) -> case when f(x) then s + 1 else s, s -> s)
-            LambdaArgumentDeclaration origLambdaArgument = origLambda.getArguments().get(0);
-            Expression origLambdaBody = origLambda.getBody();
-            NodeLocation location = filter.getLocation().orElse(new NodeLocation(0, 0));
-
-            // New lambda arguments
-            // TODO(viswanadha): Fix it to get a unique name that doesn't clash with existing ones.
-            String combineFunctionArgumentName = origLambdaArgument.getName().getValue() + "__1__";
-            LambdaArgumentDeclaration combineFunctionArgument = new LambdaArgumentDeclaration(new Identifier(location, combineFunctionArgumentName, false));
-
-            // Final lambda arguments
-            String outputFunctionArgumentName = origLambdaArgument.getName().getValue() + "__2__";
-            LambdaArgumentDeclaration outputFunctionArgument = new LambdaArgumentDeclaration(new Identifier(location, outputFunctionArgumentName, false));
-
-            ImmutableList.Builder<WhenClause> builder = new ImmutableList.Builder<WhenClause>();
-            Expression elsePart = new Identifier(location, combineFunctionArgumentName, false);
-
-            // New lambda body
-            ArithmeticBinaryExpression plus1 =
-                    new ArithmeticBinaryExpression(location,
-                            ArithmeticBinaryExpression.Operator.ADD,
-                            new Identifier(location, combineFunctionArgumentName, false),
-                            new LongLiteral(location, "1"));
-
-            if (isComparison) {
-                // If it's a comparison, stop when the condition is true. So cardinality(filter(a, x -> f(x))) > 0 becomes reduce(a, 0, (s, x) ->tudligithfnithffeekfhuhrevjltijucase when s > 0 then s when f(x) then s + 1 else s, s->s > 0)
-                builder.add(
-                        new WhenClause(
-                                new ComparisonExpression(
-                                        location,
-                                        operator.get(),
-                                        new Identifier(location, combineFunctionArgumentName, false),
-                                        rhs.get()),
-                                new Identifier(location, combineFunctionArgumentName, false)));
-            }
-
-            builder.add(new WhenClause(origLambdaBody, plus1));
-            LambdaExpression combineFunction = new LambdaExpression(
-                    location,
-                    ImmutableList.of(combineFunctionArgument, origLambdaArgument),
-                    new SearchedCaseExpression(location, builder.build(), Optional.of(elsePart)));
-
-            // Final argument to reduce. s -> s
-            Expression outputFunctionBody = new Identifier(location, outputFunctionArgumentName, false);
-            if (isComparison) {
-                // If it's a comparison, simply return the comparison
-                outputFunctionBody = new ComparisonExpression(cardinalityOfFilter.getLocation().orElse(new NodeLocation(0, 0)), operator.get(), outputFunctionBody, rhs.get());
-            }
-
-            LambdaExpression outputFunction = new LambdaExpression(location, ImmutableList.of(outputFunctionArgument), outputFunctionBody);
-            // Now make the reduce
-            return new FunctionCall(
-                    location,
-                    QualifiedName.of("reduce"),
-                    ImmutableList.of(
-                            array,
-                            new Cast(location, new LongLiteral(location, "0"), "BIGINT"),
-                            combineFunction,
-                            outputFunction));
+            return null;
         }
 
         @Override
@@ -207,13 +144,18 @@ public class SimplifyArrayOperationsRewriter
             Expression right = comparisonExpression.getRight();
             Operator operator = comparisonExpression.getOperator();
 
+            Expression rewritten = null;
             if (isSimpleComaparison(comparisonExpression) && isCardinalityOfFilter(left) && isConstant(right)) {
-                return simplifyCardinalityOfFilter((FunctionCall) left, Optional.of(operator), Optional.of(right), context, treeRewriter);
+                rewritten = simplifyCardinalityOfFilter((FunctionCall) left, Optional.of(operator), Optional.of(right), context, treeRewriter);
+            }
+            else if (isSimpleComaparison(comparisonExpression) && isCardinalityOfFilter(right) && isConstant(left)) {
+                // If the left is a literal and right is cardinality, we simply normalize it to reverse the operation.
+                rewritten = simplifyCardinalityOfFilter((FunctionCall) left, Optional.of(operator.negate()), Optional.of(right), context, treeRewriter);
             }
 
-            // If the left is a literal and right is cardinality, we simply normalize it to reverse the operation.
-            if (isSimpleComaparison(comparisonExpression) && isCardinalityOfFilter(right) && isConstant(left)) {
-                return simplifyCardinalityOfFilter((FunctionCall) left, Optional.of(operator.negate()), Optional.of(right), context, treeRewriter);
+            if (rewritten != null)
+            {
+                return  rewritten;
             }
 
             return treeRewriter.defaultRewrite(comparisonExpression, context);
