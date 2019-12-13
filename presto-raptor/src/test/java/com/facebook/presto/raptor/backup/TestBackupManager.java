@@ -142,7 +142,7 @@ public class TestBackupManager
         Files.write("hello world", file, UTF_8);
 
         try {
-            backupManager.submit(CORRUPTION_UUID, path(file)).get(1, SECONDS);
+            backupManager.submit(CORRUPTION_UUID, path(file)).get(5, SECONDS);
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {
