@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -24,6 +25,7 @@ import static com.facebook.presto.orc.ByteArrayUtils.hash;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -501,18 +503,23 @@ public interface TupleDomainFilter
         // from Murmur hash
         private static final long M = 0xc6a4a7935bd1e995L;
 
+        private final long min;
+        private final long max;
         private final long[] values;
         private final long[] hashTable;
         private final int size;
         private boolean containsEmptyMarker;
 
-        private BigintValuesUsingHashTable(long[] values, boolean nullAllowed)
+        private BigintValuesUsingHashTable(long min, long max, long[] values, boolean nullAllowed)
         {
             super(true, nullAllowed);
 
             requireNonNull(values, "values is null");
+            checkArgument(min < max, "min must be less than max");
             checkArgument(values.length > 1, "values must contain at least 2 entries");
 
+            this.min = min;
+            this.max = max;
             this.values = values;
             this.size = Integer.highestOneBit(values.length * 3);
             this.hashTable = new long[size];
@@ -534,9 +541,9 @@ public interface TupleDomainFilter
             }
         }
 
-        public static BigintValuesUsingHashTable of(long[] values, boolean nullAllowed)
+        public static BigintValuesUsingHashTable of(long min, long max, long[] values, boolean nullAllowed)
         {
-            return new BigintValuesUsingHashTable(values, nullAllowed);
+            return new BigintValuesUsingHashTable(min, max, values, nullAllowed);
         }
 
         @Override
@@ -545,6 +552,11 @@ public interface TupleDomainFilter
             if (containsEmptyMarker && value == EMPTY_MARKER) {
                 return true;
             }
+
+            if (value < min || value > max) {
+                return false;
+            }
+
             int pos = (int) ((value * M) & (size - 1));
             for (int i = pos; i < pos + size; i++) {
                 int idx = i & (size - 1);
@@ -580,14 +592,91 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(size, containsEmptyMarker, hashTable, nullAllowed);
+            return Objects.hash(min, max, size, containsEmptyMarker, hashTable, nullAllowed);
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
+                    .add("min", min)
+                    .add("max", max)
                     .add("values", values)
+                    .add("nullAllowed", nullAllowed)
+                    .toString();
+        }
+    }
+
+    class BigintValuesUsingBitmask
+            extends AbstractTupleDomainFilter
+    {
+        private final BitSet bitmask;
+        private final long min;
+        private final long max;
+
+        private BigintValuesUsingBitmask(long min, long max, long[] values, boolean nullAllowed)
+        {
+            super(true, nullAllowed);
+
+            requireNonNull(values, "values is null");
+            checkArgument(min < max, "min must be less than max");
+            checkArgument(values.length > 1, "values must contain at least 2 entries");
+
+            this.min = min;
+            this.max = max;
+            bitmask = new BitSet(toIntExact(max - min + 1));
+
+            for (int i = 0; i < values.length; i++) {
+                bitmask.set((int) (values[i] - min));
+            }
+        }
+
+        public static BigintValuesUsingBitmask of(long min, long max, long[] values, boolean nullAllowed)
+        {
+            return new BigintValuesUsingBitmask(min, max, values, nullAllowed);
+        }
+
+        @Override
+        public boolean testLong(long value)
+        {
+            if (value < min || value > max) {
+                return false;
+            }
+
+            return bitmask.get((int) (value - min));
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            BigintValuesUsingBitmask that = (BigintValuesUsingBitmask) o;
+            return min == that.min &&
+                    max == that.max &&
+                    bitmask.equals(that.bitmask) &&
+                    nullAllowed == that.nullAllowed;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(min, max, bitmask, nullAllowed);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("min", min)
+                    .add("max", max)
+                    .add("bitmask", bitmask)
                     .add("nullAllowed", nullAllowed)
                     .toString();
         }

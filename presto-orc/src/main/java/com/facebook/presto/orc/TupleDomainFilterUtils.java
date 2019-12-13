@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
@@ -105,7 +106,7 @@ public class TupleDomainFilterUtils
                     .collect(toImmutableList());
 
             if (bigintRanges.stream().allMatch(BigintRange::isSingleValue)) {
-                return BigintValuesUsingHashTable.of(
+                return toBigintValues(
                         bigintRanges.stream()
                                 .mapToLong(BigintRange::getLower)
                                 .toArray(),
@@ -272,5 +273,25 @@ public class TupleDomainFilterUtils
                 low.getBound() == Marker.Bound.ABOVE,
                 upperValue == null ? null : upperValue.getBytes(),
                 high.getBound() == Marker.Bound.BELOW, nullAllowed);
+    }
+
+    public static TupleDomainFilter toBigintValues(long[] values, boolean nullAllowed)
+    {
+        long min = values[0];
+        long max = values[0];
+        for (int i = 1; i < values.length; i++) {
+            min = Math.min(min, values[i]);
+            max = Math.max(max, values[i]);
+        }
+
+        // Filter based on a hash table uses up to 3 longs per value (the value itself + 1 or 2
+        // slots in a hash table), e.g. up to 192 bits per value.
+        // Filter based on a bitmap uses (max - min) / num-values bits per value.
+        // Choose the filter that uses less bits per value.
+        if ((max - min + 1) > Integer.MAX_VALUE || ((max - min + 1) / values.length) > 192) {
+            return BigintValuesUsingHashTable.of(min, max, values, nullAllowed);
+        }
+
+        return BigintValuesUsingBitmask.of(min, max, values, nullAllowed);
     }
 }
