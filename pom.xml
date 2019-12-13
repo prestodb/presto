@@ -150,6 +150,7 @@
         <module>presto-spark</module>
         <module>presto-spark-package</module>
         <module>presto-spark-launcher</module>
+        <module>presto-spark-testing</module>
     </modules>
 
     <dependencyManagement>
