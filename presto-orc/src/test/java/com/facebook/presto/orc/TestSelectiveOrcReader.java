@@ -62,6 +62,7 @@ import static com.facebook.presto.orc.OrcTester.quickSelectiveOrcTester;
 import static com.facebook.presto.orc.OrcTester.rowType;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
+import static com.facebook.presto.orc.TupleDomainFilterUtils.toBigintValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -139,7 +140,7 @@ public class TestSelectiveOrcReader
                 .map(Integer::byteValue)
                 .collect(toList());
 
-        tester.testRoundTrip(TINYINT, byteValues, BigintValuesUsingHashTable.of(new long[] {1, 17}, false), IS_NULL);
+        tester.testRoundTrip(TINYINT, byteValues, BigintValuesUsingHashTable.of(1, 17, new long[] {1, 17}, false), IS_NULL);
 
         List<Map<Integer, Map<Subfield, TupleDomainFilter>>> filters = toSubfieldFilters(
                 ImmutableMap.of(0, BigintRange.of(1, 17, false)),
@@ -156,9 +157,9 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(TINYINT, TINYINT, TINYINT),
                 ImmutableList.of(toByteArray(newArrayList(1, 2, null, 3, 4)), newArrayList(null, null, null, null, null), toByteArray(newArrayList(5, 6, null, 7, null))),
                 toSubfieldFilters(ImmutableMap.of(
-                        0, BigintValuesUsingHashTable.of(new long[] {1, 4}, false),
-                        1, BigintValuesUsingHashTable.of(new long[] {1, 5}, true),
-                        2, BigintValuesUsingHashTable.of(new long[] {5, 7}, true))));
+                        0, BigintValuesUsingHashTable.of(1, 4, new long[] {1, 4}, false),
+                        1, BigintValuesUsingHashTable.of(1, 5, new long[] {1, 5}, true),
+                        2, BigintValuesUsingHashTable.of(5, 7, new long[] {5, 7}, true))));
     }
 
     @Test
@@ -305,7 +306,7 @@ public class TestSelectiveOrcReader
             throws Exception
     {
         testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), intsBetween(0, 18), ImmutableList.of(NUM_ROWS, 20_000, 400_000, NUM_ROWS, 20_000))), NUM_ROWS),
-                BigintValuesUsingHashTable.of(new long[] {0, 5, 10, 15, 20_000}, true));
+                toBigintValues(new long[] {0, 5, 10, 15, 20_000}, true));
     }
 
     @Test

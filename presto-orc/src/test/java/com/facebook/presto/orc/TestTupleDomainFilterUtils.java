@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
@@ -227,7 +228,8 @@ public class TestTupleDomainFilterUtils
         assertEquals(toFilter(not(greaterThan(C_BIGINT, bigintLiteral(2L)))), BigintRange.of(Long.MIN_VALUE, 2L, false));
         assertEquals(toFilter(not(greaterThanOrEqual(C_BIGINT, bigintLiteral(2L)))), BigintRange.of(Long.MIN_VALUE, 1L, false));
 
-        assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(1, 10, 100))), BigintValuesUsingHashTable.of(new long[] {1, 10, 100}, false));
+        assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(1, 10, 100_000))), BigintValuesUsingHashTable.of(1, 100_000, new long[] {1, 10, 100_000}, false));
+        assertEquals(toFilter(in(C_BIGINT, ImmutableList.of(1, 10, 100))), BigintValuesUsingBitmask.of(1, 100, new long[] {1, 10, 100}, false));
         assertEquals(toFilter(not(in(C_BIGINT, ImmutableList.of(1, 10, 100)))), BigintMultiRange.of(ImmutableList.of(
                 BigintRange.of(Long.MIN_VALUE, 0L, false),
                 BigintRange.of(2L, 9L, false),
@@ -254,7 +256,8 @@ public class TestTupleDomainFilterUtils
                 BigintMultiRange.of(ImmutableList.of(
                         BigintRange.of(Long.MIN_VALUE, 1L, false),
                         BigintRange.of(3L, Long.MAX_VALUE, false)), true));
-        assertEquals(toFilter(or(in(C_BIGINT, ImmutableList.of(1, 10, 100)), isNull(C_BIGINT))), BigintValuesUsingHashTable.of(new long[] {1, 10, 100}, true));
+        assertEquals(toFilter(or(in(C_BIGINT, ImmutableList.of(1, 10, 100_000)), isNull(C_BIGINT))), BigintValuesUsingHashTable.of(1, 100_000, new long[] {1, 10, 100_000}, true));
+        assertEquals(toFilter(or(in(C_BIGINT, ImmutableList.of(1, 10, 100)), isNull(C_BIGINT))), BigintValuesUsingBitmask.of(1, 100, new long[] {1, 10, 100}, true));
         assertEquals(toFilter(or(not(in(C_BIGINT, ImmutableList.of(1, 10, 100))), isNull(C_BIGINT))), BigintMultiRange.of(ImmutableList.of(
                 BigintRange.of(Long.MIN_VALUE, 0L, false),
                 BigintRange.of(2L, 9L, false),
