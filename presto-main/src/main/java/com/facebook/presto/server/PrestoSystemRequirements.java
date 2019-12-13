@@ -31,7 +31,7 @@ import java.util.OptionalLong;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.management.ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME;
 
-final class PrestoSystemRequirements
+public final class PrestoSystemRequirements
 {
     private static final int MIN_FILE_DESCRIPTORS = 4096;
     private static final int RECOMMENDED_FILE_DESCRIPTORS = 8192;
