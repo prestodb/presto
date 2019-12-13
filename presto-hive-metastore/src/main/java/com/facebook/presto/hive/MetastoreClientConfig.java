@@ -30,6 +30,7 @@ public class MetastoreClientConfig
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
     private boolean verifyChecksum = true;
+    private boolean requireHadoopNative = true;
 
     private Duration metastoreCacheTtl = new Duration(0, TimeUnit.SECONDS);
     private Duration metastoreRefreshInterval = new Duration(0, TimeUnit.SECONDS);
@@ -179,6 +180,18 @@ public class MetastoreClientConfig
     public MetastoreClientConfig setRecordingDuration(Duration recordingDuration)
     {
         this.recordingDuration = recordingDuration;
+        return this;
+    }
+
+    public boolean isRequireHadoopNative()
+    {
+        return requireHadoopNative;
+    }
+
+    @Config("hive.dfs.require-hadoop-native")
+    public MetastoreClientConfig setRequireHadoopNative(boolean requireHadoopNative)
+    {
+        this.requireHadoopNative = requireHadoopNative;
         return this;
     }
 }
