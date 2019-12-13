@@ -149,6 +149,7 @@
         <module>presto-spark-classloader-interface</module>
         <module>presto-spark</module>
         <module>presto-spark-package</module>
+        <module>presto-spark-launcher</module>
     </modules>
 
     <dependencyManagement>
