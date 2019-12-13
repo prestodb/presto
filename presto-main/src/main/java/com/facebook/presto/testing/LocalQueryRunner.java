@@ -94,12 +94,12 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
@@ -109,12 +109,14 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -146,6 +148,7 @@ import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.RemoteSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
@@ -775,12 +778,22 @@ public class LocalQueryRunner
                 stageExecutionDescriptor,
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getPartitioningScheme().getOutputLayout(),
-                plan.getTypes(),
                 subplan.getFragment().getTableScanSchedulingOrder(),
                 outputFactory,
-                new TaskExchangeClientManager(ignored -> {
-                    throw new UnsupportedOperationException();
-                }),
+                new RemoteSourceFactory()
+                {
+                    @Override
+                    public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId)
+                    {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public OperatorFactory createMergeRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types, List<Integer> outputChannels, List<Integer> sortChannels, List<SortOrder> sortOrder)
+                    {
+                        throw new UnsupportedOperationException();
+                    }
+                },
                 createTableWriteInfo(streamingSubPlan, metadata, session));
 
         // generate sources

@@ -35,8 +35,10 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.annotations.VisibleForTesting;
@@ -124,7 +126,9 @@ public class SqlTaskManager
             LocalSpillManager localSpillManager,
             ExchangeClientSupplier exchangeClientSupplier,
             NodeSpillConfig nodeSpillConfig,
-            GcMonitor gcMonitor)
+            GcMonitor gcMonitor,
+            BlockEncodingSerde blockEncodingSerde,
+            OrderingCompiler orderingCompiler)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -139,7 +143,14 @@ public class SqlTaskManager
         this.taskManagementExecutor = requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor();
         this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
 
-        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, config);
+        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(
+                taskNotificationExecutor,
+                taskExecutor,
+                planner,
+                blockEncodingSerde,
+                orderingCompiler,
+                splitMonitor,
+                config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
         DataSize maxQueryUserMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
