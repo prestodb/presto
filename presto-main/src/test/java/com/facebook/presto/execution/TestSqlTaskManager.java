@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -30,6 +31,8 @@ import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -247,7 +250,9 @@ public class TestSqlTaskManager
                 localSpillManager,
                 new MockExchangeClientSupplier(),
                 new NodeSpillConfig(),
-                new TestingGcMonitor());
+                new TestingGcMonitor(),
+                new BlockEncodingManager(new TypeRegistry()),
+                new OrderingCompiler());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
