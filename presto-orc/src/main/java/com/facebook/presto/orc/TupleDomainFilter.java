@@ -494,7 +494,7 @@ public interface TupleDomainFilter
         }
     }
 
-    class BigintValues
+    class BigintValuesUsingHashTable
             extends AbstractTupleDomainFilter
     {
         private static final long EMPTY_MARKER = 0xdeadbeefbadefeedL;
@@ -506,7 +506,7 @@ public interface TupleDomainFilter
         private final int size;
         private boolean containsEmptyMarker;
 
-        private BigintValues(long[] values, boolean nullAllowed)
+        private BigintValuesUsingHashTable(long[] values, boolean nullAllowed)
         {
             super(true, nullAllowed);
 
@@ -534,9 +534,9 @@ public interface TupleDomainFilter
             }
         }
 
-        public static BigintValues of(long[] values, boolean nullAllowed)
+        public static BigintValuesUsingHashTable of(long[] values, boolean nullAllowed)
         {
-            return new BigintValues(values, nullAllowed);
+            return new BigintValuesUsingHashTable(values, nullAllowed);
         }
 
         @Override
@@ -570,7 +570,7 @@ public interface TupleDomainFilter
                 return false;
             }
 
-            BigintValues that = (BigintValues) o;
+            BigintValuesUsingHashTable that = (BigintValuesUsingHashTable) o;
             return size == that.size &&
                     containsEmptyMarker == that.containsEmptyMarker &&
                     Arrays.equals(hashTable, that.hashTable) &&

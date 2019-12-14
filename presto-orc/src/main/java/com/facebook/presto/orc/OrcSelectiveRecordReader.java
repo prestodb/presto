@@ -16,7 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
@@ -472,7 +472,7 @@ public class OrcSelectiveRecordReader
             return 50;
         }
 
-        if (filter instanceof BigintValues || filter instanceof BigintMultiRange) {
+        if (filter instanceof BigintValuesUsingHashTable || filter instanceof BigintMultiRange) {
             return 50;
         }
 

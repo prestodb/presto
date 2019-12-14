@@ -14,7 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
@@ -383,7 +383,7 @@ public class TestMapFlatSelectiveStreamReader
         List<Integer> ids = IntStream.range(0, expectedValues.size()).map(i -> i % 10).boxed().collect(toImmutableList());
         ImmutableList<Type> types = ImmutableList.of(mapType, INTEGER);
 
-        Map<Integer, Map<Subfield, TupleDomainFilter>> filters = ImmutableMap.of(1, ImmutableMap.of(new Subfield("c"), BigintValues.of(new long[] {1, 5, 6}, true)));
+        Map<Integer, Map<Subfield, TupleDomainFilter>> filters = ImmutableMap.of(1, ImmutableMap.of(new Subfield("c"), BigintValuesUsingHashTable.of(new long[] {1, 5, 6}, true)));
         assertFileContentsPresto(
                 types,
                 new File(getResource(testOrcFileName).getFile()),
