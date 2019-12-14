@@ -15,7 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
@@ -61,9 +61,9 @@ public class TestTupleDomainFilter
     }
 
     @Test
-    public void testBigintValues()
+    public void testBigintValuesUsingHashTable()
     {
-        TupleDomainFilter filter = BigintValues.of(new long[] {1, 10, 100, 1000}, false);
+        TupleDomainFilter filter = BigintValuesUsingHashTable.of(new long[] {1, 10, 100, 1000}, false);
 
         assertTrue(filter.testLong(1));
         assertTrue(filter.testLong(10));

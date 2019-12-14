@@ -15,7 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
@@ -105,7 +105,7 @@ public class TupleDomainFilterUtils
                     .collect(toImmutableList());
 
             if (bigintRanges.stream().allMatch(BigintRange::isSingleValue)) {
-                return BigintValues.of(
+                return BigintValuesUsingHashTable.of(
                         bigintRanges.stream()
                                 .mapToLong(BigintRange::getLower)
                                 .toArray(),

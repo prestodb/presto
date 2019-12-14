@@ -18,7 +18,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -185,7 +185,7 @@ public class MapDirectSelectiveStreamReader
                     return BigintRange.of(requiredIndices[0], requiredIndices[0], false);
                 }
 
-                return BigintValues.of(requiredIndices, false);
+                return BigintValuesUsingHashTable.of(requiredIndices, false);
             }
             case STRING:
             case CHAR:
