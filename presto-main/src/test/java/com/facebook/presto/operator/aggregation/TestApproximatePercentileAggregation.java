@@ -69,7 +69,8 @@ public class TestApproximatePercentileAggregation
                 createLongsBlock(null, null),
                 createRLEBlock(0.5, 2));
 
-        assertAggregation(LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_AGGREGATION,
                 1L,
                 createLongsBlock(null, 1L),
                 createRLEBlock(0.5, 2));
@@ -105,7 +106,8 @@ public class TestApproximatePercentileAggregation
                 createLongsBlock(null, null),
                 createRLEBlock(ImmutableList.of(0.5, 0.99), 2));
 
-        assertAggregation(LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION,
                 ImmutableList.of(1L, 1L),
                 createLongsBlock(null, 1L),
                 createRLEBlock(ImmutableList.of(0.5, 0.5), 2));
