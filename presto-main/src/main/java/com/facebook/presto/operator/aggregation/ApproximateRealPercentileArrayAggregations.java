@@ -39,13 +39,20 @@ public class ApproximateRealPercentileArrayAggregations
     private ApproximateRealPercentileArrayAggregations() {}
 
     @InputFunction
-    public static void input(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void input(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.REAL) long value,
+            @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.input(state, floatToSortableInt(intBitsToFloat((int) value)), percentilesArrayBlock);
     }
 
     @InputFunction
-    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.REAL) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType("array(double)") Block percentilesArrayBlock)
+    public static void weightedInput(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.REAL) long value,
+            @SqlType(StandardTypes.BIGINT) long weight,
+            @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.weightedInput(state, floatToSortableInt(intBitsToFloat((int) value)), weight, percentilesArrayBlock);
     }
