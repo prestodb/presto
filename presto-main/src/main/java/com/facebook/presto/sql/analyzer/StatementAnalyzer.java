@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
@@ -588,6 +589,13 @@ class StatementAnalyzer
 
             // TODO: Check body contains no SQL invoked functions
 
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitAlterFunction(AlterFunction node, Optional<Scope> scope)
+        {
+            checkFunctionName(node, node.getFunctionName());
             return createAndAssignScope(node, scope);
         }
 

@@ -47,6 +47,12 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
     void createFunction(SqlInvokedFunction function, boolean replace);
 
     /**
+     * Alter the specified function.
+     * TODO: Support transaction
+     */
+    void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics);
+
+    /**
      * Drop the specified function.
      * TODO: Support transaction
      */
