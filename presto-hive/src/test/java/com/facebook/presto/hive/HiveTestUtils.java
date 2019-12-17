@@ -26,6 +26,7 @@ import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory;
+import com.facebook.presto.hive.orc.TupleDomainFilterCache;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -153,8 +154,8 @@ public final class HiveTestUtils
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
         return ImmutableSet.<HiveSelectivePageSourceFactory>builder()
-                .add(new OrcSelectivePageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()))
-                .add(new DwrfSelectivePageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener()))
+                .add(new OrcSelectivePageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener(), new TupleDomainFilterCache()))
+                .add(new DwrfSelectivePageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), new HadoopFileOpener(), new TupleDomainFilterCache()))
                 .build();
     }
 
