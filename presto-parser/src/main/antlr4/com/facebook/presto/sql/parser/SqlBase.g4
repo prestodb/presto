@@ -60,6 +60,8 @@ statement
         RETURNS returnType=type
         (COMMENT string)?
         routineCharacteristics routineBody                             #createFunction
+    | ALTER FUNCTION qualifiedName types?
+      alterRoutineCharacteristics                                      #alterFunction
     | DROP FUNCTION (IF EXISTS)? qualifiedName types?                  #dropFunction
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
@@ -157,6 +159,14 @@ routineCharacteristic
     : LANGUAGE language
     | determinism
     | nullCallClause
+    ;
+
+alterRoutineCharacteristics
+    : alterRoutineCharacteristic*
+    ;
+
+alterRoutineCharacteristic
+    : nullCallClause
     ;
 
 routineBody

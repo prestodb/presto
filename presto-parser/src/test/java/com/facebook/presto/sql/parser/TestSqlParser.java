@@ -16,6 +16,8 @@ package com.facebook.presto.sql.parser;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterFunction;
+import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -1494,6 +1496,29 @@ public class TestSqlParser
         assertInvalidStatement(
                 "CREATE FUNCTION dev.testing.rand () RETURNS double CALLED ON NULL INPUT CALLED ON NULL INPUT RETURN rand()",
                 "Duplicate null-call clause: CALLEDONNULLINPUT");
+    }
+
+    @Test
+    public void testAlterFunction()
+    {
+        QualifiedName functionName = QualifiedName.of("testing", "default", "tan");
+        assertStatement(
+                "ALTER FUNCTION testing.default.tan\n" +
+                        "CALLED ON NULL INPUT",
+                new AlterFunction(functionName, Optional.empty(), new AlterRoutineCharacteristics(Optional.of(CALLED_ON_NULL_INPUT))));
+        assertStatement(
+                "ALTER FUNCTION testing.default.tan(double)\n" +
+                        "RETURNS NULL ON NULL INPUT",
+                new AlterFunction(functionName, Optional.of(ImmutableList.of("double")), new AlterRoutineCharacteristics(Optional.of(RETURNS_NULL_ON_NULL_INPUT))));
+
+        assertInvalidStatement(
+                "ALTER FUNCTION testing.default.tan",
+                "No alter routine characteristics specified");
+        assertInvalidStatement(
+                "ALTER FUNCTION testing.default.tan\n" +
+                        "RETURNS NULL ON NULL INPUT\n" +
+                        "RETURNS NULL ON NULL INPUT",
+                "Duplicate null-call clause: RETURNSNULLONNULLINPUT");
     }
 
     @Test
