@@ -16,6 +16,8 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterFunction;
+import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
@@ -575,6 +577,18 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitAlterFunction(AlterFunction node, Integer indent)
+        {
+            builder.append("ALTER FUNCTION ")
+                    .append(formatName(node.getFunctionName()));
+            node.getParameterTypes().map(Formatter::formatTypeList).ifPresent(builder::append);
+            builder.append("\n")
+                    .append(formatAlterRoutineCharacteristics(node.getCharacteristics()));
+
+            return null;
+        }
+
+        @Override
         protected Void visitDropFunction(DropFunction node, Integer indent)
         {
             builder.append("DROP FUNCTION ");
@@ -916,6 +930,15 @@ public final class SqlFormatter
                     "LANGUAGE " + formatRoutineCharacteristicName(characteristics.getLanguage()),
                     formatRoutineCharacteristicName(characteristics.getDeterminism()),
                     formatRoutineCharacteristicName(characteristics.getNullCallClause())));
+        }
+
+        private String formatAlterRoutineCharacteristics(AlterRoutineCharacteristics characteristics)
+        {
+            StringBuilder formatted = new StringBuilder();
+            if (characteristics.getNullCallClause().isPresent()) {
+                formatted.append(formatRoutineCharacteristicName(characteristics.getNullCallClause().get()));
+            }
+            return formatted.toString();
         }
 
         private String formatRoutineCharacteristicName(Enum characteristic)
