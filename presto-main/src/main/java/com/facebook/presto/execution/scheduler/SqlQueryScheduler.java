@@ -156,7 +156,8 @@ public class SqlQueryScheduler
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
-            Metadata metadata)
+            Metadata metadata,
+            boolean doDelayedTaskStart)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 queryStateMachine,
@@ -176,7 +177,8 @@ public class SqlQueryScheduler
                 nodeTaskMap,
                 executionPolicy,
                 schedulerStats,
-                metadata);
+                metadata,
+                doDelayedTaskStart);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -199,7 +201,8 @@ public class SqlQueryScheduler
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
-            Metadata metadata)
+            Metadata metadata,
+            boolean doDelayedTaskStart)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
@@ -225,7 +228,8 @@ public class SqlQueryScheduler
                 queryExecutor,
                 schedulerExecutor,
                 failureDetector,
-                nodeTaskMap);
+                nodeTaskMap,
+                doDelayedTaskStart);
 
         this.rootStageId = Iterables.getLast(stageExecutions).getStageExecution().getStageExecutionId().getStageId();
 
@@ -318,7 +322,8 @@ public class SqlQueryScheduler
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
             FailureDetector failureDetector,
-            NodeTaskMap nodeTaskMap)
+            NodeTaskMap nodeTaskMap,
+            boolean doDelayTaskStart)
     {
         ImmutableList.Builder<StageExecutionAndScheduler> stages = ImmutableList.builder();
 
@@ -338,7 +343,8 @@ public class SqlQueryScheduler
                     queryExecutor,
                     schedulerExecutor,
                     failureDetector,
-                    nodeTaskMap));
+                    nodeTaskMap,
+                    doDelayTaskStart));
         }
 
         // Only fetch a distribution once per section to ensure all stages see the same machine assignments
@@ -359,7 +365,8 @@ public class SqlQueryScheduler
                 failureDetector,
                 nodeTaskMap,
                 tableWriteInfo,
-                Optional.empty());
+                Optional.empty(),
+                doDelayTaskStart);
         Iterables.getLast(sectionStages)
                 .getStageExecution()
                 .setOutputBuffers(outputBuffers);
@@ -386,7 +393,8 @@ public class SqlQueryScheduler
             FailureDetector failureDetector,
             NodeTaskMap nodeTaskMap,
             TableWriteInfo tableWriteInfo,
-            Optional<SqlStageExecution> parentStageExecution)
+            Optional<SqlStageExecution> parentStageExecution,
+            boolean doDelayedTaskStart)
     {
         ImmutableList.Builder<StageExecutionAndScheduler> stageExecutionInfos = ImmutableList.builder();
 
@@ -427,7 +435,8 @@ public class SqlQueryScheduler
                     failureDetector,
                     nodeTaskMap,
                     tableWriteInfo,
-                    Optional.of(stageExecution));
+                    Optional.of(stageExecution),
+                    doDelayedTaskStart);
             stageExecutionInfos.addAll(subTree);
             childStagesBuilder.add(Iterables.getLast(subTree).getStageExecution());
         }
@@ -451,7 +460,8 @@ public class SqlQueryScheduler
                 stageExecution,
                 partitioningHandle,
                 splitSources,
-                childStageExecutions);
+                childStageExecutions,
+                doDelayedTaskStart);
         StageLinkage stageLinkage = new StageLinkage(fragmentId, parent, childStageExecutions);
         stageExecutionInfos.add(new StageExecutionAndScheduler(stageExecution, stageLinkage, stageScheduler));
 
@@ -470,7 +480,8 @@ public class SqlQueryScheduler
             StageId stageId, SqlStageExecution stageExecution,
             PartitioningHandle partitioningHandle,
             Map<PlanNodeId, SplitSource> splitSources,
-            Set<SqlStageExecution> childStageExecutions)
+            Set<SqlStageExecution> childStageExecutions,
+            boolean doDelayedTaskStart)
     {
         int maxTasksPerStage = getMaxTasksPerStage(session);
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
@@ -488,7 +499,7 @@ public class SqlQueryScheduler
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
-            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize);
+            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, doDelayedTaskStart);
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()
@@ -570,7 +581,8 @@ public class SqlQueryScheduler
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
                         nodeScheduler.createNodeSelector(connectorId),
-                        connectorPartitionHandles);
+                        connectorPartitionHandles,
+                        doDelayedTaskStart);
                 if (plan.getFragment().getStageExecutionDescriptor().isRecoverableGroupedExecution()) {
                     stageExecution.registerStageTaskRecoveryCallback(taskId -> {
                         checkArgument(taskId.getStageExecutionId().getStageId().equals(stageId), "The task did not execute this stage");

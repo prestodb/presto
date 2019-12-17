@@ -72,6 +72,21 @@ public class QueryManagerConfig
 
     private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
 
+    private boolean delayTaskStartUntilNoMoreSplits;
+
+    public boolean isDelayTaskStartUntilNoMoreSplits()
+    {
+        return delayTaskStartUntilNoMoreSplits;
+    }
+
+    @Config("query.delay-task-start")
+    @ConfigDescription("Delay task start until no more splits signal is given")
+    public QueryManagerConfig setDelayTaskStartUntilNoMoreSplits(boolean delayTaskStartUntilNoMoreSplits)
+    {
+        this.delayTaskStartUntilNoMoreSplits = delayTaskStartUntilNoMoreSplits;
+        return this;
+    }
+
     @Min(1)
     public int getScheduleSplitBatchSize()
     {

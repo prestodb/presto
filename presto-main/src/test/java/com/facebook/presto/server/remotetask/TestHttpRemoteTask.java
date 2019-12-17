@@ -109,6 +109,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestHttpRemoteTask
@@ -154,18 +155,49 @@ public class TestHttpRemoteTask
 
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
 
-        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, false);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
-
         Lifespan lifespan = Lifespan.driverGroup(3);
         remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit(), lifespan)));
+        assertNull(testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID));
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID) != null);
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
 
         remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID, lifespan);
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getNoMoreSplitsForLifespan().size() == 1);
+
+        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
+        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).isNoMoreSplits());
+
+        remoteTask.cancel();
+        poll(() -> remoteTask.getTaskStatus().getState().isDone());
+        poll(() -> remoteTask.getTaskInfo().getTaskStatus().getState().isDone());
+
+        httpRemoteTaskFactory.stop();
+    }
+
+    @Test(timeOut = 30000)
+    public void testDelayedStart()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+        long expectedUpdateTime = testingTaskResource.lastActivityNanos.get();
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, true);
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+        assertEquals(testingTaskResource.lastActivityNanos.get(), expectedUpdateTime, "Expected no update on task");
+
+        Lifespan lifespan = Lifespan.driverGroup(3);
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit(), lifespan)));
+        assertEquals(testingTaskResource.lastActivityNanos.get(), expectedUpdateTime, "Expected no update on task");
+        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID, lifespan);
+        poll(() -> Optional.ofNullable(testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID)).map(taskSource -> taskSource.getNoMoreSplitsForLifespan().size() == 1).orElse(false));
 
         remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).isNoMoreSplits());
@@ -184,7 +216,7 @@ public class TestHttpRemoteTask
         TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, failureScenario);
 
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
-        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, false);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
@@ -210,7 +242,7 @@ public class TestHttpRemoteTask
         }
     }
 
-    private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory)
+    private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, boolean doDelayedTaskStart)
     {
         return httpRemoteTaskFactory.createRemoteTask(
                 TEST_SESSION,
@@ -222,7 +254,8 @@ public class TestHttpRemoteTask
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 true,
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                doDelayedTaskStart);
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)

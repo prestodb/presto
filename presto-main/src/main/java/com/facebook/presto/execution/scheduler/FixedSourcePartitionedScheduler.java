@@ -66,6 +66,7 @@ public class FixedSourcePartitionedScheduler
     private boolean scheduledTasks;
     private boolean anySourceSchedulingFinished;
     private final Optional<LifespanScheduler> groupedLifespanScheduler;
+    private final boolean doDelayedTaskStart;
 
     private final Queue<Integer> tasksToRecover = new ConcurrentLinkedQueue<>();
 
@@ -79,7 +80,8 @@ public class FixedSourcePartitionedScheduler
             int splitBatchSize,
             OptionalInt concurrentLifespansPerTask,
             NodeSelector nodeSelector,
-            List<ConnectorPartitionHandle> partitionHandles)
+            List<ConnectorPartitionHandle> partitionHandles,
+            boolean doDelayedTaskStart)
     {
         requireNonNull(stage, "stage is null");
         requireNonNull(splitSources, "splitSources is null");
@@ -90,6 +92,7 @@ public class FixedSourcePartitionedScheduler
         this.stage = stage;
         this.nodes = ImmutableList.copyOf(nodes);
         this.partitionHandles = ImmutableList.copyOf(partitionHandles);
+        this.doDelayedTaskStart = doDelayedTaskStart;
 
         checkArgument(splitSources.keySet().equals(ImmutableSet.copyOf(schedulingOrder)));
 
@@ -119,7 +122,8 @@ public class FixedSourcePartitionedScheduler
                     splitSource,
                     splitPlacementPolicy,
                     Math.max(splitBatchSize / concurrentLifespans, 1),
-                    groupedExecutionForScanNode);
+                    groupedExecutionForScanNode,
+                    doDelayedTaskStart);
 
             if (stageExecutionDescriptor.isStageGroupedExecution() && !groupedExecutionForScanNode) {
                 sourceScheduler = new AsGroupedSourceScheduler(sourceScheduler);
@@ -174,7 +178,7 @@ public class FixedSourcePartitionedScheduler
             OptionalInt totalPartitions = OptionalInt.of(nodes.size());
             newTasks = Streams.mapWithIndex(
                     nodes.stream(),
-                    (node, id) -> stage.scheduleTask(node, toIntExact(id), totalPartitions))
+                    (node, id) -> stage.scheduleTask(node, toIntExact(id), totalPartitions, doDelayedTaskStart))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .collect(toImmutableList());

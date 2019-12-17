@@ -150,7 +150,8 @@ public class HttpRemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            boolean delayTaskStart)
     {
         return new HttpRemoteTask(session,
                 taskId,
@@ -176,6 +177,7 @@ public class HttpRemoteTaskFactory
                 stats,
                 isBinaryTransportEnabled,
                 tableWriteInfo,
-                maxTaskUpdateSizeInBytes);
+                maxTaskUpdateSizeInBytes,
+                delayTaskStart);
     }
 }

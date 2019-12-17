@@ -55,7 +55,8 @@ public class TestQueryManagerConfig
                 .setInitializationTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setRequiredWorkers(1)
                 .setRequiredWorkersMaxWait(new Duration(5, TimeUnit.MINUTES))
-                .setQuerySubmissionMaxThreads(Runtime.getRuntime().availableProcessors() * 2));
+                .setQuerySubmissionMaxThreads(Runtime.getRuntime().availableProcessors() * 2)
+                .setDelayTaskStartUntilNoMoreSplits(false));
     }
 
     @Test
@@ -88,6 +89,7 @@ public class TestQueryManagerConfig
                 .put("query-manager.initialization-required-workers", "200")
                 .put("query-manager.initialization-timeout", "1m")
                 .put("query-manager.required-workers", "333")
+                .put("query.delay-task-start", "true")
                 .put("query-manager.required-workers-max-wait", "33m")
                 .put("query-manager.query-submission-max-threads", "5")
                 .build();
@@ -120,7 +122,8 @@ public class TestQueryManagerConfig
                 .setInitializationTimeout(new Duration(1, TimeUnit.MINUTES))
                 .setRequiredWorkers(333)
                 .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES))
-                .setQuerySubmissionMaxThreads(5);
+                .setQuerySubmissionMaxThreads(5)
+                .setDelayTaskStartUntilNoMoreSplits(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

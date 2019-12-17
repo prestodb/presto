@@ -139,6 +139,7 @@ public final class HttpRemoteTask
     private final RemoteTaskStats stats;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
+    private final AtomicBoolean startedForReal;
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -211,7 +212,8 @@ public final class HttpRemoteTask
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled,
             TableWriteInfo tableWriteInfo,
-            int maxTaskUpdateSizeInBytes)
+            int maxTaskUpdateSizeInBytes,
+            boolean delayTaskStart)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -257,6 +259,8 @@ public final class HttpRemoteTask
             this.remoteSourcePlanNodeIds = planFragment.getRemoteSourceNodes().stream()
                     .map(PlanNode::getId)
                     .collect(toImmutableSet());
+
+            this.startedForReal = new AtomicBoolean(!delayTaskStart);
 
             for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
                 ScheduledSplit scheduledSplit = new ScheduledSplit(nextSplitId.getAndIncrement(), entry.getKey(), entry.getValue());
@@ -344,12 +348,8 @@ public final class HttpRemoteTask
     @Override
     public void start()
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            // to start we just need to trigger an update
-            scheduleUpdate();
-
-            taskStatusFetcher.start();
-            taskInfoFetcher.start();
+        if (startedForReal.get()) {
+            actuallyStartTask();
         }
     }
 
@@ -392,13 +392,12 @@ public final class HttpRemoteTask
     @Override
     public synchronized void noMoreSplits(PlanNodeId sourceId)
     {
-        if (noMoreSplits.containsKey(sourceId)) {
-            return;
+        if (!noMoreSplits.containsKey(sourceId)) {
+            noMoreSplits.put(sourceId, true);
+            needsUpdate.set(true);
+            ensureStarted();
+            scheduleUpdate();
         }
-
-        noMoreSplits.put(sourceId, true);
-        needsUpdate.set(true);
-        scheduleUpdate();
     }
 
     @Override
@@ -406,6 +405,7 @@ public final class HttpRemoteTask
     {
         if (pendingNoMoreSplitsForLifespan.put(sourceId, lifespan)) {
             needsUpdate.set(true);
+            ensureStarted();
             scheduleUpdate();
         }
     }
@@ -597,9 +597,29 @@ public final class HttpRemoteTask
         taskInfoFetcher.updateTaskInfo(taskInfo);
     }
 
+    private void actuallyStartTask()
+    {
+        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+            // to start we just need to trigger an update
+            taskStatusFetcher.start();
+            taskInfoFetcher.start();
+            scheduleUpdate();
+        }
+    }
+
+    @Override
+    public void ensureStarted()
+    {
+        if (startedForReal.compareAndSet(false, true)) {
+            actuallyStartTask();
+        }
+    }
+
     private void scheduleUpdate()
     {
-        executor.execute(this::sendUpdate);
+        if (startedForReal.get()) {
+            executor.execute(this::sendUpdate);
+        }
     }
 
     private synchronized void sendUpdate()

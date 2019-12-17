@@ -125,6 +125,8 @@ public class SqlQueryExecution
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
+    private final boolean doDelayedTaskStart;
+
     private SqlQueryExecution(
             String query,
             Session session,
@@ -154,7 +156,8 @@ public class SqlQueryExecution
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean doDelayedTaskStart)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", session.getQueryId())) {
             this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
@@ -177,6 +180,7 @@ public class SqlQueryExecution
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
+            this.doDelayedTaskStart = doDelayedTaskStart;
 
             requireNonNull(query, "query is null");
             requireNonNull(session, "session is null");
@@ -511,7 +515,8 @@ public class SqlQueryExecution
                 nodeTaskMap,
                 executionPolicy,
                 schedulerStats,
-                metadata);
+                metadata,
+                doDelayedTaskStart);
 
         queryScheduler.set(scheduler);
 
@@ -681,6 +686,7 @@ public class SqlQueryExecution
         private final ClusterSizeMonitor clusterSizeMonitor;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
+        private final boolean doDelayedTaskStart;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -730,6 +736,7 @@ public class SqlQueryExecution
             this.planOptimizers = planOptimizers.get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.doDelayedTaskStart = config.isDelayTaskStartUntilNoMoreSplits();
         }
 
         @Override
@@ -774,7 +781,8 @@ public class SqlQueryExecution
                     schedulerStats,
                     statsCalculator,
                     costCalculator,
-                    warningCollector);
+                    warningCollector,
+                    doDelayedTaskStart);
 
             return execution;
         }

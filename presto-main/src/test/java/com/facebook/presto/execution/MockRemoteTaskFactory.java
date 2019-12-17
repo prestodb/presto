@@ -131,6 +131,7 @@ public class MockRemoteTaskFactory
         for (Split sourceSplit : splits) {
             initialSplits.put(sourceId, sourceSplit);
         }
+
         return createRemoteTask(
                 TEST_SESSION,
                 taskId,
@@ -141,7 +142,8 @@ public class MockRemoteTaskFactory
                 createInitialEmptyOutputBuffers(BROADCAST),
                 partitionedSplitCountTracker,
                 true,
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                false);
     }
 
     @Override
@@ -155,7 +157,8 @@ public class MockRemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            boolean doDelayedTaskStart)
     {
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, totalPartitions, partitionedSplitCountTracker);
     }

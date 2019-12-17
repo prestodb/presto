@@ -129,7 +129,7 @@ public class TestSqlStageExecution
                             URI.create("http://10.0.0." + (i / 10_000) + ":" + (i % 10_000)),
                             NodeVersion.UNKNOWN,
                             false);
-                    stage.scheduleTask(node, i, OptionalInt.empty());
+                    stage.scheduleTask(node, i, OptionalInt.empty(), false);
                     latch.countDown();
                 }
             }

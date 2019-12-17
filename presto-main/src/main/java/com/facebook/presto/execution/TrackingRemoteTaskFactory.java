@@ -52,7 +52,8 @@ public class TrackingRemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            boolean doDelayedTaskStart)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,
@@ -63,7 +64,8 @@ public class TrackingRemoteTaskFactory
                 outputBuffers,
                 partitionedSplitCountTracker,
                 summarizeTaskInfo,
-                tableWriteInfo);
+                tableWriteInfo,
+                doDelayedTaskStart);
 
         task.addStateChangeListener(new UpdateQueryStats(stateMachine));
         return task;
