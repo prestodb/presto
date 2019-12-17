@@ -582,14 +582,7 @@ public final class SqlFormatter
                 builder.append("IF EXISTS ");
             }
             builder.append(formatName(node.getFunctionName()));
-            if (node.getParameterTypes().isPresent()) {
-                String elementIndent = indentString(indent + 1);
-                builder.append("(\n")
-                        .append(node.getParameterTypes().get().stream()
-                                .map(type -> elementIndent + type)
-                                .collect(joining(",\n")))
-                        .append(")\n");
-            }
+            node.getParameterTypes().map(Formatter::formatTypeList).ifPresent(builder::append);
 
             return null;
         }
@@ -910,6 +903,11 @@ public final class SqlFormatter
                             formatExpression(parameter.getName(), this.parameters),
                             parameter.getType()))
                     .collect(joining(",\n", "(\n", "\n)"));
+        }
+
+        public static String formatTypeList(List<String> types)
+        {
+            return format("(%s)", Joiner.on(", ").join(types));
         }
 
         private String formatRoutineCharacteristics(RoutineCharacteristics characteristics)
