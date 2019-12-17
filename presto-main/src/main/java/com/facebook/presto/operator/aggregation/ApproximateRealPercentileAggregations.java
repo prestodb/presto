@@ -48,6 +48,16 @@ public class ApproximateRealPercentileAggregations
     }
 
     @InputFunction
+    public static void input(
+            @AggregationState DigestAndPercentileState state,
+            @SqlType(StandardTypes.REAL) long value,
+            @SqlType(StandardTypes.DOUBLE) double percentile,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        ApproximateLongPercentileAggregations.input(state, floatToSortableInt(intBitsToFloat((int) value)), percentile, accuracy);
+    }
+
+    @InputFunction
     public static void weightedInput(
             @AggregationState DigestAndPercentileState state,
             @SqlType(StandardTypes.REAL) long value,

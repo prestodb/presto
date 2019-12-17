@@ -47,6 +47,16 @@ public final class ApproximateLongPercentileAggregations
     }
 
     @InputFunction
+    public static void input(
+            @AggregationState DigestAndPercentileState state,
+            @SqlType(StandardTypes.BIGINT) long value,
+            @SqlType(StandardTypes.DOUBLE) double percentile,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        addInput(state, value, DEFAULT_WEIGHT, percentile, accuracy);
+    }
+
+    @InputFunction
     public static void weightedInput(
             @AggregationState DigestAndPercentileState state,
             @SqlType(StandardTypes.BIGINT) long value,

@@ -48,6 +48,16 @@ public class ApproximateRealPercentileArrayAggregations
     }
 
     @InputFunction
+    public static void input(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.REAL) long value,
+            @SqlType("array(double)") Block percentilesArrayBlock,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        ApproximateLongPercentileArrayAggregations.input(state, floatToSortableInt(intBitsToFloat((int) value)), percentilesArrayBlock, accuracy);
+    }
+
+    @InputFunction
     public static void weightedInput(
             @AggregationState DigestAndPercentileArrayState state,
             @SqlType(StandardTypes.REAL) long value,
@@ -55,6 +65,17 @@ public class ApproximateRealPercentileArrayAggregations
             @SqlType("array(double)") Block percentilesArrayBlock)
     {
         ApproximateLongPercentileArrayAggregations.weightedInput(state, floatToSortableInt(intBitsToFloat((int) value)), weight, percentilesArrayBlock);
+    }
+
+    @InputFunction
+    public static void weightedInput(
+            @AggregationState DigestAndPercentileArrayState state,
+            @SqlType(StandardTypes.REAL) long value,
+            @SqlType(StandardTypes.BIGINT) long weight,
+            @SqlType("array(double)") Block percentilesArrayBlock,
+            @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        ApproximateLongPercentileArrayAggregations.weightedInput(state, floatToSortableInt(intBitsToFloat((int) value)), weight, percentilesArrayBlock, accuracy);
     }
 
     @CombineFunction
