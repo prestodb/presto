@@ -35,6 +35,7 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -44,9 +45,11 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -71,8 +74,10 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -220,6 +225,54 @@ public class TestScanFilterAndProjectOperator
 
         assertEquals(actual.getRowCount(), expected.getRowCount());
         assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testPageSourceLazyBlock()
+    {
+        // Tests that a page containing a LazyBlock is loaded and its bytes are counted by the operator.
+        DriverContext driverContext = newDriverContext();
+        List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));
+        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections, "key");
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections);
+
+        // This Block will be wrapped in a LazyBlock inside the operator on call to getNextPage().
+        Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 10);
+
+        CountingLazyPageSource pageSource = new CountingLazyPageSource(ImmutableList.of(new Page(inputBlock)));
+
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                new PlanNodeId("0"),
+                (session, split, table, columns) -> pageSource,
+                cursorProcessor,
+                pageProcessor,
+                TESTING_TABLE_HANDLE,
+                ImmutableList.of(),
+                ImmutableList.of(BIGINT),
+                new DataSize(0, BYTE),
+                0);
+
+        SourceOperator operator = factory.createOperator(driverContext);
+        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.noMoreSplits();
+
+        MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
+        Page expectedPage = expected.toPage();
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), toPages(operator));
+        Page actualPage = actual.toPage();
+
+        // Assert expected page and actual page are equal.
+        assertPageEquals(actual.getTypes(), actualPage, expectedPage);
+
+        // PageSource counting isn't flawed, assert on the test implementation
+        assertEquals(pageSource.getCompletedBytes(), expectedPage.getSizeInBytes());
+        assertEquals(pageSource.getCompletedPositions(), expectedPage.getPositionCount());
+
+        // Assert operator stats match the expected values
+        assertEquals(operator.getOperatorContext().getOperatorStats().getRawInputDataSize().toBytes(), expectedPage.getSizeInBytes());
+        assertEquals(operator.getOperatorContext().getOperatorStats().getInputPositions(), expected.getRowCount());
     }
 
     @Test
@@ -465,6 +518,99 @@ public class TestScanFilterAndProjectOperator
             Page page = this.page;
             this.page = null;
             return page;
+        }
+    }
+
+    private static class CountingLazyPageSource
+            implements ConnectorPageSource
+    {
+        private Iterator<Page> pages;
+        private long completedBytes;
+        private long completedPositions;
+
+        public CountingLazyPageSource(List<Page> pages)
+        {
+            this.pages = requireNonNull(pages, "pages is null").iterator();
+        }
+
+        @Override
+        public void close()
+        {
+            pages = Iterators.forArray();
+        }
+
+        @Override
+        public long getReadTimeNanos()
+        {
+            return 0;
+        }
+
+        @Override
+        public long getSystemMemoryUsage()
+        {
+            return 0;
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return !pages.hasNext();
+        }
+
+        @Override
+        public Page getNextPage()
+        {
+            if (isFinished()) {
+                return null;
+            }
+
+            Page page = pages.next();
+            int channelCount = page.getChannelCount();
+            Block[] blocks = new Block[channelCount];
+
+            for (int i = 0; i < channelCount; ++i) {
+                Block block = page.getBlock(i);
+                // Wrap current Block in a LazyBlock.
+                blocks[i] = new LazyBlock(block.getPositionCount(), new CountingLazyBlockLoader(block));
+            }
+            completedPositions += page.getPositionCount();
+
+            return new Page(page.getPositionCount(), blocks);
+        }
+
+        @Override
+        public long getCompletedBytes()
+        {
+            return completedBytes;
+        }
+
+        @Override
+        public long getCompletedPositions()
+        {
+            return completedPositions;
+        }
+
+        private final class CountingLazyBlockLoader
+                implements LazyBlockLoader<LazyBlock>
+        {
+            private Block loaderBlock;
+
+            public CountingLazyBlockLoader(Block block)
+            {
+                loaderBlock = block;
+            }
+
+            @Override
+            public final void load(LazyBlock lazyBlock)
+            {
+                checkState(loaderBlock != null, "loaderBlock already loaded");
+
+                Block loadedBlock = loaderBlock.getLoadedBlock();
+                // Increment completed/read bytes for the page source.
+                completedBytes += loadedBlock.getSizeInBytes();
+                loaderBlock = null;
+                lazyBlock.setBlock(loadedBlock);
+            }
         }
     }
 }

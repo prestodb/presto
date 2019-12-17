@@ -29,6 +29,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.EmptySplit;
@@ -247,13 +248,7 @@ public class ScanFilterAndProjectOperator
             CursorProcessorOutput output = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, cursor, pageBuilder);
             pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
 
-            long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
-            long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
-            operatorContext.recordRawInputWithTiming(bytesProcessed, output.getProcessedRows(), elapsedNanos);
-            // TODO: derive better values for cursors
-            operatorContext.recordProcessedInput(bytesProcessed, output.getProcessedRows());
-            completedBytes = cursor.getCompletedBytes();
-            readTimeNanos = cursor.getReadTimeNanos();
+            recordCursorInputStats(output.getProcessedRows());
             if (output.isNoMoreRows()) {
                 finishing = true;
                 mergingOutput.finish();
@@ -280,16 +275,8 @@ public class ScanFilterAndProjectOperator
             pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
 
             if (page != null) {
-                page = recordProcessedInput(page);
-
                 // update operator stats
-                long endCompletedBytes = pageSource.getCompletedBytes();
-                long endCompletedPositions = pageSource.getCompletedPositions();
-                long endReadTimeNanos = pageSource.getReadTimeNanos();
-                operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, endCompletedPositions - completedPositions, endReadTimeNanos - readTimeNanos);
-                completedBytes = endCompletedBytes;
-                completedPositions = endCompletedPositions;
-                readTimeNanos = endReadTimeNanos;
+                page = recordProcessedInput(page);
 
                 Iterator<Optional<Page>> output = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, pageProcessorMemoryContext, page);
                 mergingOutput.addInput(output);
@@ -305,26 +292,72 @@ public class ScanFilterAndProjectOperator
         return result;
     }
 
+    private final class RecordingLazyBlockLoader
+            implements LazyBlockLoader<LazyBlock>
+    {
+        private LazyBlock delegateLazyBlock;
+
+        private RecordingLazyBlockLoader(LazyBlock delegateLazyBlock)
+        {
+            this.delegateLazyBlock = requireNonNull(delegateLazyBlock, "delegateLazyBlock is null");
+        }
+
+        @Override
+        public void load(LazyBlock block)
+        {
+            checkState(delegateLazyBlock != null, "delegateLazyBlock already loaded");
+            Block loadedBlock = delegateLazyBlock.getLoadedBlock();
+            delegateLazyBlock = null;
+            // Position count already recorded for lazy blocks, input bytes are not
+            operatorContext.recordProcessedInput(loadedBlock.getSizeInBytes(), 0);
+            recordPageSourceRawInputStats();
+            block.setBlock(loadedBlock);
+        }
+    }
+
+    private void recordCursorInputStats(long positionCount)
+    {
+        checkState(cursor != null, "cursor is null");
+        long endCompletedBytes = cursor.getCompletedBytes();
+        long endReadTimeNanos = cursor.getReadTimeNanos();
+        long inputBytes = endCompletedBytes - completedBytes;
+        operatorContext.recordProcessedInput(inputBytes, positionCount);
+        operatorContext.recordRawInputWithTiming(inputBytes, positionCount, endReadTimeNanos - readTimeNanos);
+        completedBytes = endCompletedBytes;
+        readTimeNanos = endReadTimeNanos;
+    }
+
+    private void recordPageSourceRawInputStats()
+    {
+        checkState(pageSource != null, "pageSource is null");
+        long endCompletedBytes = pageSource.getCompletedBytes();
+        long endCompletedPositions = pageSource.getCompletedPositions();
+        long endReadTimeNanos = pageSource.getReadTimeNanos();
+        operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, endCompletedPositions - completedPositions, endReadTimeNanos - readTimeNanos);
+        completedBytes = endCompletedBytes;
+        completedPositions = endCompletedPositions;
+        readTimeNanos = endReadTimeNanos;
+    }
+
     private Page recordProcessedInput(Page page)
     {
-        operatorContext.recordProcessedInput(0, page.getPositionCount());
-        // account processed bytes from lazy blocks only when they are loaded
+        long blockSizeSum = 0L;
         Block[] blocks = new Block[page.getChannelCount()];
-        for (int i = 0; i < page.getChannelCount(); ++i) {
+        for (int i = 0; i < blocks.length; ++i) {
             Block block = page.getBlock(i);
+            // account processed bytes from lazy blocks only when they are loaded
             if (block instanceof LazyBlock) {
-                LazyBlock delegateLazyBlock = (LazyBlock) block;
-                blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
-                    Block loadedBlock = delegateLazyBlock.getLoadedBlock();
-                    operatorContext.recordProcessedInput(loadedBlock.getSizeInBytes(), 0L);
-                    lazyBlock.setBlock(loadedBlock);
-                });
+                blocks[i] = new LazyBlock(page.getPositionCount(), new RecordingLazyBlockLoader((LazyBlock) block));
             }
             else {
-                operatorContext.recordProcessedInput(block.getSizeInBytes(), 0L);
+                blockSizeSum += block.getSizeInBytes();
                 blocks[i] = block;
             }
         }
+        // stats update
+        operatorContext.recordProcessedInput(blockSizeSum, page.getPositionCount());
+        recordPageSourceRawInputStats();
+
         return new Page(page.getPositionCount(), blocks);
     }
 
