@@ -14,6 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
@@ -63,6 +64,12 @@ public class InMemoryFunctionNamespaceManager
             version = replacedFunction.getRequiredVersion() + 1;
         }
         latestFunctions.put(functionId, function.withVersion(version));
+    }
+
+    @Override
+    public void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "Alter Function is not supported in InMemoryFunctionNamespaceManager");
     }
 
     @Override

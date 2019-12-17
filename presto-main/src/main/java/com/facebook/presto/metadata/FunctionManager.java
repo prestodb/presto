@@ -20,6 +20,7 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.CatalogSchemaPrefix;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -189,6 +190,15 @@ public class FunctionManager
             throw new PrestoException(GENERIC_USER_ERROR, format("Cannot create function in function namespace: %s", function.getFunctionId().getFunctionName().getFunctionNamespace()));
         }
         functionNamespaceManager.get().createFunction(function, replace);
+    }
+
+    public void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace());
+        if (!functionNamespaceManager.isPresent()) {
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName));
+        }
+        functionNamespaceManager.get().alterFunction(functionName, parameterTypes, alterRoutineCharacteristics);
     }
 
     public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
