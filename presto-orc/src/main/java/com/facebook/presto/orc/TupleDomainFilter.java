@@ -505,7 +505,6 @@ public interface TupleDomainFilter
 
         private final long min;
         private final long max;
-        private final long[] values;
         private final long[] hashTable;
         private final int size;
         private boolean containsEmptyMarker;
@@ -520,7 +519,6 @@ public interface TupleDomainFilter
 
             this.min = min;
             this.max = max;
-            this.values = values;
             this.size = Integer.highestOneBit(values.length * 3);
             this.hashTable = new long[size];
             Arrays.fill(hashTable, EMPTY_MARKER);
@@ -601,7 +599,6 @@ public interface TupleDomainFilter
             return toStringHelper(this)
                     .add("min", min)
                     .add("max", max)
-                    .add("values", values)
                     .add("nullAllowed", nullAllowed)
                     .toString();
         }
