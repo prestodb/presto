@@ -20,6 +20,7 @@ import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory;
+import com.facebook.presto.hive.orc.TupleDomainFilterCache;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.rule.HivePlanOptimizerProvider;
@@ -141,6 +142,7 @@ public class HiveClientModule
         configBinder(binder).bindConfig(OrcCacheConfig.class, connectorId);
 
         binder.bind(FileOpener.class).to(HadoopFileOpener.class).in(Scopes.SINGLETON);
+        binder.bind(TupleDomainFilterCache.class).in(Scopes.SINGLETON);
 
         Multibinder<HiveSelectivePageSourceFactory> selectivePageSourceFactoryBinder = newSetBinder(binder, HiveSelectivePageSourceFactory.class);
         selectivePageSourceFactoryBinder.addBinding().to(OrcSelectivePageSourceFactory.class).in(Scopes.SINGLETON);

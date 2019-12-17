@@ -61,6 +61,7 @@ public class DwrfSelectivePageSourceFactory
     private final OrcFileTailSource orcFileTailSource;
     private final StripeMetadataSource stripeMetadataSource;
     private final FileOpener fileOpener;
+    private final TupleDomainFilterCache tupleDomainFilterCache;
 
     @Inject
     public DwrfSelectivePageSourceFactory(
@@ -72,7 +73,8 @@ public class DwrfSelectivePageSourceFactory
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
-            FileOpener fileOpener)
+            FileOpener fileOpener,
+            TupleDomainFilterCache tupleDomainFilterCache)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
@@ -83,6 +85,7 @@ public class DwrfSelectivePageSourceFactory
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
         this.fileOpener = requireNonNull(fileOpener, "fileOpener is null");
+        this.tupleDomainFilterCache = requireNonNull(tupleDomainFilterCache, "tupleDomainFilterCache is null");
     }
 
     @Override
@@ -139,6 +142,7 @@ public class DwrfSelectivePageSourceFactory
                 orcFileTailSource,
                 stripeMetadataSource,
                 extraFileInfo,
-                fileOpener));
+                fileOpener,
+                tupleDomainFilterCache));
     }
 }
