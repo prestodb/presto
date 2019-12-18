@@ -122,7 +122,8 @@ public class TestHiveClientConfig
                 .setTemporaryTableCompressionCodec(SNAPPY)
                 .setPushdownFilterEnabled(false)
                 .setZstdJniDecompressionEnabled(false)
-                .setRangeFiltersOnSubscriptsEnabled(false));
+                .setRangeFiltersOnSubscriptsEnabled(false)
+                .setAdaptiveFilterReorderingEnabled(true));
     }
 
     @Test
@@ -209,6 +210,7 @@ public class TestHiveClientConfig
                 .put("hive.temporary-table-compression-codec", "NONE")
                 .put("hive.pushdown-filter-enabled", "true")
                 .put("hive.range-filters-on-subscripts-enabled", "true")
+                .put("hive.adaptive-filter-reordering-enabled", "false")
                 .put("hive.zstd-jni-decompression-enabled", "true")
                 .build();
 
@@ -294,7 +296,8 @@ public class TestHiveClientConfig
                 .setTemporaryTableCompressionCodec(NONE)
                 .setPushdownFilterEnabled(true)
                 .setZstdJniDecompressionEnabled(true)
-                .setRangeFiltersOnSubscriptsEnabled(true);
+                .setRangeFiltersOnSubscriptsEnabled(true)
+                .setAdaptiveFilterReorderingEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
