@@ -55,14 +55,16 @@ public class MapSelectiveStreamReader
             StreamDescriptor streamDescriptor,
             Map<Subfield, TupleDomainFilter> filters,
             List<Subfield> requiredSubfields,
+            MapFilter mapFilter,
+            int subfieldLevel,  // 0 - top level
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             boolean legacyMapSubscript,
             AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReaderSupplier = () -> new MapDirectSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
-        flatReaderSupplier = () -> new MapFlatSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
+        directReaderSupplier = () -> new MapDirectSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, mapFilter, subfieldLevel, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
+        flatReaderSupplier = () -> new MapFlatSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, mapFilter, subfieldLevel, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
     }
 
     @Override

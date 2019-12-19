@@ -32,6 +32,7 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_MAP_SUBSCRIPT;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
@@ -90,7 +91,6 @@ public class TestHivePushdownFilterQueries
             "   CASE WHEN orderkey % 47 = 0 THEN null ELSE CAST(comment AS CHAR(5)) END AS fixed_comment, \n" +
             "   CASE WHEN orderkey % 49 = 0 THEN null ELSE (CAST(comment AS CHAR(4)), CAST(comment AS CHAR(3)), CAST(SUBSTR(comment,length(comment) - 4) AS CHAR(4))) END AS char_array, \n" +
             "   CASE WHEN orderkey % 49 = 0 THEN null ELSE (comment, comment) END AS varchar_array \n" +
-
             "FROM lineitem)\n";
 
     protected TestHivePushdownFilterQueries()
@@ -104,7 +104,7 @@ public class TestHivePushdownFilterQueries
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables(),
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"),
                 "sql-standard",
-                ImmutableMap.of("hive.pushdown-filter-enabled", "true"),
+                ImmutableMap.of("hive.pushdown-filter-enabled", "true", "hive.range-filters-on-subscripts-enabled", "true"),
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
@@ -348,8 +348,10 @@ public class TestHivePushdownFilterQueries
                 .replaceAll("test_maps", "lineitem_ex")
                 .replaceAll("cardinality", "array_length");
         try {
-            //filter on nested columns
-            assertQueryUsingH2Cte("SELECT * FROM test_maps WHERE map_keys[1] > 10 and map_keys[1] < 20", rewriter);
+            // filter on nested columns
+            assertQueryUsingH2Cte("SELECT count(*) FROM test_maps WHERE map_keys[1] > 10", rewriter);
+
+            assertQueryUsingH2Cte("SELECT map_keys[2] FROM test_maps WHERE map_keys[1] > 10 and map_keys[1] < 100", rewriter);
 
             assertQueryUsingH2Cte("SELECT map_keys[1] FROM test_maps WHERE linenumber < 3", rewriter);
 
@@ -375,6 +377,10 @@ public class TestHivePushdownFilterQueries
 
             assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[1] % 2 = 0", "Key not present in map: 5");
             assertQueryFails("SELECT map_keys[5] FROM test_maps WHERE map_keys[4] % 2 = 0", "Key not present in map: 4");
+
+            assertQueryFails("SELECT * FROM test_maps WHERE map_keys[5] > 0", "Key not present in map");
+
+            assertQueryReturnsEmptyResult(legacyMapSubscript(getSession()), "SELECT * FROM test_maps WHERE map_keys[5] > 0");
         }
         finally {
             getQueryRunner().execute("DROP TABLE test_maps");
@@ -1089,6 +1095,13 @@ public class TestHivePushdownFilterQueries
     {
         return Session.builder(session)
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "false")
+                .build();
+    }
+
+    private static Session legacyMapSubscript(Session session)
+    {
+        return Session.builder(session)
+                .setSystemProperty(LEGACY_MAP_SUBSCRIPT, "true")
                 .build();
     }
 }

@@ -796,7 +796,8 @@ public class OrcTester
                     continue;
                 }
 
-                assertTrue(expectedValues.get(0).size() >= rowsProcessed + positionCount);
+                assertTrue(expectedValues.get(0).size() >= rowsProcessed + positionCount,
+                        "Received more rows than expected. Expected: " + expectedValues.get(0).size() + ". Received: " + (rowsProcessed + positionCount) + ". ");
 
                 for (int i = 0; i < types.size(); i++) {
                     Type type = types.get(i);
@@ -988,6 +989,36 @@ public class OrcTester
                 }
                 assertTrue(index >= 0, "Struct field not found: " + fieldName);
                 nestedValue = ((List) nestedValue).get(index);
+            }
+            else if (nestedType instanceof MapType) {
+                if (nestedValue == null) {
+                    return filter == IS_NULL;
+                }
+
+                Type keyType = ((MapType) nestedType).getKeyType();
+
+                if (pathElement instanceof Subfield.LongSubscript) {
+                    long key = ((Subfield.LongSubscript) pathElement).getIndex();
+                    if (keyType == SMALLINT) {
+                        nestedValue = ((Map) nestedValue).get((short) key);
+                    }
+                    else if (keyType == INTEGER) {
+                        nestedValue = ((Map) nestedValue).get((int) key);
+                    }
+                    else if (keyType == BIGINT) {
+                        nestedValue = ((Map) nestedValue).get(key);
+                    }
+                    else {
+                        fail("Unsupported map key type: " + keyType);
+                    }
+                }
+                else {
+                    assertTrue(pathElement instanceof Subfield.StringSubscript);
+
+                    String key = ((Subfield.StringSubscript) pathElement).getIndex();
+                    nestedValue = ((Map) nestedValue).get(key);
+                }
+                nestedType = ((MapType) nestedType).getValueType();
             }
             else {
                 fail("Unsupported type: " + type);
@@ -1228,7 +1259,8 @@ public class OrcTester
         else if (StandardTypes.MAP.equals(baseType)) {
             Map<?, ?> actualMap = (Map<?, ?>) actual;
             Map<?, ?> expectedMap = (Map<?, ?>) expected;
-            assertEquals(actualMap.size(), expectedMap.size());
+            assertEquals(actualMap == null, expectedMap == null, "Expected " + expectedMap + " but found " + actualMap);
+            assertEquals(actualMap.size(), expectedMap.size(), "Expected " + expectedMap + " but found " + actualMap);
 
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);

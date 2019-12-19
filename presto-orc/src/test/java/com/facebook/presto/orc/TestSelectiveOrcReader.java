@@ -48,6 +48,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -614,6 +615,15 @@ public class TestSelectiveOrcReader
                         ImmutableMap.of(0, toSubfieldFilter("c.field_0", BigintRange.of(0, Integer.MAX_VALUE, true)))));
     }
 
+    private static <K, V> Map<K, V> createMap(int size, Function<Integer, K> createKey, Function<Integer, V> createValue)
+    {
+        Map<K, V> map = new HashMap<>(size);
+        for (int i = 0; i < size; i++) {
+            map.put(createKey.apply(i), createValue.apply(i));
+        }
+        return map;
+    }
+
     @Test
     public void testMaps()
             throws Exception
@@ -699,6 +709,85 @@ public class TestSelectiveOrcReader
                         OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][2]", "c[2][3]").build(),
                         OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][2]", "c[10][3]", "c[2][10]").build(),
                         OrcReaderSettings.builder().addRequiredSubfields(0, "c[2][2]", "c[1][2]").build()));
+    }
+
+    @Test
+    public void testMapsWithNestedFilters()
+            throws Exception
+    {
+        Random random = new Random(0);
+
+        BigintRange negative = BigintRange.of(Integer.MIN_VALUE, 0, false);
+        BigintRange nonNegative = BigintRange.of(0, Integer.MAX_VALUE, false);
+
+        tester.testRoundTripTypes(ImmutableList.of(mapType(INTEGER, INTEGER)),
+                ImmutableList.of(createList(NUM_ROWS, i -> createMap(7, Function.identity(), n -> random.nextInt()))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("m[1]", negative)),
+                        ImmutableMap.of(0, toSubfieldFilter("m[3]", nonNegative)),
+                        ImmutableMap.of(0, toSubfieldFilter("m[6]", negative)),
+                        ImmutableMap.of(0, ImmutableMap.of(new Subfield("m[1]"), nonNegative, new Subfield("m[4]"), nonNegative))));
+
+        tester.testRoundTripTypes(ImmutableList.of(mapType(VARCHAR, INTEGER)),
+                ImmutableList.of(createList(NUM_ROWS, i -> createMap(7, n -> "k" + n, n -> random.nextInt()))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("m[\"k1\"]", negative)),
+                        ImmutableMap.of(0, toSubfieldFilter("m[\"k3\"]", nonNegative)),
+                        ImmutableMap.of(0, toSubfieldFilter("m[\"k6\"]", negative)),
+                        ImmutableMap.of(0, ImmutableMap.of(new Subfield("m[\"k1\"]"), nonNegative, new Subfield("m[\"k4\"]"), nonNegative))));
+
+        // nulls
+        tester.testRoundTripTypes(ImmutableList.of(mapType(INTEGER, INTEGER)),
+                ImmutableList.of(createList(NUM_ROWS, i -> createMap(7, Function.identity(), n -> (i + n) % 3 == 0 ? null : random.nextInt()))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("m[1]", IS_NULL)),
+                        ImmutableMap.of(0, ImmutableMap.of(new Subfield("m[1]"), IS_NULL, new Subfield("m[3]"), IS_NOT_NULL))));
+
+        tester.testRoundTripTypes(ImmutableList.of(mapType(VARCHAR, INTEGER)),
+                ImmutableList.of(createList(NUM_ROWS, i -> createMap(7, n -> "k" + n, n -> (i + n) % 3 == 0 ? null : random.nextInt()))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("m[\"k1\"]", IS_NULL)),
+                        ImmutableMap.of(0, ImmutableMap.of(new Subfield("m[\"k1\"]"), IS_NULL, new Subfield("m[\"k3\"]"), IS_NOT_NULL))));
+
+        // missing keys
+        tester.testRoundTripTypes(ImmutableList.of(mapType(INTEGER, INTEGER)),
+                ImmutableList.of(createList(NUM_ROWS, i -> createMap(i % 7, Function.identity(), n -> random.nextInt()))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("m[1]", negative))));
+
+        tester.testRoundTripTypes(ImmutableList.of(mapType(VARCHAR, INTEGER)),
+                ImmutableList.of(createList(10, i -> createMap(i % 7, n -> "k" + n, n -> random.nextInt()))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("m[\"k1\"]", negative))));
+
+        // nested maps
+        tester.testRoundTripTypes(ImmutableList.of(mapType(INTEGER, mapType(INTEGER, INTEGER))),
+                ImmutableList.of(createList(NUM_ROWS, i -> createMap(7, Function.identity(), n -> createMap(3, Function.identity(), m -> random.nextInt())))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("m[1][2]", negative))));
+
+        tester.testRoundTripTypes(ImmutableList.of(mapType(INTEGER, mapType(VARCHAR, INTEGER))),
+                ImmutableList.of(createList(NUM_ROWS, i -> createMap(7, Function.identity(), n -> createMap(3, m -> "k" + m, m -> random.nextInt())))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("m[1][\"2\"]", negative))));
+
+        tester.testRoundTripTypes(ImmutableList.of(mapType(INTEGER, mapType(INTEGER, INTEGER))),
+                ImmutableList.of(createList(NUM_ROWS, i -> createMap(7, Function.identity(), n -> (i + n) % 5 == 0 ? null : createMap(3, Function.identity(), m -> random.nextInt())))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("m[1][2]", negative)),
+                        ImmutableMap.of(0, ImmutableMap.of(new Subfield("m[1]"), IS_NOT_NULL, new Subfield("m[1][2]"), negative))));
+
+        // arrays of maps
+        tester.testRoundTripTypes(ImmutableList.of(arrayType(mapType(INTEGER, BIGINT))),
+                ImmutableList.of(createList(NUM_ROWS, i -> createList(7, n -> createMap(3, Function.identity(), m -> random.nextLong())))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("c[2][1]", negative))));
+
+        // maps of arrays
+        tester.testRoundTripTypes(ImmutableList.of(mapType(INTEGER, arrayType(BIGINT))),
+                ImmutableList.of(createList(NUM_ROWS, i -> createMap(7, Function.identity(), n -> createList(3, m -> random.nextLong())))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("c[2][1]", negative))));
     }
 
     private static Map<Integer, Integer> createMap(int seed)

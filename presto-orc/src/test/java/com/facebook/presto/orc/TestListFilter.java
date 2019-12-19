@@ -96,7 +96,7 @@ public class TestListFilter
         Map<Subfield, TupleDomainFilter> subfieldFilters = filters.entrySet().stream()
                 .collect(toImmutableMap(entry -> toSubfield(entry.getKey()), Map.Entry::getValue));
 
-        ListFilter filter = new ListFilter(makeStreamDescriptor(1), subfieldFilters);
+        ListFilter filter = new ListFilter(makeStreamDescriptor(1), subfieldFilters, true);
 
         int[] lengths = Arrays.stream(data).mapToInt(v -> v.length).toArray();
         filter.populateElementFilters(data.length, null, lengths, Arrays.stream(lengths).sum());
@@ -182,7 +182,7 @@ public class TestListFilter
         Map<Subfield, TupleDomainFilter> subfieldFilters = filters.entrySet().stream()
                 .collect(toImmutableMap(entry -> toSubfield(entry.getKey()), Map.Entry::getValue));
 
-        ListFilter filter = new ListFilter(makeStreamDescriptor(2), subfieldFilters);
+        ListFilter filter = new ListFilter(makeStreamDescriptor(2), subfieldFilters, true);
 
         int[] lengths = Arrays.stream(data).mapToInt(v -> v.length).toArray();
         filter.populateElementFilters(data.length, null, lengths, Arrays.stream(lengths).sum());

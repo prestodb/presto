@@ -136,6 +136,8 @@ public class MapFlatSelectiveStreamReader
             StreamDescriptor streamDescriptor,
             Map<Subfield, TupleDomainFilter> filters,
             List<Subfield> requiredSubfields,
+            MapFilter mapFilter,
+            int subfieldLevel,  // 0 - top level
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             boolean legacyMapSubscript,

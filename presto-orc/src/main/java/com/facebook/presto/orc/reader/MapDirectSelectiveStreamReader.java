@@ -20,12 +20,14 @@ import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
+import com.facebook.presto.orc.TupleDomainFilter.NullsFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.OrcType;
+import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockLease;
@@ -43,6 +45,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -53,8 +56,11 @@ import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.TupleDomainFilterUtils.toBigintValues;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createNestedStreamReader;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -67,9 +73,12 @@ public class MapDirectSelectiveStreamReader
         implements SelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapDirectSelectiveStreamReader.class).instanceSize();
+    private static final Block EMPTY_BLOCK = BOOLEAN.createBlockBuilder(null, 0).build();
 
     private final StreamDescriptor streamDescriptor;
-    private final boolean legacyMapSubscript;
+    private final int level;
+    private final MapFilter mapFilter;
+    private final NullsFilter nullsFilter;
     private final boolean nullsAllowed;
     private final boolean nonNullsAllowed;
     private final boolean outputRequired;
@@ -96,6 +105,8 @@ public class MapDirectSelectiveStreamReader
     private boolean[] nulls;
     private int[] outputPositions;
     private int outputPositionCount;
+    private boolean[] indexOutOfBounds;    // positions with not enough elements to evaluate all element filters;
+                                           // aligned with outputPositions
     private boolean allNulls;
 
     private int nestedReadOffset;          // offset within elementStream relative to row group start
@@ -112,29 +123,63 @@ public class MapDirectSelectiveStreamReader
             StreamDescriptor streamDescriptor,
             Map<Subfield, TupleDomainFilter> filters,
             List<Subfield> requiredSubfields,
+            MapFilter mapFilter,
+            int subfieldLevel,  // 0 - top level
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             boolean legacyMapSubscript,
             AggregatedMemoryContext systemMemoryContext)
     {
-        checkArgument(filters.keySet().stream().map(Subfield::getPath).allMatch(List::isEmpty), "filters on nested columns are not supported yet");
+        requireNonNull(filters, "filters is null");
+        requireNonNull(requiredSubfields, "subfields is null");
+
+        if (mapFilter != null) {
+            checkArgument(subfieldLevel > 0, "SubfieldFilter is not expected at the top level");
+            checkArgument(filters.isEmpty(), "Range filters are not expected at mid level");
+        }
 
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        this.legacyMapSubscript = legacyMapSubscript;
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null").newLocalMemoryContext(MapDirectSelectiveStreamReader.class.getSimpleName());
         this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
         this.outputType = outputType.map(MapType.class::cast).orElse(null);
+        this.level = subfieldLevel;
 
-        TupleDomainFilter filter = getTopLevelFilter(filters).orElse(null);
-        this.nullsAllowed = filter == null || filter.testNull();
-        this.nonNullsAllowed = filter == null || filter.testNonNull();
+        if (mapFilter != null) {
+            nullsAllowed = true;
+            nonNullsAllowed = true;
+            this.mapFilter = mapFilter;
+            nullsFilter = mapFilter.getParent().getNullsFilter();
+        }
+        else if (!filters.isEmpty()) {
+            Optional<TupleDomainFilter> topLevelFilter = getTopLevelFilter(filters);
+            if (topLevelFilter.isPresent()) {
+                nullsAllowed = topLevelFilter.get() == IS_NULL;
+                nonNullsAllowed = !nullsAllowed;
+            }
+            else {
+                nullsAllowed = filters.values().stream().allMatch(TupleDomainFilter::testNull);
+                nonNullsAllowed = true;
+            }
+
+            if (filters.keySet().stream().anyMatch(path -> !path.getPath().isEmpty())) {
+                this.mapFilter = new MapFilter(streamDescriptor, filters, legacyMapSubscript);
+            }
+            else {
+                this.mapFilter = null;
+            }
+
+            nullsFilter = null;
+        }
+        else {
+            nullsAllowed = true;
+            nonNullsAllowed = true;
+            this.mapFilter = null;
+            nullsFilter = null;
+        }
 
         List<StreamDescriptor> nestedStreams = streamDescriptor.getNestedStreams();
 
-        Optional<Type> keyOutputType = outputType.map(MapType.class::cast).map(MapType::getKeyType);
-        Optional<Type> valueOutputType = outputType.map(MapType.class::cast).map(MapType::getValueType);
-
-        if (outputRequired) {
+        if (outputRequired || this.mapFilter != null) {
             Map<Subfield, TupleDomainFilter> keyFilter = ImmutableMap.of(new Subfield("c"), makeKeyFilter(nestedStreams.get(0).getOrcTypeKind(), requiredSubfields));
 
             List<Subfield> elementRequiredSubfields = ImmutableList.of();
@@ -145,8 +190,14 @@ public class MapDirectSelectiveStreamReader
                         .collect(toImmutableList());
             }
 
-            this.keyReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(0), keyFilter, keyOutputType, ImmutableList.of(), hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext.newAggregatedMemoryContext());
-            this.valueReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(1), ImmutableMap.of(), valueOutputType, elementRequiredSubfields, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext.newAggregatedMemoryContext());
+            Type keyOutputType = outputType
+                    .map(MapType.class::cast)
+                    .map(MapType::getKeyType)
+                    .orElseGet(() -> MapFilter.getKeyOutputType(nestedStreams.get(0)));
+            Optional<Type> valueOutputType = outputType.map(MapType.class::cast).map(MapType::getValueType);
+
+            this.keyReader = SelectiveStreamReaders.createStreamReader(nestedStreams.get(0), keyFilter, Optional.of(keyOutputType), ImmutableList.of(), hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext.newAggregatedMemoryContext());
+            this.valueReader = createNestedStreamReader(nestedStreams.get(1), level + 1, Optional.ofNullable(this.mapFilter), valueOutputType, elementRequiredSubfields, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext.newAggregatedMemoryContext());
         }
         else {
             this.keyReader = null;
@@ -154,7 +205,7 @@ public class MapDirectSelectiveStreamReader
         }
     }
 
-    private static TupleDomainFilter makeKeyFilter(OrcType.OrcTypeKind orcType, List<Subfield> requiredSubfields)
+    private static TupleDomainFilter makeKeyFilter(OrcTypeKind orcType, List<Subfield> requiredSubfields)
     {
         // Map entries with a null key are skipped in the Hive ORC reader, so skip them here also
 
@@ -235,6 +286,7 @@ public class MapDirectSelectiveStreamReader
     public int read(int offset, int[] positions, int positionCount)
             throws IOException
     {
+        checkArgument(positionCount > 0 || mapFilter != null, "positionCount must be greater than zero");
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (!rowGroupOpen) {
@@ -243,222 +295,32 @@ public class MapDirectSelectiveStreamReader
 
         allNulls = false;
 
+        if (outputRequired) {
+            offsets = ensureCapacity(offsets, positionCount + 1);
+        }
+
+        if (nullsAllowed && presentStream != null && (outputRequired || mapFilter != null)) {
+            nulls = ensureCapacity(nulls, positionCount);
+        }
+
         outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
-
-        offsets = ensureCapacity(offsets, positionCount + 1);
-        offsets[0] = 0;
-
-        nestedLengths = ensureCapacity(nestedLengths, positionCount);
-        nestedOffsets = ensureCapacity(nestedOffsets, positionCount + 1);
 
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
-        if (lengthStream == null) {
-            readAllNulls(positions, positionCount);
-        }
-        else if (presentStream == null) {
-            readNoNulls(offset, positions, positionCount);
-        }
-        else {
-            readWithNulls(offset, positions, positionCount);
+        if (readOffset < offset) {
+            nestedReadOffset += skip(offset - readOffset);
         }
 
+        int streamPosition;
+        if (lengthStream == null && presentStream != null) {
+            streamPosition = readAllNulls(positions, positionCount);
+        }
+        else {
+            streamPosition = readNotAllNulls(positions, positionCount);
+        }
+
+        readOffset = offset + streamPosition;
         return outputPositionCount;
-    }
-
-    private int readAllNulls(int[] positions, int positionCount)
-    {
-        if (nullsAllowed) {
-            outputPositionCount = positionCount;
-        }
-        else {
-            outputPositionCount = 0;
-        }
-
-        allNulls = true;
-        return positions[positionCount - 1] + 1;
-    }
-
-    private void readNoNulls(int offset, int[] positions, int positionCount)
-            throws IOException
-    {
-        if (!nonNullsAllowed) {
-            outputPositionCount = 0;
-            return;
-        }
-
-        if (readOffset < offset) {
-            nestedReadOffset += lengthStream.sum(offset - readOffset);
-        }
-
-        int streamPosition = 0;
-        int nestedOffset = 0;
-
-        for (int i = 0; i < positionCount; i++) {
-            int position = positions[i];
-            if (position > streamPosition) {
-                nestedOffset += lengthStream.sum(position - streamPosition);
-                streamPosition = position;
-            }
-
-            streamPosition++;
-
-            int length = toIntExact(lengthStream.next());
-            offsets[i + 1] = offsets[i] + length;
-            nestedLengths[i] = length;
-            nestedOffsets[i] = nestedOffset;
-            nestedOffset += length;
-        }
-
-        outputPositionCount = positionCount;
-        readOffset = offset + streamPosition;
-
-        if (outputRequired) {
-            nestedOffsets[positionCount] = nestedOffset;
-            int nestedPositionCount = populateNestedPositions(positionCount, nestedOffset);
-            readKeyValueStreams(nestedPositionCount);
-        }
-        nestedReadOffset += nestedOffset;
-    }
-
-    private void readWithNulls(int offset, int[] positions, int positionCount)
-            throws IOException
-    {
-        if (readOffset < offset) {
-            int dataToSkip = presentStream.countBitsSet(offset - readOffset);
-            nestedReadOffset += lengthStream.sum(dataToSkip);
-        }
-
-        if (outputRequired) {
-            nulls = ensureCapacity(nulls, positionCount);
-        }
-        outputPositionCount = 0;
-
-        int streamPosition = 0;
-        int nonNullPositionCount = 0;
-        int nestedOffset = 0;
-
-        for (int i = 0; i < positionCount; i++) {
-            int position = positions[i];
-            if (position > streamPosition) {
-                int dataToSkip = presentStream.countBitsSet(position - streamPosition);
-                nestedOffset += lengthStream.sum(dataToSkip);
-                streamPosition = position;
-            }
-
-            streamPosition++;
-
-            if (presentStream.nextBit()) {
-                // not null
-                int length = toIntExact(lengthStream.next());
-                if (nonNullsAllowed) {
-                    if (outputRequired) {
-                        nulls[outputPositionCount] = false;
-                        offsets[outputPositionCount + 1] = offsets[outputPositionCount] + length;
-
-                        nestedLengths[nonNullPositionCount] = length;
-                        nestedOffsets[nonNullPositionCount] = nestedOffset;
-                        nonNullPositionCount++;
-                    }
-
-                    outputPositions[outputPositionCount] = position;
-                    outputPositionCount++;
-                }
-                nestedOffset += length;
-            }
-            else {
-                // null
-                if (nullsAllowed) {
-                    if (outputRequired) {
-                        nulls[outputPositionCount] = true;
-                        offsets[outputPositionCount + 1] = offsets[outputPositionCount];
-                    }
-                    outputPositions[outputPositionCount] = position;
-                    outputPositionCount++;
-                }
-            }
-        }
-
-        if (nonNullPositionCount == 0) {
-            allNulls = true;
-        }
-        else if (outputRequired) {
-            nestedOffsets[nonNullPositionCount] = nestedOffset;
-            int nestedPositionCount = populateNestedPositions(nonNullPositionCount, nestedOffset);
-            readKeyValueStreams(nestedPositionCount);
-        }
-
-        readOffset = offset + streamPosition;
-        nestedReadOffset += nestedOffset;
-    }
-
-    private int populateNestedPositions(int positionCount, int nestedOffset)
-    {
-        nestedPositions = ensureCapacity(nestedPositions, nestedOffset);
-        int nestedPositionCount = 0;
-        for (int i = 0; i < positionCount; i++) {
-            for (int j = 0; j < nestedLengths[i]; j++) {
-                nestedPositions[nestedPositionCount++] = nestedOffsets[i] + j;
-            }
-        }
-        return nestedPositionCount;
-    }
-
-    private void readKeyValueStreams(int positionCount)
-            throws IOException
-    {
-        if (positionCount == 0) {
-            nestedOutputPositionCount = 0;
-            return;
-        }
-
-        int readCount = keyReader.read(nestedReadOffset, nestedPositions, positionCount);
-        int[] readPositions = keyReader.getReadPositions();
-
-        if (readCount == 0) {
-            nestedOutputPositionCount = 0;
-            for (int i = 0; i <= outputPositionCount; i++) {
-                offsets[i] = 0;
-            }
-            return;
-        }
-
-        if (readCount < positionCount) {
-            int positionIndex = 0;
-            int nextPosition = readPositions[positionIndex];
-            int offset = 0;
-            int previousOffset = 0;
-            for (int i = 0; i < outputPositionCount; i++) {
-                int length = 0;
-                for (int j = previousOffset; j < offsets[i + 1]; j++) {
-                    if (nestedPositions[j] == nextPosition) {
-                        length++;
-                        positionIndex++;
-                        if (positionIndex >= readCount) {
-                            break;
-                        }
-                        nextPosition = readPositions[positionIndex];
-                    }
-                }
-                offset += length;
-                previousOffset = offsets[i + 1];
-                offsets[i + 1] = offset;
-
-                if (positionIndex >= readCount) {
-                    for (int j = i + 1; j < outputPositionCount; j++) {
-                        offsets[j + 1] = offset;
-                    }
-                    break;
-                }
-            }
-        }
-
-        int valueReadCount = valueReader.read(nestedReadOffset, readPositions, readCount);
-        assert valueReadCount == readCount;
-
-        nestedOutputPositions = ensureCapacity(nestedOutputPositions, readCount);
-        System.arraycopy(readPositions, 0, nestedOutputPositions, 0, readCount);
-        nestedOutputPositionCount = readCount;
     }
 
     private void openRowGroup()
@@ -468,6 +330,284 @@ public class MapDirectSelectiveStreamReader
         lengthStream = lengthStreamSource.openStream();
 
         rowGroupOpen = true;
+    }
+
+    private int skip(int items)
+            throws IOException
+    {
+        if (lengthStream == null) {
+            presentStream.skip(items);
+            return 0;
+        }
+
+        if (presentStream != null) {
+            int lengthsToSkip = presentStream.countBitsSet(items);
+            return toIntExact(lengthStream.sum(lengthsToSkip));
+        }
+
+        return toIntExact(lengthStream.sum(items));
+    }
+
+    private int readAllNulls(int[] positions, int positionCount)
+            throws IOException
+    {
+        presentStream.skip(positions[positionCount - 1]);
+        if (nullsAllowed) {
+            if (nullsFilter != null) {
+                outputPositionCount = 0;
+                for (int i = 0; i < positionCount; i++) {
+                    if (nullsFilter.testNull()) {
+                        outputPositions[outputPositionCount] = positions[i];
+                        outputPositionCount++;
+                    }
+                    else {
+                        outputPositionCount -= nullsFilter.getPrecedingPositionsToFail();
+                        i += nullsFilter.getSucceedingPositionsToFail();
+                    }
+                }
+            }
+            else {
+                outputPositionCount = positionCount;
+            }
+        }
+        else {
+            outputPositionCount = 0;
+        }
+
+        if (mapFilter != null) {
+            mapFilter.populateElementFilters(0, null, null, 0, null);
+        }
+
+        allNulls = true;
+        return positions[positionCount - 1] + 1;
+    }
+
+    private int readNotAllNulls(int[] positions, int positionCount)
+            throws IOException
+    {
+        // populate nestedOffsets, nestedLengths, and nulls
+        nestedOffsets = ensureCapacity(nestedOffsets, positionCount + 1);
+        nestedLengths = ensureCapacity(nestedLengths, positionCount);
+
+        systemMemoryContext.setBytes(getRetainedSizeInBytes());
+
+        int streamPosition = 0;
+        int skippedElements = 0;
+        int elementPositionCount = 0;
+
+        outputPositionCount = 0;
+
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+            if (position > streamPosition) {
+                skippedElements += skip(position - streamPosition);
+                streamPosition = position;
+            }
+
+            if (presentStream != null && !presentStream.nextBit()) {
+                if (nullsAllowed && (nullsFilter == null || nullsFilter.testNull())) {
+                    if (outputRequired || mapFilter != null) {
+                        nulls[outputPositionCount] = true;
+                    }
+
+                    nestedOffsets[outputPositionCount] = elementPositionCount + skippedElements;
+                    nestedLengths[outputPositionCount] = 0;
+
+                    outputPositions[outputPositionCount] = position;
+                    outputPositionCount++;
+                }
+            }
+            else {
+                int length = toIntExact(lengthStream.next());
+
+                if (nonNullsAllowed && (nullsFilter == null || nullsFilter.testNonNull())) {
+                    nestedOffsets[outputPositionCount] = elementPositionCount + skippedElements;
+                    nestedLengths[outputPositionCount] = length;
+
+                    elementPositionCount += length;
+
+                    if ((outputRequired || mapFilter != null) && nullsAllowed && presentStream != null) {
+                        nulls[outputPositionCount] = false;
+                    }
+
+                    outputPositions[outputPositionCount] = position;
+                    outputPositionCount++;
+                }
+                else {
+                    skippedElements += length;
+                }
+            }
+
+            streamPosition++;
+
+            if (nullsFilter != null) {
+                int precedingPositionsToFail = nullsFilter.getPrecedingPositionsToFail();
+
+                for (int j = 0; j < precedingPositionsToFail; j++) {
+                    int length = nestedLengths[outputPositionCount - 1 - j];
+                    skippedElements += length;
+                    elementPositionCount -= length;
+                }
+                outputPositionCount -= precedingPositionsToFail;
+
+                int succeedingPositionsToFail = nullsFilter.getSucceedingPositionsToFail();
+                if (succeedingPositionsToFail > 0) {
+                    int positionsToSkip = 0;
+                    for (int j = 0; j < succeedingPositionsToFail; j++) {
+                        i++;
+                        int nextPosition = positions[i];
+                        positionsToSkip += 1 + nextPosition - streamPosition;
+                        streamPosition = nextPosition + 1;
+                    }
+                    skippedElements += skip(positionsToSkip);
+                }
+            }
+        }
+        nestedOffsets[outputPositionCount] = elementPositionCount + skippedElements;
+
+        if (keyReader != null) {
+            int nestedPositionCount = populateNestedPositions(elementPositionCount);
+            readKeyValueStreams(nestedPositionCount);
+        }
+
+        nestedReadOffset += elementPositionCount + skippedElements;
+
+        return streamPosition;
+    }
+
+    private int populateNestedPositions(int nestedPositionCount)
+    {
+        nestedPositions = ensureCapacity(nestedPositions, nestedPositionCount);
+        int index = 0;
+        for (int i = 0; i < outputPositionCount; i++) {
+            for (int j = 0; j < nestedLengths[i]; j++) {
+                nestedPositions[index] = nestedOffsets[i] + j;
+                index++;
+            }
+        }
+        return index;
+    }
+
+    private void populateOutputPositionsNoFilter(int elementPositionCount)
+    {
+        if (outputRequired) {
+            nestedOutputPositionCount = elementPositionCount;
+            nestedOutputPositions = ensureCapacity(nestedOutputPositions, elementPositionCount);
+            System.arraycopy(nestedPositions, 0, nestedOutputPositions, 0, elementPositionCount);
+
+            int offset = 0;
+            for (int i = 0; i < outputPositionCount; i++) {
+                offsets[i] = offset;
+                offset += nestedLengths[i];
+            }
+            offsets[outputPositionCount] = offset;
+        }
+    }
+
+    private void populateOutputPositionsWithFilter(int elementPositionCount)
+    {
+        nestedOutputPositionCount = 0;
+        nestedOutputPositions = ensureCapacity(nestedOutputPositions, elementPositionCount);
+
+        indexOutOfBounds = mapFilter.getTopLevelIndexOutOfBounds();
+
+        int outputPosition = 0;
+        int elementOffset = 0;
+        boolean[] positionsFailed = mapFilter.getTopLevelFailed();
+        for (int i = 0; i < outputPositionCount; i++) {
+            if (!positionsFailed[i]) {
+                indexOutOfBounds[outputPosition] = indexOutOfBounds[i];
+                outputPositions[outputPosition] = outputPositions[i];
+                if (outputRequired) {
+                    if (nullsAllowed && presentStream != null) {
+                        nulls[outputPosition] = nulls[i];
+                    }
+                    offsets[outputPosition] = nestedOutputPositionCount;
+                    for (int j = 0; j < nestedLengths[i]; j++) {
+                        nestedOutputPositions[nestedOutputPositionCount] = nestedPositions[elementOffset + j];
+                        nestedOutputPositionCount++;
+                    }
+                }
+                outputPosition++;
+            }
+            elementOffset += nestedLengths[i];
+        }
+        if (outputRequired) {
+            this.offsets[outputPosition] = nestedOutputPositionCount;
+        }
+
+        outputPositionCount = outputPosition;
+    }
+
+    private void readKeyValueStreams(int positionCount)
+            throws IOException
+    {
+        int readCount = 0;
+        int[] readPositions = null;
+        if (positionCount > 0) {
+            readCount = keyReader.read(nestedReadOffset, nestedPositions, positionCount);
+            readPositions = keyReader.getReadPositions();
+        }
+
+        if (readCount == 0) {
+            Arrays.fill(nestedOffsets, 0, outputPositionCount + 1, 0);
+            Arrays.fill(nestedLengths, 0, outputPositionCount, 0);
+        }
+        else if (readCount < positionCount) {
+            int positionIndex = 0;
+            int nextPosition = readPositions[positionIndex];
+            int previousOffset = 0;
+            for (int i = 0; i < outputPositionCount; i++) {
+                int length = 0;
+                for (int j = previousOffset; j < previousOffset + nestedLengths[i]; j++) {
+                    if (nestedPositions[j] == nextPosition) {
+                        length++;
+                        positionIndex++;
+                        if (positionIndex >= readCount) {
+                            break;
+                        }
+                        nextPosition = readPositions[positionIndex];
+                    }
+                    else {
+                        assert nestedPositions[j] < nextPosition;
+                    }
+                }
+                previousOffset += nestedLengths[i];
+                nestedOffsets[i + 1] = nestedOffsets[i] + length;
+                nestedLengths[i] = length;
+
+                if (positionIndex >= readCount) {
+                    for (int j = i + 1; j < outputPositionCount; j++) {
+                        nestedOffsets[j + 1] = nestedOffsets[i + 1];
+                        nestedLengths[j] = 0;
+                    }
+                    break;
+                }
+            }
+            System.arraycopy(readPositions, 0, nestedPositions, 0, readCount);
+        }
+
+        if (mapFilter != null) {
+            if (readCount == 0) {
+                mapFilter.populateElementFilters(outputPositionCount, nulls, nestedLengths, readCount, EMPTY_BLOCK);
+            }
+            else {
+                try (BlockLease keyBlockView = keyReader.getBlockView(readPositions, readCount)) {
+                    mapFilter.populateElementFilters(outputPositionCount, nulls, nestedLengths, readCount, keyBlockView.get());
+                }
+            }
+        }
+
+        if (readCount > 0) {
+            valueReader.read(nestedReadOffset, readPositions, readCount);
+        }
+
+        if (mapFilter == null || level > 0) {
+            populateOutputPositionsNoFilter(readCount);
+        }
+        else {
+            populateOutputPositionsWithFilter(readCount);
+        }
     }
 
     @Override
@@ -481,7 +621,7 @@ public class MapDirectSelectiveStreamReader
     {
         checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
         checkState(outputRequired, "This stream reader doesn't produce output");
-        checkState(positionCount <= outputPositionCount, "Not enough values");
+        checkState(positionCount <= outputPositionCount, "Not enough values: " + outputPositionCount + " < " + positionCount);
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
         if (allNulls) {
@@ -489,7 +629,7 @@ public class MapDirectSelectiveStreamReader
         }
 
         boolean includeNulls = nullsAllowed && presentStream != null;
-        if (outputPositionCount == positionCount) {
+        if (positionCount == outputPositionCount) {
             Block block = createMapBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), offsets);
             nulls = null;
             offsets = null;
@@ -502,10 +642,11 @@ public class MapDirectSelectiveStreamReader
             nullsCopy = new boolean[positionCount];
         }
 
+        nestedOutputPositionCount = 0;
+
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         int nestedSkipped = 0;
-        nestedOutputPositionCount = 0;
 
         for (int i = 0; i < outputPositionCount; i++) {
             if (outputPositions[i] < nextPosition) {
@@ -516,13 +657,12 @@ public class MapDirectSelectiveStreamReader
             assert outputPositions[i] == nextPosition;
 
             offsetsCopy[positionIndex + 1] = offsets[i + 1] - nestedSkipped;
-            for (int j = offsetsCopy[positionIndex]; j < offsetsCopy[positionIndex + 1]; j++) {
-                nestedOutputPositions[nestedOutputPositionCount] = nestedOutputPositions[nestedOutputPositionCount + nestedSkipped];
-                nestedOutputPositionCount++;
-            }
-
             if (nullsCopy != null) {
                 nullsCopy[positionIndex] = this.nulls[i];
+            }
+            for (int j = 0; j < offsets[i + 1] - offsets[i]; j++) {
+                nestedOutputPositions[nestedOutputPositionCount] = nestedOutputPositions[nestedOutputPositionCount + nestedSkipped];
+                nestedOutputPositionCount++;
             }
 
             positionIndex++;
@@ -532,8 +672,7 @@ public class MapDirectSelectiveStreamReader
 
             nextPosition = positions[positionIndex];
         }
-
-        return createMapBlock(positionCount, Optional.ofNullable(includeNulls ? nullsCopy : null), offsetsCopy);
+        return createMapBlock(positionCount, Optional.ofNullable(nullsCopy), offsetsCopy);
     }
 
     private Block createMapBlock(int positionCount, Optional<boolean[]> nulls, int[] offsets)
@@ -541,8 +680,8 @@ public class MapDirectSelectiveStreamReader
         Block keyBlock;
         Block valueBlock;
         if (nestedOutputPositionCount == 0) {
-            keyBlock = createEmptyBlock(outputType.getKeyType());
-            valueBlock = createEmptyBlock(outputType.getValueType());
+            keyBlock = EMPTY_BLOCK;
+            valueBlock = EMPTY_BLOCK;
         }
         else {
             keyBlock = keyReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
@@ -555,11 +694,6 @@ public class MapDirectSelectiveStreamReader
     private static RunLengthEncodedBlock createNullBlock(Type type, int positionCount)
     {
         return new RunLengthEncodedBlock(type.createBlockBuilder(null, 1).appendNull().build(), positionCount);
-    }
-
-    private static Block createEmptyBlock(Type type)
-    {
-        return type.createBlockBuilder(null, 0).build();
     }
 
     @Override
@@ -580,7 +714,7 @@ public class MapDirectSelectiveStreamReader
         }
 
         if (nestedOutputPositionCount == 0) {
-            return newLease(outputType.createBlockFromKeyValue(positionCount, Optional.ofNullable(includeNulls ? nulls : null), offsets, createEmptyBlock(outputType.getKeyType()), createEmptyBlock(outputType.getValueType())));
+            return newLease(outputType.createBlockFromKeyValue(positionCount, Optional.ofNullable(includeNulls ? nulls : null), offsets, EMPTY_BLOCK, EMPTY_BLOCK));
         }
 
         BlockLease keyBlockLease = keyReader.getBlockView(nestedOutputPositions, nestedOutputPositionCount);
@@ -602,16 +736,19 @@ public class MapDirectSelectiveStreamReader
 
             assert outputPositions[i] == nextPosition;
 
-            offsets[positionIndex + 1] = offsets[i + 1] - nestedSkipped;
-            for (int j = offsets[positionIndex]; j < offsets[positionIndex + 1]; j++) {
+            for (int j = 0; j < offsets[i + 1] - offsets[i]; j++) {
                 nestedOutputPositions[nestedOutputPositionCount] = nestedOutputPositions[nestedOutputPositionCount + nestedSkipped];
                 nestedOutputPositionCount++;
             }
 
+            offsets[positionIndex + 1] = offsets[i + 1] - nestedSkipped;
             if (compactNulls) {
                 nulls[positionIndex] = nulls[i];
             }
             outputPositions[positionIndex] = nextPosition;
+            if (indexOutOfBounds != null) {
+                indexOutOfBounds[positionIndex] = indexOutOfBounds[i];
+            }
 
             positionIndex++;
             if (positionIndex >= positionCount) {
@@ -637,19 +774,40 @@ public class MapDirectSelectiveStreamReader
     @Override
     public void throwAnyError(int[] positions, int positionCount)
     {
-    }
+        if (indexOutOfBounds == null) {
+            return;
+        }
 
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .addValue(streamDescriptor)
-                .toString();
+        int positionIndex = 0;
+        int nextPosition = positions[positionIndex];
+        for (int i = 0; i < outputPositionCount; i++) {
+            if (outputPositions[i] < nextPosition) {
+                continue;
+            }
+
+            assert outputPositions[i] == nextPosition;
+
+            if (indexOutOfBounds[i]) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key not present in map");
+            }
+
+            positionIndex++;
+            if (positionIndex >= positionCount) {
+                break;
+            }
+
+            nextPosition = positions[positionIndex];
+        }
     }
 
     @Override
     public void close()
     {
+        if (keyReader != null) {
+            keyReader.close();
+            valueReader.close();
+        }
+
         systemMemoryContext.close();
     }
 
@@ -668,7 +826,7 @@ public class MapDirectSelectiveStreamReader
 
         rowGroupOpen = false;
 
-        if (outputRequired) {
+        if (keyReader != null) {
             keyReader.startStripe(dictionaryStreamSources, encoding);
             valueReader.startStripe(dictionaryStreamSources, encoding);
         }
@@ -689,23 +847,33 @@ public class MapDirectSelectiveStreamReader
 
         rowGroupOpen = false;
 
-        if (outputRequired) {
+        if (keyReader != null) {
             keyReader.startRowGroup(dataStreamSources);
             valueReader.startRowGroup(dataStreamSources);
         }
     }
 
     @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .addValue(streamDescriptor)
+                .toString();
+    }
+
+    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE +
-                sizeOf(outputPositions) +
                 sizeOf(offsets) +
                 sizeOf(nulls) +
-                sizeOf(nestedLengths) +
+                sizeOf(outputPositions) +
+                sizeOf(indexOutOfBounds) +
                 sizeOf(nestedOffsets) +
+                sizeOf(nestedLengths) +
                 sizeOf(nestedPositions) +
                 sizeOf(nestedOutputPositions) +
+                (mapFilter != null ? mapFilter.getRetainedSizeInBytes() : 0) +
                 (keyReader != null ? keyReader.getRetainedSizeInBytes() : 0) +
                 (valueReader != null ? valueReader.getRetainedSizeInBytes() : 0);
     }

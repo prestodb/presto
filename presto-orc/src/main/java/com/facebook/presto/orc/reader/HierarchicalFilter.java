@@ -48,12 +48,13 @@ public interface HierarchicalFilter
 
     long getRetainedSizeInBytes();
 
-    static HierarchicalFilter createHierarchicalFilter(StreamDescriptor streamDescriptor, Map<Subfield, TupleDomainFilter> subfieldFilters, int level, HierarchicalFilter parent)
+    static HierarchicalFilter createHierarchicalFilter(StreamDescriptor streamDescriptor, Map<Subfield, TupleDomainFilter> subfieldFilters, int level, HierarchicalFilter parent, boolean legacyMapSubscript)
     {
         switch (streamDescriptor.getOrcTypeKind()) {
             case LIST:
-                return new ListFilter(streamDescriptor, subfieldFilters, level, parent);
+                return new ListFilter(streamDescriptor, subfieldFilters, level, parent, legacyMapSubscript);
             case MAP:
+                return new MapFilter(streamDescriptor, subfieldFilters, level, parent, legacyMapSubscript);
             case STRUCT:
                 throw new UnsupportedOperationException();
             default:
