@@ -20,6 +20,7 @@ import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
@@ -135,6 +136,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE = "optimize_full_outer_join_with_coalesce";
     public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
+    public static final String AGGREGATION_PARTITIONING_MERGING_STRATEGY = "aggregation_partitioning_merging_strategy";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -664,7 +666,19 @@ public final class SystemSessionProperties
                         OPTIMIZED_REPARTITIONING_ENABLED,
                         "Experimental: Use optimized repartitioning",
                         featuresConfig.isOptimizedRepartitioningEnabled(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        AGGREGATION_PARTITIONING_MERGING_STRATEGY,
+                        format("Strategy to merge partition preference in aggregation node. Options are %s",
+                                Stream.of(AggregationPartitioningMergingStrategy.values())
+                                        .map(AggregationPartitioningMergingStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        AggregationPartitioningMergingStrategy.class,
+                        featuresConfig.getAggregationPartitioningMergingStrategy(),
+                        false,
+                        value -> AggregationPartitioningMergingStrategy.valueOf(((String) value).toUpperCase()),
+                        AggregationPartitioningMergingStrategy::name));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1133,5 +1147,10 @@ public final class SystemSessionProperties
     public static boolean isOptimizedRepartitioningEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZED_REPARTITIONING_ENABLED, Boolean.class);
+    }
+
+    public static AggregationPartitioningMergingStrategy getAggregationPartitioningMergingStrategy(Session session)
+    {
+        return session.getSystemProperty(AGGREGATION_PARTITIONING_MERGING_STRATEGY, AggregationPartitioningMergingStrategy.class);
     }
 }

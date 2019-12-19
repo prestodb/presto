@@ -36,6 +36,7 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
@@ -84,6 +85,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.SetMultimap;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -93,6 +95,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.getAggregationPartitioningMergingStrategy;
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getPartialMergePushdownStrategy;
@@ -246,8 +249,14 @@ public class AddExchanges
             // If aggregation has a mixed of non-global and global grouping set, an repartition exchange is any way needed to eliminate duplicate default outputs
             // from partial aggregations (enforced in `ValidateAggregationWithDefaultValues.java`). Therefore, we don't have preference on what the child will return.
             if (!node.getGroupingKeys().isEmpty() && !hasMixedGroupingSets) {
+                FeaturesConfig.AggregationPartitioningMergingStrategy aggregationPartitioningMergingStrategy = getAggregationPartitioningMergingStrategy(session);
                 preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(node.getGroupingKeys()))
-                        .mergeWithParent(parentPreferredProperties);
+                        .mergeWithParent(parentPreferredProperties, aggregationPartitioningMergingStrategy.isMergingWithParent());
+
+                if (aggregationPartitioningMergingStrategy.isAdoptingMergedPreference()) {
+                    checkState(preferredProperties.getGlobalProperties().isPresent() && preferredProperties.getGlobalProperties().get().getPartitioningProperties().isPresent());
+                    partitioningRequirement = ImmutableSet.copyOf(preferredProperties.getGlobalProperties().get().getPartitioningProperties().get().getPartitioningColumns());
+                }
             }
 
             PlanWithProperties child = planChild(node, preferredProperties);
@@ -269,7 +278,7 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 selectExchangeScopeForPartitionedRemoteExchange(child.getNode(), false),
                                 child.getNode(),
-                                createPartitioning(node.getGroupingKeys()),
+                                createPartitioning(partitioningRequirement),
                                 node.getHashVariable()),
                         child.getProperties());
             }
@@ -303,7 +312,7 @@ public class AddExchanges
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, PreferredProperties preferredProperties)
         {
             PreferredProperties preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getDistinctVariables()), grouped(node.getDistinctVariables()))
-                    .mergeWithParent(preferredProperties);
+                    .mergeWithParent(preferredProperties, true);
             PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
 
             if (child.getProperties().isSingleNode() ||
@@ -336,7 +345,7 @@ public class AddExchanges
             PlanWithProperties child = planChild(
                     node,
                     PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties)
-                            .mergeWithParent(preferredProperties));
+                            .mergeWithParent(preferredProperties, true));
 
             if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy()) &&
                     !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
@@ -378,7 +387,7 @@ public class AddExchanges
             PlanWithProperties child = planChild(
                     node,
                     PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
-                            .mergeWithParent(preferredProperties));
+                            .mergeWithParent(preferredProperties, true));
 
             // TODO: add config option/session property to force parallel plan if child is unpartitioned and window has a PARTITION BY clause
             if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())
@@ -410,7 +419,7 @@ public class AddExchanges
             }
             else {
                 preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
-                        .mergeWithParent(preferredProperties);
+                        .mergeWithParent(preferredProperties, true);
                 addExchange = partial -> partitionedExchange(
                         idAllocator.getNextId(),
                         selectExchangeScopeForPartitionedRemoteExchange(partial, false),
@@ -992,7 +1001,7 @@ public class AddExchanges
             List<LocalProperty<VariableReferenceExpression>> desiredLocalProperties = preferredProperties.getLocalProperties().isEmpty() ? grouped(joinColumns) : ImmutableList.of();
 
             PlanWithProperties probeSource = node.getProbeSource().accept(this, PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(joinColumns), desiredLocalProperties)
-                    .mergeWithParent(preferredProperties));
+                    .mergeWithParent(preferredProperties, true));
             ActualProperties probeProperties = probeSource.getProperties();
 
             PlanWithProperties indexSource = node.getIndexSource().accept(this, PreferredProperties.any());
@@ -1333,7 +1342,7 @@ public class AddExchanges
             return PropertyDerivations.derivePropertiesRecursively(result, metadata, session, types, parser);
         }
 
-        private Partitioning createPartitioning(List<VariableReferenceExpression> partitioningColumns)
+        private Partitioning createPartitioning(Collection<VariableReferenceExpression> partitioningColumns)
         {
             // TODO: Use SystemTablesMetadata instead of introducing a special case
             if (GlobalSystemConnector.NAME.equals(partitioningProviderCatalog)) {
