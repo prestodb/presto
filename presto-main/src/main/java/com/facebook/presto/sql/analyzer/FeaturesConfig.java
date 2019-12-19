@@ -36,6 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
@@ -132,6 +133,7 @@ public class FeaturesConfig
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
     private boolean legacyUnnestArrayRows;
+    private AggregationPartitioningMergingStrategy aggregationPartitioningMergingStrategy = LEGACY;
 
     private boolean jsonSerdeCodeGenerationEnabled;
     private int maxConcurrentMaterializations = 3;
@@ -173,6 +175,23 @@ public class FeaturesConfig
     {
         NONE,
         PUSH_THROUGH_LOW_MEMORY_OPERATORS
+    }
+
+    public enum AggregationPartitioningMergingStrategy
+    {
+        LEGACY, // merge partition preference with parent but apply current partition preference
+        TOP_DOWN, // merge partition preference with parent and apply the merged partition preference
+        BOTTOM_UP; // don't merge partition preference and apply current partition preference only
+
+        public boolean isMergingWithParent()
+        {
+            return this == LEGACY || this == TOP_DOWN;
+        }
+
+        public boolean isAdoptingMergedPreference()
+        {
+            return this == TOP_DOWN;
+        }
     }
 
     public double getCpuCostWeight()
@@ -486,6 +505,18 @@ public class FeaturesConfig
     public FeaturesConfig setMaxReorderedJoins(int maxReorderedJoins)
     {
         this.maxReorderedJoins = maxReorderedJoins;
+        return this;
+    }
+
+    public AggregationPartitioningMergingStrategy getAggregationPartitioningMergingStrategy()
+    {
+        return aggregationPartitioningMergingStrategy;
+    }
+
+    @Config("optimizer.aggregation-partition-merging")
+    public FeaturesConfig setAggregationPartitioningMergingStrategy(AggregationPartitioningMergingStrategy aggregationPartitioningMergingStrategy)
+    {
+        this.aggregationPartitioningMergingStrategy = requireNonNull(aggregationPartitioningMergingStrategy, "aggregationPartitioningMergingStrategy is null");
         return this;
     }
 

@@ -130,7 +130,7 @@ class PreferredProperties
         return localProperties;
     }
 
-    public PreferredProperties mergeWithParent(PreferredProperties parent)
+    public PreferredProperties mergeWithParent(PreferredProperties parent, boolean mergePartitionPreference)
     {
         List<LocalProperty<VariableReferenceExpression>> newLocal = ImmutableList.<LocalProperty<VariableReferenceExpression>>builder()
                 .addAll(localProperties)
@@ -143,7 +143,7 @@ class PreferredProperties
         if (globalProperties.isPresent()) {
             Global currentGlobal = globalProperties.get();
             Global newGlobal = parent.getGlobalProperties()
-                    .map(currentGlobal::mergeWithParent)
+                    .map(global -> currentGlobal.mergeWithParent(global, mergePartitionPreference))
                     .orElse(currentGlobal);
             builder.global(newGlobal);
         }
@@ -249,7 +249,7 @@ class PreferredProperties
             return partitioningProperties;
         }
 
-        public Global mergeWithParent(Global parent)
+        public Global mergeWithParent(Global parent, boolean mergePartitionPreference)
         {
             if (distributed != parent.distributed) {
                 return this;
@@ -257,7 +257,7 @@ class PreferredProperties
             if (!partitioningProperties.isPresent()) {
                 return parent;
             }
-            if (!parent.partitioningProperties.isPresent()) {
+            if (!parent.partitioningProperties.isPresent() || !mergePartitionPreference) {
                 return this;
             }
             return new Global(distributed, Optional.of(partitioningProperties.get().mergeWithParent(parent.partitioningProperties.get())));

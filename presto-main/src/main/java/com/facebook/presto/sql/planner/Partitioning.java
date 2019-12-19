@@ -59,7 +59,7 @@ public final class Partitioning
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
     }
 
-    public static <T extends RowExpression> Partitioning create(PartitioningHandle handle, List<T> columns)
+    public static <T extends RowExpression> Partitioning create(PartitioningHandle handle, Collection<T> columns)
     {
         return new Partitioning(handle, columns.stream()
                 .map(RowExpression.class::cast)
