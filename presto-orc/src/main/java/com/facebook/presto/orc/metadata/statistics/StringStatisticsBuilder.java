@@ -117,11 +117,6 @@ public class StringStatisticsBuilder
         }
         minimum = dropStringMinMaxIfNecessary(minimum);
         maximum = dropStringMinMaxIfNecessary(maximum);
-        if (minimum == null && maximum == null) {
-            // Create string stats only when min or max is not null.
-            // This corresponds to the behavior of metadata reader.
-            return Optional.empty();
-        }
         return Optional.of(new StringStatistics(minimum, maximum, sum));
     }
 
