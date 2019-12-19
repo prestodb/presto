@@ -20,7 +20,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.AbstractType;
 import com.facebook.presto.spi.type.TypeSignature;
-import io.airlift.joni.Regex;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
@@ -32,7 +31,7 @@ public class LikePatternType
 
     public LikePatternType()
     {
-        super(new TypeSignature(NAME), Regex.class);
+        super(new TypeSignature(NAME), RegexWrapper.class);
     }
 
     @Override

@@ -56,7 +56,7 @@ public final class LikeFunctions
     @ScalarFunction(value = "like", hidden = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
+    public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) RegexWrapper pattern)
     {
         return likeVarchar(padSpaces(value, x.intValue()), pattern);
     }
@@ -65,7 +65,7 @@ public final class LikeFunctions
     @ScalarFunction(value = "like", hidden = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) Regex pattern)
+    public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) RegexWrapper pattern)
     {
         // Joni can infinite loop with UTF8Encoding when invalid UTF-8 is encountered.
         // NonStrictUTF8Encoding must be used to avoid this issue.
@@ -76,7 +76,7 @@ public final class LikeFunctions
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static Regex castVarcharToLikePattern(@SqlType("varchar(x)") Slice pattern)
+    public static RegexWrapper castVarcharToLikePattern(@SqlType("varchar(x)") Slice pattern)
     {
         return likePattern(pattern);
     }
@@ -84,12 +84,12 @@ public final class LikeFunctions
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static Regex castCharToLikePattern(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
+    public static RegexWrapper castCharToLikePattern(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
     {
         return likePattern(padSpaces(pattern, charLength.intValue()));
     }
 
-    public static Regex likePattern(Slice pattern)
+    public static RegexWrapper likePattern(Slice pattern)
     {
         return likePattern(pattern.toStringUtf8(), '0', false);
     }
@@ -97,7 +97,7 @@ public final class LikeFunctions
     @ScalarFunction(hidden = true)
     @LiteralParameters({"x", "y"})
     @SqlType(LikePatternType.NAME)
-    public static Regex likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
+    public static RegexWrapper likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
     {
         return likePattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
     }
@@ -159,13 +159,13 @@ public final class LikeFunctions
         checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
     }
 
-    private static boolean regexMatches(Regex regex, byte[] bytes)
+    private static boolean regexMatches(RegexWrapper regex, byte[] bytes)
     {
-        return regex.matcher(bytes).match(0, bytes.length, Option.NONE) != -1;
+        return regex.getRegex().matcher(bytes).match(0, bytes.length, Option.NONE) != -1;
     }
 
     @SuppressWarnings("NestedSwitchStatement")
-    private static Regex likePattern(String patternString, char escapeChar, boolean shouldEscape)
+    private static RegexWrapper likePattern(String patternString, char escapeChar, boolean shouldEscape)
     {
         StringBuilder regex = new StringBuilder(patternString.length() * 2);
 
@@ -206,7 +206,7 @@ public final class LikeFunctions
         regex.append('$');
 
         byte[] bytes = regex.toString().getBytes(UTF_8);
-        return new Regex(bytes, 0, bytes.length, Option.MULTILINE, NonStrictUTF8Encoding.INSTANCE, SYNTAX);
+        return new RegexWrapper(new Regex(bytes, 0, bytes.length, Option.MULTILINE, NonStrictUTF8Encoding.INSTANCE, SYNTAX), patternString);
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")

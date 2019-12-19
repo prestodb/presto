@@ -89,13 +89,13 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.LikeFunctions;
+import com.facebook.presto.type.RegexWrapper;
 import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
-import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -166,7 +166,7 @@ public class ExpressionInterpreter
     private final Visitor visitor;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
+    private final IdentityHashMap<LikePredicate, RegexWrapper> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
     public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
@@ -1023,7 +1023,7 @@ public class ExpressionInterpreter
             if (value instanceof Slice &&
                     pattern instanceof Slice &&
                     (escape == null || escape instanceof Slice)) {
-                Regex regex;
+                RegexWrapper regex;
                 if (escape == null) {
                     regex = LikeFunctions.likePattern((Slice) pattern);
                 }
@@ -1065,9 +1065,9 @@ public class ExpressionInterpreter
                     optimizedEscape);
         }
 
-        private Regex getConstantPattern(LikePredicate node)
+        private RegexWrapper getConstantPattern(LikePredicate node)
         {
-            Regex result = likePatternCache.get(node);
+            RegexWrapper result = likePatternCache.get(node);
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();

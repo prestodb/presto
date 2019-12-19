@@ -15,7 +15,7 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.PrestoException;
-import io.airlift.joni.Regex;
+import com.facebook.presto.type.RegexWrapper;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -39,7 +39,7 @@ public class TestLikeFunctions
     @Test
     public void testLikeBasic()
     {
-        Regex regex = likePattern(utf8Slice("f%b__"));
+        RegexWrapper regex = likePattern(utf8Slice("f%b__"));
         assertTrue(likeVarchar(utf8Slice("foobar"), regex));
 
         assertFunction("'foob' LIKE 'f%b__'", BOOLEAN, false);
@@ -49,7 +49,7 @@ public class TestLikeFunctions
     @Test
     public void testLikeChar()
     {
-        Regex regex = likePattern(utf8Slice("f%b__"));
+        RegexWrapper regex = likePattern(utf8Slice("f%b__"));
         assertTrue(likeChar(6L, utf8Slice("foobar"), regex));
         assertTrue(likeChar(6L, utf8Slice("foob"), regex));
         assertFalse(likeChar(7L, utf8Slice("foob"), regex));
@@ -61,7 +61,7 @@ public class TestLikeFunctions
     @Test
     public void testLikeSpacesInPattern()
     {
-        Regex regex = likePattern(utf8Slice("ala  "));
+        RegexWrapper regex = likePattern(utf8Slice("ala  "));
         assertTrue(likeVarchar(utf8Slice("ala  "), regex));
         assertFalse(likeVarchar(utf8Slice("ala"), regex));
 
@@ -73,28 +73,28 @@ public class TestLikeFunctions
     @Test
     public void testLikeNewlineInPattern()
     {
-        Regex regex = likePattern(utf8Slice("%o\nbar"));
+        RegexWrapper regex = likePattern(utf8Slice("%o\nbar"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
     @Test
     public void testLikeNewlineBeforeMatch()
     {
-        Regex regex = likePattern(utf8Slice("%b%"));
+        RegexWrapper regex = likePattern(utf8Slice("%b%"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
     @Test
     public void testLikeNewlineInMatch()
     {
-        Regex regex = likePattern(utf8Slice("f%b%"));
+        RegexWrapper regex = likePattern(utf8Slice("f%b%"));
         assertTrue(likeVarchar(utf8Slice("foo\nbar"), regex));
     }
 
     @Test(timeOut = 1000)
     public void testLikeUtf8Pattern()
     {
-        Regex regex = likePattern(utf8Slice("%\u540d\u8a89%"), utf8Slice("\\"));
+        RegexWrapper regex = likePattern(utf8Slice("%\u540d\u8a89%"), utf8Slice("\\"));
         assertFalse(likeVarchar(utf8Slice("foo"), regex));
     }
 
@@ -103,28 +103,28 @@ public class TestLikeFunctions
     public void testLikeInvalidUtf8Value()
     {
         Slice value = Slices.wrappedBuffer(new byte[] {'a', 'b', 'c', (byte) 0xFF, 'x', 'y'});
-        Regex regex = likePattern(utf8Slice("%b%"), utf8Slice("\\"));
+        RegexWrapper regex = likePattern(utf8Slice("%b%"), utf8Slice("\\"));
         assertTrue(likeVarchar(value, regex));
     }
 
     @Test
     public void testBackslashesNoSpecialTreatment()
     {
-        Regex regex = likePattern(utf8Slice("\\abc\\/\\\\"));
+        RegexWrapper regex = likePattern(utf8Slice("\\abc\\/\\\\"));
         assertTrue(likeVarchar(utf8Slice("\\abc\\/\\\\"), regex));
     }
 
     @Test
     public void testSelfEscaping()
     {
-        Regex regex = likePattern(utf8Slice("\\\\abc\\%"), utf8Slice("\\"));
+        RegexWrapper regex = likePattern(utf8Slice("\\\\abc\\%"), utf8Slice("\\"));
         assertTrue(likeVarchar(utf8Slice("\\abc%"), regex));
     }
 
     @Test
     public void testAlternateEscapedCharacters()
     {
-        Regex regex = likePattern(utf8Slice("xxx%x_abcxx"), utf8Slice("x"));
+        RegexWrapper regex = likePattern(utf8Slice("xxx%x_abcxx"), utf8Slice("x"));
         assertTrue(likeVarchar(utf8Slice("x%_abcx"), regex));
     }
 

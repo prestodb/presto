@@ -19,7 +19,7 @@ import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.LikeFunctions;
-import io.airlift.joni.Regex;
+import com.facebook.presto.type.RegexWrapper;
 import io.airlift.slice.Slice;
 
 import java.util.Map;
@@ -58,7 +58,7 @@ public class Interpreters
         throw new UnsupportedOperationException("Dereference a unsupported primitive type: " + javaType.getName());
     }
 
-    static boolean interpretLikePredicate(Type valueType, Slice value, Regex regex)
+    static boolean interpretLikePredicate(Type valueType, Slice value, RegexWrapper regex)
     {
         if (valueType instanceof VarcharType) {
             return LikeFunctions.likeVarchar(value, regex);

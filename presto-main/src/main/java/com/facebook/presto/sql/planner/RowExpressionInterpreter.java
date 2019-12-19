@@ -44,10 +44,10 @@ import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.Interpreters.LambdaVariableResolver;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.facebook.presto.type.RegexWrapper;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
@@ -877,15 +877,15 @@ public class RowExpressionInterpreter
 
             if (!hasUnresolvedValue(value) && !hasUnresolvedValue(nonCompiledPattern) && (!hasEscape || !hasUnresolvedValue(escape))) {
                 // fast path when we know the pattern and escape are constants
-                if (possibleCompiledPattern instanceof Regex) {
-                    return changed(interpretLikePredicate(argumentTypes.get(0), (Slice) value, (Regex) possibleCompiledPattern));
+                if (possibleCompiledPattern instanceof RegexWrapper) {
+                    return changed(interpretLikePredicate(argumentTypes.get(0), (Slice) value, (RegexWrapper) possibleCompiledPattern));
                 }
                 if (possibleCompiledPattern == null) {
                     return changed(null);
                 }
                 checkState((resolution.isCastFunction(((CallExpression) possibleCompiledPattern).getFunctionHandle())));
                 possibleCompiledPattern = functionInvoker.invoke(((CallExpression) possibleCompiledPattern).getFunctionHandle(), session, nonCompiledPattern);
-                return changed(interpretLikePredicate(argumentTypes.get(0), (Slice) value, (Regex) possibleCompiledPattern));
+                return changed(interpretLikePredicate(argumentTypes.get(0), (Slice) value, (RegexWrapper) possibleCompiledPattern));
             }
 
             // if pattern is a constant without % or _ replace with a comparison
