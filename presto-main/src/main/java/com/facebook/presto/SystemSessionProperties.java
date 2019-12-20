@@ -105,6 +105,7 @@ public final class SystemSessionProperties
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
+    public static final String LEGACY_MAP_SUBSCRIPT = "do_not_use_legacy_map_subscript";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
@@ -496,6 +497,11 @@ public final class SystemSessionProperties
                         "Allow accessing anonymous row field with .field0, .field1, ...",
                         featuresConfig.isLegacyRowFieldOrdinalAccess(),
                         false),
+                booleanProperty(
+                        LEGACY_MAP_SUBSCRIPT,
+                        "Do not fail the query if map key is missing",
+                        featuresConfig.isLegacyMapSubscript(),
+                        true),
                 booleanProperty(
                         ITERATIVE_OPTIMIZER,
                         "Experimental: enable iterative optimizer",
@@ -950,6 +956,11 @@ public final class SystemSessionProperties
     public static boolean isLegacyRowFieldOrdinalAccessEnabled(Session session)
     {
         return session.getSystemProperty(LEGACY_ROW_FIELD_ORDINAL_ACCESS, Boolean.class);
+    }
+
+    public static boolean isLegacyMapSubscript(Session session)
+    {
+        return session.getSystemProperty(LEGACY_MAP_SUBSCRIPT, Boolean.class);
     }
 
     public static boolean isNewOptimizerEnabled(Session session)
