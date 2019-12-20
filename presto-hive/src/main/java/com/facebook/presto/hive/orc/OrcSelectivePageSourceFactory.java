@@ -380,6 +380,7 @@ public class OrcSelectivePageSourceFactory
                     start,
                     length,
                     hiveStorageTimeZone,
+                    session.getSqlFunctionProperties().isLegacyMapSubscript(),
                     systemMemoryUsage,
                     Optional.empty(),
                     INITIAL_BATCH_SIZE);
