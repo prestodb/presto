@@ -25,17 +25,20 @@ public class SqlFunctionProperties
     private final boolean legacyRowFieldOrdinalAccessEnabled;
     private final TimeZoneKey timeZoneKey;
     private final boolean legacyTimestamp;
+    private final boolean legacyMapSubscript;
 
     private SqlFunctionProperties(
             boolean parseDecimalLiteralAsDouble,
             boolean legacyRowFieldOrdinalAccessEnabled,
             TimeZoneKey timeZoneKey,
-            boolean legacyTimestamp)
+            boolean legacyTimestamp,
+            boolean legacyMapSubscript)
     {
         this.parseDecimalLiteralAsDouble = parseDecimalLiteralAsDouble;
         this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.legacyTimestamp = legacyTimestamp;
+        this.legacyMapSubscript = legacyMapSubscript;
     }
 
     public boolean isParseDecimalLiteralAsDouble()
@@ -92,6 +95,7 @@ public class SqlFunctionProperties
         private boolean legacyRowFieldOrdinalAccessEnabled;
         private TimeZoneKey timeZoneKey;
         private boolean legacyTimestamp;
+        private boolean legacyMapSubscript;
 
         private Builder() {}
 
@@ -119,9 +123,15 @@ public class SqlFunctionProperties
             return this;
         }
 
+        public Builder setLegacyMapSubscript(boolean legacyMapSubscript)
+        {
+            this.legacyMapSubscript = legacyMapSubscript;
+            return this;
+        }
+
         public SqlFunctionProperties build()
         {
-            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp);
+            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript);
         }
     }
 }
