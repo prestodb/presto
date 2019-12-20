@@ -44,6 +44,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
@@ -419,6 +420,7 @@ public final class Session
                 .setTimeZoneKey(timeZoneKey)
                 .setLegacyRowFieldOrdinalAccessEnabled(isLegacyRowFieldOrdinalAccessEnabled(this))
                 .setLegacyTimestamp(isLegacyTimestamp(this))
+                .setLegacyMapSubscript(isLegacyMapSubscript(this))
                 .setParseDecimalLiteralAsDouble(isParseDecimalLiteralsAsDouble(this))
                 .build();
     }
