@@ -120,6 +120,7 @@ public class ListSelectiveStreamReader
             int subfieldLevel,  // 0 - top level
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
+            boolean legacyMapSubscript,
             AggregatedMemoryContext systemMemoryContext)
     {
         requireNonNull(filters, "filters is null");
@@ -199,7 +200,7 @@ public class ListSelectiveStreamReader
                     .collect(toImmutableList());
         }
 
-        this.elementStreamReader = createNestedStreamReader(elementStreamDescriptor, level + 1, Optional.ofNullable(this.listFilter), elementOutputType, elementSubfields, hiveStorageTimeZone, systemMemoryContext);
+        this.elementStreamReader = createNestedStreamReader(elementStreamDescriptor, level + 1, Optional.ofNullable(this.listFilter), elementOutputType, elementSubfields, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
         this.systemMemoryContext = systemMemoryContext.newLocalMemoryContext(ListSelectiveStreamReader.class.getSimpleName());
     }
 

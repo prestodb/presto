@@ -210,6 +210,7 @@ public class BenchmarkSelectiveStreamReaders
                     0,
                     dataSource.getSize(),
                     UTC, // arbitrary
+                    true,
                     newSimpleAggregatedMemoryContext(),
                     Optional.empty(),
                     INITIAL_BATCH_SIZE);
