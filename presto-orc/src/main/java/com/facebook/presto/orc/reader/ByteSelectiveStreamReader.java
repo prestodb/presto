@@ -184,7 +184,7 @@ public class ByteSelectiveStreamReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
+                if (nonDeterministicFilter ? filter.testNull() : nullsAllowed) {
                     if (outputRequired) {
                         nulls[outputPositionCount] = true;
                     }

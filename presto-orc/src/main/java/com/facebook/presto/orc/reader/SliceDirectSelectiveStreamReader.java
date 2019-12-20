@@ -200,7 +200,7 @@ public class SliceDirectSelectiveStreamReader
 
             int offset = outputRequired ? offsets[outputPositionCount] : 0;
             if (presentStream != null && isNullVector[position]) {
-                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
+                if (nonDeterministicFilter ? filter.testNull() : nullsAllowed) {
                     if (outputRequired) {
                         offsets[outputPositionCount + 1] = offset;
                         nulls[outputPositionCount] = true;
