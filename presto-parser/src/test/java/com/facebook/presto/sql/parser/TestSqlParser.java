@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -135,6 +136,7 @@ import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -1338,6 +1340,22 @@ public class TestSqlParser
     }
 
     @Test
+    public void testDropFunction()
+    {
+        assertStatement("DROP FUNCTION a", new DropFunction(QualifiedName.of("a"), Optional.empty(), false));
+        assertStatement("DROP FUNCTION a.b", new DropFunction(QualifiedName.of("a", "b"), Optional.empty(), false));
+        assertStatement("DROP FUNCTION a.b.c", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.empty(), false));
+
+        assertStatement("DROP FUNCTION a()", new DropFunction(QualifiedName.of("a"), Optional.of(ImmutableList.of()), false));
+        assertStatement("DROP FUNCTION a.b()", new DropFunction(QualifiedName.of("a", "b"), Optional.of(ImmutableList.of()), false));
+        assertStatement("DROP FUNCTION a.b.c()", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of()), false));
+
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(int)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("int")), true));
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(bigint, double)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("bigint", "double")), true));
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(ARRAY(string), MAP(int,double))", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("ARRAY(string)", "MAP(int,double)")), true));
+    }
+
+    @Test
     public void testInsertInto()
     {
         QualifiedName table = QualifiedName.of("a");
@@ -2075,6 +2093,7 @@ public class TestSqlParser
                                                         new LongLiteral("4"))),
                                                 Optional.empty(),
                                                 false,
+                                                false,
                                                 ImmutableList.of(new Identifier("x")))),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -2329,6 +2348,29 @@ public class TestSqlParser
         assertStatement("SET ROLE NONE", new SetRole(SetRole.Type.NONE, Optional.empty()));
         assertStatement("SET ROLE role", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role"))));
         assertStatement("SET ROLE \"role\"", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role"))));
+    }
+
+    @Test
+    public void testNullTreatment()
+    {
+        assertExpression("lead(x, 1) ignore nulls over()",
+                new FunctionCall(
+                        QualifiedName.of("lead"),
+                        Optional.of(new Window(ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        true,
+                        ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
+        assertExpression("lead(x, 1) respect nulls over()",
+                new FunctionCall(
+                        QualifiedName.of("lead"),
+                        Optional.of(new Window(ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        false,
+                        ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
     }
 
     private static void assertCast(String type)

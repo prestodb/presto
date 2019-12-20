@@ -31,18 +31,22 @@ public interface StorageManager
     default ConnectorPageSource getPageSource(
             FileSystemContext fileSystemContext,
             UUID shardUuid,
+            Optional<UUID> deltaShardUuid,
+            boolean tableSupportsDeltaDelete,
             OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
             ReaderAttributes readerAttributes)
     {
-        return getPageSource(fileSystemContext, shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty(), Optional.empty());
+        return getPageSource(fileSystemContext, shardUuid, deltaShardUuid, tableSupportsDeltaDelete, bucketNumber, columnIds, columnTypes, effectivePredicate, readerAttributes, OptionalLong.empty(), Optional.empty());
     }
 
     ConnectorPageSource getPageSource(
             FileSystemContext fileSystemContext,
             UUID shardUuid,
+            Optional<UUID> deltaShardUuid,
+            boolean tableSupportsDeltaDelete,
             OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,

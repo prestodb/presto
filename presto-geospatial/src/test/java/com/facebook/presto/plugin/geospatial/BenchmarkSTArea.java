@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.toSphericalGeography;
+import static com.facebook.presto.plugin.geospatial.GeometryBenchmarkUtils.createCirclePolygon;
 import static com.facebook.presto.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
@@ -85,7 +86,7 @@ public class BenchmarkSTArea
                 throws IOException
         {
             geometry = stGeometryFromText(utf8Slice(loadPolygon("large_polygon.txt")));
-            geometry500k = stGeometryFromText(utf8Slice(createPolygon(500000)));
+            geometry500k = stGeometryFromText(utf8Slice(createCirclePolygon(500000)));
             geography = toSphericalGeography(geometry);
             geography500k = toSphericalGeography(geometry500k);
         }
@@ -111,28 +112,9 @@ public class BenchmarkSTArea
         data.setup();
         BenchmarkSTArea benchmark = new BenchmarkSTArea();
 
-        assertEquals(Math.round(1000 * (Double) benchmark.stSphericalArea(data) / 3.659E8), 1000);
-        assertEquals(Math.round(1000 * (Double) benchmark.stSphericalArea500k(data) / 38842273735.0), 1000);
-        assertEquals(benchmark.stArea(data), 0.05033099592771004);
-        assertEquals(Math.round(1000 * (Double) benchmark.stArea500k(data) / Math.PI), 1000);
-    }
-
-    private static String createPolygon(double numVertices)
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.append("POLYGON((");
-        String separator = "";
-        for (int i = 0; i < numVertices; i++) {
-            double angle = i * Math.PI * 2 / numVertices;
-            sb.append(separator);
-            sb.append(Math.cos(angle));
-            sb.append(" ");
-            sb.append(Math.sin(angle));
-            separator = ",";
-        }
-        sb.append(separator);
-        sb.append("1 0");
-        sb.append("))");
-        return sb.toString();
+        assertEquals((Double) benchmark.stSphericalArea(data) / 3.659E8, 1.0, 1E-3);
+        assertEquals((Double) benchmark.stSphericalArea500k(data) / 38842273735.0, 1.0, 1E-3);
+        assertEquals((Double) benchmark.stArea(data) / 0.0503309959277, 1.0, 1E-3);
+        assertEquals((Double) benchmark.stArea500k(data) / Math.PI, 1.0, 1E-3);
     }
 }

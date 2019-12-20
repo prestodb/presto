@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -419,6 +420,13 @@ class AstBuilder
                 comment,
                 getRoutineCharacteristics(context.routineCharacteristics()),
                 (Expression) visit(context.routineBody()));
+    }
+
+    @Override
+    public Node visitDropFunction(SqlBaseParser.DropFunctionContext context)
+    {
+        Optional<List<String>> parameterTypes = context.types() == null ? Optional.empty() : Optional.of(getTypes(context.types()));
+        return new DropFunction(getLocation(context), getQualifiedName(context.qualifiedName()), parameterTypes, context.EXISTS() != null);
     }
 
     @Override
@@ -1445,6 +1453,8 @@ class AstBuilder
 
         boolean distinct = isDistinct(context.setQuantifier());
 
+        boolean ignoreNulls = context.nullTreatment() != null && context.nullTreatment().IGNORE() != null;
+
         if (name.toString().equalsIgnoreCase("if")) {
             check(context.expression().size() == 2 || context.expression().size() == 3, "Invalid number of arguments for 'if' function", context);
             check(!window.isPresent(), "OVER clause not valid for 'if' function", context);
@@ -1518,6 +1528,7 @@ class AstBuilder
                 filter,
                 orderBy,
                 distinct,
+                ignoreNulls,
                 visit(context.expression(), Expression.class));
     }
 
@@ -2147,6 +2158,13 @@ class AstBuilder
         }
 
         throw new IllegalArgumentException("Unsupported quantifier: " + symbol.getText());
+    }
+
+    private List<String> getTypes(SqlBaseParser.TypesContext types)
+    {
+        return types.type().stream()
+                .map(this::getType)
+                .collect(toImmutableList());
     }
 
     private String getType(SqlBaseParser.TypeContext type)

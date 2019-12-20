@@ -48,6 +48,7 @@ import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING
 import static com.facebook.presto.verifier.framework.QueryStage.REWRITE;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -76,16 +77,15 @@ public class QueryRewriter
     {
         checkState(prefixes.containsKey(clusterType), "Unsupported cluster type: %s", clusterType);
         Statement statement = sqlParser.createStatement(query, PARSING_OPTIONS);
-        if (QueryType.of(statement).getCategory() != DATA_PRODUCING) {
-            return new QueryBundle(Optional.empty(), ImmutableList.of(), statement, ImmutableList.of(), clusterType);
-        }
+        QueryType queryType = QueryType.of(statement);
+        checkArgument(queryType.getCategory() == DATA_PRODUCING, "Unsupported statement type: %s", queryType);
 
         QualifiedName prefix = prefixes.get(clusterType);
         if (statement instanceof CreateTableAsSelect) {
             CreateTableAsSelect createTableAsSelect = (CreateTableAsSelect) statement;
             QualifiedName temporaryTableName = generateTemporaryTableName(Optional.of(createTableAsSelect.getName()), prefix);
             return new QueryBundle(
-                    Optional.of(temporaryTableName),
+                    temporaryTableName,
                     ImmutableList.of(),
                     new CreateTableAsSelect(
                             temporaryTableName,
@@ -103,7 +103,7 @@ public class QueryRewriter
             QualifiedName originalTableName = insert.getTarget();
             QualifiedName temporaryTableName = generateTemporaryTableName(Optional.of(originalTableName), prefix);
             return new QueryBundle(
-                    Optional.of(temporaryTableName),
+                    temporaryTableName,
                     ImmutableList.of(
                             new CreateTable(
                                     temporaryTableName,
@@ -121,7 +121,7 @@ public class QueryRewriter
         if (statement instanceof Query) {
             QualifiedName temporaryTableName = generateTemporaryTableName(Optional.empty(), prefix);
             return new QueryBundle(
-                    Optional.of(temporaryTableName),
+                    temporaryTableName,
                     ImmutableList.of(),
                     new CreateTableAsSelect(
                             temporaryTableName,

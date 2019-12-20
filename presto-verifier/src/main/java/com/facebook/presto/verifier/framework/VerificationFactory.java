@@ -17,9 +17,9 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
+import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionFactory;
-import com.facebook.presto.verifier.prestoaction.PrestoResourceClient;
 import com.facebook.presto.verifier.resolver.FailureResolverConfig;
 import com.facebook.presto.verifier.resolver.FailureResolverFactoryContext;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
@@ -39,7 +39,7 @@ public class VerificationFactory
     private final PrestoActionFactory prestoActionFactory;
     private final QueryRewriterFactory queryRewriterFactory;
     private final FailureResolverManagerFactory failureResolverManagerFactory;
-    private final PrestoResourceClient testResourceClient;
+    private final NodeResourceClient testResourceClient;
     private final ChecksumValidator checksumValidator;
     private final VerifierConfig verifierConfig;
     private final TypeManager typeManager;
@@ -51,7 +51,7 @@ public class VerificationFactory
             PrestoActionFactory prestoActionFactory,
             QueryRewriterFactory queryRewriterFactory,
             FailureResolverManagerFactory failureResolverManagerFactory,
-            @ForTest PrestoResourceClient testResourceClient,
+            @ForTest NodeResourceClient testResourceClient,
             ChecksumValidator checksumValidator,
             VerifierConfig verifierConfig,
             TypeManager typeManager,

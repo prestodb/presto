@@ -20,6 +20,7 @@ import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
+import com.facebook.presto.raptor.RaptorSplit;
 import com.facebook.presto.raptor.RaptorSplitManager;
 import com.facebook.presto.raptor.RaptorTableHandle;
 import com.facebook.presto.raptor.RaptorTableLayoutHandle;
@@ -73,6 +74,7 @@ import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 @Test(singleThreaded = true)
 public class TestRaptorSplitManager
@@ -155,7 +157,11 @@ public class TestRaptorSplitManager
         ConnectorSplitSource splitSource = getSplits(raptorSplitManager, layout);
         int splitCount = 0;
         while (!splitSource.isFinished()) {
-            splitCount += getSplits(splitSource, 1000).size();
+            List<ConnectorSplit> splits = getSplits(splitSource, 1000);
+            splitCount += splits.size();
+            RaptorSplit split = (RaptorSplit) (splits.get(0));
+            assertFalse(split.isTableSupportsDeltaDelete());
+            assertEquals(split.getColumnTypes(), Optional.empty());
         }
         assertEquals(splitCount, 4);
     }

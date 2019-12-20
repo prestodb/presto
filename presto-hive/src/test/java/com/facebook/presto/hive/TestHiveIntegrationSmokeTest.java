@@ -47,6 +47,7 @@ import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.TableColumnInfo;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -1948,6 +1949,54 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(
                 Session.builder(session).setSystemProperty("task_writer_count", "4").build(),
                 "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+    }
+
+    @Test
+    public void testBucketPruning()
+    {
+        Session session = getSession();
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.execute("CREATE TABLE orders_bucketed WITH (bucket_count = 11, bucketed_by = ARRAY['orderkey']) AS " +
+                "SELECT * FROM orders");
+
+        try {
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey = 100", "SELECT * FROM orders WHERE orderkey = 100");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey = 100 OR orderkey = 101", "SELECT * FROM orders WHERE orderkey = 100 OR orderkey = 101");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey IN (100, 101, 133)", "SELECT * FROM orders WHERE orderkey IN (100, 101, 133)");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed", "SELECT * FROM orders");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey > 100", "SELECT * FROM orders WHERE orderkey > 100");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey != 100", "SELECT * FROM orders WHERE orderkey != 100");
+        }
+        finally {
+            queryRunner.execute("DROP TABLE orders_bucketed");
+        }
+
+        queryRunner.execute("CREATE TABLE orders_bucketed WITH (bucket_count = 11, bucketed_by = ARRAY['orderkey', 'custkey']) AS " +
+                "SELECT * FROM orders");
+
+        try {
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey = 101 AND custkey = 280", "SELECT * FROM orders WHERE orderkey = 101 AND custkey = 280");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey IN (101, 71) AND custkey = 280", "SELECT * FROM orders WHERE orderkey IN (101, 71) AND custkey = 280");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey IN (101, 71) AND custkey IN (280, 34)", "SELECT * FROM orders WHERE orderkey IN (101, 71) AND custkey IN (280, 34)");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey = 101 AND custkey = 280 AND orderstatus <> '0'", "SELECT * FROM orders WHERE orderkey = 101 AND custkey = 280 AND orderstatus <> '0'");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey = 101", "SELECT * FROM orders WHERE orderkey = 101");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE custkey = 280", "SELECT * FROM orders WHERE custkey = 280");
+
+            assertQuery(session, "SELECT * FROM orders_bucketed WHERE orderkey = 101 AND custkey > 280", "SELECT * FROM orders WHERE orderkey = 101 AND custkey > 280");
+        }
+        finally {
+            queryRunner.execute("DROP TABLE orders_bucketed");
+        }
     }
 
     @Test
@@ -4278,6 +4327,16 @@ public class TestHiveIntegrationSmokeTest
                 "AS SELECT * FROM (VALUES('a')) t (a)";
 
         assertQueryFails(ctasSql, "CREATE TABLE AS not supported when Avro schema url is set");
+    }
+
+    @Test
+    public void testBucketedTablesFailWithTooManyBuckets()
+            throws Exception
+    {
+        @Language("SQL") String createSql = "CREATE TABLE t (dummy VARCHAR)\n" +
+                "WITH (bucket_count = 1000001, bucketed_by=ARRAY['dummy'])";
+
+        assertQueryFails(createSql, "bucket_count should be no more than 1000000");
     }
 
     @Test

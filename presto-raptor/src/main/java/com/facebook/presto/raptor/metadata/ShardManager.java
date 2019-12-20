@@ -53,6 +53,21 @@ public interface ShardManager
     void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Set<UUID> oldShardUuids, Collection<ShardInfo> newShards, OptionalLong updateTime);
 
     /**
+     * Replace oldShardsUuids with newShards.
+     * Used by compaction with tableSupportsDeltaDelete: Delete oldShardsUuids with their delta shards and add newShards formed by compaction
+     * @param oldShardAndDeltaUuids oldShardsUuids with their delta shards
+     * @param newShards newShards formed from compaction
+     */
+    void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Map<UUID, Optional<UUID>> oldShardAndDeltaUuids, Collection<ShardInfo> newShards, OptionalLong updateTime, boolean tableSupportsDeltaDelete);
+
+    /**
+     * Replace oldDeltaDeleteShard with newDeltaDeleteShard.
+     * Used by delta delete.
+     * @param shardMap UUID in the map is the target file. DeltaInfoPair in the map is the change of delta.
+     */
+    void replaceDeltaUuids(long transactionId, long tableId, List<ColumnInfo> columns, Map<UUID, DeltaInfoPair> shardMap, OptionalLong updateTime);
+
+    /**
      * Get shard metadata for a shard.
      */
     ShardMetadata getShard(UUID shardUuid);
@@ -70,12 +85,12 @@ public interface ShardManager
     /**
      * Return the shard nodes for a non-bucketed table.
      */
-    ResultIterator<BucketShards> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    ResultIterator<BucketShards> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate, boolean tableSupportsDeltaDelete);
 
     /**
      * Return the shard nodes for a bucketed table.
      */
-    ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, List<String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate);
+    ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, List<String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate, boolean tableSupportsDeltaDelete);
 
     /**
      * Remove all old shard assignments and assign a shard to a node

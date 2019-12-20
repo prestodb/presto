@@ -649,6 +649,11 @@ public class TestHivePushdownFilterQueries
 
         assertQueryUsingH2Cte("SELECT info.shipdate.ship_day FROM lineitem_ex WHERE info.shipdate.ship_day < 15", rewriter);
         assertQueryUsingH2Cte("SELECT info.linenumber FROM lineitem_ex WHERE info.shipdate.ship_day < 15", rewriter);
+
+        // case sensitivity
+        assertQuery("SELECT INFO.orderkey FROM lineitem_ex", "SELECT CASE WHEN orderkey % 23 = 0 THEN null ELSE orderkey END FROM lineitem");
+        assertQuery("SELECT INFO.ORDERKEY FROM lineitem_ex", "SELECT CASE WHEN orderkey % 23 = 0 THEN null ELSE orderkey END FROM lineitem");
+        assertQuery("SELECT iNfO.oRdErKeY FROM lineitem_ex", "SELECT CASE WHEN orderkey % 23 = 0 THEN null ELSE orderkey END FROM lineitem");
     }
 
     @Test
@@ -818,6 +823,17 @@ public class TestHivePushdownFilterQueries
     {
         assertUpdate("CREATE TABLE test_schema_evolution WITH (partitioned_by = ARRAY['regionkey']) AS SELECT nationkey, regionkey FROM nation", 25);
         assertUpdate("ALTER TABLE test_schema_evolution ADD COLUMN nation_plus_region BIGINT");
+
+        // constant filter function errors
+        assertQueryFails("SELECT * FROM test_schema_evolution WHERE coalesce(nation_plus_region, fail('constant filter error')) is not null", "constant filter error");
+        assertQuerySucceeds("SELECT * FROM test_schema_evolution WHERE nationkey < 0 AND coalesce(nation_plus_region, fail('constant filter error')) is not null");
+        assertQueryFails("SELECT * FROM test_schema_evolution WHERE nationkey % 2 = 0 AND coalesce(nation_plus_region, fail('constant filter error')) is not null", "constant filter error");
+
+        // non-deterministic filter function with constant inputs
+        assertQueryReturnsEmptyResult("SELECT * FROM test_schema_evolution WHERE nation_plus_region * rand() < 0");
+        assertQuery("SELECT nationkey FROM test_schema_evolution WHERE nation_plus_region * rand() IS NULL", "SELECT nationkey FROM nation");
+        assertQuerySucceeds("SELECT nationkey FROM test_schema_evolution WHERE coalesce(nation_plus_region, 1) * rand() < 0.5");
+
         assertUpdate("INSERT INTO test_schema_evolution SELECT nationkey, nationkey + regionkey, regionkey FROM nation", 25);
         assertUpdate("ALTER TABLE test_schema_evolution ADD COLUMN nation_minus_region BIGINT");
         assertUpdate("INSERT INTO test_schema_evolution SELECT nationkey, nationkey + regionkey, nationkey - regionkey, regionkey FROM nation", 25);
@@ -995,6 +1011,21 @@ public class TestHivePushdownFilterQueries
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_file_format");
             assertUpdate("DROP TABLE test_file_format_orc");
+        }
+    }
+
+    @Test
+    public void testNans()
+    {
+        assertUpdate("CREATE TABLE test_nan (double_value DOUBLE, float_value REAL)");
+        try {
+            assertUpdate("INSERT INTO test_nan VALUES (cast('NaN' as DOUBLE), cast('NaN' as REAL)), ((1, 1)), ((2, 2))", 3);
+            assertQuery("SELECT double_value FROM test_nan WHERE double_value != 1", "SELECT cast('NaN' as DOUBLE) UNION SELECT 2");
+            assertQuery("SELECT float_value FROM test_nan WHERE float_value != 1", "SELECT CAST('NaN' as REAL) UNION SELECT 2");
+            assertQuery("SELECT double_value FROM test_nan WHERE double_value NOT IN (1, 2)", "SELECT CAST('NaN' as DOUBLE)");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_nan");
         }
     }
 

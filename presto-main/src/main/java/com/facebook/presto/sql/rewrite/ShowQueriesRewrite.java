@@ -89,6 +89,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
+import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
@@ -525,7 +526,9 @@ final class ShowQueriesRewrite
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
             for (SqlFunction function : metadata.listFunctions()) {
                 rows.add(row(
-                        new StringLiteral(function.getSignature().getNameSuffix()),
+                        function.getSignature().getName().getFunctionNamespace().equals(DEFAULT_NAMESPACE) ?
+                                new StringLiteral(function.getSignature().getNameSuffix()) :
+                                new StringLiteral(function.getSignature().getName().toString()),
                         new StringLiteral(function.getSignature().getReturnType().toString()),
                         new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
                         new StringLiteral(getFunctionType(function)),

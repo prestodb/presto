@@ -235,16 +235,16 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public synchronized void registerFunctionNamespaceManager(String functionNamespaceManagerName, FunctionNamespaceManager<?> functionNamespaceManager)
+    public synchronized void registerFunctionNamespaceManager(String functionNamespaceManagerId, FunctionNamespaceManager<?> functionNamespaceManager)
     {
-        checkArgument(!functionNamespaceManagers.containsKey(functionNamespaceManagerName), "FunctionNamespaceManager %s is already registered", functionNamespaceManagerName);
-        functionNamespaceManagers.put(functionNamespaceManagerName, functionNamespaceManager);
+        checkArgument(!functionNamespaceManagers.containsKey(functionNamespaceManagerId), "FunctionNamespaceManager %s is already registered", functionNamespaceManagerId);
+        functionNamespaceManagers.put(functionNamespaceManagerId, functionNamespaceManager);
     }
 
     @Override
-    public FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerName)
+    public FunctionNamespaceTransactionHandle getFunctionNamespaceTransaction(TransactionId transactionId, String functionNamespaceManagerId)
     {
-        return getTransactionMetadata(transactionId).getFunctionNamespaceTransaction(functionNamespaceManagerName).getTransactionHandle();
+        return getTransactionMetadata(transactionId).getFunctionNamespaceTransaction(functionNamespaceManagerId).getTransactionHandle();
     }
 
     private void checkConnectorWrite(TransactionId transactionId, ConnectorId connectorId)
@@ -472,14 +472,14 @@ public class InMemoryTransactionManager
             return catalogMetadata;
         }
 
-        private synchronized FunctionNamespaceTransactionMetadata getFunctionNamespaceTransaction(String functionNamespaceManagerName)
+        private synchronized FunctionNamespaceTransactionMetadata getFunctionNamespaceTransaction(String functionNamespaceManagerId)
         {
             checkOpenTransaction();
 
             return functionNamespaceTransactions.computeIfAbsent(
-                    functionNamespaceManagerName, name -> {
-                        verify(name != null, "Unknown function namespace manager: %s", name);
-                        FunctionNamespaceManager<?> functionNamespaceManager = functionNamespaceManagers.get(name);
+                    functionNamespaceManagerId, id -> {
+                        verify(id != null, "Unknown function namespace manager: %s", id);
+                        FunctionNamespaceManager<?> functionNamespaceManager = functionNamespaceManagers.get(id);
                         FunctionNamespaceTransactionHandle transactionHandle = functionNamespaceManager.beginTransaction();
                         return new FunctionNamespaceTransactionMetadata(functionNamespaceManager, transactionHandle);
                     });

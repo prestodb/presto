@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.metadata;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -25,17 +26,24 @@ import static java.util.Objects.requireNonNull;
 public class ShardNodes
 {
     private final UUID shardUuid;
+    private final Optional<UUID> deltaShardUuid;
     private final Set<String> nodeIdentifiers;
 
-    public ShardNodes(UUID shardUuid, Set<String> nodeIdentifiers)
+    public ShardNodes(UUID shardUuid, Optional<UUID> deltaShardUuid, Set<String> nodeIdentifiers)
     {
         this.shardUuid = requireNonNull(shardUuid, "shardUuid is null");
+        this.deltaShardUuid = requireNonNull(deltaShardUuid, "deltaShardUuid is null");
         this.nodeIdentifiers = ImmutableSet.copyOf(requireNonNull(nodeIdentifiers, "nodeIdentifiers is null"));
     }
 
     public UUID getShardUuid()
     {
         return shardUuid;
+    }
+
+    public Optional<UUID> getDeltaShardUuid()
+    {
+        return deltaShardUuid;
     }
 
     public Set<String> getNodeIdentifiers()
@@ -54,6 +62,7 @@ public class ShardNodes
         }
         ShardNodes other = (ShardNodes) obj;
         return Objects.equals(this.shardUuid, other.shardUuid) &&
+                Objects.equals(this.deltaShardUuid, other.deltaShardUuid) &&
                 Objects.equals(this.nodeIdentifiers, other.nodeIdentifiers);
     }
 
@@ -68,6 +77,7 @@ public class ShardNodes
     {
         return toStringHelper(this)
                 .add("shardUuid", shardUuid)
+                .add("deltaShardUuid", deltaShardUuid)
                 .add("nodeIdentifiers", nodeIdentifiers)
                 .toString();
     }

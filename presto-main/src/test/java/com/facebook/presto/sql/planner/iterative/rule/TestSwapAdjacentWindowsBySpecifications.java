@@ -78,7 +78,7 @@ public class TestSwapAdjacentWindowsBySpecifications
                                 ImmutableList.of(p.variable("a")),
                                 Optional.empty()),
                         ImmutableMap.of(p.variable("avg_1"),
-                                new WindowNode.Function(call("avg", functionHandle, DOUBLE, ImmutableList.of()), frame)),
+                                new WindowNode.Function(call("avg", functionHandle, DOUBLE, ImmutableList.of()), frame, false)),
                         p.values(p.variable("a"))))
                 .doesNotFire();
     }
@@ -139,6 +139,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     {
         return new WindowNode.Function(
                 call("avg", functionHandle, BIGINT, symbols.stream().map(symbol -> new VariableReferenceExpression(symbol.getName(), BIGINT)).collect(Collectors.toList())),
-                frame);
+                frame,
+                false);
     }
 }

@@ -29,7 +29,10 @@ public class TestBenchmarkRunnerConfig
     {
         assertRecordedDefaults(recordDefaults(BenchmarkRunnerConfig.class)
                 .setTestId(null)
-                .setBenchmarkSuiteSupplier("mysql"));
+                .setBenchmarkSuiteSupplier("mysql")
+                .setEventClients("json")
+                .setJsonEventLogFile(null)
+                .setContinueOnFailure(false));
     }
 
     @Test
@@ -38,10 +41,17 @@ public class TestBenchmarkRunnerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("test-id", "12345")
                 .put("benchmark-suite-supplier", "custom-supplier")
+                .put("event-clients", "human-readable")
+                .put("json.log-file", "verifier-json.log")
+                .put("continue-on-failure", "true")
                 .build();
+
         BenchmarkRunnerConfig expected = new BenchmarkRunnerConfig()
                 .setTestId("12345")
-                .setBenchmarkSuiteSupplier("custom-supplier");
+                .setBenchmarkSuiteSupplier("custom-supplier")
+                .setEventClients("human-readable")
+                .setJsonEventLogFile("verifier-json.log")
+                .setContinueOnFailure(true);
 
         assertFullMapping(properties, expected);
     }

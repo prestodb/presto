@@ -13,13 +13,21 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
+import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 
+import java.util.concurrent.Executor;
+
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -40,5 +48,18 @@ public class GlueMetastoreModule
         binder.bind(ExtendedHiveMetastore.class).to(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExtendedHiveMetastore.class)
                 .as(generatedNameOf(GlueHiveMetastore.class, connectorId));
+    }
+
+    @Provides
+    @Singleton
+    @ForGlueHiveMetastore
+    public Executor createExecutor(GlueHiveMetastoreConfig hiveConfig)
+    {
+        if (hiveConfig.getGetPartitionThreads() == 1) {
+            return directExecutor();
+        }
+        return new BoundedExecutor(
+            newCachedThreadPool(daemonThreadsNamed("hive-glue-%s")),
+            hiveConfig.getGetPartitionThreads());
     }
 }

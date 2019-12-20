@@ -161,6 +161,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -1564,6 +1565,44 @@ public class ExpressionAnalyzer
         return new ExpressionAnalysis(
                 expressionTypes,
                 expressionCoercions,
+                analyzer.getSubqueryInPredicates(),
+                analyzer.getScalarSubqueries(),
+                analyzer.getExistsSubqueries(),
+                analyzer.getColumnReferences(),
+                analyzer.getTypeOnlyCoercions(),
+                analyzer.getQuantifiedComparisons(),
+                analyzer.getLambdaArgumentReferences(),
+                analyzer.getWindowFunctions());
+    }
+
+    public static ExpressionAnalysis analyzeSqlFunctionExpression(
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            Expression expression,
+            Map<String, Type> argumentTypes)
+    {
+        ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                metadata.getFunctionManager(),
+                metadata.getTypeManager(),
+                Optional.empty(),
+                sqlFunctionProperties,
+                TypeProvider.copyOf(argumentTypes),
+                emptyList(),
+                node -> new SemanticException(NOT_SUPPORTED, node, "SQL function does not support subquery"),
+                WarningCollector.NOOP,
+                false);
+
+        analyzer.analyze(
+                expression,
+                Scope.builder()
+                        .withRelationType(
+                                RelationId.anonymous(),
+                                new RelationType(argumentTypes.entrySet().stream()
+                                        .map(entry -> Field.newUnqualified(entry.getKey(), entry.getValue()))
+                                        .collect(toImmutableList()))).build());
+        return new ExpressionAnalysis(
+                analyzer.getExpressionTypes(),
+                analyzer.getExpressionCoercions(),
                 analyzer.getSubqueryInPredicates(),
                 analyzer.getScalarSubqueries(),
                 analyzer.getExistsSubqueries(),

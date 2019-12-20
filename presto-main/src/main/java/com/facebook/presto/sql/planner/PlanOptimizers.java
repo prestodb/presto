@@ -443,15 +443,6 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new CreatePartialTopN(),
                         new PushTopNThroughUnion())));
-        builder.add(new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                ImmutableSet.<Rule<?>>builder()
-                        .add(new RemoveRedundantIdentityProjections())
-                        .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager, sqlParser).rules())
-                        .add(new InlineProjections(metadata.getFunctionManager()))
-                        .build()));
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -465,6 +456,16 @@ public class PlanOptimizers
         // TODO: move PushdownSubfields below this rule
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)));
+
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .add(new RemoveRedundantIdentityProjections())
+                        .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager).rules())
+                        .add(new InlineProjections(metadata.getFunctionManager()))
+                        .build()));
 
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges

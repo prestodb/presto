@@ -46,7 +46,7 @@ public abstract class AbstractWindowFunctionSupplier
     }
 
     @Override
-    public final WindowFunction createWindowFunction(List<Integer> argumentChannels)
+    public final WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
         requireNonNull(argumentChannels, "inputs is null");
         checkArgument(argumentChannels.size() == signature.getArgumentTypes().size(),
@@ -55,12 +55,12 @@ public abstract class AbstractWindowFunctionSupplier
                 signature.getNameSuffix(),
                 argumentChannels.size());
 
-        return newWindowFunction(argumentChannels);
+        return newWindowFunction(argumentChannels, ignoreNulls);
     }
 
     /**
      * Create window function instance using the supplied arguments.  The
      * inputs have already validated.
      */
-    protected abstract WindowFunction newWindowFunction(List<Integer> inputs);
+    protected abstract WindowFunction newWindowFunction(List<Integer> inputs, boolean ignoreNulls);
 }

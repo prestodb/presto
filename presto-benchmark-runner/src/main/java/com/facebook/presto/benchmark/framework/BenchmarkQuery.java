@@ -22,7 +22,6 @@ import static java.util.Objects.requireNonNull;
 
 public class BenchmarkQuery
 {
-    private final String querySet;
     private final String name;
     private final String query;
     private final String catalog;
@@ -30,22 +29,15 @@ public class BenchmarkQuery
 
     @JdbiConstructor
     public BenchmarkQuery(
-            @ColumnName("query_set") String querySet,
             @ColumnName("name") String name,
             @ColumnName("query") String query,
             @ColumnName("catalog") String catalog,
             @ColumnName("schema") String schema)
     {
-        this.querySet = requireNonNull(querySet, "querySet is null");
         this.name = requireNonNull(name, "name is null");
         this.query = clean(query);
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
-    }
-
-    public String getQuerySet()
-    {
-        return querySet;
     }
 
     public String getName()
@@ -78,8 +70,7 @@ public class BenchmarkQuery
             return false;
         }
         BenchmarkQuery o = (BenchmarkQuery) obj;
-        return Objects.equals(querySet, o.querySet) &&
-                Objects.equals(name, o.name) &&
+        return Objects.equals(name, o.name) &&
                 Objects.equals(query, o.query) &&
                 Objects.equals(catalog, o.catalog) &&
                 Objects.equals(schema, o.schema);
@@ -88,7 +79,7 @@ public class BenchmarkQuery
     @Override
     public int hashCode()
     {
-        return Objects.hash(querySet, name, query, catalog, schema);
+        return Objects.hash(name, query, catalog, schema);
     }
 
     private static String clean(String sql)

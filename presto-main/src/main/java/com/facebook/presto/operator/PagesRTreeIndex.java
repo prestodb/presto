@@ -37,7 +37,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static com.facebook.presto.geospatial.GeometryUtils.getExtent;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
 import static com.facebook.presto.operator.JoinUtils.channelsToPages;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;

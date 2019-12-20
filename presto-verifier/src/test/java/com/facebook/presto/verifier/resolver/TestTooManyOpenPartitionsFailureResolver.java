@@ -77,7 +77,7 @@ public class TestTooManyOpenPartitionsFailureResolver
     private static final String TABLE_NAME = "test";
     private static final int MAX_BUCKETS_PER_WRITER = 100;
     private static final QueryBundle TEST_BUNDLE = new QueryBundle(
-            Optional.of(QualifiedName.of(TABLE_NAME)),
+            QualifiedName.of(TABLE_NAME),
             ImmutableList.of(),
             new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON)).createStatement(
                     "INSERT INTO test SELECT * FROM source",

@@ -21,11 +21,11 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.geospatial.serde.GeometrySerde.createFromEsriGeometry;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserialize;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeEnvelope;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.deserializeType;
-import static com.facebook.presto.geospatial.serde.GeometrySerde.serialize;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.createFromEsriGeometry;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeType;
+import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.serialize;
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.ENVELOPE;
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.GEOMETRY_COLLECTION;
 import static com.facebook.presto.geospatial.serde.GeometrySerializationType.LINE_STRING;
@@ -208,9 +208,9 @@ public class TestGeometrySerialization
         OGCGeometry esriGeometry = OGCGeometry.fromText(wkt);
 
         Slice jtsSerialized = JtsGeometrySerde.serialize(jtsGeometry);
-        Slice esriSerialized = GeometrySerde.serialize(esriGeometry);
+        Slice esriSerialized = EsriGeometrySerde.serialize(esriGeometry);
 
-        OGCGeometry esriFromJts = GeometrySerde.deserialize(jtsSerialized);
+        OGCGeometry esriFromJts = EsriGeometrySerde.deserialize(jtsSerialized);
         Geometry jtsFromEsri = JtsGeometrySerde.deserialize(esriSerialized);
         assertGeometryEquals(esriFromJts, esriGeometry);
         assertGeometryEquals(jtsFromEsri, jtsGeometry);

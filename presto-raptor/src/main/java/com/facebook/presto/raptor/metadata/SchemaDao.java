@@ -38,6 +38,7 @@ public interface SchemaDao
             "  update_time BIGINT NOT NULL,\n" +
             "  table_version BIGINT NOT NULL,\n" +
             "  shard_count BIGINT NOT NULL,\n" +
+            "  delta_count BIGINT NOT NULL DEFAULT 0,\n" +
             "  row_count BIGINT NOT NULL,\n" +
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
@@ -49,6 +50,14 @@ public interface SchemaDao
             "  FOREIGN KEY (distribution_id) REFERENCES distributions (distribution_id)\n" +
             ")")
     void createTableTables();
+
+    @SqlUpdate("ALTER TABLE tables\n" +
+            "  ADD COLUMN table_supports_delta_delete BOOLEAN NOT NULL DEFAULT false")
+    void alterTableTablesWithDeltaDelete();
+
+    @SqlUpdate("ALTER TABLE tables\n" +
+            "  ADD COLUMN delta_count BIGINT NOT NULL DEFAULT 0")
+    void alterTableTablesWithDeltaCount();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS columns (\n" +
             "  table_id BIGINT NOT NULL,\n" +
@@ -92,12 +101,22 @@ public interface SchemaDao
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
             "  xxhash64 BIGINT NOT NULL,\n" +
+            "  is_delta BOOLEAN NOT NULL DEFAULT false,\n" +
+            "  delta_uuid BINARY(16),\n" +
             "  UNIQUE (shard_uuid),\n" +
             // include a covering index organized by table_id
             "  UNIQUE (table_id, bucket_number, shard_id, shard_uuid, create_time, row_count, compressed_size, uncompressed_size, xxhash64),\n" +
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
     void createTableShards();
+
+    @SqlUpdate("ALTER TABLE shards\n" +
+            "  ADD COLUMN is_delta BOOLEAN NOT NULL DEFAULT false")
+    void alterTableShardsWithIsDelta();
+
+    @SqlUpdate("ALTER TABLE shards\n" +
+            "  ADD COLUMN delta_uuid BINARY(16)")
+    void alterTableShardsWithDeltaUuid();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS shard_nodes (\n" +
             "  shard_id BIGINT NOT NULL,\n" +

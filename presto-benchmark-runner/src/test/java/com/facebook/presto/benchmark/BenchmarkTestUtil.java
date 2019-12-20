@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.framework.BenchmarkQuery;
 import com.facebook.presto.benchmark.framework.BenchmarkSuite;
 import com.facebook.presto.benchmark.framework.BenchmarkSuiteInfo;
@@ -20,7 +21,9 @@ import com.facebook.presto.benchmark.framework.ConcurrentExecutionPhase;
 import com.facebook.presto.benchmark.framework.PhaseSpecification;
 import com.facebook.presto.benchmark.framework.StreamExecutionPhase;
 import com.facebook.presto.benchmark.source.BenchmarkSuiteDao;
+import com.facebook.presto.plugin.memory.MemoryPlugin;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
+import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.google.common.collect.ImmutableList;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -32,6 +35,7 @@ import java.util.Map;
 
 import static com.facebook.presto.benchmark.framework.PhaseSpecification.ExecutionStrategy.CONCURRENT;
 import static com.facebook.presto.benchmark.framework.PhaseSpecification.ExecutionStrategy.STREAM;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class BenchmarkTestUtil
 {
@@ -41,6 +45,19 @@ public class BenchmarkTestUtil
 
     private BenchmarkTestUtil()
     {
+    }
+
+    public static StandaloneQueryRunner setupPresto()
+            throws Exception
+    {
+        Session session = testSessionBuilder()
+                .setCatalog(CATALOG)
+                .setSchema(SCHEMA)
+                .build();
+        StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(session);
+        queryRunner.installPlugin(new MemoryPlugin());
+        queryRunner.createCatalog(CATALOG, "memory");
+        return queryRunner;
     }
 
     public static TestingMySqlServer setupMySql()
@@ -98,7 +115,7 @@ public class BenchmarkTestUtil
         PhaseSpecification streamExecutionPhase = new StreamExecutionPhase("Phase-1", STREAM, streams);
 
         List<String> queries = ImmutableList.of("Q1", "Q2", "Q3");
-        PhaseSpecification concurrentExecutionPhase = new ConcurrentExecutionPhase("Phase-2", CONCURRENT, queries);
+        PhaseSpecification concurrentExecutionPhase = new ConcurrentExecutionPhase("Phase-2", CONCURRENT, queries, 50);
 
         return ImmutableList.of(streamExecutionPhase, concurrentExecutionPhase);
     }
@@ -112,11 +129,11 @@ public class BenchmarkTestUtil
 
     public static BenchmarkSuite getBenchmarkSuiteObject(String suite, String querySet)
     {
-        BenchmarkQuery benchmarkQuery1 = new BenchmarkQuery(querySet, "Q1", "SELECT 1", CATALOG, SCHEMA);
-        BenchmarkQuery benchmarkQuery2 = new BenchmarkQuery(querySet, "Q2", "SELECT 2", CATALOG, SCHEMA);
-        BenchmarkQuery benchmarkQuery3 = new BenchmarkQuery(querySet, "Q3", "SELECT 3", CATALOG, SCHEMA);
+        BenchmarkQuery benchmarkQuery1 = new BenchmarkQuery("Q1", "SELECT 1", CATALOG, SCHEMA);
+        BenchmarkQuery benchmarkQuery2 = new BenchmarkQuery("Q2", "SELECT 2", CATALOG, SCHEMA);
+        BenchmarkQuery benchmarkQuery3 = new BenchmarkQuery("Q3", "SELECT 3", CATALOG, SCHEMA);
 
-        return new BenchmarkSuite(new BenchmarkSuiteInfo(suite, querySet, getBenchmarkSuitePhases(), getBenchmarkSuiteSessionProperties()),
+        return new BenchmarkSuite(suite, new BenchmarkSuiteInfo(suite, querySet, getBenchmarkSuitePhases(), getBenchmarkSuiteSessionProperties()),
                 ImmutableList.of(benchmarkQuery1, benchmarkQuery2, benchmarkQuery3));
     }
 }

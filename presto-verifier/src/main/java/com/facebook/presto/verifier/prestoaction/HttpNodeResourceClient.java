@@ -13,16 +13,22 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import com.facebook.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.retry.RetryDriver;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.inject.Inject;
 
-import static com.facebook.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.List;
+import java.util.Map;
+
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
+import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -30,15 +36,15 @@ import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.Response.Status.OK;
 
-public class HttpPrestoResourceClient
-        implements PrestoResourceClient
+public class HttpNodeResourceClient
+        implements NodeResourceClient
 {
     private final HttpClient httpClient;
     private final PrestoAddress prestoAddress;
     private final RetryDriver<RuntimeException> networkRetry;
 
     @Inject
-    public HttpPrestoResourceClient(
+    public HttpNodeResourceClient(
             HttpClient httpClient,
             PrestoClusterConfig prestoAddress,
             RetryConfig networkRetryConfig)
@@ -49,24 +55,33 @@ public class HttpPrestoResourceClient
     }
 
     @Override
-    public <R> R getJsonResponse(String path, JsonCodec<R> responseCodec)
+    public int getClusterSize(String path)
     {
-        return networkRetry.run(format("getJsonResponse()", path), () -> getJsonResponseOnce(path, responseCodec));
+        return networkRetry.run(format("getJsonResponse()", path), () -> getClusterSizeOnce(path));
     }
 
-    private <R> R getJsonResponseOnce(String path, JsonCodec<R> responseCodec)
+    private int getClusterSizeOnce(String path)
     {
         Request request = prepareGet()
                 .setUri(prestoAddress.getHttpUri(path))
                 .setHeader(CONTENT_TYPE, APPLICATION_JSON)
                 .build();
 
-        JsonResponse<R> response = httpClient.execute(request, createFullJsonResponseHandler(responseCodec));
+        StringResponse response = httpClient.execute(request, createStringResponseHandler());
         checkState(
                 response.getStatusCode() == OK.getStatusCode(),
                 "Invalid response: %s %s",
                 response.getStatusCode(),
                 response.getStatusMessage());
-        return response.getValue();
+
+        List<Map<String, Object>> values;
+        try {
+            values = new ObjectMapperProvider().get().readValue(response.getBody(), new TypeReference<List<Map<String, Object>>>() {});
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        return values.size();
     }
 }

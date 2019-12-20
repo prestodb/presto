@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizerDao;
@@ -28,6 +29,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -40,6 +42,8 @@ import org.skife.jdbi.v2.ResultIterator;
 import org.skife.jdbi.v2.exceptions.DBIException;
 import org.skife.jdbi.v2.tweak.HandleConsumer;
 import org.skife.jdbi.v2.util.ByteArrayMapper;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
@@ -51,6 +55,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -82,11 +87,13 @@ import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
+import static java.sql.Types.BINARY;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -103,6 +110,7 @@ public class DatabaseShardManager
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
     private static final int MAX_ADD_COLUMN_ATTEMPTS = 100;
 
+    private final DeltaDeleteStats deltaDeleteStats = new DeltaDeleteStats();
     private final IDBI dbi;
     private final DaoSupplier<ShardDao> shardDaoSupplier;
     private final ShardDao dao;
@@ -280,12 +288,12 @@ public class DatabaseShardManager
         runCommit(transactionId, (handle) -> {
             externalBatchId.ifPresent(shardDaoSupplier.attach(handle)::insertExternalBatch);
             lockTable(handle, tableId);
+            // 1. Insert new shards
             insertShardsAndIndex(tableId, columns, shards, nodeIds, handle);
-
             ShardStats stats = shardStats(shards);
-            MetadataDao metadata = handle.attach(MetadataDao.class);
-            metadata.updateTableStats(tableId, shards.size(), stats.getRowCount(), stats.getCompressedSize(), stats.getUncompressedSize());
-            metadata.updateTableVersion(tableId, updateTime);
+
+            // 2. Update statistics and table version
+            updateStatsAndVersion(handle, tableId, shards.size(), 0, stats.getRowCount(), stats.getCompressedSize(), stats.getUncompressedSize(), OptionalLong.of(updateTime));
         });
     }
 
@@ -321,7 +329,7 @@ public class DatabaseShardManager
 
             if (!oldShardUuids.isEmpty() || !newShards.isEmpty()) {
                 MetadataDao metadata = handle.attach(MetadataDao.class);
-                metadata.updateTableStats(tableId, shardCount, rowCount, compressedSize, uncompressedSize);
+                metadata.updateTableStats(tableId, shardCount, 0, rowCount, compressedSize, uncompressedSize);
                 updateTime.ifPresent(time -> metadata.updateTableVersion(tableId, time));
             }
         });
@@ -493,6 +501,447 @@ public class DatabaseShardManager
         return (connection instanceof JdbcConnection) ? 1 : 1000;
     }
 
+    // TODO: Will merge these new function with old function once new feature is stable
+    /**
+     * two types of oldShardUuidsMap entry
+     * a. shard1         -> delete shard
+     * b. shard2 delta2  -> delete shard and delta
+     *
+     * see replaceDeltaUuids
+     * a is essentially equal to A
+     * b is essentially equal to B
+     *
+     * @param tableSupportsDeltaDelete table table_supports_delta_delete properties
+     */
+    @Override
+    public void replaceShardUuids(long transactionId, long tableId, List<ColumnInfo> columns, Map<UUID, Optional<UUID>> oldShardAndDeltaUuids, Collection<ShardInfo> newShards, OptionalLong updateTime, boolean tableSupportsDeltaDelete)
+    {
+        Map<String, Integer> nodeIds = toNodeIdMap(newShards);
+
+        runCommit(transactionId, (handle) -> {
+            lockTable(handle, tableId);
+
+            // For compaction
+            if (!updateTime.isPresent() && handle.attach(MetadataDao.class).isMaintenanceBlockedLocked(tableId)) {
+                throw new PrestoException(TRANSACTION_CONFLICT, "Maintenance is blocked for table");
+            }
+
+            // 1. Insert new shards
+            insertShardsAndIndex(tableId, columns, newShards, nodeIds, handle, false);
+            ShardStats newStats = shardStats(newShards);
+            long rowCount = newStats.getRowCount();
+            long compressedSize = newStats.getCompressedSize();
+            long uncompressedSize = newStats.getUncompressedSize();
+
+            // 2. Delete old shards and old delta
+            Set<UUID> oldDeltaUuidSet = oldShardAndDeltaUuids.values().stream().filter(Optional::isPresent).map(Optional::get).collect(toImmutableSet());
+            ShardStats stats = deleteShardsAndIndex(tableId, oldShardAndDeltaUuids, oldDeltaUuidSet, handle, tableSupportsDeltaDelete);
+            rowCount -= stats.getRowCount();
+            compressedSize -= stats.getCompressedSize();
+            uncompressedSize -= stats.getUncompressedSize();
+
+            // 3. Update statistics and table version
+            long deltaCountChange = -oldDeltaUuidSet.size();
+            long shardCountChange = newShards.size() - oldShardAndDeltaUuids.size();
+            if (!oldShardAndDeltaUuids.isEmpty() || !newShards.isEmpty()) {
+                updateStatsAndVersion(handle, tableId, shardCountChange, deltaCountChange, rowCount, compressedSize, uncompressedSize, updateTime);
+            }
+        });
+    }
+
+    /**
+     * Four types of shardMap
+     * A. shard1                           delete shard
+     * B. shard2 old_delta2                delete shard and delta
+     * C. shard3            new_delta3     add delta
+     * D. shard4 old_delta4 new_delta4     replace delta
+     *
+     * Concurrent conflict resolution:
+     * (A, A) after deleting shard, verify deleted shard count
+     * (B, B) after deleting shard, verify deleted shard count / after deleting delta, verify deleted delta count
+     * (C, C) when updating shard's delta, check its old delta, after updating, verify updated shard count
+     * (D, D) after deleting delta, verify deleted delta count / verify updated shard count
+     *
+     * (A, B) won't happen at the same time
+     * (A, C)
+     *        A first, B: after updating shard's delta, verfiy updated shard count
+     *        B first, A: when deleting shard, check its delta, after deleting, verify deleted shard count
+     * (A, D) won't happen at the same time
+     * (B, C) won't happen at the same time
+     * (B, D) same way as (A,C)
+     * (C, D) won't happen at the same time
+     */
+    public void replaceDeltaUuids(long transactionId, long tableId, List<ColumnInfo> columns, Map<UUID, DeltaInfoPair> shardMap, OptionalLong updateTime)
+    {
+        runCommit(transactionId, (handle) -> {
+            lockTable(handle, tableId);
+
+            Set<ShardInfo> newDeltas = new HashSet<>();
+            Set<UUID> oldDeltaUuids = new HashSet<>();
+            Map<UUID, Optional<UUID>> shardsMapToDelete = new HashMap<>();
+            Map<UUID, DeltaUuidPair> shardsToUpdate = new HashMap<>();
+
+            // Initiate
+            for (Map.Entry<UUID, DeltaInfoPair> entry : shardMap.entrySet()) {
+                UUID uuid = entry.getKey();
+                DeltaInfoPair deltaInfoPair = entry.getValue();
+                // Replace Shard's delta if new deltaShard isn't empty
+                if (deltaInfoPair.getNewDeltaDeleteShard().isPresent()) {
+                    newDeltas.add(deltaInfoPair.getNewDeltaDeleteShard().get());
+                    shardsToUpdate.put(uuid, new DeltaUuidPair(deltaInfoPair.getOldDeltaDeleteShard(), deltaInfoPair.getNewDeltaDeleteShard().get().getShardUuid()));
+                }
+                // Delete Shard if deltaShard is empty
+                else {
+                    shardsMapToDelete.put(uuid, deltaInfoPair.getOldDeltaDeleteShard());
+                }
+
+                if (deltaInfoPair.getOldDeltaDeleteShard().isPresent()) {
+                    oldDeltaUuids.add(deltaInfoPair.getOldDeltaDeleteShard().get());
+                }
+            }
+
+            // 1. Insert new deltas
+            Map<String, Integer> nodeIds = toNodeIdMap(newDeltas);
+            insertShardsAndIndex(tableId, columns, newDeltas, nodeIds, handle, true);
+            ShardStats newStats = shardStats(newDeltas);
+            long rowCount = -newStats.getRowCount();
+            long compressedSize = newStats.getCompressedSize();
+            long uncompressedSize = newStats.getUncompressedSize();
+
+            // 2. Delete toDelete shards and old deltas
+            // toDelete shards come from situation A + situation B
+            // old deltas come from situation B + situation D
+            ShardStats stats = deleteShardsAndIndex(tableId, shardsMapToDelete, oldDeltaUuids, handle, true);
+            rowCount -= stats.getRowCount();
+            compressedSize -= stats.getCompressedSize();
+            uncompressedSize -= stats.getUncompressedSize();
+
+            // 3. Update shard and delta relationship
+            updateShardsAndIndex(tableId, shardsToUpdate, handle);
+
+            // 4. Update statistics and table version
+            int shardCountChange = -shardsMapToDelete.size();
+            int deltaCountChange = newDeltas.size() - oldDeltaUuids.size();
+            if (!newDeltas.isEmpty() || !oldDeltaUuids.isEmpty() || shardsToUpdate.isEmpty() || !shardsMapToDelete.isEmpty()) {
+                updateStatsAndVersion(handle, tableId, shardCountChange, deltaCountChange, rowCount, compressedSize, uncompressedSize, updateTime);
+            }
+            deltaDeleteStats.deletedShards.update(shardsMapToDelete.size());
+            deltaDeleteStats.updatedShards.update(shardsToUpdate.size());
+        });
+    }
+
+    private void updateStatsAndVersion(Handle handle, long tableId, long shardCountChange, long deltaCountChange, long rowCount, long compressedSize, long uncompressedSize, OptionalLong updateTime)
+    {
+        MetadataDao metadata = handle.attach(MetadataDao.class);
+        metadata.updateTableStats(tableId, shardCountChange, deltaCountChange, rowCount, compressedSize, uncompressedSize);
+        updateTime.ifPresent(time -> metadata.updateTableVersion(tableId, time));
+    }
+
+    /**
+     * Delete old shards and old deltas
+     * For call from replaceDeltaUuids: old shards and old deltas are not necessarily related, see the comment from the call
+     */
+    private ShardStats deleteShardsAndIndex(long tableId, Map<UUID, Optional<UUID>> oldShardUuidsMap, Set<UUID> oldDeltaUuidSet, Handle handle, boolean tableSupportsDeltaDelete)
+            throws SQLException
+    {
+        if (tableSupportsDeltaDelete) {
+            ShardStats shardStats = deleteShardsAndIndexWithDelta(tableId, oldShardUuidsMap, handle);
+            long rowCount = shardStats.getRowCount();
+            long compressedSize = shardStats.getCompressedSize();
+            long uncompressedSize = shardStats.getUncompressedSize();
+
+            ShardStats deltaStats = deleteShardsAndIndexSimple(tableId, oldDeltaUuidSet, handle, true);
+            rowCount -= deltaStats.getRowCount(); // delta
+            compressedSize += deltaStats.getCompressedSize();
+            uncompressedSize += deltaStats.getUncompressedSize();
+
+            return new ShardStats(rowCount, compressedSize, uncompressedSize);
+        }
+
+        return deleteShardsAndIndexSimple(tableId, oldShardUuidsMap.keySet(), handle, false);
+    }
+
+    /**
+     * For shards and delta
+     *
+     * Select id from `shards` table                                               for both shard and delta shards
+     * - Purpose: 1. check the count as pre-check to avoid conflict 2. get statistics 3. use id to perform delete
+     *
+     * Insert into deleted_shards
+     *
+     * Delete from `shards_node` table  (won't verify delete count: NONE-BUCKETED)  for both shards and delta shards
+     * Delete from `shards` table       verify delete count                         for both shards and delta shards
+     * Delete from index table          verify delete count                         only for shards
+     */
+    private ShardStats deleteShardsAndIndexSimple(long tableId, Set<UUID> shardUuids, Handle handle, boolean isDelta)
+            throws SQLException
+    {
+        if (shardUuids.isEmpty()) {
+            return new ShardStats(0, 0, 0);
+        }
+
+        long rowCount = 0;
+        long compressedSize = 0;
+        long uncompressedSize = 0;
+
+        // for batch execution
+        for (List<UUID> uuids : partition(shardUuids, 1000)) {
+            String args = Joiner.on(",").join(nCopies(uuids.size(), "?"));
+            ImmutableSet.Builder<Long> shardIdSet = ImmutableSet.builder();
+            String selectShards = format("" +
+                    "SELECT shard_id, row_count, compressed_size, uncompressed_size\n" +
+                    "FROM shards\n" +
+                    "WHERE shard_uuid IN (%s)", args);
+            try (PreparedStatement statement = handle.getConnection().prepareStatement(selectShards)) {
+                bindUuids(statement, uuids);
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        shardIdSet.add(rs.getLong("shard_id"));
+                        rowCount += rs.getLong("row_count");
+                        compressedSize += rs.getLong("compressed_size");
+                        uncompressedSize += rs.getLong("uncompressed_size");
+                    }
+                }
+            }
+            Set<Long> shardIds = shardIdSet.build();
+            if (shardIds.size() != uuids.size()) {
+                throw transactionConflict();
+            }
+
+            // For background cleaner
+            ShardDao dao = shardDaoSupplier.attach(handle);
+            dao.insertDeletedShards(uuids);
+
+            String where = " WHERE shard_id IN (" + args + ")";
+            String deleteFromShardNodes = "DELETE FROM shard_nodes " + where;
+            String deleteFromShards = "DELETE FROM shards " + where;
+            String deleteFromShardIndex = "DELETE FROM " + shardIndexTable(tableId) + where;
+
+            try (PreparedStatement statement = handle.getConnection().prepareStatement(deleteFromShardNodes)) {
+                bindLongs(statement, shardIds);
+                statement.executeUpdate();
+            }
+
+            for (String sql : isDelta ? ImmutableList.of(deleteFromShards) : asList(deleteFromShards, deleteFromShardIndex)) {
+                try (PreparedStatement statement = handle.getConnection().prepareStatement(sql)) {
+                    bindLongs(statement, shardIds);
+                    if (statement.executeUpdate() != shardIds.size()) {
+                        throw transactionConflict();
+                    }
+                }
+            }
+        }
+
+        return new ShardStats(rowCount, compressedSize, uncompressedSize);
+    }
+
+    /**
+     * ONLY for shards (NO delta)
+     *
+     * Select id from `shards` table
+     * - Purpose: 1. check the count as pre-check to avoid conflict 2. get statistics 3. use id to perform delete
+     *
+     * Insert into deleted_shards
+     *
+     * Delete from `shards_node` table               (won't verify delete count: NONE-BUCKETED)
+     * Delete from `shards` table      check delta   verify delete count
+     * Delete from index table         check delta   verify delete count
+     */
+    private ShardStats deleteShardsAndIndexWithDelta(long tableId, Map<UUID, Optional<UUID>> oldShardUuidsMap, Handle handle)
+            throws SQLException
+    {
+        if (oldShardUuidsMap.isEmpty()) {
+            return new ShardStats(0, 0, 0);
+        }
+        String args = Joiner.on(",").join(nCopies(oldShardUuidsMap.size(), "?"));
+
+        ImmutableMap.Builder<UUID, Long> shardUuidToIdBuilder = ImmutableMap.builder();
+        long rowCount = 0;
+        long compressedSize = 0;
+        long uncompressedSize = 0;
+
+        String selectShards = format("" +
+                "SELECT shard_id, shard_uuid, row_count, compressed_size, uncompressed_size\n" +
+                "FROM shards\n" +
+                "WHERE shard_uuid IN (%s)", args);
+        try (PreparedStatement statement = handle.getConnection().prepareStatement(selectShards)) {
+            bindUuids(statement, oldShardUuidsMap.keySet());
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    shardUuidToIdBuilder.put(uuidFromBytes(rs.getBytes("shard_uuid")), rs.getLong("shard_id"));
+                    rowCount += rs.getLong("row_count");
+                    compressedSize += rs.getLong("compressed_size");
+                    uncompressedSize += rs.getLong("uncompressed_size");
+                }
+            }
+        }
+        Map<UUID, Long> shardUuidToId = shardUuidToIdBuilder.build();
+        if (shardUuidToId.size() != oldShardUuidsMap.size()) {
+            throw transactionConflict();
+        }
+
+        // For background cleaner
+        ShardDao dao = shardDaoSupplier.attach(handle);
+        dao.insertDeletedShards(oldShardUuidsMap.keySet());
+
+        String where = " WHERE shard_id IN (" + args + ")";
+        String deleteFromShardNodes = "DELETE FROM shard_nodes " + where;
+        try (PreparedStatement statement = handle.getConnection().prepareStatement(deleteFromShardNodes)) {
+            bindLongs(statement, shardUuidToId.values());
+            statement.executeUpdate();
+        }
+
+        Connection connection = handle.getConnection();
+        int updatedCount = 0;
+        try (ShardsAndIndexDeleter shardsAndIndexDeleter = new ShardsAndIndexDeleter(connection, tableId)) {
+            for (List<UUID> batch : partition(oldShardUuidsMap.keySet(), batchSize(connection))) {
+                for (UUID uuid : batch) {
+                    Optional<UUID> deltaUuid = oldShardUuidsMap.get(uuid);
+                    shardsAndIndexDeleter.delete(shardUuidToId.get(uuid), deltaUuid);
+                }
+                updatedCount += shardsAndIndexDeleter.execute();
+            }
+        }
+        if (updatedCount != oldShardUuidsMap.size()) {
+            throw transactionConflict();
+        }
+
+        return new ShardStats(rowCount, compressedSize, uncompressedSize);
+    }
+
+    /**
+     * For shards and delta
+     *
+     * Insert into `shards`                         for both shards and delta shards
+     * Insert into `shard_nodes`  (non-bucketed)    for both shards and delta shards
+     * Insert into index table                      only for shards
+     */
+    private static void insertShardsAndIndex(long tableId, List<ColumnInfo> columns, Collection<ShardInfo> shards, Map<String, Integer> nodeIds, Handle handle, boolean isDelta)
+            throws SQLException
+    {
+        if (shards.isEmpty()) {
+            return;
+        }
+        boolean bucketed = shards.iterator().next().getBucketNumber().isPresent();
+
+        Connection connection = handle.getConnection();
+        try (IndexInserter indexInserter = new IndexInserter(connection, tableId, columns)) {
+            for (List<ShardInfo> batch : partition(shards, batchSize(connection))) {
+                List<Long> shardIds = insertShards(connection, tableId, batch, isDelta);
+
+                if (!bucketed) {
+                    insertShardNodes(connection, nodeIds, shardIds, batch);
+                }
+
+                if (!isDelta) {
+                    for (int i = 0; i < batch.size(); i++) {
+                        ShardInfo shard = batch.get(i);
+                        Set<Integer> shardNodes = shard.getNodeIdentifiers().stream()
+                                .map(nodeIds::get)
+                                .collect(toSet());
+                        indexInserter.insert(
+                                shardIds.get(i),
+                                shard.getShardUuid(),
+                                shard.getBucketNumber(),
+                                shardNodes,
+                                shard.getColumnStats());
+                    }
+                    indexInserter.execute();
+                }
+            }
+        }
+    }
+
+    /**
+     * For shards
+     *
+     * Select id from `shards` table
+     * - Purpose: 1. check the count as pre-check to avoid conflict 2. get statistics 3. use id to perform update
+     *
+     * Update `shards` table   check delta   verify delete count
+     * Update index table      check delta   verify delete count
+     */
+    private void updateShardsAndIndex(long tableId, Map<UUID, DeltaUuidPair> toUpdateShard, Handle handle)
+            throws SQLException
+    {
+        if (toUpdateShard.isEmpty()) {
+            return;
+        }
+
+        String args = Joiner.on(",").join(nCopies(toUpdateShard.size(), "?"));
+        ImmutableMap.Builder<Long, UUID> shardMapBuilder = ImmutableMap.builder();
+        String selectShards = format("" +
+                "SELECT shard_id, shard_uuid\n" +
+                "FROM shards\n" +
+                "WHERE shard_uuid IN (%s)", args);
+        try (PreparedStatement statement = handle.getConnection().prepareStatement(selectShards)) {
+            bindUuids(statement, toUpdateShard.keySet());
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    shardMapBuilder.put(rs.getLong("shard_id"), uuidFromBytes(rs.getBytes("shard_uuid")));
+                }
+            }
+        }
+        Map<Long, UUID> shardIdToUuid = shardMapBuilder.build();
+        if (toUpdateShard.size() != shardIdToUuid.size()) {
+            throw transactionConflict();
+        }
+
+        int updatedCount = 0;
+        try (ShardsAndIndexUpdater shardsAndIndexUpdater = new ShardsAndIndexUpdater(handle.getConnection(), tableId)) {
+            for (List<Long> batch : partition(shardIdToUuid.keySet(), batchSize(handle.getConnection()))) {
+                for (long shardId : batch) {
+                    shardsAndIndexUpdater.update(
+                            shardId,
+                            toUpdateShard.get(shardIdToUuid.get(shardId)).getOldDeltaUuid(),
+                            toUpdateShard.get(shardIdToUuid.get(shardId)).getNewDeltaUuid());
+                }
+                updatedCount += shardsAndIndexUpdater.execute();
+            }
+        }
+        if (updatedCount != shardIdToUuid.size()) {
+            log.error("updatedCount is not equal to shardIdToUuid size");
+            throw transactionConflict();
+        }
+    }
+
+    private static List<Long> insertShards(Connection connection, long tableId, List<ShardInfo> shards, boolean isDelta)
+            throws SQLException
+    {
+        String sql = "" +
+                "INSERT INTO shards (shard_uuid, table_id, is_delta, delta_uuid, create_time, row_count, compressed_size, uncompressed_size, xxhash64, bucket_number)\n" +
+                "VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?)";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql, RETURN_GENERATED_KEYS)) {
+            for (ShardInfo shard : shards) {
+                statement.setBytes(1, uuidToBytes(shard.getShardUuid()));
+                statement.setLong(2, tableId);
+                statement.setBoolean(3, isDelta);
+                statement.setNull(4, BINARY);
+                statement.setLong(5, shard.getRowCount());
+                statement.setLong(6, shard.getCompressedSize());
+                statement.setLong(7, shard.getUncompressedSize());
+                statement.setLong(8, shard.getXxhash64());
+                bindOptionalInt(statement, 9, shard.getBucketNumber());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+
+            ImmutableList.Builder<Long> builder = ImmutableList.builder();
+            try (ResultSet keys = statement.getGeneratedKeys()) {
+                while (keys.next()) {
+                    builder.add(keys.getLong(1));
+                }
+            }
+            List<Long> shardIds = builder.build();
+
+            if (shardIds.size() != shards.size()) {
+                throw new PrestoException(RAPTOR_ERROR, "Wrong number of generated keys for inserted shards");
+            }
+            return shardIds;
+        }
+    }
+
     private Map<String, Integer> toNodeIdMap(Collection<ShardInfo> shards)
     {
         Set<String> identifiers = shards.stream()
@@ -521,15 +970,15 @@ public class DatabaseShardManager
     }
 
     @Override
-    public ResultIterator<BucketShards> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public ResultIterator<BucketShards> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate, boolean tableSupportsDeltaDelete)
     {
-        return new ShardIterator(tableId, false, Optional.empty(), effectivePredicate, dbi);
+        return new ShardIterator(tableId, false, tableSupportsDeltaDelete, Optional.empty(), effectivePredicate, dbi);
     }
 
     @Override
-    public ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, List<String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public ResultIterator<BucketShards> getShardNodesBucketed(long tableId, boolean merged, List<String> bucketToNode, TupleDomain<RaptorColumnHandle> effectivePredicate, boolean tableSupportsDeltaDelete)
     {
-        return new ShardIterator(tableId, merged, Optional.of(bucketToNode), effectivePredicate, dbi);
+        return new ShardIterator(tableId, merged, tableSupportsDeltaDelete, Optional.of(bucketToNode), effectivePredicate, dbi);
     }
 
     @Override
@@ -826,7 +1275,7 @@ public class DatabaseShardManager
         }
     }
 
-    private static PrestoException transactionConflict()
+    public static PrestoException transactionConflict()
     {
         return new PrestoException(TRANSACTION_CONFLICT, "Table was updated by a different transaction. Please retry the operation.");
     }
@@ -910,5 +1359,40 @@ public class DatabaseShardManager
         {
             return uncompressedSize;
         }
+    }
+
+    private static class DeltaUuidPair
+    {
+        private Optional<UUID> oldDeltaUuid;
+        private UUID newDeltaUuid;
+
+        public DeltaUuidPair(Optional<UUID> oldDeltaUuid, UUID newDeltaUuid)
+        {
+            this.oldDeltaUuid = oldDeltaUuid;
+            this.newDeltaUuid = newDeltaUuid;
+        }
+
+        public Optional<UUID> getOldDeltaUuid()
+        {
+            return oldDeltaUuid;
+        }
+
+        public UUID getNewDeltaUuid()
+        {
+            return newDeltaUuid;
+        }
+    }
+
+    private static class DeltaDeleteStats
+    {
+        private final CounterStat updatedShards = new CounterStat();
+        private final CounterStat deletedShards = new CounterStat();
+    }
+
+    @Managed
+    @Flatten
+    public DeltaDeleteStats getDeltaDeleteStats()
+    {
+        return deltaDeleteStats;
     }
 }

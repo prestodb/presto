@@ -52,6 +52,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -64,6 +65,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalTotalLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededGlobalUserLimit;
@@ -86,6 +88,8 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.AbstractMap.SimpleEntry;
+import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 
@@ -366,18 +370,27 @@ public class ClusterMemoryManager
         }
         StringBuilder nodeDescription = new StringBuilder();
         nodeDescription.append("Query Kill Decision: Killed ").append(killedQueryId).append("\n");
-        for (MemoryInfo node : nodes) {
-            MemoryPoolInfo memoryPoolInfo = node.getPools().get(GENERAL_POOL);
-            if (memoryPoolInfo == null) {
-                continue;
-            }
-            nodeDescription.append("Query Kill Scenario: ");
-            nodeDescription.append("MaxBytes ").append(memoryPoolInfo.getMaxBytes()).append(' ');
-            nodeDescription.append("FreeBytes ").append(memoryPoolInfo.getFreeBytes() + memoryPoolInfo.getReservedRevocableBytes()).append(' ');
-            nodeDescription.append("Queries ");
-            Joiner.on(",").withKeyValueSeparator("=").appendTo(nodeDescription, memoryPoolInfo.getQueryMemoryReservations());
-            nodeDescription.append('\n');
-        }
+        Comparator<Entry<MemoryPoolInfo, Long>> nodeMemoryComparator = comparingLong(Entry::getValue);
+        nodes.stream()
+                .filter(node -> node.getPools().get(GENERAL_POOL) != null)
+                .map(node ->
+                        new SimpleEntry<MemoryPoolInfo, Long>(
+                                node.getPools().get(GENERAL_POOL),
+                                node.getPools().get(GENERAL_POOL).getQueryMemoryReservations().values().stream().mapToLong(l -> l).sum()))
+                .sorted(nodeMemoryComparator.reversed())
+                .map(Entry::getKey)
+                .forEachOrdered(memoryPoolInfo -> {
+                    nodeDescription.append("Query Kill Scenario: ");
+                    nodeDescription.append("MaxBytes ").append(memoryPoolInfo.getMaxBytes()).append(' ');
+                    nodeDescription.append("FreeBytes ").append(memoryPoolInfo.getFreeBytes() + memoryPoolInfo.getReservedRevocableBytes()).append(' ');
+                    nodeDescription.append("Queries ");
+                    Comparator<Entry<QueryId, Long>> queryMemoryComparator = comparingLong(Entry::getValue);
+                    Stream<Entry<QueryId, Long>> sortedMemoryReservations =
+                            memoryPoolInfo.getQueryMemoryReservations().entrySet().stream()
+                                    .sorted(queryMemoryComparator.reversed());
+                    Joiner.on(",").withKeyValueSeparator("=").appendTo(nodeDescription, (Iterable<Entry<QueryId, Long>>) sortedMemoryReservations::iterator);
+                    nodeDescription.append('\n');
+                });
         log.info(nodeDescription.toString());
     }
 

@@ -57,6 +57,20 @@ interface TestingShardDao
             @Bind("uncompressedSize") long uncompressedSize,
             @Bind("xxhash64") long xxhash64);
 
+    @SqlUpdate("INSERT INTO shards (shard_uuid, table_id, is_delta, delta_uuid, bucket_number, create_time, row_count, compressed_size, uncompressed_size, xxhash64)\n" +
+            "VALUES (:shardUuid, :tableId, :isDelta, :deltaUuid, :bucketNumber, CURRENT_TIMESTAMP, :rowCount, :compressedSize, :uncompressedSize, :xxhash64)")
+    @GetGeneratedKeys
+    long insertShardWithDelta(
+            @Bind("shardUuid") UUID shardUuid,
+            @Bind("tableId") long tableId,
+            @Bind("isDelta") boolean isDelta,
+            @Bind("deltaUuid") UUID deltaUuid,
+            @Bind("bucketNumber") Integer bucketNumber,
+            @Bind("rowCount") long rowCount,
+            @Bind("compressedSize") long compressedSize,
+            @Bind("uncompressedSize") long uncompressedSize,
+            @Bind("xxhash64") long xxhash64);
+
     @SqlUpdate("INSERT INTO shard_nodes (shard_id, node_id)\n" +
             "VALUES (:shardId, :nodeId)\n")
     void insertShardNode(@Bind("shardId") long shardId, @Bind("nodeId") int nodeId);

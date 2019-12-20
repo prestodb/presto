@@ -16,7 +16,8 @@ package com.facebook.presto.orc;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
+import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
@@ -28,33 +29,59 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockLease;
+import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
+import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createStreamReader;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class OrcSelectiveRecordReader
@@ -62,20 +89,31 @@ public class OrcSelectiveRecordReader
 {
     // Marks a SQL null when occurring in constantValues.
     private static final byte[] NULL_MARKER = new byte[0];
+    private static final Page EMPTY_PAGE = new Page(0);
 
     private final int[] hiveColumnIndices;                            // elements are hive column indices
     private final List<Integer> outputColumns;                        // elements are hive column indices
     private final Map<Integer, Type> columnTypes;                     // key: index into hiveColumnIndices array
     private final Object[] constantValues;                            // aligned with hiveColumnIndices array
     private final Function<Block, Block>[] coercers;                   // aligned with hiveColumnIndices array
-    private final List<FilterFunction> filterFunctionsWithInputs;
+
+    // non-deterministic filter function with no inputs (rand() < 0.1); evaluated before any column is read
     private final Optional<FilterFunction> filterFunctionWithoutInput;
     private final Map<Integer, Integer> filterFunctionInputMapping;   // channel-to-index-into-hiveColumnIndices-array mapping
-    private final Set<Integer> filterFunctionInputs;                  // channels
     private final Map<Integer, Integer> columnsWithFilterScores;      // keys are indices into hiveColumnIndices array; values are filter scores
 
     // Optimal order of stream readers
     private int[] streamReaderOrder;                                  // elements are indices into hiveColumnIndices array
+
+    private List<FilterFunctionWithStats>[] filterFunctionsOrder;     // aligned with streamReaderOrder order; each filter function is placed
+                                                                      // into a list positioned at the last necessary input
+    private Set<Integer>[] filterFunctionInputs;                      // aligned with filterFunctionsOrder
+    private boolean reorderFilters;
+    private int[] reorderableColumns;                                 // values are hiveColumnIndices
+
+    // non-deterministic filter functions with only constant inputs; evaluated before any column is read
+    private List<FilterFunctionWithStats> filterFunctionsWithConstantInputs;
+    private Set<Integer> filterFunctionConstantInputs;
 
     // An immutable list of initial positions; includes all positions: 0,1,2,3,4,..
     // This array may grow, but cannot shrink. The values don't change.
@@ -83,8 +121,22 @@ public class OrcSelectiveRecordReader
 
     // Used in applyFilterFunctions; mutable
     private int[] outputPositions;
+
+    // errors encountered while evaluating filter functions; indices are positions in the batch
+    // of rows being processed by getNextPage (errors[outputPositions[i]] is valid)
     private RuntimeException[] errors;
+
+    // temporary array to be used in applyFilterFunctions only; exists solely for the purpose of re-using memory
+    // indices are positions in a page provided to the filter filters (it contains a subset of rows that passed earlier filters)
+    private RuntimeException[] tmpErrors;
+
+    // flag indicating whether range filter on a constant column is false; no data is read in that case
     private boolean constantFilterIsFalse;
+
+    // an error occurred while evaluating deterministic filter function with only constant
+    // inputs; thrown unless other filters eliminate all rows
+    @Nullable
+    private RuntimeException constantFilterError;
 
     private int readPositions;
 
@@ -167,15 +219,12 @@ public class OrcSelectiveRecordReader
         this.outputColumns = outputColumns.stream().map(zeroBasedIndices::get).collect(toImmutableList());
         this.columnTypes = includedColumns.entrySet().stream().collect(toImmutableMap(entry -> zeroBasedIndices.get(entry.getKey()), Map.Entry::getValue));
         this.filterFunctionWithoutInput = getFilterFunctionWithoutInputs(filterFunctions);
-        this.filterFunctionsWithInputs = filterFunctions.stream()
-                .filter(function -> function.getInputChannels().length > 0)
-                .collect(toImmutableList());
-        this.filterFunctionInputMapping = Maps.transformValues(filterFunctionInputMapping, zeroBasedIndices::get);
-        this.filterFunctionInputs = filterFunctions.stream()
+
+        Set<Integer> usedInputChannels = filterFunctions.stream()
                 .flatMapToInt(function -> Arrays.stream(function.getInputChannels()))
                 .boxed()
-                .map(this.filterFunctionInputMapping::get)
                 .collect(toImmutableSet());
+        this.filterFunctionInputMapping = Maps.transformValues(Maps.filterKeys(filterFunctionInputMapping, usedInputChannels::contains), zeroBasedIndices::get);
         this.columnsWithFilterScores = filters
                 .entrySet()
                 .stream()
@@ -211,19 +260,182 @@ public class OrcSelectiveRecordReader
             }
         }
 
+        if (!evaluateDeterministicFilterFunctionsWithConstantInputs(filterFunctions)) {
+            constantFilterIsFalse = true;
+            // No further initialization needed.
+            return;
+        }
+
         // Initial order of stream readers is:
         //  - readers with integer equality
         //  - readers with integer range / multivalues / inequality
         //  - readers with filters
         //  - followed by readers for columns that provide input to filter functions
         //  - followed by readers for columns that doesn't have any filtering
-        streamReaderOrder = orderStreamReaders(columnTypes.keySet().stream().filter(index -> this.constantValues[index] == null).collect(toImmutableSet()), columnsWithFilterScores, filterFunctionInputs);
+        streamReaderOrder = orderStreamReaders(columnTypes.keySet().stream().filter(index -> this.constantValues[index] == null).collect(toImmutableSet()), columnsWithFilterScores, this.filterFunctionInputMapping.keySet(), columnTypes);
+
+        List<FilterFunction> filterFunctionsWithInputs = filterFunctions.stream()
+                .filter(OrcSelectiveRecordReader::hasInputs)
+                .filter(not(this::allConstantInputs))
+                .collect(toImmutableList());
+
+        // figure out when to evaluate filter functions; a function is ready for evaluation as soon as the last input has been read
+        List<FilterFunctionWithStats> filterFunctionsWithStats = filterFunctionsWithInputs.stream()
+                .map(function -> new FilterFunctionWithStats(function, new FilterStats()))
+                .collect(toImmutableList());
+        filterFunctionsOrder = orderFilterFunctionsWithInputs(streamReaderOrder, filterFunctionsWithStats, this.filterFunctionInputMapping);
+        filterFunctionInputs = collectFilterFunctionInputs(filterFunctionsOrder, this.filterFunctionInputMapping);
+        reorderableColumns = Arrays.stream(streamReaderOrder)
+                .filter(columnIndex -> !columnsWithFilterScores.containsKey(columnIndex))
+                .filter(this.filterFunctionInputMapping::containsKey)
+                .toArray();
+        reorderFilters = filterFunctionsWithStats.size() > 1 && reorderableColumns.length > 1;
+
+        filterFunctionsWithConstantInputs = filterFunctions.stream()
+                .filter(not(FilterFunction::isDeterministic))
+                .filter(OrcSelectiveRecordReader::hasInputs)
+                .filter(this::allConstantInputs)
+                .map(function -> new FilterFunctionWithStats(function, new FilterStats()))
+                .collect(toImmutableList());
+        filterFunctionConstantInputs = filterFunctionsWithConstantInputs.stream()
+                .flatMapToInt(function -> Arrays.stream(function.getFunction().getInputChannels()))
+                .boxed()
+                .map(this.filterFunctionInputMapping::get)
+                .collect(toImmutableSet());
+    }
+
+    private boolean evaluateDeterministicFilterFunctionsWithConstantInputs(List<FilterFunction> filterFunctions)
+    {
+        for (FilterFunction function : filterFunctions) {
+            if (function.isDeterministic() && hasInputs(function) && allConstantInputs(function) && !evaluateDeterministicFilterFunctionWithConstantInputs(function)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean evaluateDeterministicFilterFunctionWithConstantInputs(FilterFunction function)
+    {
+        int[] inputs = function.getInputChannels();
+        Block[] blocks = new Block[inputs.length];
+        for (int i = 0; i < inputs.length; i++) {
+            int columnIndex = filterFunctionInputMapping.get(inputs[i]);
+            Object constantValue = constantValues[columnIndex];
+            blocks[i] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValue == NULL_MARKER ? null : constantValue, 1);
+        }
+
+        initializeTmpErrors(1);
+        int positionCount = function.filter(new Page(blocks), new int[] {0}, 1, tmpErrors);
+
+        if (tmpErrors[0] != null) {
+            constantFilterError = tmpErrors[0];
+        }
+        return positionCount == 1;
+    }
+
+    private static boolean hasInputs(FilterFunction function)
+    {
+        return function.getInputChannels().length > 0;
+    }
+
+    private boolean allConstantInputs(FilterFunction function)
+    {
+        return Arrays.stream(function.getInputChannels())
+                .map(filterFunctionInputMapping::get)
+                .allMatch(columnIndex -> constantValues[columnIndex] != null);
+    }
+
+    private void reorderFiltersIfNeeded()
+    {
+        List<FilterFunctionWithStats> filters = Arrays.stream(filterFunctionsOrder)
+                .filter(Objects::nonNull)
+                .flatMap(functions -> functions.stream())
+                .sorted(Comparator.comparingDouble(function -> function.getStats().getElapsedNanonsPerDroppedPosition()))
+                .collect(toImmutableList());
+
+        assert filters.size() > 1;
+
+        Map<Integer, Integer> columnScore = new HashMap<>();
+        for (int i = 0; i < filters.size(); i++) {
+            int score = i;
+            Arrays.stream(filters.get(i).getFunction().getInputChannels())
+                    .map(filterFunctionInputMapping::get)
+                    // exclude columns with range filters
+                    .filter(columnIndex -> !columnsWithFilterScores.containsKey(columnIndex))
+                    // exclude constant columns
+                    .filter(columnIndex -> constantValues[columnIndex] == null)
+                    .forEach(columnIndex -> columnScore.compute(columnIndex, (k, v) -> v == null ? score : min(score, v)));
+        }
+
+        int[] newColumnOrder = columnScore.entrySet().stream()
+                .sorted(Comparator.comparing(Map.Entry::getValue))
+                .mapToInt(Map.Entry::getKey)
+                .toArray();
+
+        // Update streamReaderOrder,
+        // filterFunctionsOrder (aligned with streamReaderOrder),
+        // filterFunctionInputs (aligned with filterFunctionsOrder)
+        boolean sameOrder = true;
+        for (int i = 0; i < streamReaderOrder.length; i++) {
+            if (!columnsWithFilterScores.containsKey(streamReaderOrder[i])) {
+                for (int j = 0; j < newColumnOrder.length; j++) {
+                    if (streamReaderOrder[i] != newColumnOrder[j]) {
+                        sameOrder = false;
+                    }
+                    streamReaderOrder[i++] = newColumnOrder[j];
+                }
+                break;
+            }
+        }
+
+        if (!sameOrder) {
+            filterFunctionsOrder = orderFilterFunctionsWithInputs(streamReaderOrder, filters, this.filterFunctionInputMapping);
+            filterFunctionInputs = collectFilterFunctionInputs(filterFunctionsOrder, this.filterFunctionInputMapping);
+        }
+    }
+
+    private static List<FilterFunctionWithStats>[] orderFilterFunctionsWithInputs(int[] streamReaderOrder, List<FilterFunctionWithStats> filterFunctions, Map<Integer, Integer> inputMapping)
+    {
+        List<FilterFunctionWithStats>[] order = new List[streamReaderOrder.length];
+        for (FilterFunctionWithStats function : filterFunctions) {
+            int[] inputs = function.getFunction().getInputChannels();
+            int lastIndex = -1;
+            for (int input : inputs) {
+                int columnIndex = inputMapping.get(input);
+                lastIndex = max(lastIndex, Ints.indexOf(streamReaderOrder, columnIndex));
+            }
+
+            verify(lastIndex >= 0);
+            if (order[lastIndex] == null) {
+                order[lastIndex] = new ArrayList<>();
+            }
+            order[lastIndex].add(function);
+        }
+
+        return order;
+    }
+
+    private static Set<Integer>[] collectFilterFunctionInputs(List<FilterFunctionWithStats>[] functionsOrder, Map<Integer, Integer> inputMapping)
+    {
+        Set<Integer>[] inputs = new Set[functionsOrder.length];
+        for (int i = 0; i < functionsOrder.length; i++) {
+            List<FilterFunctionWithStats> functions = functionsOrder[i];
+            if (functions != null) {
+                inputs[i] = functions.stream()
+                        .flatMapToInt(function -> Arrays.stream(function.getFunction().getInputChannels()))
+                        .boxed()
+                        .map(inputMapping::get)
+                        .collect(toImmutableSet());
+            }
+        }
+
+        return inputs;
     }
 
     private static Optional<FilterFunction> getFilterFunctionWithoutInputs(List<FilterFunction> filterFunctions)
     {
         List<FilterFunction> functions = filterFunctions.stream()
-                .filter(function -> function.getInputChannels().length == 0)
+                .filter(not(OrcSelectiveRecordReader::hasInputs))
                 .collect(toImmutableList());
         if (functions.isEmpty()) {
             return Optional.empty();
@@ -261,14 +473,43 @@ public class OrcSelectiveRecordReader
             return 50;
         }
 
-        if (filter instanceof BigintValues || filter instanceof BigintMultiRange) {
+        if (filter instanceof BigintValuesUsingHashTable || filter instanceof BigintValuesUsingBitmask || filter instanceof BigintMultiRange) {
             return 50;
         }
 
         return 100;
     }
 
-    private static int[] orderStreamReaders(Collection<Integer> columnIndices, Map<Integer, Integer> columnToScore, Set<Integer> filterFunctionInputs)
+    private static int scoreType(Type type)
+    {
+        if (type == BOOLEAN) {
+            return 10;
+        }
+
+        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type == TIMESTAMP || type == DATE) {
+            return 20;
+        }
+
+        if (type == REAL || type == DOUBLE) {
+            return 30;
+        }
+
+        if (type instanceof DecimalType) {
+            return 40;
+        }
+
+        if (isVarcharType(type) || type instanceof CharType) {
+            return 50;
+        }
+
+        return 100;
+    }
+
+    private static int[] orderStreamReaders(
+            Collection<Integer> columnIndices,
+            Map<Integer, Integer> columnToScore,
+            Set<Integer> filterFunctionInputs,
+            Map<Integer, Type> columnTypes)
     {
         List<Integer> sortedColumnsByFilterScore = columnToScore.entrySet()
                 .stream()
@@ -283,11 +524,22 @@ public class OrcSelectiveRecordReader
                 order[i++] = columnIndex;
             }
         }
-        for (int columnIndex : filterFunctionInputs) {
+
+        // read primitive types first
+        List<Integer> sortedFilterFunctionInputs = filterFunctionInputs.stream()
+                .collect(toImmutableMap(Function.identity(), columnIndex -> scoreType(columnTypes.get(columnIndex))))
+                .entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .collect(toImmutableList());
+
+        for (int columnIndex : sortedFilterFunctionInputs) {
             if (columnIndices.contains(columnIndex) && !sortedColumnsByFilterScore.contains(columnIndex)) {
                 order[i++] = columnIndex;
             }
         }
+
         for (int columnIndex : columnIndices) {
             if (!sortedColumnsByFilterScore.contains(columnIndex) && !filterFunctionInputs.contains(columnIndex)) {
                 order[i++] = columnIndex;
@@ -365,51 +617,68 @@ public class OrcSelectiveRecordReader
 
             if (positionCount == 0) {
                 batchRead(batchSize);
-                return new Page(0);
+                return EMPTY_PAGE;
             }
 
             positionsToRead = outputPositions;
         }
 
-        boolean filterFunctionsApplied = filterFunctionsWithInputs.isEmpty();
+        if (!filterFunctionsWithConstantInputs.isEmpty()) {
+            positionCount = applyFilterFunctions(filterFunctionsWithConstantInputs, filterFunctionConstantInputs, positionsToRead, positionCount);
 
-        for (int columnIndex : streamReaderOrder) {
-            if (!filterFunctionsApplied && !hasAnyFilter(columnIndex)) {
-                positionCount = applyFilterFunctions(positionsToRead, positionCount);
-                if (positionCount == 0) {
-                    break;
-                }
+            if (positionCount == 0) {
+                batchRead(batchSize);
+                return EMPTY_PAGE;
+            }
 
-                positionsToRead = outputPositions;
-                filterFunctionsApplied = true;
+            positionsToRead = outputPositions;
+        }
+
+        int offset = getNextRowInGroup();
+
+        if (reorderFilters && offset >= MAX_BATCH_SIZE) {
+            reorderFiltersIfNeeded();
+        }
+
+        for (int i = 0; i < streamReaderOrder.length; i++) {
+            int columnIndex = streamReaderOrder[i];
+
+            if (!hasAnyFilter(columnIndex)) {
+                break;
             }
 
             SelectiveStreamReader streamReader = getStreamReader(columnIndex);
-            positionCount = streamReader.read(getNextRowInGroup(), positionsToRead, positionCount);
+            positionCount = streamReader.read(offset, positionsToRead, positionCount);
             if (positionCount == 0) {
                 break;
             }
 
             positionsToRead = streamReader.getReadPositions();
             verify(positionCount == 1 || positionsToRead[positionCount - 1] - positionsToRead[0] >= positionCount - 1, "positions must monotonically increase");
-        }
 
-        if (positionCount > 0 && !filterFunctionsApplied) {
-            positionCount = applyFilterFunctions(positionsToRead, positionCount);
-            positionsToRead = outputPositions;
+            if (filterFunctionsOrder[i] != null) {
+                positionCount = applyFilterFunctions(filterFunctionsOrder[i], filterFunctionInputs[i], positionsToRead, positionCount);
+                if (positionCount == 0) {
+                    break;
+                }
+
+                positionsToRead = outputPositions;
+            }
         }
 
         batchRead(batchSize);
 
         if (positionCount == 0) {
-            return new Page(0);
+            return EMPTY_PAGE;
         }
 
-        if (filterFunctionsWithInputs.isEmpty() && filterFunctionWithoutInput.isPresent()) {
-            for (int i = 0; i < positionCount; i++) {
-                if (errors[positionsToRead[i]] != null) {
-                    throw errors[positionsToRead[i]];
-                }
+        if (constantFilterError != null) {
+            throw constantFilterError;
+        }
+
+        for (int i = 0; i < positionCount; i++) {
+            if (errors[positionsToRead[i]] != null) {
+                throw errors[positionsToRead[i]];
             }
         }
 
@@ -424,6 +693,9 @@ public class OrcSelectiveRecordReader
             int columnIndex = outputColumns.get(i);
             if (constantValues[columnIndex] != null) {
                 blocks[i] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex] == NULL_MARKER ? null : constantValues[columnIndex], positionCount);
+            }
+            else if (!hasAnyFilter(columnIndex)) {
+                blocks[i] = new LazyBlock(positionCount, new OrcBlockLoader(getStreamReader(columnIndex), coercers[columnIndex], offset, positionsToRead, positionCount));
             }
             else {
                 Block block = getStreamReader(columnIndex).getBlock(positionsToRead, positionCount);
@@ -451,7 +723,7 @@ public class OrcSelectiveRecordReader
 
     private boolean hasAnyFilter(int columnIndex)
     {
-        return columnsWithFilterScores.containsKey(columnIndex) || filterFunctionInputs.contains(columnIndex);
+        return columnsWithFilterScores.containsKey(columnIndex) || filterFunctionInputMapping.containsKey(columnIndex);
     }
 
     private void initializePositions(int batchSize)
@@ -478,7 +750,7 @@ public class OrcSelectiveRecordReader
         return filterFunctionWithoutInput.get().filter(page, outputPositions, positionCount, errors);
     }
 
-    private int applyFilterFunctions(int[] positions, int positionCount)
+    private int applyFilterFunctions(List<FilterFunctionWithStats> filterFunctions, Set<Integer> filterFunctionInputs, int[] positions, int positionCount)
     {
         BlockLease[] blockLeases = new BlockLease[hiveColumnIndices.length];
         Block[] blocks = new Block[hiveColumnIndices.length];
@@ -496,33 +768,35 @@ public class OrcSelectiveRecordReader
             }
         }
 
-        if (filterFunctionWithoutInput.isPresent()) {
-            for (int i = 0; i < positionCount; i++) {
-                errors[i] = errors[positions[i]];
-            }
+        initializeTmpErrors(positionCount);
+        for (int i = 0; i < positionCount; i++) {
+            tmpErrors[i] = errors[positions[i]];
         }
+
+        Arrays.fill(errors, null);
 
         try {
             initializeOutputPositions(positionCount);
 
-            for (FilterFunction function : filterFunctionsWithInputs) {
+            for (int i = 0; i < filterFunctions.size(); i++) {
+                FilterFunctionWithStats functionWithStats = filterFunctions.get(i);
+
+                FilterFunction function = functionWithStats.getFunction();
                 int[] inputs = function.getInputChannels();
                 Block[] inputBlocks = new Block[inputs.length];
 
-                for (int i = 0; i < inputs.length; i++) {
-                    inputBlocks[i] = blocks[filterFunctionInputMapping.get(inputs[i])];
+                for (int j = 0; j < inputs.length; j++) {
+                    inputBlocks[j] = blocks[filterFunctionInputMapping.get(inputs[j])];
                 }
 
                 Page page = new Page(positionCount, inputBlocks);
-                positionCount = function.filter(page, outputPositions, positionCount, errors);
+                long startTime = System.nanoTime();
+                int inputPositionCount = positionCount;
+                positionCount = function.filter(page, outputPositions, positionCount, tmpErrors);
+                functionWithStats.getStats().update(inputPositionCount, positionCount, System.nanoTime() - startTime);
+
                 if (positionCount == 0) {
                     break;
-                }
-            }
-
-            for (int i = 0; i < positionCount; i++) {
-                if (errors[i] != null) {
-                    throw errors[i];
                 }
             }
 
@@ -531,6 +805,7 @@ public class OrcSelectiveRecordReader
             // e.g. make outputPositions a subset of positions array
             for (int i = 0; i < positionCount; i++) {
                 outputPositions[i] = positions[outputPositions[i]];
+                errors[outputPositions[i]] = tmpErrors[i];
             }
             return positionCount;
         }
@@ -540,6 +815,16 @@ public class OrcSelectiveRecordReader
                     blockLease.close();
                 }
             }
+        }
+    }
+
+    private void initializeTmpErrors(int positionCount)
+    {
+        if (tmpErrors == null || tmpErrors.length < positionCount) {
+            tmpErrors = new RuntimeException[positionCount];
+        }
+        else {
+            Arrays.fill(tmpErrors, null);
         }
     }
 
@@ -567,5 +852,90 @@ public class OrcSelectiveRecordReader
         }
 
         super.close();
+    }
+
+    private static final class OrcBlockLoader
+            implements LazyBlockLoader<LazyBlock>
+    {
+        private final SelectiveStreamReader reader;
+        @Nullable
+        private final Function<Block, Block> coercer;
+        private final int offset;
+        private final int[] positions;
+        private final int positionCount;
+        private boolean loaded;
+
+        public OrcBlockLoader(SelectiveStreamReader reader, @Nullable Function<Block, Block> coercer, int offset, int[] positions, int positionCount)
+        {
+            this.reader = requireNonNull(reader, "reader is null");
+            this.coercer = coercer; // can be null
+            this.offset = offset;
+            this.positions = requireNonNull(positions, "positions is null");
+            this.positionCount = positionCount;
+        }
+
+        @Override
+        public final void load(LazyBlock lazyBlock)
+        {
+            if (loaded) {
+                return;
+            }
+
+            try {
+                reader.read(offset, positions, positionCount);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+
+            Block block = reader.getBlock(positions, positionCount);
+            if (coercer != null) {
+                block = coercer.apply(block);
+            }
+            lazyBlock.setBlock(block);
+
+            loaded = true;
+        }
+    }
+
+    private static final class FilterFunctionWithStats
+    {
+        private final FilterFunction function;
+        private final FilterStats stats;
+
+        private FilterFunctionWithStats(FilterFunction function, FilterStats stats)
+        {
+            this.function = function;
+            this.stats = stats;
+        }
+
+        public FilterFunction getFunction()
+        {
+            return function;
+        }
+
+        public FilterStats getStats()
+        {
+            return stats;
+        }
+    }
+
+    private static final class FilterStats
+    {
+        private long inputPositions;
+        private long outputPositions;
+        private long elapsedNanos;
+
+        public void update(int inputPositions, int outputPositions, long elapsedNanos)
+        {
+            this.inputPositions += inputPositions;
+            this.outputPositions += outputPositions;
+            this.elapsedNanos += elapsedNanos;
+        }
+
+        public double getElapsedNanonsPerDroppedPosition()
+        {
+            return (double) elapsedNanos / (1 + inputPositions - outputPositions);
+        }
     }
 }

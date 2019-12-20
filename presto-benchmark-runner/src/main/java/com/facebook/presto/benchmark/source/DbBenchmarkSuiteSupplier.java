@@ -47,7 +47,7 @@ public class DbBenchmarkSuiteSupplier
         try (Handle handle = jdbi.open()) {
             BenchmarkSuiteDao benchmarkDao = handle.attach(BenchmarkSuiteDao.class);
             BenchmarkSuiteInfo benchmarkSuiteInfo = benchmarkDao.getBenchmarkSuiteInfo(suitesTableName, suite);
-            benchmarkSuite = new BenchmarkSuite(benchmarkSuiteInfo, benchmarkDao.getBenchmarkQueries(queriesTableName, benchmarkSuiteInfo.getQuerySet()));
+            benchmarkSuite = new BenchmarkSuite(suite, benchmarkSuiteInfo, benchmarkDao.getBenchmarkQueries(queriesTableName, benchmarkSuiteInfo.getQuerySet()));
         }
         return benchmarkSuite;
     }

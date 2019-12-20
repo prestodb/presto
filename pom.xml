@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.230-SNAPSHOT</version>
+    <version>0.231-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -45,7 +45,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.186</dep.airlift.version>
+        <dep.airlift.version>0.187</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.36</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -930,6 +930,30 @@
             </dependency>
 
             <dependency>
+                <groupId>org.alluxio</groupId>
+                <artifactId>alluxio-shaded-client</artifactId>
+                <version>2.1.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>log4j</groupId>
+                        <artifactId>log4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>com.amazonaws</groupId>
                 <artifactId>aws-java-sdk-core</artifactId>
                 <version>${dep.aws-sdk.version}</version>
@@ -1230,7 +1254,7 @@
             <dependency>
                 <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
-                <version>1.15.0</version>
+                <version>1.16.1</version>
             </dependency>
 
             <dependency>

@@ -18,6 +18,7 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
+import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
@@ -32,6 +33,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
@@ -39,6 +41,7 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static com.facebook.presto.verifier.framework.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
@@ -50,6 +53,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_LIMITATION;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -91,10 +95,10 @@ public abstract class AbstractVerification
         this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
         this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
-        this.runTearDownOnResultMismatch = verifierConfig.isRunTearDownOnResultMismatch();
+        this.runTearDownOnResultMismatch = verifierConfig.isRunTeardownOnResultMismatch();
     }
 
-    protected abstract VerificationResult verify(QueryBundle control, QueryBundle test);
+    protected abstract MatchResult verify(QueryBundle control, QueryBundle test);
 
     protected abstract DeterminismAnalysis analyzeDeterminism(QueryBundle control, ChecksumResult firstChecksum);
 
@@ -110,7 +114,7 @@ public abstract class AbstractVerification
         boolean resultMismatched = false;
         QueryBundle control = null;
         QueryBundle test = null;
-        VerificationResult verificationResult = null;
+        MatchResult matchResult = null;
         Optional<DeterminismAnalysis> determinismAnalysis = Optional.empty();
 
         QueryStats controlQueryStats = null;
@@ -121,15 +125,15 @@ public abstract class AbstractVerification
             test = queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST);
             controlQueryStats = setupAndRun(control, false);
             testQueryStats = setupAndRun(test, false);
-            verificationResult = verify(control, test);
+            matchResult = verify(control, test);
 
-            if (verificationResult.getMatchResult().isMismatchPossiblyCausedByNonDeterminism()) {
-                determinismAnalysis = Optional.of(analyzeDeterminism(control, verificationResult.getMatchResult().getControlChecksum()));
+            if (matchResult.isMismatchPossiblyCausedByNonDeterminism()) {
+                determinismAnalysis = Optional.of(analyzeDeterminism(control, matchResult.getControlChecksum()));
             }
             boolean maybeDeterministic = !determinismAnalysis.isPresent() ||
                     determinismAnalysis.get().isDeterministic() ||
                     determinismAnalysis.get().isUnknown();
-            resultMismatched = maybeDeterministic && !verificationResult.getMatchResult().isMatched();
+            resultMismatched = maybeDeterministic && !matchResult.isMatched();
 
             return Optional.of(buildEvent(
                     Optional.of(control),
@@ -137,7 +141,7 @@ public abstract class AbstractVerification
                     Optional.ofNullable(controlQueryStats),
                     Optional.ofNullable(testQueryStats),
                     Optional.empty(),
-                    Optional.of(verificationResult),
+                    Optional.of(matchResult),
                     determinismAnalysis));
         }
         catch (QueryException e) {
@@ -150,7 +154,7 @@ public abstract class AbstractVerification
                     Optional.ofNullable(controlQueryStats),
                     Optional.ofNullable(testQueryStats),
                     Optional.of(e),
-                    Optional.ofNullable(verificationResult),
+                    Optional.ofNullable(matchResult),
                     determinismAnalysis));
         }
         catch (Throwable t) {
@@ -173,6 +177,11 @@ public abstract class AbstractVerification
     protected QueryRewriter getQueryRewriter()
     {
         return queryRewriter;
+    }
+
+    protected VerificationContext getVerificationContext()
+    {
+        return verificationContext;
     }
 
     protected QueryStats setupAndRun(QueryBundle bundle, boolean determinismAnalysis)
@@ -209,10 +218,10 @@ public abstract class AbstractVerification
             Optional<QueryStats> controlStats,
             Optional<QueryStats> testStats,
             Optional<QueryException> queryException,
-            Optional<VerificationResult> verificationResult,
+            Optional<MatchResult> matchResult,
             Optional<DeterminismAnalysis> determinismAnalysis)
     {
-        boolean succeeded = verificationResult.isPresent() && verificationResult.get().getMatchResult().isMatched();
+        boolean succeeded = matchResult.isPresent() && matchResult.get().isMatched();
 
         QueryState controlState = getQueryState(controlStats, queryException, CONTROL);
         QueryState testState = getQueryState(testStats, queryException, TEST);
@@ -227,13 +236,13 @@ public abstract class AbstractVerification
                         queryException.get().getQueryStage().getTargetCluster(),
                         getStackTraceAsString(queryException.get().getCause()));
             }
-            if (verificationResult.isPresent()) {
-                errorMessage += verificationResult.get().getMatchResult().getResultsComparison();
+            if (matchResult.isPresent()) {
+                errorMessage += matchResult.get().getResultsComparison();
             }
         }
 
         EventStatus status;
-        Optional<SkippedReason> skippedReason = getSkippedReason(controlState, determinismAnalysis);
+        Optional<SkippedReason> skippedReason = getSkippedReason(controlState, determinismAnalysis, queryException);
         Optional<String> resolveMessage = Optional.empty();
         if (succeeded) {
             status = SUCCEEDED;
@@ -259,7 +268,7 @@ public abstract class AbstractVerification
         Optional<String> errorCode = Optional.empty();
         if (!succeeded) {
             errorCode = Optional.ofNullable(queryException.map(QueryException::getErrorCode).orElse(
-                    verificationResult.map(VerificationResult::getMatchResult).map(MatchResult::getMatchType).map(MatchType::name).orElse(null)));
+                    matchResult.map(MatchResult::getMatchType).map(MatchType::name).orElse(null)));
         }
 
         return new VerifierQueryEvent(
@@ -269,21 +278,27 @@ public abstract class AbstractVerification
                 status,
                 skippedReason,
                 determinismAnalysis,
+                determinismAnalysis.isPresent() ?
+                        Optional.of(new DeterminismAnalysisDetails(
+                                verificationContext.getDeterminismAnalysisRuns(),
+                                verificationContext.getLimitQueryAnalysis(),
+                                verificationContext.getLimitQueryAnalysisQueryId())) :
+                        Optional.empty(),
                 resolveMessage,
-                Optional.of(buildQueryInfo(
+                buildQueryInfo(
                         sourceQuery.getControlConfiguration(),
                         sourceQuery.getControlQuery(),
-                        verificationResult.map(VerificationResult::getControlChecksumQueryId),
-                        verificationResult.map(VerificationResult::getControlChecksumQuery),
+                        verificationContext.getControlChecksumQueryId(),
+                        verificationContext.getControlChecksumQuery(),
                         control,
-                        controlStats)),
-                Optional.of(buildQueryInfo(
+                        controlStats),
+                buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
-                        verificationResult.map(VerificationResult::getTestChecksumQueryId),
-                        verificationResult.map(VerificationResult::getTestChecksumQuery),
+                        verificationContext.getTestChecksumQueryId(),
+                        verificationContext.getTestChecksumQuery(),
                         test,
-                        testStats)),
+                        testStats),
                 errorCode,
                 Optional.ofNullable(errorMessage),
                 queryException.map(QueryException::toQueryFailure),
@@ -324,7 +339,10 @@ public abstract class AbstractVerification
                 .collect(toImmutableList());
     }
 
-    private static Optional<SkippedReason> getSkippedReason(QueryState controlState, Optional<DeterminismAnalysis> determinismAnalysis)
+    private static Optional<SkippedReason> getSkippedReason(
+            QueryState controlState,
+            Optional<DeterminismAnalysis> determinismAnalysis,
+            Optional<QueryException> queryException)
     {
         switch (controlState) {
             case FAILED:
@@ -338,6 +356,12 @@ public abstract class AbstractVerification
         }
         if (determinismAnalysis.isPresent() && determinismAnalysis.get().isNonDeterministic()) {
             return Optional.of(NON_DETERMINISTIC);
+        }
+        if (queryException.isPresent() &&
+                queryException.get().getQueryStage().equals(CHECKSUM) &&
+                queryException.get().getPrestoErrorCode().isPresent() &&
+                queryException.get().getPrestoErrorCode().get().equals(COMPILER_ERROR)) {
+            return Optional.of(VERIFIER_LIMITATION);
         }
         return Optional.empty();
     }

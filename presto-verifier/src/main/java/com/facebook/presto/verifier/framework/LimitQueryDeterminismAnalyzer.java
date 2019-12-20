@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -32,24 +31,17 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.DETERMINISTIC;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.FAILED_DATA_CHANGED;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.NON_DETERMINISTIC;
-import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalyzer.Analysis.NOT_RUN;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
+import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class LimitQueryDeterminismAnalyzer
 {
-    public enum Analysis
-    {
-        NOT_RUN,
-        NON_DETERMINISTIC,
-        DETERMINISTIC,
-        FAILED_DATA_CHANGED,
-    }
-
     private final PrestoAction prestoAction;
     private final boolean enabled;
 
@@ -59,7 +51,7 @@ public class LimitQueryDeterminismAnalyzer
         this.enabled = verifierConfig.isEnableLimitQueryDeterminismAnalyzer();
     }
 
-    public Analysis analyze(QueryBundle control, long rowCount)
+    public LimitQueryDeterminismAnalysis analyze(QueryBundle control, long rowCount, VerificationContext verificationContext)
     {
         if (!enabled) {
             return NOT_RUN;
@@ -130,8 +122,12 @@ public class LimitQueryDeterminismAnalyzer
         Query rowCountQuery = simpleQuery(
                 new Select(false, ImmutableList.of(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new LongLiteral("1")))))),
                 new TableSubquery(queryNoLimit));
-        long rowCountNoLimit = getOnlyElement(prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS, resultSet -> resultSet.getLong(1)).getResults());
 
+        QueryResult<Long> result = callWithQueryStatsConsumer(
+                () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS, resultSet -> resultSet.getLong(1)),
+                stats -> verificationContext.setLimitQueryAnalysisQueryId(stats.getQueryId()));
+
+        long rowCountNoLimit = getOnlyElement(result.getResults());
         if (rowCountNoLimit > rowCount) {
             return NON_DETERMINISTIC;
         }

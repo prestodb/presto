@@ -72,7 +72,6 @@ public interface BenchmarkSuiteDao
 
     @SqlQuery("SELECT\n" +
             "  `name`,\n" +
-            "  `query_set`,\n" +
             "  `catalog`,\n" +
             "  `schema`,\n" +
             "  `query`\n" +

@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -24,6 +25,7 @@ import static com.facebook.presto.orc.ByteArrayUtils.hash;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -494,26 +496,29 @@ public interface TupleDomainFilter
         }
     }
 
-    class BigintValues
+    class BigintValuesUsingHashTable
             extends AbstractTupleDomainFilter
     {
         private static final long EMPTY_MARKER = 0xdeadbeefbadefeedL;
         // from Murmur hash
         private static final long M = 0xc6a4a7935bd1e995L;
 
-        private final long[] values;
+        private final long min;
+        private final long max;
         private final long[] hashTable;
         private final int size;
         private boolean containsEmptyMarker;
 
-        private BigintValues(long[] values, boolean nullAllowed)
+        private BigintValuesUsingHashTable(long min, long max, long[] values, boolean nullAllowed)
         {
             super(true, nullAllowed);
 
             requireNonNull(values, "values is null");
+            checkArgument(min < max, "min must be less than max");
             checkArgument(values.length > 1, "values must contain at least 2 entries");
 
-            this.values = values;
+            this.min = min;
+            this.max = max;
             this.size = Integer.highestOneBit(values.length * 3);
             this.hashTable = new long[size];
             Arrays.fill(hashTable, EMPTY_MARKER);
@@ -534,9 +539,9 @@ public interface TupleDomainFilter
             }
         }
 
-        public static BigintValues of(long[] values, boolean nullAllowed)
+        public static BigintValuesUsingHashTable of(long min, long max, long[] values, boolean nullAllowed)
         {
-            return new BigintValues(values, nullAllowed);
+            return new BigintValuesUsingHashTable(min, max, values, nullAllowed);
         }
 
         @Override
@@ -545,6 +550,11 @@ public interface TupleDomainFilter
             if (containsEmptyMarker && value == EMPTY_MARKER) {
                 return true;
             }
+
+            if (value < min || value > max) {
+                return false;
+            }
+
             int pos = (int) ((value * M) & (size - 1));
             for (int i = pos; i < pos + size; i++) {
                 int idx = i & (size - 1);
@@ -570,7 +580,7 @@ public interface TupleDomainFilter
                 return false;
             }
 
-            BigintValues that = (BigintValues) o;
+            BigintValuesUsingHashTable that = (BigintValuesUsingHashTable) o;
             return size == that.size &&
                     containsEmptyMarker == that.containsEmptyMarker &&
                     Arrays.equals(hashTable, that.hashTable) &&
@@ -580,14 +590,90 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(size, containsEmptyMarker, hashTable, nullAllowed);
+            return Objects.hash(min, max, size, containsEmptyMarker, hashTable, nullAllowed);
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                    .add("values", values)
+                    .add("min", min)
+                    .add("max", max)
+                    .add("nullAllowed", nullAllowed)
+                    .toString();
+        }
+    }
+
+    class BigintValuesUsingBitmask
+            extends AbstractTupleDomainFilter
+    {
+        private final BitSet bitmask;
+        private final long min;
+        private final long max;
+
+        private BigintValuesUsingBitmask(long min, long max, long[] values, boolean nullAllowed)
+        {
+            super(true, nullAllowed);
+
+            requireNonNull(values, "values is null");
+            checkArgument(min < max, "min must be less than max");
+            checkArgument(values.length > 1, "values must contain at least 2 entries");
+
+            this.min = min;
+            this.max = max;
+            bitmask = new BitSet(toIntExact(max - min + 1));
+
+            for (int i = 0; i < values.length; i++) {
+                bitmask.set((int) (values[i] - min));
+            }
+        }
+
+        public static BigintValuesUsingBitmask of(long min, long max, long[] values, boolean nullAllowed)
+        {
+            return new BigintValuesUsingBitmask(min, max, values, nullAllowed);
+        }
+
+        @Override
+        public boolean testLong(long value)
+        {
+            if (value < min || value > max) {
+                return false;
+            }
+
+            return bitmask.get((int) (value - min));
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            BigintValuesUsingBitmask that = (BigintValuesUsingBitmask) o;
+            return min == that.min &&
+                    max == that.max &&
+                    bitmask.equals(that.bitmask) &&
+                    nullAllowed == that.nullAllowed;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(min, max, bitmask, nullAllowed);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("min", min)
+                    .add("max", max)
+                    .add("bitmask", bitmask)
                     .add("nullAllowed", nullAllowed)
                     .toString();
         }
@@ -1202,24 +1288,30 @@ public interface TupleDomainFilter
             extends AbstractTupleDomainFilter
     {
         private final TupleDomainFilter[] filters;
+        private final boolean nanAllowed;
 
-        private MultiRange(List<TupleDomainFilter> filters, boolean nullAllowed)
+        private MultiRange(List<TupleDomainFilter> filters, boolean nullAllowed, boolean nanAllowed)
         {
             super(true, nullAllowed);
             requireNonNull(filters, "filters is null");
             checkArgument(filters.size() > 1, "filters must contain at least 2 entries");
 
             this.filters = filters.toArray(new TupleDomainFilter[0]);
+            this.nanAllowed = nanAllowed;
         }
 
-        public static MultiRange of(List<TupleDomainFilter> filters, boolean nullAllowed)
+        public static MultiRange of(List<TupleDomainFilter> filters, boolean nullAllowed, boolean nanAllowed)
         {
-            return new MultiRange(filters, nullAllowed);
+            return new MultiRange(filters, nullAllowed, nanAllowed);
         }
 
         @Override
         public boolean testDouble(double value)
         {
+            if (Double.isNaN(value)) {
+                return nanAllowed;
+            }
+
             for (TupleDomainFilter filter : filters) {
                 if (filter.testDouble(value)) {
                     return true;
@@ -1231,6 +1323,10 @@ public interface TupleDomainFilter
         @Override
         public boolean testFloat(float value)
         {
+            if (Float.isNaN(value)) {
+                return nanAllowed;
+            }
+
             for (TupleDomainFilter filter : filters) {
                 if (filter.testFloat(value)) {
                     return true;
@@ -1285,13 +1381,14 @@ public interface TupleDomainFilter
 
             MultiRange that = (MultiRange) o;
             return Arrays.equals(filters, that.filters) &&
-                    nullAllowed == that.nullAllowed;
+                    nullAllowed == that.nullAllowed &&
+                    nanAllowed == that.nanAllowed;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(filters, nullAllowed);
+            return Objects.hash(filters, nullAllowed, nanAllowed);
         }
 
         @Override
@@ -1300,6 +1397,7 @@ public interface TupleDomainFilter
             return toStringHelper(this)
                     .add("filters", filters)
                     .add("nullAllowed", nullAllowed)
+                    .add("nanAllowed", nanAllowed)
                     .toString();
         }
     }

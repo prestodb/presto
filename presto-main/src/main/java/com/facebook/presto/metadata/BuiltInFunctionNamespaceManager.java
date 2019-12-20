@@ -361,7 +361,7 @@ public class BuiltInFunctionNamespaceManager
         implements FunctionNamespaceManager<BuiltInFunction>
 {
     public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
-    public static final String NAME = "_builtin";
+    public static final String ID = "builtin";
 
     private final TypeManager typeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
@@ -697,9 +697,15 @@ public class BuiltInFunctionNamespaceManager
         throw new PrestoException(GENERIC_USER_ERROR, format("Cannot create function in built-in function namespace: %s", function.getSignature().getName()));
     }
 
+    @Override
+    public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    {
+        throw new PrestoException(GENERIC_USER_ERROR, format("Cannot drop function in built-in function namespace: %s", functionName));
+    }
+
     public String getName()
     {
-        return NAME;
+        return ID;
     }
 
     @Override

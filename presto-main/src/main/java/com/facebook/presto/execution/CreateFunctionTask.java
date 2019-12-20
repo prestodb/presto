@@ -15,8 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.CatalogSchemaName;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -34,12 +32,10 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -77,14 +73,7 @@ public class CreateFunctionTask
 
     private SqlInvokedFunction createSqlInvokedFunction(CreateFunction statement)
     {
-        List<String> parts = statement.getFunctionName().getParts();
-        if (parts.size() != 3) {
-            throw new PrestoException(GENERIC_USER_ERROR, format("Invalid function name: %s, require exactly 3 parts", statement.getFunctionName()));
-        }
-
-        QualifiedFunctionName functionName = QualifiedFunctionName.of(
-                new CatalogSchemaName(parts.get(0), parts.get(1)),
-                parts.get(2));
+        QualifiedFunctionName functionName = QualifiedFunctionName.of(statement.getFunctionName().toString());
         List<SqlParameter> parameters = statement.getParameters().stream()
                 .map(parameter -> new SqlParameter(parameter.getName().toString().toLowerCase(ENGLISH), parseTypeSignature(parameter.getType())))
                 .collect(toImmutableList());

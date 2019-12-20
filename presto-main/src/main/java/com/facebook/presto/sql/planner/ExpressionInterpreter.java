@@ -911,7 +911,7 @@ public class ExpressionInterpreter
 
             // do not optimize non-deterministic functions
             if (optimize && (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
-                return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
+                return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
             }
 
             Object result;
@@ -935,7 +935,7 @@ public class ExpressionInterpreter
             }
 
             if (optimize && !isSerializable(result, type(node))) {
-                return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
+                return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
             }
             return result;
         }

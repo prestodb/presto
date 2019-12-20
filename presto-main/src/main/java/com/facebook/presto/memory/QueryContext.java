@@ -246,6 +246,16 @@ public class QueryContext
         return memoryPool;
     }
 
+    public long getMaxUserMemory()
+    {
+        return maxUserMemory;
+    }
+
+    public long getMaxTotalMemory()
+    {
+        return maxTotalMemory;
+    }
+
     public TaskContext addTaskContext(
             TaskStateMachine taskStateMachine,
             Session session,
@@ -288,6 +298,11 @@ public class QueryContext
         TaskContext taskContext = taskContexts.get(taskId);
         verify(taskContext != null, "task does not exist");
         return taskContext;
+    }
+
+    public QueryId getQueryId()
+    {
+        return queryId;
     }
 
     private static class QueryMemoryReservationHandler

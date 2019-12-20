@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.230-SNAPSHOT</version>
+        <version>0.231-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-geospatial-toolkit</artifactId>
@@ -77,6 +77,11 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-array</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
         </dependency>
 
         <dependency>

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorSession;
@@ -26,6 +27,9 @@ import org.apache.hadoop.mapred.JobConf;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -36,11 +40,17 @@ import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.lang.String.format;
+import static java.nio.file.Files.deleteIfExists;
+import static java.nio.file.Files.readAllBytes;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 
 public class HiveZeroRowFileCreator
         implements ZeroRowFileCreator
 {
+    private static final Logger log = Logger.get(HiveZeroRowFileCreator.class);
+
     private final HdfsEnvironment hdfsEnvironment;
     private final ListeningExecutorService executor;
 
@@ -56,13 +66,12 @@ public class HiveZeroRowFileCreator
     @Override
     public void createFiles(ConnectorSession session, HdfsContext hdfsContext, Path destinationDirectory, List<String> fileNames, StorageFormat format, HiveCompressionCodec compressionCodec, Properties schema)
     {
-        JobConf conf = configureCompression(hdfsEnvironment.getConfiguration(hdfsContext, destinationDirectory), compressionCodec);
+        byte[] fileContent = generateZeroRowFile(session, hdfsContext, schema, format.getSerDe(), format.getOutputFormat(), compressionCodec);
+
         List<ListenableFuture<?>> commitFutures = new ArrayList<>();
 
         for (String fileName : fileNames) {
-            commitFutures.add(
-                    executor.submit(
-                            () -> writeZeroRowFile(session, new Path(destinationDirectory, fileName), conf, schema, format.getSerDe(), format.getOutputFormat())));
+            commitFutures.add(executor.submit(() -> createFile(hdfsContext, new Path(destinationDirectory, fileName), fileContent)));
         }
 
         ListenableFuture<?> listenableFutureAggregate = whenAllSucceed(commitFutures).call(() -> null, directExecutor());
@@ -75,15 +84,53 @@ public class HiveZeroRowFileCreator
         }
     }
 
-    private static void writeZeroRowFile(ConnectorSession session, Path target, JobConf conf, Properties properties, String serDe, String outputFormatName)
+    private byte[] generateZeroRowFile(
+            ConnectorSession session,
+            HdfsContext hdfsContext,
+            Properties properties,
+            String serDe,
+            String outputFormatName,
+            HiveCompressionCodec compressionCodec)
     {
-        // Some serializers such as Avro set a property in the schema.
-        initializeSerializer(conf, properties, serDe);
+        String tmpDirectoryPath = System.getProperty("java.io.tmpdir");
+        String tmpFileName = format("presto-hive-zero-row-file-creator-%s-%s", session.getQueryId(), randomUUID().toString());
+        java.nio.file.Path tmpFilePath = Paths.get(tmpDirectoryPath, tmpFileName);
 
-        // The code below is not a try with resources because RecordWriter is not Closeable.
-        RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(target, conf, properties, outputFormatName, session);
         try {
+            Path target = new Path(format("file://%s/%s", tmpDirectoryPath, tmpFileName));
+            JobConf conf = configureCompression(hdfsEnvironment.getConfiguration(hdfsContext, target), compressionCodec);
+
+            // Some serializers such as Avro set a property in the schema.
+            initializeSerializer(conf, properties, serDe);
+
+            // The code below is not a try with resources because RecordWriter is not Closeable.
+            RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(
+                    target,
+                    conf,
+                    properties,
+                    outputFormatName,
+                    session);
             recordWriter.close(false);
+
+            return readAllBytes(tmpFilePath);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        finally {
+            try {
+                deleteIfExists(tmpFilePath);
+            }
+            catch (IOException e) {
+                log.error(e, "Error deleting temporary file: %s", tmpFilePath);
+            }
+        }
+    }
+
+    private void createFile(HdfsContext hdfsContext, Path path, byte[] content)
+    {
+        try (OutputStream outputStream = hdfsEnvironment.getFileSystem(hdfsContext, path).create(path, false)) {
+            outputStream.write(content);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error write zero-row file to Hive", e);

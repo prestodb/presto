@@ -36,7 +36,7 @@ public interface ShardDao
     int CLEANABLE_SHARDS_BATCH_SIZE = 1000;
     int CLEANUP_TRANSACTIONS_BATCH_SIZE = 10_000;
 
-    String SHARD_METADATA_COLUMNS = "table_id, shard_id, shard_uuid, bucket_number, row_count, compressed_size, uncompressed_size, xxhash64";
+    String SHARD_METADATA_COLUMNS = "table_id, shard_id, shard_uuid, is_delta, delta_uuid, bucket_number, row_count, compressed_size, uncompressed_size, xxhash64";
 
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     @GetGeneratedKeys

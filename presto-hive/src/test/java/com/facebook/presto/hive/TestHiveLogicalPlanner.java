@@ -28,6 +28,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
@@ -65,6 +66,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.RANGE_FILTERS_ON_SU
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteExchangesCount;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.predicate.Domain.multipleValues;
+import static com.facebook.presto.spi.predicate.Domain.notNull;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -97,6 +99,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestHiveLogicalPlanner
@@ -327,13 +330,20 @@ public class TestHiveLogicalPlanner
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.e['foo'] = 1",
                         ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
 
+        assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.a IS NOT NULL AND c.c IS NOT NULL",
+                ImmutableMap.of(new Subfield("c.a"), notNull(BIGINT), new Subfield("c.c"), notNull(new ArrayType(BIGINT))));
+
         assertUpdate("DROP TABLE test_pushdown_filter_on_subfields");
     }
 
     @Test
     public void testPushdownArraySubscripts()
     {
-        assertUpdate("CREATE TABLE test_pushdown_array_subscripts(id bigint, a array(bigint), b array(array(varchar)))");
+        assertUpdate("CREATE TABLE test_pushdown_array_subscripts(id bigint, " +
+                "a array(bigint), " +
+                "b array(array(varchar)), " +
+                "y array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))), " +
+                "z array(array(row(p bigint, e row(e1 bigint, e2 varchar)))))");
 
         assertPushdownSubscripts("test_pushdown_array_subscripts");
 
@@ -366,7 +376,12 @@ public class TestHiveLogicalPlanner
     @Test
     public void testPushdownMapSubscripts()
     {
-        assertUpdate("CREATE TABLE test_pushdown_map_subscripts(id bigint, a map(bigint, bigint), b map(bigint, map(bigint, varchar)), c map(varchar, bigint))");
+        assertUpdate("CREATE TABLE test_pushdown_map_subscripts(id bigint, " +
+                "a map(bigint, bigint), " +
+                "b map(bigint, map(bigint, varchar)), " +
+                "c map(varchar, bigint), \n" +
+                "y map(bigint, row(a bigint, b varchar, c double, d row(d1 bigint, d2 double)))," +
+                "z map(bigint, map(bigint, row(p bigint, e row(e1 bigint, e2 varchar)))))");
 
         assertPushdownSubscripts("test_pushdown_map_subscripts");
 
@@ -475,6 +490,24 @@ public class TestHiveLogicalPlanner
         assertPushdownSubfields(format("SELECT min(a[1]) FROM %s GROUP BY id", tableName), tableName,
                 ImmutableMap.of("a", toSubfields("a[1]")));
 
+        assertPushdownSubfields(format("SELECT arbitrary(y[1]).a FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[1].a")));
+
+        assertPushdownSubfields(format("SELECT arbitrary(y[1]).d.d1 FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[1].d.d1")));
+
+        assertPushdownSubfields(format("SELECT arbitrary(y[2].d).d1 FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[2].d.d1")));
+
+        assertPushdownSubfields(format("SELECT arbitrary(y[3].d.d1) FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[3].d.d1")));
+
+        assertPushdownSubfields(format("SELECT arbitrary(z[1][2]).e.e1 FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("z", toSubfields("z[1][2].e.e1")));
+
+        assertPushdownSubfields(format("SELECT arbitrary(z[2][3].e).e2 FROM %s GROUP BY id", tableName), tableName,
+                ImmutableMap.of("z", toSubfields("z[2][3].e.e2")));
+
         // Union
         assertPlan(format("SELECT a[1] FROM %s UNION ALL SELECT a[2] FROM %s", tableName, tableName),
                 anyTree(exchange(
@@ -516,6 +549,14 @@ public class TestHiveLogicalPlanner
 
         assertPushdownSubfields(format("SELECT a[1] FROM (SELECT DISTINCT * FROM %s) LIMIT 10", tableName), tableName,
                 ImmutableMap.of());
+
+        // No pass through subfield pruning
+        assertPushdownSubfields(format("SELECT id, min(y[1]).a FROM %s GROUP BY 1", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[1]")));
+        assertPushdownSubfields(format("SELECT id, min(y[1]).a, min(y[1].d).d1 FROM %s GROUP BY 1", tableName), tableName,
+                ImmutableMap.of("y", toSubfields("y[1]")));
+        assertPushdownSubfields(format("SELECT id, min(z[1][2]).e.e1 FROM %s GROUP BY 1", tableName), tableName,
+                ImmutableMap.of("z", toSubfields("z[1][2]")));
     }
 
     @Test
@@ -565,6 +606,21 @@ public class TestHiveLogicalPlanner
         assertPushdownSubfields("SELECT id, min(x.a + length(y[2].b)) * avg(x.d.d1) FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
                 ImmutableMap.of("x", toSubfields("x.a", "x.d.d1"), "y", toSubfields("y[2].b")));
 
+        assertPushdownSubfields("SELECT id, arbitrary(x.a) FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.a")));
+
+        assertPushdownSubfields("SELECT id, arbitrary(x).a FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.a")));
+
+        assertPushdownSubfields("SELECT id, arbitrary(x).d.d1 FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.d.d1")));
+
+        assertPushdownSubfields("SELECT id, arbitrary(x.d).d1 FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.d.d1")));
+
+        assertPushdownSubfields("SELECT id, arbitrary(x.d.d2) FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.d.d2")));
+
         // Unnest
         assertPushdownSubfields("SELECT t.a, t.d.d1, x.a FROM test_pushdown_struct_subfields CROSS JOIN UNNEST(y) as t(a, b, c, d)", "test_pushdown_struct_subfields",
                 ImmutableMap.of("x", toSubfields("x.a"), "y", toSubfields("y[*].a", "y[*].d.d1")));
@@ -586,6 +642,17 @@ public class TestHiveLogicalPlanner
         assertPushdownSubfields(legacyUnnest, "SELECT id, x.a FROM test_pushdown_struct_subfields CROSS JOIN UNNEST(y) as t(y)", "test_pushdown_struct_subfields",
                 ImmutableMap.of("x", toSubfields("x.a")));
 
+        // Case sensitivity
+        assertPushdownSubfields("SELECT x.a, x.b, x.A + 2 FROM test_pushdown_struct_subfields WHERE x.B LIKE 'abc%'", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.a", "x.b")));
+
+        // No pass-through subfield pruning
+        assertPushdownSubfields("SELECT id, min(x.d).d1 FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.d")));
+
+        assertPushdownSubfields("SELECT id, min(x.d).d1, min(x.d.d2) FROM test_pushdown_struct_subfields GROUP BY 1", "test_pushdown_struct_subfields",
+                ImmutableMap.of("x", toSubfields("x.d")));
+
         assertUpdate("DROP TABLE test_pushdown_struct_subfields");
     }
 
@@ -597,7 +664,11 @@ public class TestHiveLogicalPlanner
                 "a array(bigint), " +
                 "b map(bigint, bigint), " +
                 "c map(varchar, bigint), " +
-                "d row(d1 bigint, d2 array(bigint), d3 map(bigint, bigint), d4 row(x double, y double)))");
+                "d row(d1 bigint, d2 array(bigint), d3 map(bigint, bigint), d4 row(x double, y double)), " +
+                "w array(array(row(p bigint, e row(e1 bigint, e2 varchar)))), " +
+                "x row(a bigint, b varchar, c double, d row(d1 bigint, d2 double)), " +
+                "y array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))), " +
+                "z row(a bigint, b varchar, c double))");
 
         assertPushdownSubfields("SELECT id, a[1], mod(a[2], 3), b[10], c['cat'] + c['dog'], d.d1 * d.d2[5] / d.d3[2], d.d4.x FROM test_pushdown_subfields", "test_pushdown_subfields",
                 ImmutableMap.of(
@@ -617,6 +688,44 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of(
                         "a", toSubfields("a[1]"),
                         "d", toSubfields("d.d3[5]")));
+
+        // Subfield pruning should pass-through arbitrary() function
+        assertPushdownSubfields("SELECT id, " +
+                        "arbitrary(x.a), " +
+                        "arbitrary(x).a, " +
+                        "arbitrary(x).d.d1, " +
+                        "arbitrary(x.d).d1, " +
+                        "arbitrary(x.d.d2), " +
+                        "arbitrary(y[1]).a, " +
+                        "arbitrary(y[1]).d.d1, " +
+                        "arbitrary(y[2]).d.d1, " +
+                        "arbitrary(y[3].d.d1), " +
+                        "arbitrary(z).c, " +
+                        "arbitrary(w[1][2]).e.e1, " +
+                        "arbitrary(w[2][3].e.e2) " +
+                        "FROM test_pushdown_subfields " +
+                        "GROUP BY 1", "test_pushdown_subfields",
+                ImmutableMap.of("x", toSubfields("x.a", "x.d.d1", "x.d.d2"),
+                        "y", toSubfields("y[1].a", "y[1].d.d1", "y[2].d.d1", "y[3].d.d1"),
+                        "z", toSubfields("z.c"),
+                        "w", toSubfields("w[1][2].e.e1", "w[2][3].e.e2")));
+
+        // Subfield pruning should not pass-through other aggregate functions e.g. min() function
+        assertPushdownSubfields("SELECT id, " +
+                        "min(x.d).d1, " +
+                        "min(x.d.d2), " +
+                        "min(z).c, " +
+                        "min(z.b), " +
+                        "min(y[1]).a, " +
+                        "min(y[1]).d.d1, " +
+                        "min(y[2].d.d1), " +
+                        "min(w[1][2]).e.e1, " +
+                        "min(w[2][3].e.e2) " +
+                        "FROM test_pushdown_subfields " +
+                        "GROUP BY 1", "test_pushdown_subfields",
+                ImmutableMap.of("x", toSubfields("x.d"),
+                        "y", toSubfields("y[1]", "y[2].d.d1"),
+                        "w", toSubfields("w[1][2]", "w[2][3].e.e2")));
 
         assertUpdate("DROP TABLE test_pushdown_subfields");
     }
@@ -727,6 +836,79 @@ public class TestHiveLogicalPlanner
         }
     }
 
+    @Test
+    public void testBucketPruning()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.execute("CREATE TABLE orders_bucketed WITH (bucket_count = 11, bucketed_by = ARRAY['orderkey']) AS " +
+                "SELECT * FROM orders");
+
+        try {
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 100",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 100 OR orderkey = 101",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1, 2)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey IN (100, 101, 133)",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1, 2)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey > 100",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey != 100",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE orders_bucketed");
+        }
+
+        queryRunner.execute("CREATE TABLE orders_bucketed WITH (bucket_count = 11, bucketed_by = ARRAY['orderkey', 'custkey']) AS " +
+                "SELECT * FROM orders");
+
+        try {
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 101 AND custkey = 280",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey IN (101, 71) AND custkey = 280",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1, 6)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey IN (101, 71) AND custkey IN (280, 34)",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1, 2, 6, 8)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 101 AND custkey = 280 AND orderstatus <> '0'",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertBucketFilter(plan, "orders_bucketed", 11, ImmutableSet.of(1)));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 101",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE custkey = 280",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+
+            assertPlan(getSession(), "SELECT * FROM orders_bucketed WHERE orderkey = 101 AND custkey > 280",
+                    anyTree(PlanMatchPattern.tableScan("orders_bucketed")),
+                    plan -> assertNoBucketFilter(plan, "orders_bucketed", 11));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE orders_bucketed");
+        }
+    }
+
     private static Set<Subfield> toSubfields(String... subfieldPaths)
     {
         return Arrays.stream(subfieldPaths)
@@ -804,6 +986,35 @@ public class TestHiveLogicalPlanner
         assertEquals(layoutHandle.getPredicateColumns().keySet(), predicateColumnNames);
         assertEquals(layoutHandle.getDomainPredicate(), domainPredicate);
         assertEquals(layoutHandle.getRemainingPredicate(), remainingPredicate);
+        assertEquals(layoutHandle.getRemainingPredicate(), remainingPredicate);
+    }
+
+    private void assertBucketFilter(Plan plan, String tableName, int readBucketCount, Set<Integer> bucketsToKeep)
+    {
+        TableScanNode tableScan = searchFrom(plan.getRoot())
+                .where(node -> isTableScanNode(node, tableName))
+                .findOnlyElement();
+
+        assertTrue(tableScan.getTable().getLayout().isPresent());
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+
+        assertTrue(layoutHandle.getBucketHandle().isPresent());
+        assertTrue(layoutHandle.getBucketFilter().isPresent());
+        assertEquals(layoutHandle.getBucketHandle().get().getReadBucketCount(), readBucketCount);
+        assertEquals(layoutHandle.getBucketFilter().get().getBucketsToKeep(), bucketsToKeep);
+    }
+
+    private void assertNoBucketFilter(Plan plan, String tableName, int readBucketCount)
+    {
+        TableScanNode tableScan = searchFrom(plan.getRoot())
+                .where(node -> isTableScanNode(node, tableName))
+                .findOnlyElement();
+
+        assertTrue(tableScan.getTable().getLayout().isPresent());
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+
+        assertEquals(layoutHandle.getBucketHandle().get().getReadBucketCount(), readBucketCount);
+        assertFalse(layoutHandle.getBucketFilter().isPresent());
     }
 
     private static PlanMatchPattern tableScan(String tableName, TupleDomain<String> domainPredicate, RowExpression remainingPredicate, Set<String> predicateColumnNames)

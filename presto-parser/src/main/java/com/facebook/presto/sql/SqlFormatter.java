@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -560,15 +561,35 @@ public final class SqlFormatter
                     .append(" ")
                     .append(formatSqlParameterDeclarations(node.getParameters()))
                     .append("\nRETURNS ")
-                    .append(node.getReturnType())
-                    .append("\n");
+                    .append(node.getReturnType());
             if (node.getComment().isPresent()) {
                 builder.append("\nCOMMENT ")
                         .append(formatStringLiteral(node.getComment().get()));
             }
-            builder.append(formatRoutineCharacteristics(node.getCharacteristics()))
+            builder.append("\n")
+                    .append(formatRoutineCharacteristics(node.getCharacteristics()))
                     .append("\nRETURN ")
                     .append(formatExpression(node.getBody(), parameters));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropFunction(DropFunction node, Integer indent)
+        {
+            builder.append("DROP FUNCTION ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getFunctionName()));
+            if (node.getParameterTypes().isPresent()) {
+                String elementIndent = indentString(indent + 1);
+                builder.append("(\n")
+                        .append(node.getParameterTypes().get().stream()
+                                .map(type -> elementIndent + type)
+                                .collect(joining(",\n")))
+                        .append(")\n");
+            }
 
             return null;
         }

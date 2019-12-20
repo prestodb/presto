@@ -161,6 +161,18 @@ public class SqlInvokedFunction
         return version.get();
     }
 
+    public boolean hasSameDefinitionAs(SqlInvokedFunction function)
+    {
+        if (function == null) {
+            throw new IllegalArgumentException("function is null");
+        }
+        return Objects.equals(parameters, function.parameters)
+                && Objects.equals(description, function.description)
+                && Objects.equals(routineCharacteristics, function.routineCharacteristics)
+                && Objects.equals(body, function.body)
+                && Objects.equals(signature, function.signature);
+    }
+
     @Override
     public boolean equals(Object obj)
     {

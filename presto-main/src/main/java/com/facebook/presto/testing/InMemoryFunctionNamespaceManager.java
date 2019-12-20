@@ -20,16 +20,20 @@ import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sqlfunction.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.sqlfunction.SqlInvokedFunctionNamespaceManagerConfig;
 
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
@@ -38,19 +42,11 @@ import static java.lang.String.format;
 public class InMemoryFunctionNamespaceManager
         extends AbstractSqlInvokedFunctionNamespaceManager
 {
-    private static final String NAME = "_in_memory";
-
     private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
 
     public InMemoryFunctionNamespaceManager(SqlInvokedFunctionNamespaceManagerConfig config)
     {
         super(config);
-    }
-
-    @Override
-    public String getName()
-    {
-        return NAME;
     }
 
     @Override
@@ -67,6 +63,12 @@ public class InMemoryFunctionNamespaceManager
             version = replacedFunction.getRequiredVersion() + 1;
         }
         latestFunctions.put(functionId, function.withVersion(version));
+    }
+
+    @Override
+    public synchronized void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in InMemoryFunctionNamespaceManager");
     }
 
     @Override

@@ -115,11 +115,11 @@ public interface MetadataDao
     @SqlUpdate("INSERT INTO tables (\n" +
             "  schema_name, table_name, compaction_enabled, organization_enabled, distribution_id,\n" +
             "  create_time, update_time, table_version,\n" +
-            "  shard_count, row_count, compressed_size, uncompressed_size, table_supports_delta_delete)\n" +
+            "  shard_count, delta_count, row_count, compressed_size, uncompressed_size, table_supports_delta_delete)\n" +
             "VALUES (\n" +
             "  :schemaName, :tableName, :compactionEnabled, :organizationEnabled, :distributionId,\n" +
             "  :createTime, :createTime, 0,\n" +
-            "  0, 0, 0, 0, :tableSupportsDeltaDelete)\n")
+            "  0, 0, 0, 0, 0, :tableSupportsDeltaDelete)\n")
     @GetGeneratedKeys
     long insertTable(
             @Bind("schemaName") String schemaName,
@@ -139,14 +139,16 @@ public interface MetadataDao
             @Bind("updateTime") long updateTime);
 
     @SqlUpdate("UPDATE tables SET\n" +
-            "  shard_count = shard_count + :shardCount \n" +
+            "  shard_count = shard_count + :shardCountChange \n" +
+            ", delta_count = delta_count + :deltaCountChange \n" +
             ", row_count = row_count + :rowCount\n" +
             ", compressed_size = compressed_size + :compressedSize\n" +
             ", uncompressed_size = uncompressed_size + :uncompressedSize\n" +
             "WHERE table_id = :tableId")
     void updateTableStats(
             @Bind("tableId") long tableId,
-            @Bind("shardCount") long shardCount,
+            @Bind("shardCountChange") long shardCountChange,
+            @Bind("deltaCountChange") long deltaCountChange,
             @Bind("rowCount") long rowCount,
             @Bind("compressedSize") long compressedSize,
             @Bind("uncompressedSize") long uncompressedSize);
@@ -273,7 +275,7 @@ public interface MetadataDao
             @Bind("tableName") String tableName);
 
     @SqlQuery("SELECT schema_name, table_name, create_time, update_time, table_version,\n" +
-            "  shard_count, row_count, compressed_size, uncompressed_size\n" +
+            "  shard_count, delta_count, row_count, compressed_size, uncompressed_size\n" +
             "FROM tables\n" +
             "WHERE (schema_name = :schemaName OR :schemaName IS NULL)\n" +
             "  AND (table_name = :tableName OR :tableName IS NULL)\n" +

@@ -14,7 +14,6 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.orc.TupleDomainFilter.BigintValues;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.Subfield;
@@ -54,6 +53,7 @@ import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedV
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
+import static com.facebook.presto.orc.TupleDomainFilterUtils.toBigintValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
@@ -383,7 +383,7 @@ public class TestMapFlatSelectiveStreamReader
         List<Integer> ids = IntStream.range(0, expectedValues.size()).map(i -> i % 10).boxed().collect(toImmutableList());
         ImmutableList<Type> types = ImmutableList.of(mapType, INTEGER);
 
-        Map<Integer, Map<Subfield, TupleDomainFilter>> filters = ImmutableMap.of(1, ImmutableMap.of(new Subfield("c"), BigintValues.of(new long[] {1, 5, 6}, true)));
+        Map<Integer, Map<Subfield, TupleDomainFilter>> filters = ImmutableMap.of(1, ImmutableMap.of(new Subfield("c"), toBigintValues(new long[] {1, 5, 6}, true)));
         assertFileContentsPresto(
                 types,
                 new File(getResource(testOrcFileName).getFile()),

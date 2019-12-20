@@ -20,12 +20,14 @@ import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
+import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,6 +48,8 @@ import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_C
 import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
 import static com.facebook.presto.verifier.framework.QueryStage.CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
+import static com.facebook.presto.verifier.framework.VerifierUtil.callWithQueryStatsConsumer;
+import static com.facebook.presto.verifier.framework.VerifierUtil.runWithQueryStatsConsumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -56,6 +60,9 @@ public class DataVerification
     private final TypeManager typeManager;
     private final ChecksumValidator checksumValidator;
     private final LimitQueryDeterminismAnalyzer limitQueryDeterminismAnalyzer;
+    private final boolean runTeardownForDeterminismAnalysis;
+
+    private final int maxDeterminismAnalysisRuns;
 
     public DataVerification(
             VerificationResubmitter verificationResubmitter,
@@ -73,50 +80,60 @@ public class DataVerification
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.limitQueryDeterminismAnalyzer = requireNonNull(limitQueryDeterminismAnalyzer, "limitQueryDeterminismAnalyzer is null");
+        this.runTeardownForDeterminismAnalysis = verifierConfig.isRunTeardownForDeterminismAnalysis();
+        this.maxDeterminismAnalysisRuns = verifierConfig.getMaxDeterminismAnalysisRuns();
     }
 
     @Override
-    public VerificationResult verify(QueryBundle control, QueryBundle test)
+    public MatchResult verify(QueryBundle control, QueryBundle test)
     {
         List<Column> controlColumns = getColumns(control.getTableName());
         List<Column> testColumns = getColumns(test.getTableName());
-        ChecksumQueryAndResult controlChecksum = computeChecksum(control, controlColumns);
-        ChecksumQueryAndResult testChecksum = computeChecksum(test, testColumns);
-        return new VerificationResult(
-                controlChecksum.getQueryId(),
-                testChecksum.getQueryId(),
-                formatSql(controlChecksum.getQuery()),
-                formatSql(testChecksum.getQuery()),
-                match(
-                        controlColumns,
-                        testColumns,
-                        controlChecksum.getResult(),
-                        testChecksum.getResult()));
+
+        Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getTableName(), controlColumns);
+        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getTableName(), testColumns);
+
+        getVerificationContext().setControlChecksumQuery(formatSql(controlChecksumQuery));
+        getVerificationContext().setTestChecksumQuery(formatSql(testChecksumQuery));
+
+        QueryResult<ChecksumResult> controlChecksum = callWithQueryStatsConsumer(
+                () -> executeChecksumQuery(controlChecksumQuery),
+                stats -> getVerificationContext().setControlChecksumQueryId(stats.getQueryId()));
+        QueryResult<ChecksumResult> testChecksum = callWithQueryStatsConsumer(
+                () -> executeChecksumQuery(testChecksumQuery),
+                stats -> getVerificationContext().setTestChecksumQueryId(stats.getQueryId()));
+
+        return match(controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));
     }
 
     @Override
-    protected DeterminismAnalysis analyzeDeterminism(QueryBundle control, ChecksumResult firstChecksum)
+    protected DeterminismAnalysis analyzeDeterminism(QueryBundle control, ChecksumResult controlChecksum)
     {
         List<Column> columns = getColumns(control.getTableName());
+        List<QueryBundle> queryBundles = new ArrayList<>();
 
-        QueryBundle secondRun = null;
-        QueryBundle thirdRun = null;
         try {
-            secondRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
-            setupAndRun(secondRun, true);
-            DeterminismAnalysis determinismAnalysis = matchResultToDeterminism(match(columns, columns, firstChecksum, computeChecksum(secondRun, columns).getResult()));
-            if (determinismAnalysis != DETERMINISTIC) {
-                return determinismAnalysis;
+            for (int i = 0; i < maxDeterminismAnalysisRuns; i++) {
+                QueryBundle queryBundle = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
+                queryBundles.add(queryBundle);
+                DeterminismAnalysisRun.Builder run = getVerificationContext().startDeterminismAnalysisRun().setTableName(queryBundle.getTableName().toString());
+
+                runWithQueryStatsConsumer(() -> setupAndRun(queryBundle, true), stats -> run.setQueryId(stats.getQueryId()));
+
+                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getTableName(), columns);
+                ChecksumResult testChecksum = getOnlyElement(callWithQueryStatsConsumer(
+                        () -> executeChecksumQuery(checksumQuery),
+                        stats -> run.setChecksumQueryId(stats.getQueryId())).getResults());
+
+                DeterminismAnalysis determinismAnalysis = matchResultToDeterminism(match(columns, columns, controlChecksum, testChecksum));
+                if (determinismAnalysis != DETERMINISTIC) {
+                    return determinismAnalysis;
+                }
             }
 
-            thirdRun = getQueryRewriter().rewriteQuery(getSourceQuery().getControlQuery(), CONTROL);
-            setupAndRun(thirdRun, true);
-            determinismAnalysis = matchResultToDeterminism(match(columns, columns, firstChecksum, computeChecksum(thirdRun, columns).getResult()));
-            if (determinismAnalysis != DETERMINISTIC) {
-                return determinismAnalysis;
-            }
+            LimitQueryDeterminismAnalysis analysis = limitQueryDeterminismAnalyzer.analyze(control, controlChecksum.getRowCount(), getVerificationContext());
+            getVerificationContext().setLimitQueryAnalysis(analysis);
 
-            LimitQueryDeterminismAnalyzer.Analysis analysis = limitQueryDeterminismAnalyzer.analyze(control, firstChecksum.getRowCount());
             switch (analysis) {
                 case NON_DETERMINISTIC:
                     return NON_DETERMINISTIC_LIMIT_CLAUSE;
@@ -136,8 +153,9 @@ public class DataVerification
             return ANALYSIS_FAILED;
         }
         finally {
-            teardownSafely(secondRun);
-            teardownSafely(thirdRun);
+            if (runTeardownForDeterminismAnalysis) {
+                queryBundles.forEach(this::teardownSafely);
+            }
         }
     }
 
@@ -200,45 +218,8 @@ public class DataVerification
                 .getResults();
     }
 
-    private ChecksumQueryAndResult computeChecksum(QueryBundle bundle, List<Column> columns)
+    private QueryResult<ChecksumResult> executeChecksumQuery(Query query)
     {
-        Query checksumQuery = checksumValidator.generateChecksumQuery(bundle.getTableName(), columns);
-        QueryResult<ChecksumResult> queryResult = getPrestoAction().execute(
-                checksumQuery,
-                CHECKSUM,
-                ChecksumResult::fromResultSet);
-        return new ChecksumQueryAndResult(
-                queryResult.getQueryStats().getQueryId(),
-                checksumQuery,
-                getOnlyElement(queryResult.getResults()));
-    }
-
-    private class ChecksumQueryAndResult
-    {
-        private final String queryId;
-        private final Query query;
-        private final ChecksumResult result;
-
-        public ChecksumQueryAndResult(String queryId, Query query, ChecksumResult result)
-        {
-            this.queryId = requireNonNull(queryId, "queryId is null");
-            this.query = requireNonNull(query, "query is null");
-            this.result = requireNonNull(result, "result is null");
-        }
-
-        public String getQueryId()
-        {
-            return queryId;
-        }
-
-        public Query getQuery()
-        {
-            return query;
-        }
-
-        public ChecksumResult getResult()
-        {
-            return result;
-        }
+        return getPrestoAction().execute(query, CHECKSUM, ChecksumResult::fromResultSet);
     }
 }

@@ -349,7 +349,7 @@ public abstract class AbstractTestHiveClient
                     .row(3L, "bye", (byte) 46, (short) 346, 345, 456L, 754.2008f, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L), ImmutableList.of("false", 0L, false))
                     .build();
 
-    private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED = ImmutableList.<ColumnMetadata>builder()
+    protected static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
             .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
             .build();
@@ -1228,6 +1228,7 @@ public abstract class AbstractTestHiveClient
 
     @Test
     public void testGetPartitions()
+            throws Exception
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();

@@ -16,8 +16,10 @@ package com.facebook.presto.raptor;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
+import com.facebook.presto.raptor.metadata.DeltaInfoPair;
 import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.MetadataDao;
+import com.facebook.presto.raptor.metadata.ShardDeleteDelta;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
@@ -134,6 +136,7 @@ public class RaptorMetadata
 
     private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
+    private static final JsonCodec<ShardDeleteDelta> SHARD_DELETE_DELTA_CODEC = jsonCodec(ShardDeleteDelta.class);
 
     private final IDBI dbi;
     private final MetadataDao dao;
@@ -821,23 +824,35 @@ public class RaptorMetadata
                 .map(RaptorColumnHandle.class::cast)
                 .map(ColumnInfo::fromHandle).collect(toList());
 
-        ImmutableSet.Builder<UUID> oldShardUuidsBuilder = ImmutableSet.builder();
-        ImmutableList.Builder<ShardInfo> newShardsBuilder = ImmutableList.builder();
+        if (table.isTableSupportsDeltaDelete()) {
+            ImmutableMap.Builder<UUID, DeltaInfoPair> shardMapBuilder = ImmutableMap.builder();
 
-        fragments.stream()
-                .map(fragment -> SHARD_DELTA_CODEC.fromJson(fragment.getBytes()))
-                .forEach(delta -> {
-                    oldShardUuidsBuilder.addAll(delta.getOldShardUuids());
-                    newShardsBuilder.addAll(delta.getNewShards());
-                });
+            fragments.stream()
+                    .map(fragment -> SHARD_DELETE_DELTA_CODEC.fromJson(fragment.getBytes()))
+                    .forEach(delta -> shardMapBuilder.put(delta.getOldShardUuid(), delta.getDeltaInfoPair()));
+            OptionalLong updateTime = OptionalLong.of(session.getStartTime());
 
-        Set<UUID> oldShardUuids = oldShardUuidsBuilder.build();
-        List<ShardInfo> newShards = newShardsBuilder.build();
-        OptionalLong updateTime = OptionalLong.of(session.getStartTime());
+            log.info("Finishing delete for tableId %s (affected shardUuid: %s)", tableId, shardMapBuilder.build().size());
+            shardManager.replaceDeltaUuids(transactionId, tableId, columns, shardMapBuilder.build(), updateTime);
+        }
+        else {
+            ImmutableSet.Builder<UUID> oldShardUuidsBuilder = ImmutableSet.builder();
+            ImmutableList.Builder<ShardInfo> newShardsBuilder = ImmutableList.builder();
 
-        log.info("Finishing delete for tableId %s (removed: %s, rewritten: %s)", tableId, oldShardUuids.size() - newShards.size(), newShards.size());
-        shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids, newShards, updateTime);
+            fragments.stream()
+                    .map(fragment -> SHARD_DELTA_CODEC.fromJson(fragment.getBytes()))
+                    .forEach(delta -> {
+                        oldShardUuidsBuilder.addAll(delta.getOldShardUuids());
+                        newShardsBuilder.addAll(delta.getNewShards());
+                    });
 
+            Set<UUID> oldShardUuids = oldShardUuidsBuilder.build();
+            List<ShardInfo> newShards = newShardsBuilder.build();
+            OptionalLong updateTime = OptionalLong.of(session.getStartTime());
+
+            log.info("Finishing delete for tableId %s (removed: %s, rewritten: %s)", tableId, oldShardUuids.size() - newShards.size(), newShards.size());
+            shardManager.replaceShardUuids(transactionId, tableId, columns, oldShardUuids, newShards, updateTime);
+        }
         clearRollback();
     }
 

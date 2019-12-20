@@ -22,6 +22,7 @@ import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.FloatingPointColumnValidator;
 import com.facebook.presto.verifier.checksum.OrderableArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
+import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
@@ -31,14 +32,17 @@ import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
@@ -55,10 +59,15 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_LIMITATION;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.regex.Pattern.DOTALL;
 import static java.util.regex.Pattern.MULTILINE;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -79,10 +88,14 @@ public class TestDataVerification
 
     private DataVerification createVerification(String controlQuery, String testQuery)
     {
+        return createVerification(controlQuery, testQuery, new VerifierConfig().setTestId(TEST_ID));
+    }
+
+    private DataVerification createVerification(String controlQuery, String testQuery, VerifierConfig verifierConfig)
+    {
         QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
         VerificationContext verificationContext = new VerificationContext();
         RetryConfig retryConfig = new RetryConfig();
-        VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         PrestoAction prestoAction = new JdbcPrestoAction(
                 new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
                 configuration,
@@ -224,12 +237,18 @@ public class TestDataVerification
                         "Control 1 rows, Test 1 rows\n" +
                         "Mismatched Columns:\n" +
                         "  _col0 \\(double\\): control\\(sum: .*\\) test\\(sum: 2.0\\) relative error: .*\n"));
+
+        List<DeterminismAnalysisRun> runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), 1);
+        assertDeterminismAnalysisRun(runs.get(0));
     }
 
     @Test
     public void testArrayOfRow()
     {
-        Optional<VerifierQueryEvent> event = createVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]").run();
+        Optional<VerifierQueryEvent> event = createVerification(
+                "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]",
+                new VerifierConfig().setTestId(TEST_ID).setMaxDeterminismAnalysisRuns(3)).run();
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
 
@@ -245,6 +264,29 @@ public class TestDataVerification
                         "Control 1 rows, Test 1 rows\n" +
                         "Mismatched Columns:\n" +
                         "  _col0 \\(array\\(row\\(integer, varchar\\(1\\)\\)\\)\\): control\\(checksum: 71 b5 2f 7f 1e 9b a6 a4\\) test\\(checksum: b4 3c 7d 02 2b 14 77 12\\)\n"));
+
+        List<DeterminismAnalysisRun> runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), 2);
+        assertDeterminismAnalysisRun(runs.get(0));
+        assertDeterminismAnalysisRun(runs.get(1));
+    }
+
+    @Test
+    public void testChecksumQueryFailed()
+    {
+        List<String> columns = IntStream.range(0, 1000).mapToObj(i -> "c" + i).collect(toImmutableList());
+        queryRunner.execute(format("CREATE TABLE checksum_test (%s)", columns.stream().map(column -> column + " double").collect(joining(","))));
+
+        String query = format("SELECT %s FROM checksum_test", Joiner.on(",").join(columns));
+        Optional<VerifierQueryEvent> event = createVerification(query, query).run();
+
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), SKIPPED.name());
+        assertEquals(event.get().getSkippedReason(), VERIFIER_LIMITATION.name());
+        assertEquals(event.get().getErrorCode(), "PRESTO(COMPILER_ERROR)");
+        assertNotNull(event.get().getControlQueryInfo().getChecksumQuery());
+        assertNotNull(event.get().getControlQueryInfo().getChecksumQueryId());
+        assertNotNull(event.get().getTestQueryInfo().getChecksumQuery());
     }
 
     private void assertEvent(
@@ -267,5 +309,12 @@ public class TestDataVerification
             assertTrue(expectedErrorMessageRegex.isPresent());
             assertTrue(Pattern.compile(expectedErrorMessageRegex.get(), MULTILINE + DOTALL).matcher(event.getErrorMessage()).matches());
         }
+    }
+
+    private void assertDeterminismAnalysisRun(DeterminismAnalysisRun run)
+    {
+        assertNotNull(run.getTableName());
+        assertNotNull(run.getQueryId());
+        assertNotNull(run.getChecksumQueryId());
     }
 }

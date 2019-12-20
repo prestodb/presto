@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.prestoaction;
+package com.facebook.presto.benchmark.executor;
 
-import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.benchmark.event.BenchmarkPhaseEvent;
 
-public interface PrestoResourceClient
+public interface PhaseExecutor
 {
-    <V> V getJsonResponse(String path, JsonCodec<V> responseCodec);
+    BenchmarkPhaseEvent run(boolean continueOnFailure);
 }
