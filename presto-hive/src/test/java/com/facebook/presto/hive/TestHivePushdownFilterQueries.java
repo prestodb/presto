@@ -622,9 +622,11 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte("SELECT info.orderkey, info.linenumber FROM lineitem_ex", rewriter);
 
         assertQueryUsingH2Cte("SELECT info.linenumber, info.shipdate.ship_year FROM lineitem_ex WHERE orderkey < 1000", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE orderkey = 16515", rewriter);
 
         assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE info IS NULL", rewriter);
         assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE info IS NOT NULL", rewriter);
+        assertQueryUsingH2Cte("SELECT info.orderkey FROM lineitem_ex WHERE info IS NOT NULL AND orderkey = 16515", rewriter);
 
         assertQueryUsingH2Cte("SELECT info, dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
         assertQueryUsingH2Cte("SELECT info.orderkey, dates FROM lineitem_ex WHERE info.orderkey % 7 = 0", rewriter);
@@ -641,6 +643,8 @@ public class TestHivePushdownFilterQueries
 
         // filter-only struct
         assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL");
+        assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL AND info.orderkey = 16515", rewriter);
+        assertQueryUsingH2Cte("SELECT orderkey FROM lineitem_ex WHERE info IS NOT NULL AND info.orderkey + 1 = 16514", rewriter);
 
         // filters on subfields
         assertQueryUsingH2Cte("SELECT info.orderkey, info.linenumber FROM lineitem_ex WHERE info.linenumber = 2", rewriter);
