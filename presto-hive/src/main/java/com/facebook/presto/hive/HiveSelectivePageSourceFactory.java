@@ -45,5 +45,6 @@ public interface HiveSelectivePageSourceFactory
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,               // refers to columns by name; already optimized
             DateTimeZone hiveStorageTimeZone,
+            boolean legacyMapSubscript,
             Optional<byte[]> extraFileInfo);
 }

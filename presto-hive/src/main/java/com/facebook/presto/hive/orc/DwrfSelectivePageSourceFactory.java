@@ -105,6 +105,7 @@ public class DwrfSelectivePageSourceFactory
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
+            boolean legacyMapSubscript,
             Optional<byte[]> extraFileInfo)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
@@ -133,6 +134,7 @@ public class DwrfSelectivePageSourceFactory
                 remainingPredicate,
                 false,
                 hiveStorageTimeZone,
+                legacyMapSubscript,
                 typeManager,
                 functionResolution,
                 rowExpressionService,

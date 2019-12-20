@@ -123,7 +123,7 @@ public class HivePageSourceProvider
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
         if (hiveLayout.isPushdownFilterEnabled()) {
-            Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, hiveStorageTimeZone, typeManager, optimizedRowExpressionCache);
+            Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, hiveStorageTimeZone, session.getSqlFunctionProperties().isLegacyMapSubscript(), typeManager, optimizedRowExpressionCache);
             if (selectivePageSource.isPresent()) {
                 return selectivePageSource.get();
             }
@@ -174,6 +174,7 @@ public class HivePageSourceProvider
             HiveTableLayoutHandle layout,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
+            boolean legacyMapSubscript,
             TypeManager typeManager,
             LoadingCache<RowExpressionCacheKey, RowExpression> rowExpressionCache)
     {
@@ -233,6 +234,7 @@ public class HivePageSourceProvider
                     layout.getDomainPredicate(),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
+                    legacyMapSubscript,
                     split.getExtraFileInfo());
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());

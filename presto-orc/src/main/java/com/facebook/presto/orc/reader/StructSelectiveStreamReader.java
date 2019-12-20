@@ -102,6 +102,7 @@ public class StructSelectiveStreamReader
             List<Subfield> requiredSubfields,
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
+            boolean legacyMapSubscript,
             AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
@@ -167,6 +168,7 @@ public class StructSelectiveStreamReader
                             fieldOutputType,
                             nestedRequiredSubfields,
                             hiveStorageTimeZone,
+                            legacyMapSubscript,
                             systemMemoryContext.newAggregatedMemoryContext());
                     nestedReaders.put(fieldName, nestedReader);
                 }

@@ -209,6 +209,7 @@ public class OrcSelectivePageSourceFactory
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
+            boolean legacyMapSubscript,
             Optional<byte[]> extraFileInfo)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
@@ -238,6 +239,7 @@ public class OrcSelectivePageSourceFactory
                 remainingPredicate,
                 useOrcColumnNames,
                 hiveStorageTimeZone,
+                legacyMapSubscript,
                 typeManager,
                 functionResolution,
                 rowExpressionService,
@@ -269,6 +271,7 @@ public class OrcSelectivePageSourceFactory
             RowExpression remainingPredicate,
             boolean useOrcColumnNames,
             DateTimeZone hiveStorageTimeZone,
+            boolean legacyMapSubscript,
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
@@ -380,6 +383,7 @@ public class OrcSelectivePageSourceFactory
                     start,
                     length,
                     hiveStorageTimeZone,
+                    legacyMapSubscript,
                     systemMemoryUsage,
                     Optional.empty(),
                     INITIAL_BATCH_SIZE);

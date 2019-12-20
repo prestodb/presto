@@ -25,6 +25,7 @@ public class SqlFunctionProperties
     private final boolean legacyRowFieldOrdinalAccessEnabled;
     private final TimeZoneKey timeZoneKey;
     private final boolean legacyTimestamp;
+
     private final boolean legacyMapSubscript;
 
     private SqlFunctionProperties(
@@ -60,6 +61,11 @@ public class SqlFunctionProperties
     public boolean isLegacyTimestamp()
     {
         return legacyTimestamp;
+    }
+
+    public boolean isLegacyMapSubscript()
+    {
+        return legacyMapSubscript;
     }
 
     @Override
