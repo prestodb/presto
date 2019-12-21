@@ -100,15 +100,17 @@ public class ListSelectiveStreamReader
     @Nullable
     private int[] outputPositions;
     private int outputPositionCount;
-    private boolean[] indexOutOfBounds;
+    private boolean[] indexOutOfBounds;    // positions with not enough elements to evaluate all element filters;
+                                           // aligned with outputPositions
     private boolean allNulls;
 
-    private int elementReadOffset;          // offset within elementStream relative to row group start
-    private int[] elementOffsets;           // offsets within elementStream relative to elementReadOffset
-    private int[] elementLengths;           // aligned with elementOffsets
-    private int[] elementPositions;         // positions in elementStream corresponding to positions passed to read(); relative to elementReadOffset
-    private int elementOutputPositionCount;
-    private int[] elementOutputPositions;
+    private int nestedReadOffset;          // offset within elementStream relative to row group start
+    private int[] nestedOffsets;           // offsets within elementStream relative to nestedReadOffset
+    private int[] nestedLengths;           // aligned with nestedOffsets
+    private int[] nestedPositions;         // positions in elementStream corresponding to non-null positions passed to read();
+                                           // relative to nestedReadOffset; calculated from nestedOffsets and nestedLengths
+    private int[] nestedOutputPositions;   // subset of nestedPositions that passed filters on the elements
+    private int nestedOutputPositionCount; // number of valid entries in nestedPositions
 
     private boolean valuesInUse;
 
@@ -243,7 +245,7 @@ public class ListSelectiveStreamReader
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
         if (readOffset < offset) {
-            elementReadOffset += skip(offset - readOffset);
+            nestedReadOffset += skip(offset - readOffset);
         }
 
         int streamPosition;
@@ -320,9 +322,9 @@ public class ListSelectiveStreamReader
     private int readNotAllNulls(int[] positions, int positionCount)
             throws IOException
     {
-        // populate elementOffsets, elementLengths, and nulls
-        elementOffsets = ensureCapacity(elementOffsets, positionCount + 1);
-        elementLengths = ensureCapacity(elementLengths, positionCount);
+        // populate nestedOffsets, nestedLengths, and nulls
+        nestedOffsets = ensureCapacity(nestedOffsets, positionCount + 1);
+        nestedLengths = ensureCapacity(nestedLengths, positionCount);
 
         systemMemoryContext.setBytes(getRetainedSizeInBytes());
 
@@ -345,8 +347,8 @@ public class ListSelectiveStreamReader
                         nulls[outputPositionCount] = true;
                     }
 
-                    elementOffsets[outputPositionCount] = elementPositionCount + skippedElements;
-                    elementLengths[outputPositionCount] = 0;
+                    nestedOffsets[outputPositionCount] = elementPositionCount + skippedElements;
+                    nestedLengths[outputPositionCount] = 0;
 
                     outputPositions[outputPositionCount] = position;
                     outputPositionCount++;
@@ -356,8 +358,8 @@ public class ListSelectiveStreamReader
                 int length = toIntExact(lengthStream.next());
 
                 if (nonNullsAllowed && (nullsFilter == null || nullsFilter.testNonNull())) {
-                    elementOffsets[outputPositionCount] = elementPositionCount + skippedElements;
-                    elementLengths[outputPositionCount] = length;
+                    nestedOffsets[outputPositionCount] = elementPositionCount + skippedElements;
+                    nestedLengths[outputPositionCount] = length;
 
                     elementPositionCount += length;
 
@@ -379,7 +381,7 @@ public class ListSelectiveStreamReader
                 int precedingPositionsToFail = nullsFilter.getPrecedingPositionsToFail();
 
                 for (int j = 0; j < precedingPositionsToFail; j++) {
-                    int length = elementLengths[outputPositionCount - 1 - j];
+                    int length = nestedLengths[outputPositionCount - 1 - j];
                     skippedElements += length;
                     elementPositionCount -= length;
                 }
@@ -398,21 +400,21 @@ public class ListSelectiveStreamReader
                 }
             }
         }
-        elementOffsets[outputPositionCount] = elementPositionCount + skippedElements;
+        nestedOffsets[outputPositionCount] = elementPositionCount + skippedElements;
 
         elementPositionCount = populateElementPositions(elementPositionCount);
 
         if (listFilter != null) {
-            listFilter.populateElementFilters(outputPositionCount, nulls, elementLengths, elementPositionCount);
+            listFilter.populateElementFilters(outputPositionCount, nulls, nestedLengths, elementPositionCount);
         }
 
         if (elementStreamReader != null && elementPositionCount > 0) {
-            elementStreamReader.read(elementReadOffset, elementPositions, elementPositionCount);
+            elementStreamReader.read(nestedReadOffset, nestedPositions, elementPositionCount);
         }
         else if (listFilter != null && listFilter.getChild() != null) {
-            elementStreamReader.read(elementReadOffset, elementPositions, elementPositionCount);
+            elementStreamReader.read(nestedReadOffset, nestedPositions, elementPositionCount);
         }
-        elementReadOffset += elementOffsets[outputPositionCount];
+        nestedReadOffset += nestedOffsets[outputPositionCount];
 
         if (listFilter == null || level > 0) {
             populateOutputPositionsNoFilter(elementPositionCount);
@@ -426,18 +428,18 @@ public class ListSelectiveStreamReader
 
     private int populateElementPositions(int elementPositionCount)
     {
-        elementPositions = ensureCapacity(elementPositions, elementPositionCount);
+        nestedPositions = ensureCapacity(nestedPositions, elementPositionCount);
 
         int index = 0;
         for (int i = 0; i < outputPositionCount; i++) {
-            int length = elementLengths[i];
+            int length = nestedLengths[i];
             if (maxElementLength != ELEMENT_LENGTH_UNBOUNDED && length > maxElementLength) {
                 length = maxElementLength;
-                elementLengths[i] = length;
+                nestedLengths[i] = length;
             }
 
             for (int j = 0; j < length; j++) {
-                elementPositions[index] = elementOffsets[i] + j;
+                nestedPositions[index] = nestedOffsets[i] + j;
                 index++;
             }
         }
@@ -447,14 +449,14 @@ public class ListSelectiveStreamReader
     private void populateOutputPositionsNoFilter(int elementPositionCount)
     {
         if (outputRequired) {
-            elementOutputPositionCount = elementPositionCount;
-            elementOutputPositions = ensureCapacity(elementOutputPositions, elementPositionCount);
-            System.arraycopy(elementPositions, 0, elementOutputPositions, 0, elementPositionCount);
+            nestedOutputPositionCount = elementPositionCount;
+            nestedOutputPositions = ensureCapacity(nestedOutputPositions, elementPositionCount);
+            System.arraycopy(nestedPositions, 0, nestedOutputPositions, 0, elementPositionCount);
 
             int offset = 0;
             for (int i = 0; i < outputPositionCount; i++) {
                 offsets[i] = offset;
-                offset += elementLengths[i];
+                offset += nestedLengths[i];
             }
             offsets[outputPositionCount] = offset;
         }
@@ -462,8 +464,8 @@ public class ListSelectiveStreamReader
 
     private void populateOutputPositionsWithFilter(int elementPositionCount)
     {
-        elementOutputPositionCount = 0;
-        elementOutputPositions = ensureCapacity(elementOutputPositions, elementPositionCount);
+        nestedOutputPositionCount = 0;
+        nestedOutputPositions = ensureCapacity(nestedOutputPositions, elementPositionCount);
 
         indexOutOfBounds = listFilter.getTopLevelIndexOutOfBounds();
 
@@ -478,18 +480,18 @@ public class ListSelectiveStreamReader
                     if (nullsAllowed && presentStream != null) {
                         nulls[outputPosition] = nulls[i];
                     }
-                    offsets[outputPosition] = elementOutputPositionCount;
-                    for (int j = 0; j < elementLengths[i]; j++) {
-                        elementOutputPositions[elementOutputPositionCount] = elementPositions[elementOffset + j];
-                        elementOutputPositionCount++;
+                    offsets[outputPosition] = nestedOutputPositionCount;
+                    for (int j = 0; j < nestedLengths[i]; j++) {
+                        nestedOutputPositions[nestedOutputPositionCount] = nestedPositions[elementOffset + j];
+                        nestedOutputPositionCount++;
                     }
                 }
                 outputPosition++;
             }
-            elementOffset += elementLengths[i];
+            elementOffset += nestedLengths[i];
         }
         if (outputRequired) {
-            this.offsets[outputPosition] = elementOutputPositionCount;
+            this.offsets[outputPosition] = nestedOutputPositionCount;
         }
 
         outputPositionCount = outputPosition;
@@ -528,7 +530,7 @@ public class ListSelectiveStreamReader
             nullsCopy = new boolean[positionCount];
         }
 
-        elementOutputPositionCount = 0;
+        nestedOutputPositionCount = 0;
 
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
@@ -546,8 +548,8 @@ public class ListSelectiveStreamReader
                 nullsCopy[positionIndex] = this.nulls[i];
             }
             for (int j = 0; j < offsets[i + 1] - offsets[i]; j++) {
-                elementOutputPositions[elementOutputPositionCount] = elementOutputPositions[elementOutputPositionCount + skippedElements];
-                elementOutputPositionCount++;
+                nestedOutputPositions[nestedOutputPositionCount] = nestedOutputPositions[nestedOutputPositionCount + skippedElements];
+                nestedOutputPositionCount++;
             }
 
             positionIndex++;
@@ -563,10 +565,10 @@ public class ListSelectiveStreamReader
 
     private Block makeElementBlock()
     {
-        if (elementOutputPositionCount == 0) {
+        if (nestedOutputPositionCount == 0) {
             return outputType.getElementType().createBlockBuilder(null, 0).build();
         }
-        return elementStreamReader.getBlock(elementOutputPositions, elementOutputPositionCount);
+        return elementStreamReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
     }
 
     @Override
@@ -587,11 +589,11 @@ public class ListSelectiveStreamReader
         }
 
         BlockLease elementBlockLease;
-        if (elementOutputPositionCount == 0) {
+        if (nestedOutputPositionCount == 0) {
             elementBlockLease = newLease(outputType.getElementType().createBlockBuilder(null, 0).build());
         }
         else {
-            elementBlockLease = elementStreamReader.getBlockView(elementOutputPositions, elementOutputPositionCount);
+            elementBlockLease = elementStreamReader.getBlockView(nestedOutputPositions, nestedOutputPositionCount);
         }
 
         valuesInUse = true;
@@ -639,7 +641,7 @@ public class ListSelectiveStreamReader
         int positionIndex = 0;
         int nextPosition = positions[positionIndex];
         int skippedElements = 0;
-        elementOutputPositionCount = 0;
+        nestedOutputPositionCount = 0;
         for (int i = 0; i < outputPositionCount; i++) {
             if (outputPositions[i] < nextPosition) {
                 skippedElements += offsets[i + 1] - offsets[i];
@@ -649,8 +651,8 @@ public class ListSelectiveStreamReader
             assert outputPositions[i] == nextPosition;
 
             for (int j = 0; j < offsets[i + 1] - offsets[i]; j++) {
-                elementOutputPositions[elementOutputPositionCount] = elementOutputPositions[elementOutputPositionCount + skippedElements];
-                elementOutputPositionCount++;
+                nestedOutputPositions[nestedOutputPositionCount] = nestedOutputPositions[nestedOutputPositionCount + skippedElements];
+                nestedOutputPositionCount++;
             }
 
             offsets[positionIndex] = offsets[i] - skippedElements;
@@ -689,7 +691,7 @@ public class ListSelectiveStreamReader
         lengthStreamSource = missingStreamSource(LongInputStream.class);
 
         readOffset = 0;
-        elementReadOffset = 0;
+        nestedReadOffset = 0;
 
         presentStream = null;
         lengthStream = null;
@@ -709,7 +711,7 @@ public class ListSelectiveStreamReader
         lengthStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
 
         readOffset = 0;
-        elementReadOffset = 0;
+        nestedReadOffset = 0;
 
         presentStream = null;
         lengthStream = null;
@@ -733,8 +735,8 @@ public class ListSelectiveStreamReader
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + sizeOf(offsets) + sizeOf(nulls) + sizeOf(outputPositions) + sizeOf(indexOutOfBounds) +
-                sizeOf(elementOffsets) + sizeOf(elementLengths) + sizeOf(elementPositions) +
-                sizeOf(elementOutputPositions) +
+                sizeOf(nestedOffsets) + sizeOf(nestedLengths) + sizeOf(nestedPositions) +
+                sizeOf(nestedOutputPositions) +
                 (listFilter != null ? listFilter.getRetainedSizeInBytes() : 0) +
                 (elementStreamReader != null ? elementStreamReader.getRetainedSizeInBytes() : 0);
     }

@@ -81,9 +81,6 @@ public class MapDirectSelectiveStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    private int readOffset;
-    private int nestedReadOffset;
-
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
     private BooleanInputStream presentStream;
@@ -93,17 +90,21 @@ public class MapDirectSelectiveStreamReader
     private LongInputStream lengthStream;
 
     private boolean rowGroupOpen;
+    private int readOffset;
     @Nullable
     private int[] offsets;
     private boolean[] nulls;
     private int[] outputPositions;
     private int outputPositionCount;
     private boolean allNulls;
-    private int[] nestedLengths;
-    private int[] nestedOffsets;
-    private int[] nestedPositions;
-    private int[] nestedOutputPositions;
-    private int nestedOutputPositionCount;
+
+    private int nestedReadOffset;          // offset within elementStream relative to row group start
+    private int[] nestedOffsets;           // offsets within elementStream relative to nestedReadOffset
+    private int[] nestedLengths;           // aligned with nestedOffsets
+    private int[] nestedPositions;         // positions in elementStream corresponding to non-null positions passed to read();
+                                           // relative to nestedReadOffset; calculated from nestedOffsets and nestedLengths
+    private int[] nestedOutputPositions;   // subset of nestedPositions that passed filters on the elements
+    private int nestedOutputPositionCount; // number of valid entries in nestedPositions
 
     private boolean valuesInUse;
 
