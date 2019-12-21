@@ -78,9 +78,9 @@ public class ListSelectiveStreamReader
     @Nullable
     private final ArrayType outputType;
     private final int maxElementLength;
-    // elementStreamReader is null if output is not required and filter is a simple IS [NOT] NULL
+    // elementReader is null if output is not required and filter is a simple IS [NOT] NULL
     @Nullable
-    private final SelectiveStreamReader elementStreamReader;
+    private final SelectiveStreamReader elementReader;
     private final LocalMemoryContext systemMemoryContext;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -202,7 +202,7 @@ public class ListSelectiveStreamReader
                     .collect(toImmutableList());
         }
 
-        this.elementStreamReader = createNestedStreamReader(elementStreamDescriptor, level + 1, Optional.ofNullable(this.listFilter), elementOutputType, elementSubfields, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
+        this.elementReader = createNestedStreamReader(elementStreamDescriptor, level + 1, Optional.ofNullable(this.listFilter), elementOutputType, elementSubfields, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
         this.systemMemoryContext = systemMemoryContext.newLocalMemoryContext(ListSelectiveStreamReader.class.getSimpleName());
     }
 
@@ -408,11 +408,11 @@ public class ListSelectiveStreamReader
             listFilter.populateElementFilters(outputPositionCount, nulls, nestedLengths, elementPositionCount);
         }
 
-        if (elementStreamReader != null && elementPositionCount > 0) {
-            elementStreamReader.read(nestedReadOffset, nestedPositions, elementPositionCount);
+        if (elementReader != null && elementPositionCount > 0) {
+            elementReader.read(nestedReadOffset, nestedPositions, elementPositionCount);
         }
         else if (listFilter != null && listFilter.getChild() != null) {
-            elementStreamReader.read(nestedReadOffset, nestedPositions, elementPositionCount);
+            elementReader.read(nestedReadOffset, nestedPositions, elementPositionCount);
         }
         nestedReadOffset += nestedOffsets[outputPositionCount];
 
@@ -568,7 +568,7 @@ public class ListSelectiveStreamReader
         if (nestedOutputPositionCount == 0) {
             return outputType.getElementType().createBlockBuilder(null, 0).build();
         }
-        return elementStreamReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
+        return elementReader.getBlock(nestedOutputPositions, nestedOutputPositionCount);
     }
 
     @Override
@@ -593,7 +593,7 @@ public class ListSelectiveStreamReader
             elementBlockLease = newLease(outputType.getElementType().createBlockBuilder(null, 0).build());
         }
         else {
-            elementBlockLease = elementStreamReader.getBlockView(nestedOutputPositions, nestedOutputPositionCount);
+            elementBlockLease = elementReader.getBlockView(nestedOutputPositions, nestedOutputPositionCount);
         }
 
         valuesInUse = true;
@@ -678,8 +678,8 @@ public class ListSelectiveStreamReader
     @Override
     public void close()
     {
-        if (elementStreamReader != null) {
-            elementStreamReader.close();
+        if (elementReader != null) {
+            elementReader.close();
         }
     }
 
@@ -698,8 +698,8 @@ public class ListSelectiveStreamReader
 
         rowGroupOpen = false;
 
-        if (elementStreamReader != null) {
-            elementStreamReader.startStripe(dictionaryStreamSources, encoding);
+        if (elementReader != null) {
+            elementReader.startStripe(dictionaryStreamSources, encoding);
         }
     }
 
@@ -718,8 +718,8 @@ public class ListSelectiveStreamReader
 
         rowGroupOpen = false;
 
-        if (elementStreamReader != null) {
-            elementStreamReader.startRowGroup(dataStreamSources);
+        if (elementReader != null) {
+            elementReader.startRowGroup(dataStreamSources);
         }
     }
 
@@ -738,6 +738,6 @@ public class ListSelectiveStreamReader
                 sizeOf(nestedOffsets) + sizeOf(nestedLengths) + sizeOf(nestedPositions) +
                 sizeOf(nestedOutputPositions) +
                 (listFilter != null ? listFilter.getRetainedSizeInBytes() : 0) +
-                (elementStreamReader != null ? elementStreamReader.getRetainedSizeInBytes() : 0);
+                (elementReader != null ? elementReader.getRetainedSizeInBytes() : 0);
     }
 }
