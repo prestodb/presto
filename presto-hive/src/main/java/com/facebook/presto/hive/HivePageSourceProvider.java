@@ -33,6 +33,9 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
@@ -65,6 +68,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -78,6 +82,7 @@ public class HivePageSourceProvider
     private final Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories;
     private final TypeManager typeManager;
     private final RowExpressionService rowExpressionService;
+    private final LoadingCache<RowExpressionCacheKey, RowExpression> optimizedRowExpressionCache;
 
     @Inject
     public HivePageSourceProvider(
@@ -97,6 +102,10 @@ public class HivePageSourceProvider
         this.selectivePageSourceFactories = ImmutableSet.copyOf(requireNonNull(selectivePageSourceFactories, "selectivePageSourceFactories is null"));
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
+        this.optimizedRowExpressionCache = CacheBuilder.newBuilder()
+                .recordStats()
+                .maximumSize(10_000)
+                .build(CacheLoader.from(cacheKey -> rowExpressionService.getExpressionOptimizer().optimize(cacheKey.rowExpression, OPTIMIZED, cacheKey.session)));
     }
 
     @Override
@@ -114,7 +123,7 @@ public class HivePageSourceProvider
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
         if (hiveLayout.isPushdownFilterEnabled()) {
-            Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, hiveStorageTimeZone, rowExpressionService, typeManager);
+            Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(selectivePageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, hiveStorageTimeZone, typeManager, optimizedRowExpressionCache);
             if (selectivePageSource.isPresent()) {
                 return selectivePageSource.get();
             }
@@ -165,8 +174,8 @@ public class HivePageSourceProvider
             HiveTableLayoutHandle layout,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
-            RowExpressionService rowExpressionService,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            LoadingCache<RowExpressionCacheKey, RowExpression> rowExpressionCache)
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
                 .addAll(layout.getPredicateColumns().values())
@@ -205,7 +214,7 @@ public class HivePageSourceProvider
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .collect(toImmutableList());
 
-        RowExpression optimizedRemainingPredicate = rowExpressionService.getExpressionOptimizer().optimize(layout.getRemainingPredicate(), OPTIMIZED, session);
+        RowExpression optimizedRemainingPredicate = rowExpressionCache.getUnchecked(new RowExpressionCacheKey(layout.getRemainingPredicate(), session));
 
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -581,5 +590,36 @@ public class HivePageSourceProvider
         REGULAR,
         PREFILLED,
         INTERIM,
+    }
+
+    private static final class RowExpressionCacheKey
+    {
+        private final RowExpression rowExpression;
+        private final ConnectorSession session;
+
+        RowExpressionCacheKey(RowExpression rowExpression, ConnectorSession session)
+        {
+            this.rowExpression = rowExpression;
+            this.session = session;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return identityHashCode(rowExpression);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            RowExpressionCacheKey other = (RowExpressionCacheKey) obj;
+            return this.rowExpression == other.rowExpression;
+        }
     }
 }
