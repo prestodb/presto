@@ -80,6 +80,9 @@ public class ListFilter
     // IS [NOT] NULL positional filters
     private final NullsFilter nullsFilter;
 
+    // Filters that do not allow nulls and apply at deeper levels
+    private final long notNullDownstreamFilters;
+
     // positions with nulls allowed, e.g. positions with no filter or with IS NULL filter; used to setup nullsFilter
     private boolean[] nullsAllowed;
 
@@ -105,8 +108,11 @@ public class ListFilter
         this.parent = parent;
         tupleDomainFilters = subfieldFilters.values().toArray(new TupleDomainFilter[0]);
         subscriptFilters = extractFilters(subfieldFilters, level, subfield -> subfield.getPath().size() > level);
-        nullFilters = combineFilters(extractFilters(subfieldFilters, level, subfield -> subfield.getPath().size() == level + 1));
-        if (nullFilters > 0) {
+
+        nullFilters = extractAndCombineFilters(subfieldFilters, subfield -> subfield.getPath().size() == level + 1, filter -> true);
+        notNullDownstreamFilters = extractAndCombineFilters(subfieldFilters, subfield -> subfield.getPath().size() > level + 1, filter -> !filter.testNull());
+
+        if (nullFilters > 0 || notNullDownstreamFilters > 0) {
             nullsFilter = new NullsFilter();
         }
         else {
@@ -311,6 +317,10 @@ public class ListFilter
                 nullsAllowed[i] = true;
                 nonNullsAllowed[i] = true;
             }
+
+            if ((elementFilters[i] & notNullDownstreamFilters) > 0) {
+                nullsAllowed[i] = false;
+            }
         }
         nullsFilter.setup(nullsAllowed, nonNullsAllowed, topLevelOffsets);
     }
@@ -394,15 +404,19 @@ public class ListFilter
         return toIntExact(((Subfield.LongSubscript) subfield.getPath().get(level)).getIndex()) - 1;
     }
 
-    private static long combineFilters(long[] filters)
+    private static long extractAndCombineFilters(Map<Subfield, TupleDomainFilter> filters, Predicate<Subfield> subfieldPredicate, Predicate<TupleDomainFilter> filterPredicate)
     {
-        if (filters == null) {
-            return 0;
-        }
-
         int combined = 0;
-        for (long filter : filters) {
-            combined |= filter;
+        int index = 0;
+        for (Map.Entry<Subfield, TupleDomainFilter> entry : filters.entrySet()) {
+            Subfield subfield = entry.getKey();
+            TupleDomainFilter filter = entry.getValue();
+
+            if (subfieldPredicate.test(subfield) && filterPredicate.test(filter)) {
+                combined |= (1 << index);
+            }
+
+            index++;
         }
         return combined;
     }

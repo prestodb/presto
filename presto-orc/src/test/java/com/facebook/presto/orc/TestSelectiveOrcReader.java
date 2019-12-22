@@ -473,6 +473,12 @@ public class TestSelectiveOrcReader
                         ImmutableMap.of(
                                 0, toSubfieldFilter(nonNegative),
                                 1, ImmutableMap.of(new Subfield("c[1]"), IS_NULL))));
+
+        tester.testRoundTripTypes(ImmutableList.of(arrayType(arrayType(INTEGER))),
+                ImmutableList.of(createList(10, i -> createList(7, n -> (i + n) % 5 == 0 ? null : createList(3, m -> random.nextInt())))),
+                ImmutableList.of(
+                        ImmutableMap.of(0, toSubfieldFilter("m[1][2]", negative)),
+                        ImmutableMap.of(0, ImmutableMap.of(new Subfield("m[1]"), IS_NOT_NULL, new Subfield("m[1][2]"), negative))));
     }
 
     @Test
