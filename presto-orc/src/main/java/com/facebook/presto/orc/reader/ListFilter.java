@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.reader.HierarchicalFilter.createHierarchicalFilter;
@@ -419,32 +420,5 @@ public class ListFilter
             index++;
         }
         return combined;
-    }
-
-    private static int[] ensureCapacity(int[] buffer, int capacity)
-    {
-        if (buffer == null || buffer.length < capacity) {
-            return new int[capacity];
-        }
-
-        return buffer;
-    }
-
-    private static long[] ensureCapacity(long[] buffer, int capacity)
-    {
-        if (buffer == null || buffer.length < capacity) {
-            return new long[capacity];
-        }
-
-        return buffer;
-    }
-
-    private static boolean[] ensureCapacity(boolean[] buffer, int capacity)
-    {
-        if (buffer == null || buffer.length < capacity) {
-            return new boolean[capacity];
-        }
-
-        return buffer;
     }
 }
