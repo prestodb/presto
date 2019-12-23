@@ -17,7 +17,8 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.primitives.Longs;
+
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -60,7 +61,7 @@ public class ScheduledSplit
     @Override
     public int hashCode()
     {
-        return Longs.hashCode(sequenceId);
+        return Objects.hash(planNodeId, sequenceId);
     }
 
     @Override
