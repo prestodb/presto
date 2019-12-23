@@ -23,6 +23,7 @@ import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockLease;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Supplier;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -44,8 +45,10 @@ public class MapSelectiveStreamReader
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapSelectiveStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
-    private final MapDirectSelectiveStreamReader directReader;
-    private final MapFlatSelectiveStreamReader flatReader;
+    private final Supplier<MapDirectSelectiveStreamReader> directReaderSupplier;
+    private final Supplier<MapFlatSelectiveStreamReader> flatReaderSupplier;
+    private MapDirectSelectiveStreamReader directReader;
+    private MapFlatSelectiveStreamReader flatReader;
     private SelectiveStreamReader currentReader;
 
     public MapSelectiveStreamReader(
@@ -58,8 +61,8 @@ public class MapSelectiveStreamReader
             AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new MapDirectSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
-        flatReader = new MapFlatSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
+        directReaderSupplier = () -> new MapDirectSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
+        flatReaderSupplier = () -> new MapFlatSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, legacyMapSubscript, systemMemoryContext);
     }
 
     @Override
@@ -70,10 +73,10 @@ public class MapSelectiveStreamReader
                 .getColumnEncoding(streamDescriptor.getSequence())
                 .getColumnEncodingKind();
         if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
-            currentReader = directReader;
+            currentReader = directReader == null ? directReaderSupplier.get() : directReader;
         }
         else if (kind == DWRF_MAP_FLAT) {
-            currentReader = flatReader;
+            currentReader = flatReader == null ? flatReaderSupplier.get() : flatReader;
         }
         else {
             throw new IllegalArgumentException("Unsupported encoding " + kind);
@@ -100,7 +103,9 @@ public class MapSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + directReader.getRetainedSizeInBytes() + flatReader.getRetainedSizeInBytes();
+        return INSTANCE_SIZE +
+                (directReader != null ? directReader.getRetainedSizeInBytes() : 0) +
+                (flatReader != null ? flatReader.getRetainedSizeInBytes() : 0);
     }
 
     @Override
