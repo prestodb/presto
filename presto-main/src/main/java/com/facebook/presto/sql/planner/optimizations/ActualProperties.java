@@ -378,6 +378,9 @@ public class ActualProperties
         // will be executed on multiple servers, but only one server will get all the data.
 
         // Description of whether rows with nulls in partitioning columns or some arbitrary rows have been replicated to all *nodes*
+        // When doing an IN query NULL in empty set is false, NULL in non-empty set is NULL. Say non-NULL element A (number 1) in
+        // a set that is missing A ( say 2, 3) is false, but A in (2, 3, NULL) is NULL.
+        // IN is equivalent to "a = b OR a = c OR a = d...).
         private final boolean nullsAndAnyReplicated;
 
         private Global(Optional<Partitioning> nodePartitioning, Optional<Partitioning> streamPartitioning, boolean nullsAndAnyReplicated)
