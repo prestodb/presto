@@ -37,17 +37,13 @@ import static java.util.Objects.requireNonNull;
 class PreferredProperties
 {
     private final Optional<Global> globalProperties;
-    private final List<LocalProperty<VariableReferenceExpression>> localProperties;
 
     private PreferredProperties(
-            Optional<Global> globalProperties,
-            List<? extends LocalProperty<VariableReferenceExpression>> localProperties)
+            Optional<Global> globalProperties)
     {
         requireNonNull(globalProperties, "globalProperties is null");
-        requireNonNull(localProperties, "localProperties is null");
 
         this.globalProperties = globalProperties;
-        this.localProperties = ImmutableList.copyOf(localProperties);
     }
 
     public static PreferredProperties any()
@@ -97,49 +93,15 @@ class PreferredProperties
                 .build();
     }
 
-    public static PreferredProperties partitionedWithLocal(Set<VariableReferenceExpression> columns, List<? extends LocalProperty<VariableReferenceExpression>> localProperties)
-    {
-        return builder()
-                .global(Global.distributed(PartitioningProperties.partitioned(columns)))
-                .local(localProperties)
-                .build();
-    }
-
-    public static PreferredProperties undistributedWithLocal(List<? extends LocalProperty<VariableReferenceExpression>> localProperties)
-    {
-        return builder()
-                .global(Global.undistributed())
-                .local(localProperties)
-                .build();
-    }
-
-    public static PreferredProperties local(List<? extends LocalProperty<VariableReferenceExpression>> localProperties)
-    {
-        return builder()
-                .local(localProperties)
-                .build();
-    }
-
     public Optional<Global> getGlobalProperties()
     {
         return globalProperties;
     }
 
-    public List<LocalProperty<VariableReferenceExpression>> getLocalProperties()
-    {
-        return localProperties;
-    }
-
     public PreferredProperties mergeWithParent(PreferredProperties parent, boolean mergePartitionPreference)
     {
-        List<LocalProperty<VariableReferenceExpression>> newLocal = ImmutableList.<LocalProperty<VariableReferenceExpression>>builder()
-                .addAll(localProperties)
-                .addAll(parent.getLocalProperties())
-                .build();
 
-        Builder builder = builder()
-                .local(newLocal);
-
+        Builder builder = builder();
         if (globalProperties.isPresent()) {
             Global currentGlobal = globalProperties.get();
             Global newGlobal = parent.getGlobalProperties()
@@ -157,8 +119,7 @@ class PreferredProperties
     public PreferredProperties translate(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator)
     {
         Optional<Global> newGlobalProperties = globalProperties.map(global -> global.translate(translator));
-        List<LocalProperty<VariableReferenceExpression>> newLocalProperties = LocalProperties.translate(localProperties, translator);
-        return new PreferredProperties(newGlobalProperties, newLocalProperties);
+        return new PreferredProperties(newGlobalProperties);
     }
 
     public static Builder builder()
@@ -189,21 +150,9 @@ class PreferredProperties
             return this;
         }
 
-        public Builder local(List<? extends LocalProperty<VariableReferenceExpression>> localProperties)
-        {
-            this.localProperties = ImmutableList.copyOf(localProperties);
-            return this;
-        }
-
-        public Builder local(PreferredProperties other)
-        {
-            this.localProperties = ImmutableList.copyOf(other.localProperties);
-            return this;
-        }
-
         public PreferredProperties build()
         {
-            return new PreferredProperties(globalProperties, localProperties);
+            return new PreferredProperties(globalProperties);
         }
     }
 

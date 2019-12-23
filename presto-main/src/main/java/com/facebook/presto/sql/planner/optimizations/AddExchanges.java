@@ -250,7 +250,7 @@ public class AddExchanges
             // from partial aggregations (enforced in `ValidateAggregationWithDefaultValues.java`). Therefore, we don't have preference on what the child will return.
             if (!node.getGroupingKeys().isEmpty() && !hasMixedGroupingSets) {
                 FeaturesConfig.AggregationPartitioningMergingStrategy aggregationPartitioningMergingStrategy = getAggregationPartitioningMergingStrategy(session);
-                preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(node.getGroupingKeys()))
+                preferredProperties = PreferredProperties.partitioned(partitioningRequirement)
                         .mergeWithParent(parentPreferredProperties, aggregationPartitioningMergingStrategy.isMergingWithParent());
 
                 if (aggregationPartitioningMergingStrategy.isAdoptingMergedPreference()) {
@@ -311,7 +311,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, PreferredProperties preferredProperties)
         {
-            PreferredProperties preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getDistinctVariables()), grouped(node.getDistinctVariables()))
+            PreferredProperties preferredChildProperties = PreferredProperties.partitioned(ImmutableSet.copyOf(node.getDistinctVariables()))
                     .mergeWithParent(preferredProperties, true);
             PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
 
@@ -333,18 +333,9 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitWindow(WindowNode node, PreferredProperties preferredProperties)
         {
-            List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
-            if (!node.getPartitionBy().isEmpty()) {
-                desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
-            }
-            node.getOrderingScheme().ifPresent(orderingScheme ->
-                    orderingScheme.getOrderByVariables().stream()
-                            .map(variable -> new SortingProperty<>(variable, orderingScheme.getOrdering(variable)))
-                            .forEach(desiredProperties::add));
-
             PlanWithProperties child = planChild(
                     node,
-                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties)
+                    PreferredProperties.partitioned(ImmutableSet.copyOf(node.getPartitionBy()))
                             .mergeWithParent(preferredProperties, true));
 
             if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy()) &&
@@ -386,7 +377,7 @@ public class AddExchanges
 
             PlanWithProperties child = planChild(
                     node,
-                    PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
+                    PreferredProperties.partitioned(ImmutableSet.copyOf(node.getPartitionBy()))
                             .mergeWithParent(preferredProperties, true));
 
             // TODO: add config option/session property to force parallel plan if child is unpartitioned and window has a PARTITION BY clause
@@ -418,7 +409,7 @@ public class AddExchanges
                 addExchange = partial -> gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, partial);
             }
             else {
-                preferredChildProperties = PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), grouped(node.getPartitionBy()))
+                preferredChildProperties = PreferredProperties.partitioned(ImmutableSet.copyOf(node.getPartitionBy()))
                         .mergeWithParent(preferredProperties, true);
                 addExchange = partial -> partitionedExchange(
                         idAllocator.getNextId(),
@@ -997,10 +988,7 @@ public class AddExchanges
                     .map(IndexJoinNode.EquiJoinClause::getProbe)
                     .collect(toImmutableList());
 
-            // Only prefer grouping on join columns if no parent local property preferences
-            List<LocalProperty<VariableReferenceExpression>> desiredLocalProperties = preferredProperties.getLocalProperties().isEmpty() ? grouped(joinColumns) : ImmutableList.of();
-
-            PlanWithProperties probeSource = node.getProbeSource().accept(this, PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(joinColumns), desiredLocalProperties)
+            PlanWithProperties probeSource = node.getProbeSource().accept(this, PreferredProperties.partitioned(ImmutableSet.copyOf(joinColumns))
                     .mergeWithParent(preferredProperties, true));
             ActualProperties probeProperties = probeSource.getProperties();
 
@@ -1434,25 +1422,6 @@ public class AddExchanges
             }
         }
         return outputToInput;
-    }
-
-    @VisibleForTesting
-    static Comparator<ActualProperties> streamingExecutionPreference(PreferredProperties preferred)
-    {
-        // Calculating the matches can be a bit expensive, so cache the results between comparisons
-        LoadingCache<List<LocalProperty<VariableReferenceExpression>>, List<Optional<LocalProperty<VariableReferenceExpression>>>> matchCache = CacheBuilder.newBuilder()
-                .build(CacheLoader.from(actualProperties -> LocalProperties.match(actualProperties, preferred.getLocalProperties())));
-
-        return (actual1, actual2) -> {
-            List<Optional<LocalProperty<VariableReferenceExpression>>> matchLayout1 = matchCache.getUnchecked(actual1.getLocalProperties());
-            List<Optional<LocalProperty<VariableReferenceExpression>>> matchLayout2 = matchCache.getUnchecked(actual2.getLocalProperties());
-
-            return ComparisonChain.start()
-                    .compareTrueFirst(hasLocalOptimization(preferred.getLocalProperties(), matchLayout1), hasLocalOptimization(preferred.getLocalProperties(), matchLayout2))
-                    .compareTrueFirst(meetsPartitioningRequirements(preferred, actual1), meetsPartitioningRequirements(preferred, actual2))
-                    .compare(matchLayout1, matchLayout2, matchedLayoutPreference())
-                    .result();
-        };
     }
 
     private static <T> boolean hasLocalOptimization(List<LocalProperty<T>> desiredLayout, List<Optional<LocalProperty<T>>> matchResult)

@@ -192,7 +192,6 @@ public class ActualProperties
                     }
                     return translated;
                 }))
-                .local(LocalProperties.translate(localProperties, translator))
                 .constants(translatedConstants)
                 .build();
     }
@@ -228,7 +227,6 @@ public class ActualProperties
                 .forEach(inputToOutputMappings::put);
         return builder()
                 .global(global.translateRowExpression(inputToOutputMappings.build(), assignments, types))
-                .local(LocalProperties.translate(localProperties, variable -> Optional.ofNullable(inputToOutputVariables.get(variable))))
                 .constants(translatedConstants)
                 .build();
     }
