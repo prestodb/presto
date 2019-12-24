@@ -17,6 +17,7 @@ import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.function.FlatMapFunction2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.util.CollectionAccumulator;
+import org.spark_project.guava.collect.Iterators;
 import scala.Tuple2;
 
 import java.util.HashMap;
@@ -30,13 +31,23 @@ public class TaskProcessors
 {
     private TaskProcessors() {}
 
-    public static PairFlatMapFunction<byte[], Integer, byte[]> createTaskProcessor(
+    public static PairFlatMapFunction<Iterator<byte[]>, Integer, byte[]> createTaskProcessor(
             PrestoSparkTaskCompilerFactory taskCompilerFactory,
             CollectionAccumulator<byte[]> taskStatsCollector)
     {
-        return (serializedTaskDescriptor) -> {
-            int taskId = TaskContext.get().partitionId();
-            return taskCompilerFactory.create().compile(taskId, serializedTaskDescriptor, emptyMap(), taskStatsCollector);
+        return new PairFlatMapFunction<Iterator<byte[]>, Integer, byte[]>() {
+            /**
+             * @return An iterator of tuple (partitionId, serializedPage)
+             */
+            @Override
+            public Iterator<Tuple2<Integer, byte[]>> call(Iterator<byte[]> serializedTaskRequestIterator)
+            {
+                // Each partition contains exactly one task request
+                byte[] serializedTaskDescriptor = Iterators.getOnlyElement(serializedTaskRequestIterator);
+
+                int taskId = TaskContext.get().partitionId();
+                return taskCompilerFactory.create().compile(taskId, serializedTaskDescriptor, emptyMap(), taskStatsCollector);
+            }
         };
     }
 

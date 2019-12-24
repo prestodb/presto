@@ -15,28 +15,31 @@ package com.facebook.presto.spark.planner;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.SparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskCompilerFactory;
+import com.facebook.presto.spark.common.IntegerIdentityPartitioner;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.apache.spark.HashPartitioner;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.util.CollectionAccumulator;
-import scala.Tuple2;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
@@ -49,10 +52,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toSet;
 
 public class SparkRddPlanner
 {
     private final JsonCodec<SparkTaskDescriptor> sparkTaskRequestJsonCodec;
+    private final int initialSparkPartitionCount = 100; // TODO: make this configurable
 
     @Inject
     public SparkRddPlanner(JsonCodec<SparkTaskDescriptor> sparkTaskRequestJsonCodec)
@@ -72,9 +79,11 @@ public class SparkRddPlanner
                 sparkTaskRequestJsonCodec,
                 sparkContext,
                 taskCompilerFactory,
+                initialSparkPartitionCount,
                 getHashPartitionCount(session),
                 taskStatsCollector,
                 preparedPlan.getTableWriteInfo());
+
         return rddFactory.createRdd(preparedPlan.getPlan());
     }
 
@@ -85,6 +94,7 @@ public class SparkRddPlanner
         private final JavaSparkContext sparkContext;
         private final PrestoSparkTaskCompilerFactory compilerFactory;
         private final int hashPartitionCount;
+        private final int initialSparkPartitionCount;
         private final CollectionAccumulator<byte[]> taskStatsCollector;
         private final TableWriteInfo tableWriteInfo;
 
@@ -93,6 +103,7 @@ public class SparkRddPlanner
                 JsonCodec<SparkTaskDescriptor> sparkTaskRequestJsonCodec,
                 JavaSparkContext sparkContext,
                 PrestoSparkTaskCompilerFactory taskCompilerFactory,
+                int initialSparkPartitionCount,
                 int hashPartitionCount,
                 CollectionAccumulator<byte[]> taskStatsCollector,
                 TableWriteInfo tableWriteInfo)
@@ -101,6 +112,7 @@ public class SparkRddPlanner
             this.sparkTaskRequestJsonCodec = requireNonNull(sparkTaskRequestJsonCodec, "sparkTaskRequestJsonCodec is null");
             this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
             this.compilerFactory = requireNonNull(taskCompilerFactory, "taskCompilerFactory is null");
+            this.initialSparkPartitionCount = initialSparkPartitionCount;
             this.hashPartitionCount = hashPartitionCount;
             this.taskStatsCollector = requireNonNull(taskStatsCollector, "taskStatsCollector is null");
             this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
@@ -109,6 +121,7 @@ public class SparkRddPlanner
         public JavaPairRDD<Integer, byte[]> createRdd(SubPlanWithTaskSources subPlan)
         {
             PlanFragment fragment;
+            // TODO: fragment adaption should be done prior to RDD creation
             if (subPlan.getFragment().getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
                 fragment = subPlan.getFragment().withBucketToPartition(Optional.of(IntStream.range(0, hashPartitionCount).toArray()));
             }
@@ -128,22 +141,21 @@ public class SparkRddPlanner
             if (!tableScans.isEmpty()) {
                 checkArgument(fragment.getPartitioning().equals(SOURCE_DISTRIBUTION), "unexpected table scan partitioning: %s", fragment.getPartitioning());
 
-                List<SparkTaskDescriptor> taskRequests = subPlan.getTaskSources().stream()
-                        .flatMap(taskSource -> taskSource.getSplits().stream()
-                                .map(split -> createTaskDescriptor(
-                                        fragment,
-                                        ImmutableList.of(
-                                                new TaskSource(
-                                                        taskSource.getPlanNodeId(),
-                                                        ImmutableSet.of(split),
-                                                        taskSource.getNoMoreSplitsForLifespan(),
-                                                        taskSource.isNoMoreSplits())))))
+                // get all scheduled splits
+                List<ScheduledSplit> scheduledSplits = subPlan.getTaskSources().stream()
+                        .flatMap(taskSource -> taskSource.getSplits().stream())
                         .collect(toImmutableList());
-                List<byte[]> serializedRequests = taskRequests.stream()
+
+                // get scheduled splits by task
+                List<List<ScheduledSplit>> assignedSplits = assignSplitsToTasks(scheduledSplits, initialSparkPartitionCount);
+
+                List<byte[]> serializedRequests = assignedSplits.stream()
+                        .map(splits -> createTaskDescriptor(fragment, splits))
                         .map(sparkTaskRequestJsonCodec::toJsonBytes)
                         .collect(toImmutableList());
-                return sparkContext.parallelize(serializedRequests)
-                        .flatMapToPair(createTaskProcessor(compilerFactory, taskStatsCollector));
+
+                return sparkContext.parallelize(serializedRequests, initialSparkPartitionCount)
+                        .mapPartitionsToPair(createTaskProcessor(compilerFactory, taskStatsCollector));
             }
 
             List<SubPlanWithTaskSources> children = subPlan.getChildren();
@@ -157,6 +169,12 @@ public class SparkRddPlanner
                 // Single remote source
                 SubPlanWithTaskSources childSubPlan = getOnlyElement(children);
                 JavaPairRDD<Integer, byte[]> childRdd = createRdd(childSubPlan);
+                PartitioningHandle partitioning = fragment.getPartitioning();
+
+                if (partitioning.equals(COORDINATOR_DISTRIBUTION)) {
+                    // coordinator side work will be handled after JavaPairRDD#collect() call in PrestoSparkExecution
+                    return childRdd;
+                }
 
                 PlanFragment childFragment = childSubPlan.getFragment();
                 RemoteSourceNode remoteSource = getOnlyElement(remoteSources);
@@ -167,32 +185,24 @@ public class SparkRddPlanner
                 SparkTaskDescriptor sparkTaskDescriptor = createTaskDescriptor(fragment, ImmutableList.of());
                 byte[] serializedTaskDescriptor = sparkTaskRequestJsonCodec.toJsonBytes(sparkTaskDescriptor);
 
-                PartitioningHandle partitioning = fragment.getPartitioning();
-                if (partitioning.equals(COORDINATOR_DISTRIBUTION)) {
-                    // TODO: We assume COORDINATOR_DISTRIBUTION always means OutputNode
-                    // But it could also be TableFinishNode, in that case we should do collect and table commit on coordinator.
-
-                    // TODO: Do we want to return an RDD for root stage? -- or we should consider the result will not be large?
-                    List<Tuple2<Integer, byte[]>> collect = childRdd.collect();
-                    List<Tuple2<Integer, byte[]>> result = ImmutableList.copyOf(compilerFactory.create().compile(
-                            0,
-                            serializedTaskDescriptor,
-                            ImmutableMap.of(remoteSource.getId().toString(), collect.iterator()),
-                            taskStatsCollector));
-                    return sparkContext.parallelizePairs(result);
-                }
-                else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) ||
+                if (partitioning.equals(FIXED_HASH_DISTRIBUTION) ||
                         // when single distribution - there will be a single partition 0
                         partitioning.equals(SINGLE_DISTRIBUTION)) {
                     String planNodeId = remoteSource.getId().toString();
                     return childRdd
                             // TODO: What's the difference of using
                             //  partitionBy/mapPartitionsToPair vs. groupBy vs. mapToPair ???
-                            .partitionBy(partitioning.equals(FIXED_HASH_DISTRIBUTION) ? new HashPartitioner(hashPartitionCount) : new HashPartitioner(1))
+                            .partitionBy(partitioning.equals(FIXED_HASH_DISTRIBUTION) ? new IntegerIdentityPartitioner(hashPartitionCount) : new IntegerIdentityPartitioner(1))
                             .mapPartitionsToPair(createTaskProcessor(compilerFactory, serializedTaskDescriptor, planNodeId, taskStatsCollector));
                 }
                 else {
-                    // SOURCE_DISTRIBUTION || FIXED_PASSTHROUGH_DISTRIBUTION || ARBITRARY_DISTRIBUTION || SCALED_WRITER_DISTRIBUTION || FIXED_BROADCAST_DISTRIBUTION || FIXED_ARBITRARY_DISTRIBUTION
+                    // TODO: support (or do check state over) the following fragment partitioning:
+                    //  - SOURCE_DISTRIBUTION
+                    //  - FIXED_PASSTHROUGH_DISTRIBUTION
+                    //  - ARBITRARY_DISTRIBUTION
+                    //  - SCALED_WRITER_DISTRIBUTION
+                    //  - FIXED_BROADCAST_DISTRIBUTION
+                    //  - FIXED_ARBITRARY_DISTRIBUTION
                     throw new IllegalArgumentException("Unsupported fragment partitioning: " + partitioning);
                 }
             }
@@ -228,8 +238,8 @@ public class SparkRddPlanner
                 PartitioningHandle partitioning = fragment.getPartitioning();
                 checkArgument(partitioning.equals(FIXED_HASH_DISTRIBUTION));
 
-                JavaPairRDD<Integer, byte[]> shuffledLeftChildRdd = leftChildRdd.partitionBy(new HashPartitioner(hashPartitionCount));
-                JavaPairRDD<Integer, byte[]> shuffledRightChildRdd = rightChildRdd.partitionBy(new HashPartitioner(hashPartitionCount));
+                JavaPairRDD<Integer, byte[]> shuffledLeftChildRdd = leftChildRdd.partitionBy(new IntegerIdentityPartitioner(hashPartitionCount));
+                JavaPairRDD<Integer, byte[]> shuffledRightChildRdd = rightChildRdd.partitionBy(new IntegerIdentityPartitioner(hashPartitionCount));
 
                 return JavaPairRDD.fromJavaRDD(
                         shuffledLeftChildRdd.zipPartitions(
@@ -241,13 +251,45 @@ public class SparkRddPlanner
             }
         }
 
-        private SparkTaskDescriptor createTaskDescriptor(PlanFragment fragment, List<TaskSource> taskSources)
+        private static List<List<ScheduledSplit>> assignSplitsToTasks(List<ScheduledSplit> scheduledSplits, int numTasks)
         {
+            List<List<ScheduledSplit>> assignedSplits = new ArrayList<>();
+            for (int i = 0; i < numTasks; i++) {
+                assignedSplits.add(new ArrayList<>());
+            }
+
+            for (ScheduledSplit split : scheduledSplits) {
+                int taskId = split.hashCode() % numTasks;
+                if (taskId < 0) {
+                    taskId += numTasks;
+                }
+
+                assignedSplits.get(taskId).add(split);
+            }
+
+            return assignedSplits;
+        }
+
+        private SparkTaskDescriptor createTaskDescriptor(PlanFragment fragment, List<ScheduledSplit> splits)
+        {
+            Map<PlanNodeId, Set<ScheduledSplit>> splitsByPlanNode = splits.stream()
+                    .collect(Collectors.groupingBy(
+                            ScheduledSplit::getPlanNodeId,
+                            mapping(identity(), toSet())));
+
+            List<TaskSource> taskSourceByPlanNode = splitsByPlanNode.entrySet().stream()
+                    .map(entry -> new TaskSource(
+                            entry.getKey(),
+                            entry.getValue(),
+                            ImmutableSet.of(),
+                            true))
+                    .collect(toImmutableList());
+
             return new SparkTaskDescriptor(
                     session.toSessionRepresentation(),
                     session.getIdentity().getExtraCredentials(),
                     fragment,
-                    taskSources,
+                    taskSourceByPlanNode,
                     tableWriteInfo);
         }
     }
