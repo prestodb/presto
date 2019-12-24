@@ -206,6 +206,11 @@ public class AccessDeniedException
         denyCreateViewWithSelect(sourceName, identity.toConnectorIdentity());
     }
 
+    public static void denyCreateViewWithSelect(String sourceName, Identity identity, String extraInfo)
+    {
+        denyCreateViewWithSelect(sourceName, identity.toConnectorIdentity(), extraInfo);
+    }
+
     public static void denyCreateViewWithSelect(String sourceName, ConnectorIdentity identity)
     {
         denyCreateViewWithSelect(sourceName, identity, null);
