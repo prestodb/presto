@@ -395,6 +395,9 @@ public class SliceDictionaryBatchStreamReader
         stripeDictionaryLength = null;
         stripeDictionaryData = null;
         stripeDictionaryOffsetVector = null;
+        currentDictionaryData = null;
+        rowGroupDictionaryLength = null;
+        dictionaryBlock = null;
     }
 
     @Override
