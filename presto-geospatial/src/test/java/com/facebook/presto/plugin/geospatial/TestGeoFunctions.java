@@ -412,18 +412,18 @@ public class TestGeoFunctions
         assertValidGeometry("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 2, 3 4), POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0)))");
 
         // invalid geometries
-        assertInvalidGeometry("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))", "Repeated points at or near (0.0 1.0) and (0.0 1.0)");
-        assertInvalidGeometry("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)", "Degenerate segments at or near (0.0 1.0)");
-        assertInvalidGeometry("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)", "Self-tangency at or near (0.0 1.0) and (0.0 1.0)");
-        assertInvalidGeometry("POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))", "Intersecting or overlapping segments at or near (1.0 0.0) and (1.0 1.0)");
-        assertInvalidGeometry("POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Degenerate segments at or near (0.0 1.0)");
-        assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "RingOrientation");
-        assertInvalidGeometry("POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", "Intersecting or overlapping segments at or near (0.0 1.0) and (2.0 1.0)");
-        assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 1, 1 1, 0.5 0.5, 0 1))", "Self-intersection at or near (0.0 1.0) and (1.0 1.0)");
-        assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 0, 0.5 0.7, 1 1, 0.5 0.4, 0 0))", "Disconnected interior at or near (0.0 1.0)");
-        assertInvalidGeometry("POLYGON ((0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0))", "Self-tangency at or near (0.0 1.0) and (0.0 1.0)");
-        assertInvalidGeometry("MULTIPOLYGON (((0 0, 0 1, 1 1, 1 0, 0 0)), ((0.5 0.5, 0.5 2, 2 2, 2 0.5, 0.5 0.5)))", "Intersecting or overlapping segments at or near (0.0 1.0) and (0.5 0.5)");
-        assertInvalidGeometry("GEOMETRYCOLLECTION (POINT (1 2), POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0)))", "Intersecting or overlapping segments at or near (0.0 1.0) and (2.0 1.0)");
+        assertInvalidGeometry("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
+        assertInvalidGeometry("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
+        assertInvalidGeometry("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)");
+        assertInvalidGeometry("POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))");
+        assertInvalidGeometry("POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))");
+        assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))");
+        assertInvalidGeometry("POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))");
+        assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 1, 1 1, 0.5 0.5, 0 1))");
+        assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 0, 0.5 0.7, 1 1, 0.5 0.4, 0 0))");
+        assertInvalidGeometry("POLYGON ((0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0))");
+        assertInvalidGeometry("MULTIPOLYGON (((0 0, 0 1, 1 1, 1 0, 0 0)), ((0.5 0.5, 0.5 2, 2 2, 2 0.5, 0.5 0.5)))");
+        assertInvalidGeometry("GEOMETRYCOLLECTION (POINT (1 2), POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0)))");
 
         // corner cases
         assertFunction("ST_IsValid(ST_GeometryFromText(null))", BOOLEAN, null);
@@ -433,13 +433,39 @@ public class TestGeoFunctions
     private void assertValidGeometry(String wkt)
     {
         assertFunction("ST_IsValid(ST_GeometryFromText('" + wkt + "'))", BOOLEAN, true);
-        assertFunction("geometry_invalid_reason(ST_GeometryFromText('" + wkt + "'))", VARCHAR, null);
     }
 
-    private void assertInvalidGeometry(String wkt, String reason)
+    private void assertInvalidGeometry(String wkt)
     {
         assertFunction("ST_IsValid(ST_GeometryFromText('" + wkt + "'))", BOOLEAN, false);
+    }
+
+    @Test
+    public void testGeometryInvalidReason()
+    {
+        // invalid geometries
+        assertInvalidReason("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))", "Repeated points at or near (0.0 1.0) and (0.0 1.0)");
+        assertInvalidReason("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)", "Degenerate segments at or near (0.0 1.0)");
+        assertInvalidReason("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)", "Self-tangency at or near (0.0 1.0) and (0.0 1.0)");
+        assertInvalidReason("POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))", "Intersecting or overlapping segments at or near (1.0 0.0) and (1.0 1.0)");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Degenerate segments at or near (0.0 1.0)");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "RingOrientation");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", "Intersecting or overlapping segments at or near (0.0 1.0) and (2.0 1.0)");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 1, 1 1, 0.5 0.5, 0 1))", "Self-intersection at or near (0.0 1.0) and (1.0 1.0)");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 0, 0.5 0.7, 1 1, 0.5 0.4, 0 0))", "Disconnected interior at or near (0.0 1.0)");
+        assertInvalidReason("POLYGON ((0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0))", "Self-tangency at or near (0.0 1.0) and (0.0 1.0)");
+        assertInvalidReason("MULTIPOLYGON (((0 0, 0 1, 1 1, 1 0, 0 0)), ((0.5 0.5, 0.5 2, 2 2, 2 0.5, 0.5 0.5)))", "Intersecting or overlapping segments at or near (0.0 1.0) and (0.5 0.5)");
+        assertInvalidReason("GEOMETRYCOLLECTION (POINT (1 2), POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0)))", "Intersecting or overlapping segments at or near (0.0 1.0) and (2.0 1.0)");
+
+        // non-simple geometries
+        assertInvalidReason("MULTIPOINT (1 2, 2 4, 3 6, 1 2)", "Repeated points at or near (1.0 2.0) and (1.0 2.0)");
+        assertInvalidReason("LINESTRING (0 0, 1 1, 1 0, 0 1)", "Intersecting or overlapping segments at or near (0.0 0.0) and (1.0 0.0)");
+        assertInvalidReason("MULTILINESTRING ((1 1, 5 1), (2 4, 4 0))", "Intersecting or overlapping segments at or near (1.0 1.0) and (2.0 4.0)");
+    }
+
+    private void assertInvalidReason(String wkt, String reason) {
         assertFunction("geometry_invalid_reason(ST_GeometryFromText('" + wkt + "'))", VARCHAR, reason);
+
     }
 
     @Test
