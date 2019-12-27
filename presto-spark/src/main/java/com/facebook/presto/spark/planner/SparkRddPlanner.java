@@ -247,7 +247,8 @@ public class SparkRddPlanner
                                 createTaskProcessor(compilerFactory, serializedTaskDescriptor, leftRemoteSourcePlanId, rightRemoteSourcePlanId, taskStatsCollector)));
             }
             else {
-                throw new UnsupportedOperationException();
+                System.err.println(fragment);
+                throw new UnsupportedOperationException("Unsupported number of children: " + children.size());
             }
         }
 

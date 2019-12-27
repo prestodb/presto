@@ -29,6 +29,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
@@ -64,6 +65,8 @@ public class SparkPlanPreparer
 
     public PreparedPlan preparePlan(Session session, SubPlan plan)
     {
+        System.err.println(PlanPrinter.textDistributedPlan(plan, metadata.getFunctionManager(), session, true));
+
         SqlQueryScheduler.StreamingPlanSection streamingPlanSection = extractStreamingSections(plan);
         checkState(streamingPlanSection.getChildren().isEmpty(), "expected no materialized exchanges");
         StreamingSubPlan streamingSubPlan = streamingPlanSection.getPlan();
