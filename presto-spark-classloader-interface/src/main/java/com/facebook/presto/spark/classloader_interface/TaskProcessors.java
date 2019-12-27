@@ -36,11 +36,8 @@ public class TaskProcessors
             CollectionAccumulator<byte[]> taskStatsCollector)
     {
         return new PairFlatMapFunction<Iterator<byte[]>, Integer, byte[]>() {
-            /**
-             * @return An iterator of tuple (partitionId, serializedPage)
-             */
             @Override
-            public Iterator<Tuple2<Integer, byte[]>> call(Iterator<byte[]> serializedTaskRequestIterator)
+            public ISparkSqlExecutor call(Iterator<byte[]> serializedTaskRequestIterator)
             {
                 // Each partition contains exactly one task request
                 byte[] serializedTaskDescriptor = Iterators.getOnlyElement(serializedTaskRequestIterator);

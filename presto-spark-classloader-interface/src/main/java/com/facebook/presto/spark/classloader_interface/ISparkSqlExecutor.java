@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.spark.classloader_interface;
 
-import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
 
 import java.util.Iterator;
-import java.util.Map;
+import java.util.NoSuchElementException;
 
-public interface IPrestoSparkTaskCompiler
+public interface ISparkSqlExecutor extends Iterator<Tuple2<Integer, byte[]>>
 {
-    ISparkSqlExecutor compile(
-            int taskId,
-            byte[] serializedTaskDescriptor,
-            Map<String, Iterator<Tuple2<Integer, byte[]>>> inputs,
-            CollectionAccumulator<byte[]> taskStatsCollector);
+    boolean hasNext();
+
+    /**
+     * @return (partitionId, serializedPage)
+     */
+    Tuple2<Integer, byte[]> next();
 }

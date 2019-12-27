@@ -36,6 +36,7 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.SparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskCompiler;
+import com.facebook.presto.spark.classloader_interface.ISparkSqlExecutor;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -155,7 +156,7 @@ public class PrestoSparkTaskCompiler
     }
 
     @Override
-    public Iterator<Tuple2<Integer, byte[]>> compile(
+    public ISparkSqlExecutor compile(
             int sparkTaskId,
             byte[] serializedTaskDescriptor,
             Map<String, Iterator<Tuple2<Integer, byte[]>>> inputs,
@@ -212,7 +213,7 @@ public class PrestoSparkTaskCompiler
                 fragment.getTableScanSchedulingOrder(),
                 taskDescriptor.getSources());
 
-        return new SparkDriverProcessor(taskContext, drivers, outputBuffer, taskStatsJsonCodec, taskStatsCollector);
+        return new SparkSqlExecutor(taskContext, drivers, outputBuffer, taskStatsJsonCodec, taskStatsCollector);
     }
 
     public List<Driver> createDrivers(
@@ -265,8 +266,9 @@ public class PrestoSparkTaskCompiler
         return ImmutableList.copyOf(drivers);
     }
 
-    private static class SparkDriverProcessor
+    private static class SparkSqlExecutor
             extends AbstractIterator<Tuple2<Integer, byte[]>>
+            implements ISparkSqlExecutor
     {
         private final TaskContext taskContext;
         private final List<Driver> drivers;
@@ -274,7 +276,7 @@ public class PrestoSparkTaskCompiler
         private final JsonCodec<TaskStats> taskStatsJsonCodec;
         private final CollectionAccumulator<byte[]> taskStatsCollector;
 
-        private SparkDriverProcessor(
+        private SparkSqlExecutor(
                 TaskContext taskContext,
                 List<Driver> drivers,
                 SparkOutputBuffer outputBuffer,
