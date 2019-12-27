@@ -32,8 +32,12 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskCompilerFactory;
-import com.facebook.presto.spark.planner.*;
+import com.facebook.presto.spark.planner.PreparedPlan;
+import com.facebook.presto.spark.planner.SparkPlanFragmenter;
+import com.facebook.presto.spark.planner.SparkPlanPreparer;
+import com.facebook.presto.spark.planner.SparkQueryPlanner;
 import com.facebook.presto.spark.planner.SparkQueryPlanner.PlanAndUpdateType;
+import com.facebook.presto.spark.planner.SparkRddPlanner;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
@@ -56,6 +60,7 @@ import scala.Some;
 import scala.Tuple2;
 
 import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Optional;
 

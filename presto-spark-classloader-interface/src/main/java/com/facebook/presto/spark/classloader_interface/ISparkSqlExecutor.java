@@ -16,9 +16,9 @@ package com.facebook.presto.spark.classloader_interface;
 import scala.Tuple2;
 
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 
-public interface ISparkSqlExecutor extends Iterator<Tuple2<Integer, byte[]>>
+public interface ISparkSqlExecutor
+        extends Iterator<Tuple2<Integer, byte[]>>
 {
     boolean hasNext();
 
