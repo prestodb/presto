@@ -18,10 +18,7 @@ import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.GeometryException;
 import com.esri.core.geometry.ListeningGeometryCursor;
 import com.esri.core.geometry.MultiPath;
-import com.esri.core.geometry.MultiVertexGeometry;
-import com.esri.core.geometry.NonSimpleResult;
 import com.esri.core.geometry.NonSimpleResult.Reason;
-import com.esri.core.geometry.OperatorSimplifyOGC;
 import com.esri.core.geometry.OperatorUnion;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
@@ -58,6 +55,7 @@ import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.TopologyException;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 
@@ -93,6 +91,7 @@ import static com.facebook.presto.geospatial.GeometryUtils.createJtsEmptyPolygon
 import static com.facebook.presto.geospatial.GeometryUtils.createJtsLineString;
 import static com.facebook.presto.geospatial.GeometryUtils.createJtsMultiPoint;
 import static com.facebook.presto.geospatial.GeometryUtils.createJtsPoint;
+import static com.facebook.presto.geospatial.GeometryUtils.getGeometryInvalidReason;
 import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
 import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromWkt;
 import static com.facebook.presto.geospatial.GeometryUtils.wktFromJtsGeometry;
@@ -443,8 +442,15 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static boolean stIsSimple(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
-        return geometry.isEmpty() || geometry.isSimple();
+        try {
+            return deserialize(input).isSimple();
+        }
+        catch (PrestoException e) {
+            if (e.getCause() instanceof TopologyException) {
+                return false;
+            }
+            throw e;
+        }
     }
 
     @Description("Returns true if the input geometry is well formed")
@@ -452,16 +458,14 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static boolean stIsValid(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        GeometryCursor cursor = EsriGeometrySerde.deserialize(input).getEsriGeometryCursor();
-        while (true) {
-            com.esri.core.geometry.Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return true;
-            }
-
-            if (!OperatorSimplifyOGC.local().isSimpleOGC(geometry, null, true, null, null)) {
+        try {
+            return deserialize(input).isValid();
+        }
+        catch (PrestoException e) {
+            if (e.getCause() instanceof TopologyException) {
                 return false;
             }
+            throw e;
         }
     }
 
@@ -471,35 +475,15 @@ public final class GeoFunctions
     @SqlNullable
     public static Slice invalidReason(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        GeometryCursor cursor = EsriGeometrySerde.deserialize(input).getEsriGeometryCursor();
-        NonSimpleResult result = new NonSimpleResult();
-        while (true) {
-            com.esri.core.geometry.Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return null;
+        try {
+            Geometry geometry = deserialize(input);
+            return utf8Slice(getGeometryInvalidReason(geometry));
+        }
+        catch (PrestoException e) {
+            if (e.getCause() instanceof TopologyException) {
+                return utf8Slice(e.getMessage());
             }
-
-            if (!OperatorSimplifyOGC.local().isSimpleOGC(geometry, null, true, result, null)) {
-                String reasonText = NON_SIMPLE_REASONS.getOrDefault(result.m_reason, result.m_reason.name());
-
-                if (!(geometry instanceof MultiVertexGeometry)) {
-                    return utf8Slice(reasonText);
-                }
-
-                MultiVertexGeometry multiVertexGeometry = (MultiVertexGeometry) geometry;
-                if (result.m_vertexIndex1 >= 0 && result.m_vertexIndex2 >= 0) {
-                    Point point1 = multiVertexGeometry.getPoint(result.m_vertexIndex1);
-                    Point point2 = multiVertexGeometry.getPoint(result.m_vertexIndex2);
-                    return utf8Slice(format("%s at or near (%s %s) and (%s %s)", reasonText, point1.getX(), point1.getY(), point2.getX(), point2.getY()));
-                }
-
-                if (result.m_vertexIndex1 >= 0) {
-                    Point point = multiVertexGeometry.getPoint(result.m_vertexIndex1);
-                    return utf8Slice(format("%s at or near (%s %s)", reasonText, point.getX(), point.getY()));
-                }
-
-                return utf8Slice(reasonText);
-            }
+            throw e;
         }
     }
 

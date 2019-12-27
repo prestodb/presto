@@ -309,6 +309,7 @@ Accessors
 .. function:: ST_IsSimple(Geometry) -> boolean
 
     Returns ``true`` if this Geometry has no anomalous geometric points, such as self intersection or self tangency.
+    Use :func:`geometry_invalid_reason` to determine why the geometry is not simple.
 
 .. function:: ST_IsRing(Geometry) -> boolean
 
@@ -431,8 +432,10 @@ Accessors
 
 .. function:: geometry_invalid_reason(Geometry) -> varchar
 
-    Returns the reason for why the input geometry is not valid.
-    Returns ``null`` if the input is valid.
+    Returns the reason for why the input geometry is not valid or not simple.
+    If the geometry is neither valid no simple, it will only give the reason
+    for invalidity.
+    Returns ``null`` if the input is valid and simple.
 
 .. function:: great_circle_distance(latitude1, longitude1, latitude2, longitude2) -> double
 
