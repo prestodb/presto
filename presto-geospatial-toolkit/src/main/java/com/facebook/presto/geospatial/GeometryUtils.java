@@ -32,11 +32,15 @@ import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.io.WKTWriter;
+import org.locationtech.jts.operation.IsSimpleOp;
+import org.locationtech.jts.operation.valid.IsValidOp;
+import org.locationtech.jts.operation.valid.TopologyValidationError;
 
 import java.util.HashSet;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static java.lang.String.format;
 
 public final class GeometryUtils
 {
@@ -275,5 +279,50 @@ public final class GeometryUtils
     public static org.locationtech.jts.geom.Geometry createJtsEmptyPolygon()
     {
         return GEOMETRY_FACTORY.createPolygon();
+    }
+
+    public static String getGeometryInvalidReason(org.locationtech.jts.geom.Geometry geometry)
+    {
+        IsValidOp validOp = new IsValidOp(geometry);
+        IsSimpleOp simpleOp = new IsSimpleOp(geometry);
+        try {
+            TopologyValidationError err = validOp.getValidationError();
+            if (err != null) {
+                return err.getMessage();
+            }
+        }
+        catch (UnsupportedOperationException e) {
+            // This is thrown if the type of geometry is unsupported by JTS.
+            // It should not happen in practice.
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Geometry type not valid", e);
+        }
+        if (!simpleOp.isSimple()) {
+            String errorDescription;
+            String geometryType = geometry.getGeometryType();
+            switch (GeometryType.getForJtsGeometryType(geometryType)) {
+                case POINT:
+                    errorDescription = "Invalid point";
+                    break;
+                case MULTI_POINT:
+                    errorDescription = "Repeated point";
+                    break;
+                case LINE_STRING:
+                case MULTI_LINE_STRING:
+                    errorDescription = "Self-intersection at or near";
+                    break;
+                case POLYGON:
+                case MULTI_POLYGON:
+                case GEOMETRY_COLLECTION:
+                    // In OGC (which JTS follows): Polygons, MultiPolygons, Geometry Collections are simple.
+                    // This shouldn't happen, but in case it does, return a reasonable generic message.
+                    errorDescription = "Topology exception at or near";
+                    break;
+                default:
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unknown geometry type: %s", geometryType));
+            }
+            org.locationtech.jts.geom.Coordinate nonSimpleLocation = simpleOp.getNonSimpleLocation();
+            return format("[%s] %s: (%s %s)", geometryType, errorDescription, nonSimpleLocation.getX(), nonSimpleLocation.getY());
+        }
+        return null;
     }
 }

@@ -374,6 +374,9 @@ public class TestGeoFunctions
         assertSimpleGeometry("POLYGON EMPTY");
         assertSimpleGeometry("POLYGON ((2 0, 2 1, 3 1, 2 0))");
         assertSimpleGeometry("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))");
+        assertNotSimpleGeometry("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)");
+        assertNotSimpleGeometry("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
+        assertNotSimpleGeometry("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)");
     }
 
     @Test
@@ -410,11 +413,13 @@ public class TestGeoFunctions
         assertValidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))");
         assertValidGeometry("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))");
         assertValidGeometry("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 2, 3 4), POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0)))");
+        assertValidGeometry("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
+        // JTS considers LineStrings with repeated points valid/simple (it drops the dups)
+        assertValidGeometry("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
+        // Valid but not simple
+        assertValidGeometry("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)");
 
         // invalid geometries
-        assertInvalidGeometry("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
-        assertInvalidGeometry("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
-        assertInvalidGeometry("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)");
         assertInvalidGeometry("POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))");
         assertInvalidGeometry("POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))");
         assertInvalidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))");
@@ -444,28 +449,27 @@ public class TestGeoFunctions
     public void testGeometryInvalidReason()
     {
         // invalid geometries
-        assertInvalidReason("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))", "Repeated points at or near (0.0 1.0) and (0.0 1.0)");
-        assertInvalidReason("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)", "Degenerate segments at or near (0.0 1.0)");
-        assertInvalidReason("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)", "Self-tangency at or near (0.0 1.0) and (0.0 1.0)");
-        assertInvalidReason("POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))", "Intersecting or overlapping segments at or near (1.0 0.0) and (1.0 1.0)");
-        assertInvalidReason("POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Degenerate segments at or near (0.0 1.0)");
-        assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "RingOrientation");
-        assertInvalidReason("POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", "Intersecting or overlapping segments at or near (0.0 1.0) and (2.0 1.0)");
-        assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 1, 1 1, 0.5 0.5, 0 1))", "Self-intersection at or near (0.0 1.0) and (1.0 1.0)");
-        assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 0, 0.5 0.7, 1 1, 0.5 0.4, 0 0))", "Disconnected interior at or near (0.0 1.0)");
-        assertInvalidReason("POLYGON ((0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0))", "Self-tangency at or near (0.0 1.0) and (0.0 1.0)");
-        assertInvalidReason("MULTIPOLYGON (((0 0, 0 1, 1 1, 1 0, 0 0)), ((0.5 0.5, 0.5 2, 2 2, 2 0.5, 0.5 0.5)))", "Intersecting or overlapping segments at or near (0.0 1.0) and (0.5 0.5)");
-        assertInvalidReason("GEOMETRYCOLLECTION (POINT (1 2), POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0)))", "Intersecting or overlapping segments at or near (0.0 1.0) and (2.0 1.0)");
+        assertInvalidReason("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))", "[MultiPoint] Repeated point: (0.0 1.0)");
+        assertInvalidReason("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)", "[LineString] Self-intersection at or near: (0.0 1.0)");
+        assertInvalidReason("POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))", "Error constructing Polygon: shell is empty but holes are not");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Hole lies outside shell");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Hole lies outside shell");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", "Self-intersection");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 1, 1 1, 0.5 0.5, 0 1))", "Self-intersection");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 0, 0.5 0.7, 1 1, 0.5 0.4, 0 0))", "Interior is disconnected");
+        assertInvalidReason("POLYGON ((0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0))", "Ring Self-intersection");
+        assertInvalidReason("MULTIPOLYGON (((0 0, 0 1, 1 1, 1 0, 0 0)), ((0.5 0.5, 0.5 2, 2 2, 2 0.5, 0.5 0.5)))", "Self-intersection");
+        assertInvalidReason("GEOMETRYCOLLECTION (POINT (1 2), POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0)))", "Self-intersection");
 
         // non-simple geometries
-        assertInvalidReason("MULTIPOINT (1 2, 2 4, 3 6, 1 2)", "Repeated points at or near (1.0 2.0) and (1.0 2.0)");
-        assertInvalidReason("LINESTRING (0 0, 1 1, 1 0, 0 1)", "Intersecting or overlapping segments at or near (0.0 0.0) and (1.0 0.0)");
-        assertInvalidReason("MULTILINESTRING ((1 1, 5 1), (2 4, 4 0))", "Intersecting or overlapping segments at or near (1.0 1.0) and (2.0 4.0)");
+        assertInvalidReason("MULTIPOINT (1 2, 2 4, 3 6, 1 2)", "[MultiPoint] Repeated point: (1.0 2.0)");
+        assertInvalidReason("LINESTRING (0 0, 1 1, 1 0, 0 1)", "[LineString] Self-intersection at or near: (0.5 0.5)");
+        assertInvalidReason("MULTILINESTRING ((1 1, 5 1), (2 4, 4 0))", "[MultiLineString] Self-intersection at or near: (3.5 1.0)");
     }
 
-    private void assertInvalidReason(String wkt, String reason) {
+    private void assertInvalidReason(String wkt, String reason)
+    {
         assertFunction("geometry_invalid_reason(ST_GeometryFromText('" + wkt + "'))", VARCHAR, reason);
-
     }
 
     @Test
