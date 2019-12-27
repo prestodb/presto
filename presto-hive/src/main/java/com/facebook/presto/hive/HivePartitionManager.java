@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
@@ -26,18 +27,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
@@ -46,19 +36,14 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import javax.inject.Inject;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
@@ -69,15 +54,12 @@ import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugM
 import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreTableBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -87,8 +69,6 @@ import static java.util.stream.Collectors.toList;
 
 public class HivePartitionManager
 {
-    private static final String PARTITION_VALUE_WILDCARD = "";
-
     private final DateTimeZone timeZone;
     private final boolean assumeCanonicalPartitionKeys;
     private final TypeManager typeManager;
@@ -123,10 +103,14 @@ public class HivePartitionManager
         this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
-    public Iterable<HivePartition> getPartitionsIterator(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, ConnectorSession session)
+    public Iterable<HivePartition> getPartitionsIterator(
+            SemiTransactionalHiveMetastore metastore,
+            ConnectorTableHandle tableHandle,
+            Constraint<ColumnHandle> constraint,
+            ConnectorSession session)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary();
+        TupleDomain<ColumnHandle> effectivePredicateColumnHandles = constraint.getSummary();
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         Table table = getTable(metastore, tableName, isOfflineDataDebugModeEnabled(session));
@@ -137,12 +121,63 @@ public class HivePartitionManager
                 .map(column -> typeManager.getType(column.getTypeSignature()))
                 .collect(toList());
 
-        return partitionColumns.isEmpty() ? ImmutableList.of(new HivePartition(tableName)) : () -> getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate).stream()
-                // Apply extra filters which could not be done by getFilteredPartitionNames
-                .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, constraint))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .iterator();
+        Map<Column, Domain> effectivePredicate = createPartitionPredicates(
+                effectivePredicateColumnHandles,
+                partitionColumns,
+                assumeCanonicalPartitionKeys);
+
+        if (partitionColumns.isEmpty()) {
+            return ImmutableList.of(new HivePartition(tableName));
+        }
+        else {
+            return () -> {
+                List<String> filteredPartitionNames = getFilteredPartitionNames(metastore, tableName, effectivePredicate);
+                return filteredPartitionNames.stream()
+                        // Apply extra filters which could not be done by getFilteredPartitionNames
+                        .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, constraint))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .iterator();
+            };
+        }
+    }
+
+    private Map<Column, Domain> createPartitionPredicates(
+            TupleDomain<ColumnHandle> effectivePredicateColumnHandles,
+            List<HiveColumnHandle> partitionColumns,
+            boolean assumeCanonicalPartitionKeys)
+    {
+        Optional<Map<ColumnHandle, Domain>> domains = effectivePredicateColumnHandles.getDomains();
+        if (domains.isPresent()) {
+            Map<ColumnHandle, Domain> columnHandleDomainMap = domains.get();
+            ImmutableMap.Builder<Column, Domain> partitionPredicateBuilder = ImmutableMap.builder();
+            for (HiveColumnHandle partitionColumn : partitionColumns) {
+                Column key = new Column(partitionColumn.getName(), partitionColumn.getHiveType(), partitionColumn.getComment());
+                if (columnHandleDomainMap.containsKey(partitionColumn)) {
+                    if (assumeCanonicalPartitionKeys) {
+                        partitionPredicateBuilder.put(key, columnHandleDomainMap.get(partitionColumn));
+                    }
+                    else {
+                        Type type = typeManager.getType(partitionColumn.getTypeSignature());
+                        if (type instanceof VarcharType || type instanceof CharType) {
+                            partitionPredicateBuilder.put(key, columnHandleDomainMap.get(partitionColumn));
+                        }
+                        else {
+                            Domain allDomain = Domain.all(typeManager.getType(partitionColumn.getTypeSignature()));
+                            partitionPredicateBuilder.put(key, allDomain);
+                        }
+                    }
+                }
+                else {
+                    Domain allDomain = Domain.all(typeManager.getType(partitionColumn.getTypeSignature()));
+                    partitionPredicateBuilder.put(key, allDomain);
+                }
+            }
+            return partitionPredicateBuilder.build();
+        }
+        else {
+            return ImmutableMap.of();
+        }
     }
 
     public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, ConnectorSession session)
@@ -316,72 +351,14 @@ public class HivePartitionManager
         return table;
     }
 
-    private List<String> getFilteredPartitionNames(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
+    private List<String> getFilteredPartitionNames(SemiTransactionalHiveMetastore metastore, SchemaTableName tableName, Map<Column, Domain> partitionPredicates)
     {
-        if (effectivePredicate.isNone()) {
+        if (partitionPredicates.isEmpty()) {
             return ImmutableList.of();
         }
 
-        List<String> filter = new ArrayList<>();
-        for (HiveColumnHandle partitionKey : partitionKeys) {
-            Domain domain = effectivePredicate.getDomains().get().get(partitionKey);
-            if (domain != null && domain.isNullableSingleValue()) {
-                Object value = domain.getNullableSingleValue();
-                Type type = domain.getType();
-                if (value == null) {
-                    filter.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
-                }
-                else if (type instanceof CharType) {
-                    Slice slice = (Slice) value;
-                    filter.add(padSpaces(slice, type).toStringUtf8());
-                }
-                else if (type instanceof VarcharType) {
-                    Slice slice = (Slice) value;
-                    filter.add(slice.toStringUtf8());
-                }
-                // Types above this have only a single possible representation for each value.
-                // Types below this may have multiple representations for a single value.  For
-                // example, a boolean column may represent the false value as "0", "false" or "False".
-                // The metastore distinguishes between these representations, so we cannot prune partitions
-                // unless we know that all partition values use the canonical Java representation.
-                else if (!assumeCanonicalPartitionKeys) {
-                    filter.add(PARTITION_VALUE_WILDCARD);
-                }
-                else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
-                    Slice slice = (Slice) value;
-                    filter.add(Decimals.toString(slice, ((DecimalType) type).getScale()));
-                }
-                else if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
-                    filter.add(Decimals.toString((long) value, ((DecimalType) type).getScale()));
-                }
-                else if (type instanceof DateType) {
-                    DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.date().withZoneUTC();
-                    filter.add(dateTimeFormatter.print(TimeUnit.DAYS.toMillis((long) value)));
-                }
-                else if (type instanceof TimestampType) {
-                    // we don't have time zone info, so just add a wildcard
-                    filter.add(PARTITION_VALUE_WILDCARD);
-                }
-                else if (type instanceof TinyintType
-                        || type instanceof SmallintType
-                        || type instanceof IntegerType
-                        || type instanceof BigintType
-                        || type instanceof DoubleType
-                        || type instanceof RealType
-                        || type instanceof BooleanType) {
-                    filter.add(value.toString());
-                }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
-                }
-            }
-            else {
-                filter.add(PARTITION_VALUE_WILDCARD);
-            }
-        }
-
         // fetch the partition names
-        return metastore.getPartitionNamesByParts(tableName.getSchemaName(), tableName.getTableName(), filter)
+        return metastore.getPartitionNamesByFilter(tableName.getSchemaName(), tableName.getTableName(), partitionPredicates)
                 .orElseThrow(() -> new TableNotFoundException(tableName));
     }
 

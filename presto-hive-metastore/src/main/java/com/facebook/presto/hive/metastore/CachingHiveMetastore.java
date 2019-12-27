@@ -17,6 +17,7 @@ import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -80,7 +81,7 @@ public class CachingHiveMetastore
     private final LoadingCache<HivePartitionName, PartitionStatistics> partitionStatisticsCache;
     private final LoadingCache<String, Optional<List<String>>> viewNamesCache;
     private final LoadingCache<HivePartitionName, Optional<Partition>> partitionCache;
-    private final LoadingCache<PartitionFilter, Optional<List<String>>> partitionFilterCache;
+    private final LoadingCache<PartitionFilter, List<String>> partitionFilterCache;
     private final LoadingCache<HiveTableName, Optional<List<String>>> partitionNamesCache;
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final LoadingCache<String, Set<String>> rolesCache;
@@ -167,7 +168,7 @@ public class CachingHiveMetastore
                 .build(asyncReloading(CacheLoader.from(this::loadPartitionNames), executor));
 
         partitionFilterCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByParts), executor));
+                .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByFilter), executor));
 
         partitionCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(new CacheLoader<HivePartitionName, Optional<Partition>>()
@@ -524,17 +525,22 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
+    public List<String> getPartitionNamesByFilter(
+            String databaseName,
+            String tableName,
+            Map<Column, Domain> partitionPredicates)
     {
-        return get(partitionFilterCache, partitionFilter(databaseName, tableName, parts));
+        return get(
+                partitionFilterCache,
+                partitionFilter(databaseName, tableName, partitionPredicates));
     }
 
-    private Optional<List<String>> loadPartitionNamesByParts(PartitionFilter partitionFilter)
+    private List<String> loadPartitionNamesByFilter(PartitionFilter partitionFilter)
     {
-        return delegate.getPartitionNamesByParts(
+        return delegate.getPartitionNamesByFilter(
                 partitionFilter.getHiveTableName().getDatabaseName(),
                 partitionFilter.getHiveTableName().getTableName(),
-                partitionFilter.getParts());
+                partitionFilter.getPartitionPredicates());
     }
 
     @Override

@@ -20,6 +20,7 @@ import com.facebook.presto.hive.metastore.thrift.MockHiveMetastoreClient;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreStats;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
@@ -42,6 +43,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestCachingHiveMetastore
@@ -149,25 +151,23 @@ public class TestCachingHiveMetastore
     @Test
     public void testGetPartitionNamesByParts()
     {
-        ImmutableList<String> parts = ImmutableList.of();
         ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
 
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getPartitionNamesByParts(TEST_DATABASE, TEST_TABLE, parts).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getPartitionNamesByParts(TEST_DATABASE, TEST_TABLE, parts).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getPartitionNamesByParts(TEST_DATABASE, TEST_TABLE, parts).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
     public void testInvalidGetPartitionNamesByParts()
     {
-        ImmutableList<String> parts = ImmutableList.of();
-        assertFalse(metastore.getPartitionNamesByParts(BAD_DATABASE, TEST_TABLE, parts).isPresent());
+        assertTrue(metastore.getPartitionNamesByFilter(BAD_DATABASE, TEST_TABLE, ImmutableMap.of()).isEmpty());
     }
 
     @Test

@@ -76,6 +76,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
@@ -106,6 +107,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
@@ -656,16 +658,20 @@ public class GlueHiveMetastore
      *     ['', '2', '']
      * </pre>
      *
-     * @param parts Full or partial list of partition values to filter on. Keys without filter will be empty strings.
+     * @param partitionPredicates Full or partial list of partition values to filter on. Keys without filter will be empty strings.
      * @return a list of partition names.
      */
     @Override
-    public Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
+    public List<String> getPartitionNamesByFilter(
+            String databaseName,
+            String tableName,
+            Map<Column, Domain> partitionPredicates)
     {
         Table table = getTableOrElseThrow(databaseName, tableName);
+        List<String> parts = convertPredicateToParts(partitionPredicates);
         String expression = buildGlueExpression(table.getPartitionColumns(), parts);
         List<Partition> partitions = getPartitions(databaseName, tableName, expression);
-        return Optional.of(buildPartitionNames(table.getPartitionColumns(), partitions));
+        return buildPartitionNames(table.getPartitionColumns(), partitions);
     }
 
     private List<Partition> getPartitions(String databaseName, String tableName, String expression)

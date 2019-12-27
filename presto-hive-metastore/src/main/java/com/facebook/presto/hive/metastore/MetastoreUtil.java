@@ -24,6 +24,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.CharType;
@@ -42,6 +43,7 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -50,6 +52,8 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.io.Text;
 import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -60,6 +64,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
@@ -68,6 +73,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.MetastoreErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.padEnd;
@@ -102,6 +108,7 @@ public class MetastoreUtil
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     @SuppressWarnings("OctalInteger")
     public static final FsPermission ALL_PERMISSIONS = new FsPermission((short) 0777);
+    private static final String PARTITION_VALUE_WILDCARD = "";
 
     private MetastoreUtil()
     {
@@ -186,7 +193,7 @@ public class MetastoreUtil
             schema.setProperty(BUCKET_COUNT, "0");
         }
 
-        for (Map.Entry<String, String> param : storage.getSerdeParameters().entrySet()) {
+        for (Entry<String, String> param : storage.getSerdeParameters().entrySet()) {
             schema.setProperty(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
         schema.setProperty(SERIALIZATION_LIB, storage.getStorageFormat().getSerDe());
@@ -234,7 +241,7 @@ public class MetastoreUtil
         }
 
         if (tableParameters != null) {
-            for (Map.Entry<String, String> entry : tableParameters.entrySet()) {
+            for (Entry<String, String> entry : tableParameters.entrySet()) {
                 // add non-null parameters to the schema
                 if (entry.getValue() != null) {
                     schema.setProperty(entry.getKey(), entry.getValue());
@@ -248,10 +255,10 @@ public class MetastoreUtil
     public static Properties getHiveSchema(Map<String, String> serdeParameters, Map<String, String> tableParameters)
     {
         Properties schema = new Properties();
-        for (Map.Entry<String, String> param : serdeParameters.entrySet()) {
+        for (Entry<String, String> param : serdeParameters.entrySet()) {
             schema.setProperty(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
-        for (Map.Entry<String, String> entry : tableParameters.entrySet()) {
+        for (Entry<String, String> entry : tableParameters.entrySet()) {
             // add non-null parameters to the schema
             if (entry.getValue() != null) {
                 schema.setProperty(entry.getKey(), entry.getValue());
@@ -617,5 +624,73 @@ public class MetastoreUtil
     private static String getRenameErrorMessage(Path source, Path target)
     {
         return format("Error moving data files from %s to final location %s", source, target);
+    }
+
+    public static List<String> convertPredicateToParts(Map<Column, Domain> partitionPredicates)
+    {
+        List<String> filter = new ArrayList<>();
+
+        for (Entry<Column, Domain> partitionPredicate : partitionPredicates.entrySet()) {
+            Domain domain = partitionPredicate.getValue();
+            if (!domain.isAll()) {
+                if (domain != null && domain.isNullableSingleValue()) {
+                    Object value = domain.getNullableSingleValue();
+                    Type type = domain.getType();
+                    filter.add(convertRawValueToString(value, type));
+                }
+                else {
+                    filter.add(PARTITION_VALUE_WILDCARD);
+                }
+            }
+            else {
+                filter.add(PARTITION_VALUE_WILDCARD);
+            }
+        }
+
+        return filter;
+    }
+
+    public static String convertRawValueToString(Object value, Type type)
+    {
+        String val;
+        if (value == null) {
+            val = HIVE_DEFAULT_DYNAMIC_PARTITION;
+        }
+        else if (type instanceof CharType) {
+            Slice slice = (Slice) value;
+            val = padSpaces(slice, type).toStringUtf8();
+        }
+        else if (type instanceof VarcharType) {
+            Slice slice = (Slice) value;
+            val = slice.toStringUtf8();
+        }
+        else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
+            Slice slice = (Slice) value;
+            val = Decimals.toString(slice, ((DecimalType) type).getScale());
+        }
+        else if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
+            val = Decimals.toString((long) value, ((DecimalType) type).getScale());
+        }
+        else if (type instanceof DateType) {
+            DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.date().withZoneUTC();
+            val = dateTimeFormatter.print(TimeUnit.DAYS.toMillis((long) value));
+        }
+        else if (type instanceof TimestampType) {
+            // we don't have time zone info, so just add a wildcard
+            val = PARTITION_VALUE_WILDCARD;
+        }
+        else if (type instanceof TinyintType
+                || type instanceof SmallintType
+                || type instanceof IntegerType
+                || type instanceof BigintType
+                || type instanceof DoubleType
+                || type instanceof RealType
+                || type instanceof BooleanType) {
+            val = value.toString();
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
+        }
+        return val;
     }
 }
