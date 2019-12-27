@@ -162,6 +162,8 @@ public class PrestoSparkTaskCompiler
             Map<String, Iterator<Tuple2<Integer, byte[]>>> inputs,
             CollectionAccumulator<byte[]> taskStatsCollector)
     {
+        System.err.println("Task Descriptor JSON: " + new String(serializedTaskDescriptor));
+
         SparkTaskDescriptor taskDescriptor = sparkTaskDescriptorJsonCodec.fromJson(serializedTaskDescriptor);
 
         Session session = taskDescriptor.getSession().toSession(sessionPropertyManager, taskDescriptor.getExtraCredentials());
@@ -309,6 +311,8 @@ public class PrestoSparkTaskCompiler
             if (done && !outputBuffer.hasPagesBuffered()) {
                 TaskStats taskStats = taskContext.getTaskStats();
                 byte[] taskStatsSerialized = taskStatsJsonCodec.toJsonBytes(taskStats);
+                System.err.println("Task Stats: " + new String(taskStatsSerialized));
+
                 taskStatsCollector.add(taskStatsSerialized);
                 return endOfData();
             }
