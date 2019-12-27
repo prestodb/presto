@@ -838,14 +838,14 @@ public class TestRaptorIntegrationSmokeTest
     public void testTableStatsSystemTableWithDeltaDelete()
     {
         // create empty table
-        assertUpdate("CREATE TABLE test_table_stats (x bigint) WITH (table_supports_delta_delete = true)");
+        assertUpdate("CREATE TABLE test_table_stats_with_delta_delete (x bigint) WITH (table_supports_delta_delete = true)");
 
         @Language("SQL") String sql = "" +
                 "SELECT create_time, update_time, table_version," +
                 "  shard_count, row_count, uncompressed_size, delta_count\n" +
                 "FROM system.table_stats\n" +
                 "WHERE table_schema = 'tpch'\n" +
-                "  AND table_name = 'test_table_stats'";
+                "  AND table_name = 'test_table_stats_with_delta_delete'";
         MaterializedRow row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
         LocalDateTime createTime = (LocalDateTime) row.getField(0);
@@ -858,7 +858,7 @@ public class TestRaptorIntegrationSmokeTest
         long size1 = (long) row.getField(5);    // uncompressed_size
 
         // insert
-        assertUpdate("INSERT INTO test_table_stats VALUES (1), (2), (3), (4)", 4);
+        assertUpdate("INSERT INTO test_table_stats_with_delta_delete VALUES (1), (2), (3), (4)", 4);
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
         assertEquals(row.getField(0), createTime);
@@ -873,7 +873,7 @@ public class TestRaptorIntegrationSmokeTest
         assertGreaterThan(size2, size1);
 
         // delete
-        assertUpdate("DELETE FROM test_table_stats WHERE x IN (2, 4)", 2);
+        assertUpdate("DELETE FROM test_table_stats_with_delta_delete WHERE x IN (2, 4)", 2);
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
         assertEquals(row.getField(0), createTime);
@@ -889,7 +889,7 @@ public class TestRaptorIntegrationSmokeTest
         assertGreaterThan(size3, size2);
 
         // add column
-        assertUpdate("ALTER TABLE test_table_stats ADD COLUMN y bigint");
+        assertUpdate("ALTER TABLE test_table_stats_with_delta_delete ADD COLUMN y bigint");
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
         assertEquals(row.getField(0), createTime);
@@ -900,7 +900,7 @@ public class TestRaptorIntegrationSmokeTest
         assertEquals(row.getField(5), size3);   // uncompressed_size
 
         // cleanup
-        assertUpdate("DROP TABLE test_table_stats");
+        assertUpdate("DROP TABLE test_table_stats_with_delta_delete");
     }
 
     @Test
