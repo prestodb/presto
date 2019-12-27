@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.spark.launcher;
 
+import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.airline.ParseException;
 import io.airlift.airline.SingleCommand;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
+
+import java.util.Optional;
 
 import static com.facebook.presto.spark.launcher.Commands.parseCommandNoValidate;
 import static io.airlift.airline.SingleCommand.singleCommand;
@@ -28,14 +33,13 @@ public class PrestoSparkLauncher
 
     public static void main(String[] args)
     {
-        runPrestoSpark(args, (clientOptions) -> {
-            SparkConf sparkConfiguration = new SparkConf()
-                    .setAppName("Presto");
-            return new SparkContext(sparkConfiguration);
-        });
+        runPrestoSpark(
+                args,
+                PrestoSparkLauncher::createSparkContext,
+                PrestoSparkLauncher::createPrestoSparkSession);
     }
 
-    public static void runPrestoSpark(String[] args, SparkContextFactory sparkContextFactory)
+    public static void runPrestoSpark(String[] args, SparkContextFactory sparkContextFactory, PrestoSparkSessionFactory prestoSparkSessionFactory)
     {
         SingleCommand<PrestoSparkLauncherCommand> command = singleCommand(PrestoSparkLauncherCommand.class);
 
@@ -57,12 +61,38 @@ public class PrestoSparkLauncher
         }
 
         try {
-            console.run(sparkContextFactory);
+            console.run(sparkContextFactory, prestoSparkSessionFactory);
             exit(0);
         }
         catch (RuntimeException e) {
             e.printStackTrace();
             exit(1);
         }
+    }
+
+    private static SparkContext createSparkContext(PrestoSparkClientOptions clientOptions)
+    {
+        SparkConf sparkConfiguration = new SparkConf()
+                .setAppName("Presto");
+        return new SparkContext(sparkConfiguration);
+    }
+
+    private static PrestoSparkSession createPrestoSparkSession(PrestoSparkClientOptions clientOptions)
+    {
+        // TODO:
+        return new PrestoSparkSession(
+                "test",
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.ofNullable(clientOptions.catalog),
+                Optional.ofNullable(clientOptions.schema),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                Optional.empty());
     }
 }

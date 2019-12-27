@@ -17,5 +17,5 @@ import org.apache.spark.SparkContext;
 
 public interface SparkContextFactory
 {
-    SparkContext create(PrestoSparkClientOptions clientOptions);
+    SparkContext createSparkContext(PrestoSparkClientOptions clientOptions);
 }

@@ -26,7 +26,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -45,7 +44,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
@@ -79,13 +77,13 @@ public class PrestoSparkLauncherCommand
     @Inject
     public PrestoSparkClientOptions clientOptions = new PrestoSparkClientOptions();
 
-    public void run(SparkContextFactory sparkContextFactory)
+    public void run(SparkContextFactory sparkContextFactory, PrestoSparkSessionFactory prestoSparkSessionFactory)
     {
         String query = readFileUtf8(checkFile(new File(clientOptions.file)));
 
         PrestoSparkDistribution distribution = createDistribution(clientOptions);
 
-        SparkContext sparkContext = sparkContextFactory.create(clientOptions);
+        SparkContext sparkContext = sparkContextFactory.createSparkContext(clientOptions);
 
         File tempDir = createTempDir();
         distribution.deploy(sparkContext, tempDir);
@@ -93,7 +91,7 @@ public class PrestoSparkLauncherCommand
         CachingServiceFactory serviceFactory = new CachingServiceFactory(distribution);
         IPrestoSparkService service = serviceFactory.createService();
         IPrestoSparkExecutionFactory executionFactory = service.createExecutionFactory();
-        PrestoSparkSession session = createSessionInfo(clientOptions);
+        PrestoSparkSession session = prestoSparkSessionFactory.createSession(clientOptions);
         IPrestoSparkExecution execution = executionFactory.create(sparkContext, session, query, new DistributionPrestoSparkTaskCompilerFactory(serviceFactory));
 
         List<List<Object>> results = execution.execute();
@@ -115,25 +113,6 @@ public class PrestoSparkLauncherCommand
                 new File(clientOptions.packagePath),
                 new File(clientOptions.config),
                 new File(clientOptions.catalogs));
-    }
-
-    private static PrestoSparkSession createSessionInfo(PrestoSparkClientOptions clientOptions)
-    {
-        // TODO:
-        return new PrestoSparkSession(
-                "test",
-                Optional.empty(),
-                ImmutableMap.of(),
-                Optional.ofNullable(clientOptions.catalog),
-                Optional.ofNullable(clientOptions.schema),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableSet.of(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                Optional.empty());
     }
 
     private static IPrestoSparkServiceFactory createServiceFactory(File directory)
