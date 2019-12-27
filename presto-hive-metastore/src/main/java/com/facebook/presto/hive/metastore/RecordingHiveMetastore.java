@@ -18,6 +18,7 @@ import com.facebook.presto.hive.ForRecordingHiveMetastore;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -70,7 +71,7 @@ public class RecordingHiveMetastore
     private final Cache<String, Optional<List<String>>> allViewsCache;
     private final Cache<HivePartitionName, Optional<Partition>> partitionCache;
     private final Cache<HiveTableName, Optional<List<String>>> partitionNamesCache;
-    private final Cache<PartitionFilter, Optional<List<String>>> partitionNamesByPartsCache;
+    private final Cache<String, List<String>> partitionNamesByFilterCache;
     private final Cache<Set<HivePartitionName>, Map<String, Optional<Partition>>> partitionsByNamesCache;
     private final Cache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final Cache<PrestoPrincipal, Set<RoleGrant>> roleGrantsCache;
@@ -93,7 +94,7 @@ public class RecordingHiveMetastore
         allViewsCache = createCache(metastoreClientConfig);
         partitionCache = createCache(metastoreClientConfig);
         partitionNamesCache = createCache(metastoreClientConfig);
-        partitionNamesByPartsCache = createCache(metastoreClientConfig);
+        partitionNamesByFilterCache = createCache(metastoreClientConfig);
         partitionsByNamesCache = createCache(metastoreClientConfig);
         tablePrivilegesCache = createCache(metastoreClientConfig);
         roleGrantsCache = createCache(metastoreClientConfig);
@@ -120,7 +121,7 @@ public class RecordingHiveMetastore
         allViewsCache.putAll(toMap(recording.getAllViews()));
         partitionCache.putAll(toMap(recording.getPartitions()));
         partitionNamesCache.putAll(toMap(recording.getPartitionNames()));
-        partitionNamesByPartsCache.putAll(toMap(recording.getPartitionNamesByParts()));
+        partitionNamesByFilterCache.putAll(toMap(recording.getPartitionNamesByFilter()));
         partitionsByNamesCache.putAll(toMap(recording.getPartitionsByNames()));
         tablePrivilegesCache.putAll(toMap(recording.getTablePrivileges()));
         roleGrantsCache.putAll(toMap(recording.getRoleGrants()));
@@ -158,7 +159,7 @@ public class RecordingHiveMetastore
                 toPairs(allViewsCache),
                 toPairs(partitionCache),
                 toPairs(partitionNamesCache),
-                toPairs(partitionNamesByPartsCache),
+                toPairs(partitionNamesByFilterCache),
                 toPairs(partitionsByNamesCache),
                 toPairs(tablePrivilegesCache),
                 toPairs(roleGrantsCache));
@@ -343,12 +344,15 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
+    public List<String> getPartitionNamesByFilter(
+            String databaseName,
+            String tableName,
+            Map<Column, Domain> partitionPredicates)
     {
         return loadValue(
-                partitionNamesByPartsCache,
-                partitionFilter(databaseName, tableName, parts),
-                () -> delegate.getPartitionNamesByParts(databaseName, tableName, parts));
+                partitionNamesByFilterCache,
+                partitionFilter(databaseName, tableName, partitionPredicates).toString(),
+                () -> delegate.getPartitionNamesByFilter(databaseName, tableName, partitionPredicates));
     }
 
     @Override
@@ -493,7 +497,7 @@ public class RecordingHiveMetastore
         private final List<Pair<String, Optional<List<String>>>> allViews;
         private final List<Pair<HivePartitionName, Optional<Partition>>> partitions;
         private final List<Pair<HiveTableName, Optional<List<String>>>> partitionNames;
-        private final List<Pair<PartitionFilter, Optional<List<String>>>> partitionNamesByParts;
+        private final List<Pair<String, List<String>>> partitionNamesByFilter;
         private final List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames;
         private final List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges;
         private final List<Pair<PrestoPrincipal, Set<RoleGrant>>> roleGrants;
@@ -511,7 +515,7 @@ public class RecordingHiveMetastore
                 @JsonProperty("allViews") List<Pair<String, Optional<List<String>>>> allViews,
                 @JsonProperty("partitions") List<Pair<HivePartitionName, Optional<Partition>>> partitions,
                 @JsonProperty("partitionNames") List<Pair<HiveTableName, Optional<List<String>>>> partitionNames,
-                @JsonProperty("partitionNamesByParts") List<Pair<PartitionFilter, Optional<List<String>>>> partitionNamesByParts,
+                @JsonProperty("partitionNamesByFilter") List<Pair<String, List<String>>> partitionNamesByFilter,
                 @JsonProperty("partitionsByNames") List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames,
                 @JsonProperty("tablePrivileges") List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges,
                 @JsonProperty("roleGrants") List<Pair<PrestoPrincipal, Set<RoleGrant>>> roleGrants)
@@ -527,7 +531,7 @@ public class RecordingHiveMetastore
             this.allViews = allViews;
             this.partitions = partitions;
             this.partitionNames = partitionNames;
-            this.partitionNamesByParts = partitionNamesByParts;
+            this.partitionNamesByFilter = partitionNamesByFilter;
             this.partitionsByNames = partitionsByNames;
             this.tablePrivileges = tablePrivileges;
             this.roleGrants = roleGrants;
@@ -600,9 +604,9 @@ public class RecordingHiveMetastore
         }
 
         @JsonProperty
-        public List<Pair<PartitionFilter, Optional<List<String>>>> getPartitionNamesByParts()
+        public List<Pair<String, List<String>>> getPartitionNamesByFilter()
         {
-            return partitionNamesByParts;
+            return partitionNamesByFilter;
         }
 
         @JsonProperty

@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.SortingColumn.Order;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -31,6 +32,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,11 +41,14 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
 public class TestRecordingHiveMetastore
@@ -133,7 +138,10 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getAllViews("database"), Optional.empty());
         assertEquals(hiveMetastore.getPartition("database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
         assertEquals(hiveMetastore.getPartitionNames("database", "table"), Optional.of(ImmutableList.of("value")));
-        assertEquals(hiveMetastore.getPartitionNamesByParts("database", "table", ImmutableList.of("value")), Optional.of(ImmutableList.of("value")));
+        Map<Column, Domain> map = new HashMap<>();
+        Column column = new Column("column", HiveType.HIVE_STRING, Optional.empty());
+        map.put(column, Domain.singleValue(VARCHAR, utf8Slice("value")));
+        assertEquals(hiveMetastore.getPartitionNamesByFilter("database", "table", map), ImmutableList.of("value"));
         assertEquals(hiveMetastore.getPartitionsByNames("database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
         assertEquals(hiveMetastore.listTablePrivileges("database", "table", new PrestoPrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
@@ -242,13 +250,17 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
+        public List<String> getPartitionNamesByFilter(
+                String databaseName,
+                String tableName,
+                Map<Column, Domain> partitionPredicates)
         {
+            List<String> parts = convertPredicateToParts(partitionPredicates);
             if (databaseName.equals("database") && tableName.equals("table") && parts.equals(ImmutableList.of("value"))) {
-                return Optional.of(ImmutableList.of("value"));
+                return ImmutableList.of("value");
             }
 
-            return Optional.empty();
+            return ImmutableList.of();
         }
 
         @Override

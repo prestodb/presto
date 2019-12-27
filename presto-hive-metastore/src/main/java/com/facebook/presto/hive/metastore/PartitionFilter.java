@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.spi.predicate.Domain;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static com.facebook.presto.hive.metastore.HiveTableName.hiveTableName;
@@ -30,30 +28,28 @@ import static java.util.Objects.requireNonNull;
 public class PartitionFilter
 {
     private final HiveTableName hiveTableName;
-    private final List<String> parts;
 
-    @JsonCreator
-    public PartitionFilter(@JsonProperty("hiveTableName") HiveTableName hiveTableName, @JsonProperty("parts") List<String> parts)
+    private final Map<Column, Domain> partitionPredicates;
+
+    public PartitionFilter(HiveTableName hiveTableName, Map<Column, Domain> partitionPredicates)
     {
         this.hiveTableName = requireNonNull(hiveTableName, "hiveTableName is null");
-        this.parts = ImmutableList.copyOf(requireNonNull(parts, "parts is null"));
+        this.partitionPredicates = requireNonNull(partitionPredicates, "effectivePredicate is null");
     }
 
-    public static PartitionFilter partitionFilter(String databaseName, String tableName, List<String> parts)
+    public static PartitionFilter partitionFilter(String databaseName, String tableName, Map<Column, Domain> effectivePredicate)
     {
-        return new PartitionFilter(hiveTableName(databaseName, tableName), parts);
+        return new PartitionFilter(hiveTableName(databaseName, tableName), effectivePredicate);
     }
 
-    @JsonProperty
     public HiveTableName getHiveTableName()
     {
         return hiveTableName;
     }
 
-    @JsonProperty
-    public List<String> getParts()
+    public Map<Column, Domain> getPartitionPredicates()
     {
-        return parts;
+        return partitionPredicates;
     }
 
     @Override
@@ -61,7 +57,7 @@ public class PartitionFilter
     {
         return toStringHelper(this)
                 .add("hiveTableName", hiveTableName)
-                .add("parts", parts)
+                .add("partitionPredicates", partitionPredicates)
                 .toString();
     }
 
@@ -77,12 +73,12 @@ public class PartitionFilter
 
         PartitionFilter other = (PartitionFilter) o;
         return Objects.equals(hiveTableName, other.hiveTableName) &&
-                Objects.equals(parts, other.parts);
+                Objects.equals(partitionPredicates, other.partitionPredicates);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(hiveTableName, parts);
+        return Objects.hash(hiveTableName, partitionPredicates);
     }
 }
