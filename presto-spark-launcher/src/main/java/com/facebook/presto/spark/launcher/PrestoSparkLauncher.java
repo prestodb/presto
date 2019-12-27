@@ -77,7 +77,7 @@ public class PrestoSparkLauncher
         return new SparkContext(sparkConfiguration);
     }
 
-    private static PrestoSparkSession createPrestoSparkSession(PrestoSparkClientOptions clientOptions)
+    static PrestoSparkSession createPrestoSparkSession(PrestoSparkClientOptions clientOptions)
     {
         // TODO:
         return new PrestoSparkSession(
