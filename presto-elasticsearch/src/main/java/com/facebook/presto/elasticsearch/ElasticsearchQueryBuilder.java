@@ -33,6 +33,7 @@ import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -109,6 +110,10 @@ public class ElasticsearchQueryBuilder
                 .setFetchSource(fields.toArray(new String[0]), null)
                 .setQuery(buildSearchQuery())
                 .setPreference("_shards:" + shard)
+                // Scroll requests have optimizations that make them faster when the sort order is _doc.
+                // If you want to iterate over all documents regardless of the order, this is the most efficient option
+                // With this settings, the performance can promote several times.
+                .addSort("_doc", SortOrder.ASC)
                 .setSize(scrollSize);
         LOG.debug("Elasticsearch Request: %s", searchRequestBuilder);
         return searchRequestBuilder;
