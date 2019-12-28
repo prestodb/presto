@@ -179,6 +179,7 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(CompilerConfig.class);
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
         configBinder(binder).bindConfig(StaticFunctionNamespaceStoreConfig.class);
+        configBinder(binder).bindConfig(PrestoSparkConfig.class);
 
         // json codecs
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);

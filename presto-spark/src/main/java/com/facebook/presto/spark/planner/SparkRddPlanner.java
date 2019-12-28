@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.spark.PrestoSparkConfig;
 import com.facebook.presto.spark.SparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskCompilerFactory;
 import com.facebook.presto.spark.common.IntegerIdentityPartitioner;
@@ -59,12 +60,13 @@ import static java.util.stream.Collectors.toSet;
 public class SparkRddPlanner
 {
     private final JsonCodec<SparkTaskDescriptor> sparkTaskRequestJsonCodec;
-    private final int initialSparkPartitionCount = 100; // TODO: make this configurable
+    private final int initialSparkPartitionCount;
 
     @Inject
-    public SparkRddPlanner(JsonCodec<SparkTaskDescriptor> sparkTaskRequestJsonCodec)
+    public SparkRddPlanner(JsonCodec<SparkTaskDescriptor> sparkTaskRequestJsonCodec, PrestoSparkConfig config)
     {
         this.sparkTaskRequestJsonCodec = requireNonNull(sparkTaskRequestJsonCodec, "sparkTaskRequestJsonCodec is null");
+        this.initialSparkPartitionCount = config.getInitialSparkPartitionCount();
     }
 
     public JavaPairRDD<Integer, byte[]> createSparkRdd(
