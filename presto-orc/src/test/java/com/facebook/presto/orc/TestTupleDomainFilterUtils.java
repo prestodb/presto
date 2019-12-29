@@ -24,6 +24,7 @@ import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
+import com.facebook.presto.orc.TupleDomainFilter.BytesValuesExclusive;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
@@ -361,9 +362,7 @@ public class TestTupleDomainFilterUtils
     public void testVarchar()
     {
         assertEquals(toFilter(equal(C_VARCHAR, stringLiteral("abc", VARCHAR))), BytesRange.of(toBytes("abc"), false, toBytes("abc"), false, false));
-        assertEquals(toFilter(not(equal(C_VARCHAR, stringLiteral("abc", VARCHAR)))), MultiRange.of(ImmutableList.of(
-                BytesRange.of(null, true, toBytes("abc"), true, false),
-                BytesRange.of(toBytes("abc"), true, null, true, false)), false, false));
+        assertEquals(toFilter(not(equal(C_VARCHAR, stringLiteral("abc", VARCHAR)))), TupleDomainFilter.BytesValuesExclusive.of(new byte[][]{toBytes("abc")}, false));
 
         assertEquals(toFilter(lessThan(C_VARCHAR, stringLiteral("abc", VARCHAR))), BytesRange.of(null, true, toBytes("abc"), true, false));
         assertEquals(toFilter(lessThanOrEqual(C_VARCHAR, stringLiteral("abc", VARCHAR))), BytesRange.of(null, true, toBytes("abc"), false, false));
@@ -373,6 +372,8 @@ public class TestTupleDomainFilterUtils
 
         assertEquals(toFilter(in(C_VARCHAR, ImmutableList.of(stringLiteral("Ex", createVarcharType(7)), stringLiteral("oriente")))),
                 BytesValues.of(new byte[][] {toBytes("Ex"), toBytes("oriente")}, false));
+        assertEquals(toFilter(not(in(C_VARCHAR, ImmutableList.of(stringLiteral("Ex", createVarcharType(7)), stringLiteral("oriente"))))),
+                BytesValuesExclusive.of(new byte[][]{toBytes("Ex"), toBytes("oriente")}, false));
     }
 
     @Test

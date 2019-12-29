@@ -20,6 +20,7 @@ import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
+import com.facebook.presto.orc.TupleDomainFilter.BytesValuesExclusive;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.orc.TupleDomainFilter.ALWAYS_FALSE;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
@@ -129,6 +131,15 @@ public class TupleDomainFilterUtils
                                 .toArray(byte[][]::new),
                         nullAllowed);
             }
+
+            if (isNotIn(ranges)) {
+                return BytesValuesExclusive.of(
+                        bytesRanges.stream()
+                                .map(BytesRange::getLower)
+                                .filter(Objects::nonNull)
+                                .toArray(byte[][]::new),
+                        nullAllowed);
+            }
         }
 
         if (firstRangeFilter instanceof DoubleRange || firstRangeFilter instanceof FloatRange) {
@@ -142,7 +153,7 @@ public class TupleDomainFilterUtils
     }
 
     /**
-     * Returns true is ranges represent != or NOT IN filter for double or float.
+     * Returns true is ranges represent != or NOT IN filter for double, float or string column.
      *
      * The logic is to return true if ranges are next to each other, but don't include the touch value.
      */
@@ -156,7 +167,7 @@ public class TupleDomainFilterUtils
         Marker previousHigh = firstRange.getHigh();
 
         Type type = previousHigh.getType();
-        if (type != DOUBLE && type != REAL) {
+        if (type != DOUBLE && type != REAL && !isVarcharType(type) && !(type instanceof CharType)) {
             return false;
         }
 
