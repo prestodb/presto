@@ -20,6 +20,7 @@ import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.orc.TupleDomainFilter.BooleanValue;
 import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
+import com.facebook.presto.orc.TupleDomainFilter.BytesValuesExclusive;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
@@ -327,6 +328,21 @@ public class TestTupleDomainFilter
             assertEquals(filter.testLength(i), i % 9 == 0);
             assertEquals(i % 9 == 0, filter.testBytes(testValues[i], 0, testValues[i].length));
         }
+    }
+
+    @Test
+    public void testBytesValuesExclusive()
+    {
+        // The filter has values of size on either side of 8 bytes.
+        TupleDomainFilter filter = BytesValuesExclusive.of(new byte[][] {toBytes("Igne"), toBytes("natura"), toBytes("renovitur"), toBytes("integra.")}, false);
+        assertFalse(filter.testBytes(toBytes("Igne"), 0, 4));
+        assertFalse(filter.testBytes(toBytes("natura"), 0, 6));
+        assertFalse(filter.testBytes(toBytes("renovitur"), 0, 9));
+        assertFalse(filter.testBytes(toBytes("integra."), 0, 8));
+        assertFalse(filter.testNull());
+
+        assertTrue(filter.testBytes(toBytes("natura"), 0, 5));
+        assertTrue(filter.testBytes(toBytes("apple"), 0, 5));
     }
 
     private static byte[] sequentialBytes(byte base, int length)
