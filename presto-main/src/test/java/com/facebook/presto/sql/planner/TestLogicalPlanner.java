@@ -1047,4 +1047,26 @@ public class TestLogicalPlanner
                                                         tableScan("orders", ImmutableMap.of(
                                                                 "ORDERKEY", "orderkey"))))))));
     }
+
+    @Test
+    public void testComplexOrderBy()
+    {
+        assertDistributedPlan("SELECT COUNT(*) " +
+                        "FROM (values ARRAY['a', 'b']) as t(col1) " +
+                        "ORDER BY " +
+                        "  IF( " +
+                        "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) > 0, " +
+                        "    COUNT(*), " +
+                        "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) " +
+                        "  )",
+                output(
+                        project(
+                                exchange(
+                                        exchange(
+                                                sort(
+                                                        exchange(
+                                                                project(
+                                                                        aggregation(ImmutableMap.of(),
+                                                                                project(values("col1")))))))))));
+    }
 }
