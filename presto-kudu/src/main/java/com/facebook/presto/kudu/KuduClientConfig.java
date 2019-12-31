@@ -40,6 +40,9 @@ public class KuduClientConfig
     private boolean disableStatistics;
     private boolean schemaEmulationEnabled;
     private String schemaEmulationPrefix = "presto::";
+    private boolean kerberosAuthEnabled;
+    private String kerberosPrincipal;
+    private String kerberosKeytab;
 
     @NotNull
     @Size(min = 1)
@@ -136,6 +139,42 @@ public class KuduClientConfig
     public KuduClientConfig setSchemaEmulationEnabled(boolean enabled)
     {
         this.schemaEmulationEnabled = enabled;
+        return this;
+    }
+
+    public boolean isKerberosAuthEnabled()
+    {
+        return kerberosAuthEnabled;
+    }
+
+    @Config("kudu.kerberos-auth.enabled")
+    public KuduClientConfig setKerberosAuthEnabled(boolean enabled)
+    {
+        this.kerberosAuthEnabled = enabled;
+        return this;
+    }
+
+    public String getKerberosPrincipal()
+    {
+        return kerberosPrincipal;
+    }
+
+    @Config("kudu.kerberos-auth.principal")
+    public KuduClientConfig setKerberosPrincipal(String principal)
+    {
+        this.kerberosPrincipal = principal;
+        return this;
+    }
+
+    public String getKerberosKeytab()
+    {
+        return kerberosKeytab;
+    }
+
+    @Config("kudu.kerberos-auth.keytab")
+    public KuduClientConfig setKerberosKeytab(String keytab)
+    {
+        this.kerberosKeytab = keytab;
         return this;
     }
 }

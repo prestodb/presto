@@ -91,14 +91,21 @@ public class KuduModule
     {
         requireNonNull(config, "config is null");
 
-        KuduClient.KuduClientBuilder builder = new KuduClient.KuduClientBuilder(config.getMasterAddresses());
-        builder.defaultAdminOperationTimeoutMs(config.getDefaultAdminOperationTimeout().toMillis());
-        builder.defaultOperationTimeoutMs(config.getDefaultOperationTimeout().toMillis());
-        builder.defaultSocketReadTimeoutMs(config.getDefaultSocketReadTimeout().toMillis());
-        if (config.isDisableStatistics()) {
-            builder.disableStatistics();
+        KuduClient client;
+        if (!config.isKerberosAuthEnabled()) {
+            KuduClient.KuduClientBuilder builder = new KuduClient.KuduClientBuilder(config.getMasterAddresses());
+            builder.defaultAdminOperationTimeoutMs(config.getDefaultAdminOperationTimeout().toMillis());
+            builder.defaultOperationTimeoutMs(config.getDefaultOperationTimeout().toMillis());
+            builder.defaultSocketReadTimeoutMs(config.getDefaultSocketReadTimeout().toMillis());
+            if (config.isDisableStatistics()) {
+                builder.disableStatistics();
+            }
+            client = builder.build();
         }
-        KuduClient client = builder.build();
+        else {
+            KuduKerberosUtil.initKerberosENV(config.getKerberosPrincipal(), config.getKerberosKeytab());
+            client = KuduKerberosUtil.getKuduClient(config);
+        }
 
         SchemaEmulation strategy;
         if (config.isSchemaEmulationEnabled()) {
