@@ -138,7 +138,7 @@ public class BenchmarkSelectiveStreamReaders
             }
 
             if (page.getPositionCount() > 0) {
-                blocks.add(page.getBlock(0));
+                blocks.add(page.getBlock(0).getLoadedBlock());
             }
         }
         return blocks;
