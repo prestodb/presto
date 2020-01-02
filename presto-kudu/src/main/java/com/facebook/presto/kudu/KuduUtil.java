@@ -20,11 +20,11 @@ import org.apache.kudu.client.KuduClient;
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
 
-public class KuduKerberosUtil
+public class KuduUtil
 {
-    private static final Logger log = Logger.get(KuduKerberosUtil.class);
+    private static final Logger log = Logger.get(KuduUtil.class);
 
-    private KuduKerberosUtil()
+    private KuduUtil()
     {
         //not allowed to be called to initialize instance
     }
@@ -48,7 +48,7 @@ public class KuduKerberosUtil
         }
     }
 
-    static KuduClient getKuduClient(KuduClientConfig config)
+    static KuduClient getKuduKerberosClient(KuduClientConfig config)
     {
         KuduClient client = null;
         try {
@@ -57,14 +57,7 @@ public class KuduKerberosUtil
                         @Override
                         public KuduClient run() throws Exception
                         {
-                            KuduClient.KuduClientBuilder builder = new KuduClient.KuduClientBuilder(config.getMasterAddresses());
-                            builder.defaultAdminOperationTimeoutMs(config.getDefaultAdminOperationTimeout().toMillis());
-                            builder.defaultOperationTimeoutMs(config.getDefaultOperationTimeout().toMillis());
-                            builder.defaultSocketReadTimeoutMs(config.getDefaultSocketReadTimeout().toMillis());
-                            if (config.isDisableStatistics()) {
-                                builder.disableStatistics();
-                            }
-                            return builder.build();
+                            return getKuduClient(config);
                         }
                     });
         }
@@ -72,5 +65,17 @@ public class KuduKerberosUtil
             log.error(e.getMessage());
         }
         return client;
+    }
+
+    static KuduClient getKuduClient(KuduClientConfig config)
+    {
+        KuduClient.KuduClientBuilder builder = new KuduClient.KuduClientBuilder(config.getMasterAddresses());
+        builder.defaultAdminOperationTimeoutMs(config.getDefaultAdminOperationTimeout().toMillis());
+        builder.defaultOperationTimeoutMs(config.getDefaultOperationTimeout().toMillis());
+        builder.defaultSocketReadTimeoutMs(config.getDefaultSocketReadTimeout().toMillis());
+        if (config.isDisableStatistics()) {
+            builder.disableStatistics();
+        }
+        return builder.build();
     }
 }
