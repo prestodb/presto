@@ -100,7 +100,6 @@ class PreferredProperties
 
     public PreferredProperties mergeWithParent(PreferredProperties parent, boolean mergePartitionPreference)
     {
-
         Builder builder = builder();
         if (globalProperties.isPresent()) {
             Global currentGlobal = globalProperties.get();
