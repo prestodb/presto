@@ -272,6 +272,13 @@ public class BooleanSelectiveStreamReader
             throws IOException
     {
         // filter == null implies outputRequired == true
+        if (presentStream == null && positions[positionCount - 1] == positionCount - 1) {
+            // contiguous chunk of rows, no nulls
+            dataStream.getSetBits(positionCount, values);
+            outputPositionCount = positionCount;
+            return positionCount;
+        }
+
         int streamPosition = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
