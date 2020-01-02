@@ -121,6 +121,13 @@ public class BenchmarkSelectiveStreamReaders
     }
 
     @Benchmark
+    public Object load(BenchmarkData data)
+            throws IOException
+    {
+        return loadAllBlocks(data.createRecordReader(Optional.empty()));
+    }
+
+    @Benchmark
     public Object readWithFilter(BenchmarkData data)
             throws IOException
     {
@@ -139,6 +146,25 @@ public class BenchmarkSelectiveStreamReaders
 
             if (page.getPositionCount() > 0) {
                 blocks.add(page.getBlock(0));
+            }
+        }
+        return blocks;
+    }
+
+    private static List<Block> loadAllBlocks(OrcSelectiveRecordReader recordReader)
+            throws IOException
+    {
+        List<Block> blocks = new ArrayList<>();
+        while (true) {
+            Page page = recordReader.getNextPage();
+            if (page == null) {
+                break;
+            }
+
+            if (page.getPositionCount() > 0) {
+                for (int i = 0; i < page.getChannelCount(); i++) {
+                    blocks.add(page.getBlock(i).getLoadedBlock());
+                }
             }
         }
         return blocks;
