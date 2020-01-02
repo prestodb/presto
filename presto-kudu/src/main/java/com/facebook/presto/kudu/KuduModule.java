@@ -96,7 +96,6 @@ public class KuduModule
             client = KuduUtil.getKuduClient(config);
         }
         else {
-            KuduUtil.initKerberosENV(config.getKerberosPrincipal(), config.getKerberosKeytab());
             client = KuduUtil.getKuduKerberosClient(config);
         }
 

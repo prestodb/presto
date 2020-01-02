@@ -50,6 +50,7 @@ public class KuduUtil
 
     static KuduClient getKuduKerberosClient(KuduClientConfig config)
     {
+        initKerberosENV(config.getKerberosPrincipal(), config.getKerberosKeytab());
         KuduClient client = null;
         try {
             client = UserGroupInformation.getLoginUser().doAs(
