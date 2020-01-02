@@ -1,36 +1,39 @@
 =============
-Release 0.229
+Release 0.230
 =============
 
 General Changes
 _______________
-* Fix an issue that would cause query failure when calling :func:`geometry_to_bing_tiles` on certain degenerate geometries.
-* Add geospatial function :func:`line_interpolate_point`.
-* Add support for ``CREATE FUNCTION``
-* Add support for passing ``X_Forwarded_For`` header from Proxy to coordinator.
-* Add support to respect configuration property ``stage.max-tasks-per-stage`` for limiting the number of tasks per scan.
-* Add configuration property ``experimental.internal-communication.max-task-update-size`` to limit the size of the ``TaskUpdate``.
-* Add configuration properties ``internal-communication.https.trust-store-path``, ``internal-communication.https.included-cipher``,
-  and ``internal-communication.https.excluded-cipher`` to easily set common https configurations for all internal communications at one place.
-* Add peak task memory distribution of each stage to ``QueryStatistics``.
+* Add support to list non-builtin functions in SHOW FUNCTIONS. The feature can be turned on by the configuration property ``list-non-built-in-functions``.
+* Fix SQL function byte code compilation error for functions implemented with constants.
+* Add support for ``DROP FUNCTION``.
+* Fix SQL function execution not respecting null-call clause.
+* Fix regression on lambda evaluation (Issue#13648).
+* Added combinations function, a function that returns n combinations of values in an array, up to n=5.
+* Fix SQL function compilation failure when the function parameter is not referenced in function body.
+* Add all_match(), any_match(), and none_match() functions.
+* Improved PRESTO_EXTRA_CREDENTIAL header parsing to allow value contain multiple '=' and urlEncode characters.
+* Fix geometry_to_bing_tile for geometries at -180 longitude or 85.05112878 latitude.
+* Fix compilation errors for expressions over types containing an extremely large number of nested types.
+* Add expand_envelope function to return a geometry's envelope expanded by a distance.
 
-Pinot Connector Changes
-_______________________
-* Add Pinot connector.
-
-Hive Connector Changes
-______________________
-* Fix parquet predicate pushdown on dictionaries to consider more than just the first predicate column.
-* Improve parquet predicate pushdown on dictionaries to avoid reading additional data after successfully eliminating a block.
-
-Raptor Connector Changes
-________________________
-* Add support for using remote HDFS as the storage in Raptor. Configuration property ``storage.data-directory`` is changed from a ``File`` to a ``URI``.
-  For deployment on local flash, scheme ``file:/`` must be prepended.
-* Rename error code ``RAPTOR_LOCAL_FILE_SYSTEM_ERROR`` to ``RAPTOR_FILE_SYSTEM_ERROR``.
+Verifier Changes
+________________
+* Add skipped verification results to the output for queries being filtered.
 
 SPI Changes
 ___________
-* Add support for connectors to alter query plans involving ``UNION``, ``INTERSECT``, and ``EXCEPT``, by moving ``SetOperationNode`` to SPI.
-* Improve interface ``ConnectorPlanOptimizerProvider`` to allow connectors to participate in query optimization in two phases, ``LOGICAL`` and ``PHYSICAL``.
-  The two phases correspond to post-shuffle and post-shuffle optimization, respectively.
+* Change ``ConnectorMetadata#commitPartition`` into async operation, and rename it to ``ConnectorMetadata#commitPartitionAsync``.
+
+Hive Changes
+____________
+* Add an Alluxio client jar to `plugin/hive-hadoop2/` (as a runtime dependency) to avoid copying Alluxio client jar to all Presto servers manually to connect to Alluxio.
+* Improve BatchStreamReader performance.
+* Metastore interface is separated into a separate module to reduce monolithicness.
+
+Raptor Changes
+______________
+* Add table_supports_delta_delete property in Raptor to allow deletion happening in background. DELETE queries in Raptor can now delete data logically but relying on compactors to delete physical data.
+* Introduced new cache module to allow using local disk for to cache files from remote file systems.
+* Allow Raptor to read data from HDFS while caching the files on local disks.
+* Fix organizer not running scheduled job due to misreading `storage.organization-discovery-interval` config.
