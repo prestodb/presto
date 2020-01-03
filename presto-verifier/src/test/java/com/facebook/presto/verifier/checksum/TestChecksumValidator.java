@@ -44,8 +44,8 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
+import static com.facebook.presto.verifier.framework.Column.Category.ARRAY;
 import static com.facebook.presto.verifier.framework.Column.Category.FLOATING_POINT;
-import static com.facebook.presto.verifier.framework.Column.Category.ORDERABLE_ARRAY;
 import static com.facebook.presto.verifier.framework.Column.Category.SIMPLE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static org.testng.Assert.assertEquals;
@@ -63,9 +63,9 @@ public class TestChecksumValidator
     private static final Column VARCHAR_COLUMN = new Column("varchar", SIMPLE, VARCHAR);
     private static final Column DOUBLE_COLUMN = new Column("double", FLOATING_POINT, DOUBLE);
     private static final Column REAL_COLUMN = new Column("real", FLOATING_POINT, REAL);
-    private static final Column INT_ARRAY_COLUMN = new Column("int_array", ORDERABLE_ARRAY, new ArrayType(INTEGER));
-    private static final Column ROW_ARRAY_COLUMN = new Column("row_array", ORDERABLE_ARRAY, typeRegistry.getType(parseTypeSignature("array(row(a int,b varchar))")));
-    private static final Column MAP_ARRAY_COLUMN = new Column("map_array", SIMPLE, typeRegistry.getType(parseTypeSignature("array(map(int,varchar))")));
+    private static final Column INT_ARRAY_COLUMN = new Column("int_array", ARRAY, new ArrayType(INTEGER));
+    private static final Column ROW_ARRAY_COLUMN = new Column("row_array", ARRAY, typeRegistry.getType(parseTypeSignature("array(row(a int,b varchar))")));
+    private static final Column MAP_ARRAY_COLUMN = new Column("map_array", ARRAY, typeRegistry.getType(parseTypeSignature("array(map(int,varchar))")));
 
     private static final double RELATIVE_ERROR_MARGIN = 1e-4;
     private static final double ABSOLUTE_ERROR_MARGIN = 1e-12;
@@ -82,7 +82,7 @@ public class TestChecksumValidator
     private final ChecksumValidator checksumValidator = new ChecksumValidator(
             new SimpleColumnValidator(),
             new FloatingPointColumnValidator(new VerifierConfig().setRelativeErrorMargin(RELATIVE_ERROR_MARGIN).setAbsoluteErrorMargin(ABSOLUTE_ERROR_MARGIN)),
-            new OrderableArrayColumnValidator());
+            new ArrayColumnValidator());
 
     @Test
     public void testChecksumQuery()

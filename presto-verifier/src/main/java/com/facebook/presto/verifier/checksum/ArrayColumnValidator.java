@@ -35,11 +35,11 @@ import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdent
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
-public class OrderableArrayColumnValidator
+public class ArrayColumnValidator
         implements ColumnValidator
 {
     @Inject
-    public OrderableArrayColumnValidator()
+    public ArrayColumnValidator()
     {
     }
 
@@ -49,15 +49,22 @@ public class OrderableArrayColumnValidator
         checkArgument(column.getType() instanceof ArrayType, "Expect ArrayType, found %s", column.getType().getDisplayName());
         Type elementType = ((ArrayType) column.getType()).getElementType();
 
-        FunctionCall arraySort = new FunctionCall(QualifiedName.of("array_sort"), ImmutableList.of(column.getIdentifier()));
         Expression checksum;
-        if (elementType instanceof ArrayType || elementType instanceof RowType) {
-            checksum = new CoalesceExpression(
-                    new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new TryExpression(arraySort))),
-                    new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getIdentifier())));
+
+        if (elementType.isOrderable()) {
+            FunctionCall arraySort = new FunctionCall(QualifiedName.of("array_sort"), ImmutableList.of(column.getIdentifier()));
+
+            if (elementType instanceof ArrayType || elementType instanceof RowType) {
+                checksum = new CoalesceExpression(
+                        new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new TryExpression(arraySort))),
+                        new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getIdentifier())));
+            }
+            else {
+                checksum = new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(arraySort));
+            }
         }
         else {
-            checksum = new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(arraySort));
+            checksum = new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getIdentifier()));
         }
 
         return ImmutableList.of(new SingleColumn(checksum, Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))));
@@ -66,12 +73,12 @@ public class OrderableArrayColumnValidator
     @Override
     public ColumnMatchResult validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
-        String sortedChecksumColumnAlias = getChecksumColumnAlias(column);
-        Object controlSortedChecksum = controlResult.getChecksum(sortedChecksumColumnAlias);
-        Object testSortedChecksum = testResult.getChecksum(sortedChecksumColumnAlias);
+        String checksumColumnAlias = getChecksumColumnAlias(column);
+        Object controlChecksum = controlResult.getChecksum(checksumColumnAlias);
+        Object testChecksum = testResult.getChecksum(checksumColumnAlias);
         return new ColumnMatchResult(
-                Objects.equals(controlSortedChecksum, testSortedChecksum),
-                format("control(checksum: %s) test(checksum: %s)", controlSortedChecksum, testSortedChecksum));
+                Objects.equals(controlChecksum, testChecksum),
+                format("control(checksum: %s) test(checksum: %s)", controlChecksum, testChecksum));
     }
 
     private static String getChecksumColumnAlias(Column column)

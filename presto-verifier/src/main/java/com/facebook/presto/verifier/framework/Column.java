@@ -28,8 +28,8 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.verifier.framework.Column.Category.ARRAY;
 import static com.facebook.presto.verifier.framework.Column.Category.FLOATING_POINT;
-import static com.facebook.presto.verifier.framework.Column.Category.ORDERABLE_ARRAY;
 import static com.facebook.presto.verifier.framework.Column.Category.SIMPLE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static java.util.Objects.requireNonNull;
@@ -40,7 +40,7 @@ public class Column
     {
         SIMPLE,
         FLOATING_POINT,
-        ORDERABLE_ARRAY,
+        ARRAY,
     }
 
     private static final Set<Type> FLOATING_POINT_TYPES = ImmutableSet.of(DOUBLE, REAL);
@@ -85,9 +85,8 @@ public class Column
         if (FLOATING_POINT_TYPES.contains(type)) {
             category = FLOATING_POINT;
         }
-        else if (type instanceof ArrayType &&
-                ((ArrayType) type).getElementType().isOrderable()) {
-            category = ORDERABLE_ARRAY;
+        else if (type instanceof ArrayType) {
+            category = ARRAY;
         }
         else {
             category = SIMPLE;
