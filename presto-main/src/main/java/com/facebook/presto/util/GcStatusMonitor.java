@@ -173,14 +173,16 @@ public class GcStatusMonitor
                     Long.toString(userMemoryReservation),
                     Long.toString(systemMemoryReservation));
         }).collect(toImmutableList());
-        logInfoTable(ImmutableList.<List<String>>builder().add(
-                ImmutableList.of(
-                        "Query ID",
-                        "Total Memory Reservation",
-                        "User Memory Reservation",
-                        "System Memory Reservation"))
-                .addAll(rows)
-                .build());
+        if (!rows.isEmpty()) {
+            logInfoTable(ImmutableList.<List<String>>builder().add(
+                    ImmutableList.of(
+                            "Query ID",
+                            "Total Memory Reservation",
+                            "User Memory Reservation",
+                            "System Memory Reservation"))
+                    .addAll(rows)
+                    .build());
+        }
     }
 
     private static void logTaskStats(List<QueryId> queryIds, ListMultimap<QueryId, SqlTask> tasksByQueryId)
@@ -213,21 +215,22 @@ public class GcStatusMonitor
                                 Long.toString(taskIOStats.getOutputPositions().getTotalCount()));
                     });
         }).collect(toImmutableList());
-
-        logInfoTable(ImmutableList.<List<String>>builder()
-                .add(ImmutableList.of(
-                        "Query ID",
-                        "Task ID",
-                        "State",
-                        "Created Ts",
-                        "User Memory",
-                        "System Memory",
-                        "Input Bytes",
-                        "Output Bytes",
-                        "Input Row Count",
-                        "Output Row Count"))
-                .addAll(rows)
-                .build());
+        if (!rows.isEmpty()) {
+            logInfoTable(ImmutableList.<List<String>>builder()
+                    .add(ImmutableList.of(
+                            "Query ID",
+                            "Task ID",
+                            "State",
+                            "Created Ts",
+                            "User Memory",
+                            "System Memory",
+                            "Input Bytes",
+                            "Output Bytes",
+                            "Input Row Count",
+                            "Output Row Count"))
+                    .addAll(rows)
+                    .build());
+        }
     }
 
     private static void logInfoTable(List<List<String>> table)
