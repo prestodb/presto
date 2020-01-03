@@ -44,7 +44,7 @@ public class HdfsEnvironment
 
     @Inject
     public HdfsEnvironment(
-            HdfsConfiguration hdfsConfiguration,
+            @ForMetastoreHdfsEnvironment HdfsConfiguration hdfsConfiguration,
             MetastoreClientConfig config,
             HdfsAuthentication hdfsAuthentication)
     {
@@ -68,7 +68,11 @@ public class HdfsEnvironment
             throws IOException
     {
         return hdfsAuthentication.doAs(user, () -> {
+            System.out.println(path);
             FileSystem fileSystem = path.getFileSystem(configuration);
+            System.out.println(fileSystem.getClass());
+            System.out.println(fileSystem.toString());
+            System.out.println(fileSystem.getUri());
             fileSystem.setVerifyChecksum(verifyChecksum);
             return fileSystem;
         });

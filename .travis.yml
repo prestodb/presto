@@ -110,32 +110,7 @@ script:
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        singlenode -g hdfs_no_impersonation,avro
-    fi
-  - |
-    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
-        singlenode-kerberos-hdfs-no-impersonation -g hdfs_no_impersonation
-    fi
-  - |
-    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
-        singlenode-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation
-    fi
-  - |
-    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
         singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization,hive_file_header
-    fi
-  - |
-    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
-        singlenode-kerberos-hdfs-impersonation-cross-realm -g storage_formats,cli,hdfs_impersonation
-    fi
-  - |
-    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
-        singlenode-ldap -g ldap -x simba_jdbc
     fi
 # SQL server image sporadically hangs during the startup
 # TODO: Uncomment it once issue is fixed
