@@ -1187,6 +1187,7 @@ public class TestGeoFunctions
 
         // invalid binary
         assertInvalidFunction("ST_GeomFromBinary(from_hex('deadbeef'))", "Invalid WKB");
+        assertInvalidFunction("ST_AsBinary(ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))'))", INVALID_FUNCTION_ARGUMENT, "Invalid geometry: corrupted geometry");
     }
 
     private void assertGeomFromBinary(String wkt)
