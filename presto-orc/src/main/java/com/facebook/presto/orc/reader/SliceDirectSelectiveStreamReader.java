@@ -43,6 +43,8 @@ import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
+import static com.facebook.presto.orc.reader.ReaderUtils.packByteArraysForPositions;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.reader.SliceSelectiveStreamReader.computeTruncatedLength;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
@@ -60,6 +62,7 @@ public class SliceDirectSelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectSelectiveStreamReader.class).instanceSize();
     private static final int ONE_GIGABYTE = toIntExact(new DataSize(1, GIGABYTE).toBytes());
+    private static final float BATCH_EXECUTION_FILTERRATE_THRESHOLD = 0.6f;
 
     private final TupleDomainFilter filter;
     private final boolean nonDeterministicFilter;
@@ -130,7 +133,7 @@ public class SliceDirectSelectiveStreamReader
             skip(offset - readOffset);
         }
 
-        prepareForNextRead(positionCount, positions);
+        int dataLength = prepareForNextRead(positionCount, positions);
 
         int streamPosition;
 
@@ -138,7 +141,7 @@ public class SliceDirectSelectiveStreamReader
             streamPosition = readAllNulls(positions, positionCount);
         }
         else if (filter == null) {
-            streamPosition = readNoFilter(positions, positionCount);
+            streamPosition = readNoFilter(positions, positionCount, dataLength);
         }
         else {
             streamPosition = readWithFilter(positions, positionCount);
@@ -148,9 +151,32 @@ public class SliceDirectSelectiveStreamReader
         return outputPositionCount;
     }
 
-    private int readNoFilter(int[] positions, int positionCount)
+    private int readNoFilter(int[] positions, int positionCount, int dataLength)
             throws IOException
     {
+        // filter == null implies outputRequired == true
+
+        int totalPositionCount = positions[positionCount - 1] + 1;
+        if (totalPositionCount * (1 - BATCH_EXECUTION_FILTERRATE_THRESHOLD) <= positionCount && maxCodePointCount < 0) {
+            // unbounded, simply read all data in one shot
+            dataStream.next(data, 0, dataLength);
+
+            if (presentStream == null) {
+                convertLengthVectorToOffsetVector(offsets, lengthVector, totalPositionCount);
+            }
+            else {
+                convertLengthVectorToOffsetVector(offsets, lengthVector, isNullVector, totalPositionCount);
+                if (totalPositionCount > positionCount) {
+                    packByteArraysForPositions(data, offsets, isNullVector, positions, positionCount);
+                }
+
+                System.arraycopy(isNullVector, 0, nulls, 0, positionCount);
+            }
+
+            outputPositionCount = positionCount;
+            return totalPositionCount;
+        }
+
         int streamPosition = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
@@ -479,7 +505,7 @@ public class SliceDirectSelectiveStreamReader
         return INSTANCE_SIZE + sizeOf(offsets) + sizeOf(outputPositions) + sizeOf(data) + sizeOf(nulls) + sizeOf(lengthVector) + sizeOf(isNullVector);
     }
 
-    private void prepareForNextRead(int positionCount, int[] positions)
+    private int prepareForNextRead(int positionCount, int[] positions)
             throws IOException
     {
         lengthIndex = 0;
@@ -487,6 +513,7 @@ public class SliceDirectSelectiveStreamReader
 
         int totalLength = 0;
         int maxLength = 0;
+        int dataLength = 0;
 
         int totalPositions = positions[positionCount - 1] + 1;
         int nullCount = 0;
@@ -519,13 +546,16 @@ public class SliceDirectSelectiveStreamReader
             if (presentStream != null && nullsAllowed) {
                 nulls = ensureCapacity(nulls, positionCount);
             }
+            dataLength = totalLength;
             data = ensureCapacity(data, totalLength);
             offsets = ensureCapacity(offsets, totalPositions + 1);
         }
         else {
+            dataLength = maxLength;
             data = ensureCapacity(data, maxLength);
         }
 
         dataAsSlice = Slices.wrappedBuffer(data);
+        return dataLength;
     }
 }

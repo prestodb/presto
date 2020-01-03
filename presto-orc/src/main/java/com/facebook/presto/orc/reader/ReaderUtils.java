@@ -72,6 +72,40 @@ final class ReaderUtils
         }
     }
 
+    public static void packByteArraysForPositions(byte[] values, int[] offsets, boolean[] nulls, int[] positions, int positionCount)
+    {
+        int valuesIndex = 0;
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+
+            int length = copyValuesRange(values, offsets, valuesIndex, position);
+
+            offsets[i + 1] = offsets[i] + length;
+            nulls[i] = nulls[position];
+        }
+    }
+
+    public static void packByteArraysForPositions(byte[] values, int[] offsets, int[] positions, int positionCount)
+    {
+        int valuesIndex = 0;
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+
+            int length = copyValuesRange(values, offsets, valuesIndex, position);
+
+            offsets[i + 1] = offsets[i] + length;
+        }
+    }
+
+    private static int copyValuesRange(byte[] values, int[] offsets, int valuesIndex, int position)
+    {
+        int beginIndex = offsets[position];
+        int endIndex = offsets[position + 1];
+        int length = endIndex - beginIndex;
+        System.arraycopy(values, beginIndex, values, valuesIndex, length);
+        return length;
+    }
+
     public static short[] unpackShortNulls(short[] values, boolean[] isNull)
     {
         short[] result = new short[isNull.length];
@@ -136,6 +170,29 @@ final class ReaderUtils
             int nextLength = vector[i];
             vector[i] = vector[i - 1] + currentLength;
             currentLength = nextLength;
+        }
+    }
+
+    public static void convertLengthVectorToOffsetVector(int[] offsetVector, int[] lengthVector, boolean[] isNullVector, int positionCount)
+    {
+        offsetVector[0] = 0;
+        int lengthVectorIndex = 0;
+        for (int i = 0; i < positionCount; i++) {
+            if (isNullVector[i]) {
+                offsetVector[i + 1] = offsetVector[i];
+            }
+            else {
+                offsetVector[i + 1] = offsetVector[i] + lengthVector[lengthVectorIndex++];
+            }
+        }
+    }
+
+    public static void convertLengthVectorToOffsetVector(int[] offsetVector, int[] lengthVector, int positionCount)
+    {
+        offsetVector[0] = 0;
+        int lengthVectorIndex = 0;
+        for (int i = 0; i < positionCount; i++) {
+            offsetVector[i + 1] = offsetVector[i] + lengthVector[lengthVectorIndex++];
         }
     }
 }
