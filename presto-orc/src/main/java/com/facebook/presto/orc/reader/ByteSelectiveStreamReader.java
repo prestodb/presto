@@ -37,6 +37,7 @@ import java.util.Optional;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackByteNulls;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
@@ -257,9 +258,16 @@ public class ByteSelectiveStreamReader
             throws IOException
     {
         // filter == null implies outputRequired == true
-        if (presentStream == null && positions[positionCount - 1] == positionCount - 1) {
-            // contiguous chunk of rows, no nulls
-            dataStream.next(values, positionCount);
+        if (positions[positionCount - 1] == positionCount - 1) {
+            if (presentStream != null) {
+                int nonNullCount = positionCount - presentStream.getUnsetBits(positionCount, nulls);
+                dataStream.next(values, nonNullCount);
+                unpackByteNulls(values, nulls, positionCount, nonNullCount);
+            }
+            else {
+                // contiguous chunk of rows, no nulls
+                dataStream.next(values, positionCount);
+            }
             outputPositionCount = positionCount;
             return positionCount;
         }

@@ -59,6 +59,19 @@ final class ReaderUtils
         return result;
     }
 
+    public static void unpackByteNulls(byte[] values, boolean[] isNull, int positionCount, int nonNullCount)
+    {
+        int position = nonNullCount - 1;
+        for (int i = positionCount - 1; i >= 0; i--) {
+            if (!isNull[i]) {
+                values[i] = values[position--];
+            }
+            else {
+                values[i] = 0;
+            }
+        }
+    }
+
     public static short[] unpackShortNulls(short[] values, boolean[] isNull)
     {
         short[] result = new short[isNull.length];
