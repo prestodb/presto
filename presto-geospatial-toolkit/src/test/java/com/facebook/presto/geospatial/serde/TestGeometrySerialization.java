@@ -17,10 +17,9 @@ import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKTReader;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromWkt;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.createFromEsriGeometry;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
@@ -197,14 +196,14 @@ public class TestGeometrySerialization
 
     private static void testJtsSerialization(String wkt)
     {
-        Geometry expected = createJtsGeometry(wkt);
+        Geometry expected = jtsGeometryFromWkt(wkt);
         Geometry actual = JtsGeometrySerde.deserialize(JtsGeometrySerde.serialize(expected));
         assertGeometryEquals(actual, expected);
     }
 
     private static void testCrossSerialization(String wkt)
     {
-        Geometry jtsGeometry = createJtsGeometry(wkt);
+        Geometry jtsGeometry = jtsGeometryFromWkt(wkt);
         OGCGeometry esriGeometry = OGCGeometry.fromText(wkt);
 
         Slice jtsSerialized = JtsGeometrySerde.serialize(jtsGeometry);
@@ -219,16 +218,6 @@ public class TestGeometrySerialization
     private static Slice geometryFromText(String wkt)
     {
         return serialize(OGCGeometry.fromText(wkt));
-    }
-
-    private static Geometry createJtsGeometry(String wkt)
-    {
-        try {
-            return new WKTReader().read(wkt);
-        }
-        catch (ParseException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private static void assertGeometryEquals(Geometry actual, Geometry expected)
