@@ -17,7 +17,6 @@ import com.facebook.airlift.log.Logger;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.kudu.client.KuduClient;
 
-import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
 
 public class KuduUtil
@@ -44,25 +43,18 @@ public class KuduUtil
             log.warn("----------login user: " + UserGroupInformation.getLoginUser() + "----------");
         }
         catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
         }
     }
 
     static KuduClient getKuduKerberosClient(KuduClientConfig config)
     {
-        initKerberosENV(config.getKerberosPrincipal(), config.getKerberosKeytab());
         KuduClient client = null;
         try {
             client = UserGroupInformation.getLoginUser().doAs(
-                    new PrivilegedExceptionAction<KuduClient>() {
-                        @Override
-                        public KuduClient run() throws Exception
-                        {
-                            return getKuduClient(config);
-                        }
-                    });
+                    (PrivilegedExceptionAction<KuduClient>) () -> getKuduClient(config));
         }
-        catch (IOException | InterruptedException e) {
+        catch (Exception e) {
             log.error(e.getMessage());
         }
         return client;
