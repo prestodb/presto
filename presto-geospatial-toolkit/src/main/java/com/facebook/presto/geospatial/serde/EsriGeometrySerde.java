@@ -15,6 +15,7 @@ package com.facebook.presto.geospatial.serde;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Geometry;
+import com.esri.core.geometry.GeometryException;
 import com.esri.core.geometry.MultiPoint;
 import com.esri.core.geometry.OperatorImportFromESRIShape;
 import com.esri.core.geometry.Point;
@@ -31,6 +32,7 @@ import com.esri.core.geometry.ogc.OGCMultiPolygon;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.facebook.presto.geospatial.GeometryType;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
@@ -46,6 +48,7 @@ import java.util.List;
 import static com.esri.core.geometry.Geometry.Type.Unknown;
 import static com.esri.core.geometry.GeometryEngine.geometryToEsriShape;
 import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -171,7 +174,12 @@ public class EsriGeometrySerde
         verify(input.available() > 0);
         int length = input.available() - 1;
         GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
-        return readGeometry(input, shape, type, length);
+        try {
+            return readGeometry(input, shape, type, length);
+        }
+        catch (GeometryException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
     }
 
     private static OGCGeometry readGeometry(BasicSliceInput input, Slice inputSlice, GeometrySerializationType type, int length)

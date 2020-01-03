@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.GeometryCursor;
+import com.esri.core.geometry.GeometryException;
 import com.esri.core.geometry.ListeningGeometryCursor;
 import com.esri.core.geometry.MultiPath;
 import com.esri.core.geometry.MultiVertexGeometry;
@@ -325,7 +326,12 @@ public final class GeoFunctions
     @SqlType(VARBINARY)
     public static Slice stAsBinary(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return wrappedBuffer(EsriGeometrySerde.deserialize(input).asBinary());
+        try {
+            return wrappedBuffer(EsriGeometrySerde.deserialize(input).asBinary());
+        }
+        catch (GeometryException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid geometry: " + e.getMessage(), e);
+        }
     }
 
     @SqlNullable

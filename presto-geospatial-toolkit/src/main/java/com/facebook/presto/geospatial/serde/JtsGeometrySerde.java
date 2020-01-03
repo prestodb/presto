@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.geospatial.serde;
 
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -27,12 +28,14 @@ import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.TopologyException;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
 import static com.facebook.presto.geospatial.GeometryUtils.translateToAVNaN;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
@@ -53,7 +56,12 @@ public class JtsGeometrySerde
         BasicSliceInput input = shape.getInput();
         verify(input.available() > 0);
         GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
-        return readGeometry(input, type);
+        try {
+            return readGeometry(input, type);
+        }
+        catch (TopologyException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
     }
 
     private static Geometry readGeometry(BasicSliceInput input, GeometrySerializationType type)
@@ -171,25 +179,26 @@ public class JtsGeometrySerde
         LinearRing shell = null;
         List<LinearRing> holes = new ArrayList<>();
         List<Polygon> polygons = new ArrayList<>();
-        for (int i = 0; i < partCount; i++) {
-            Coordinate[] coordinates = readCoordinates(input, partLengths[i]);
-            if (isClockwise(coordinates)) {
-                // next polygon has started
-                if (shell != null) {
-                    polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
-                    holes.clear();
+        try {
+            for (int i = 0; i < partCount; i++) {
+                Coordinate[] coordinates = readCoordinates(input, partLengths[i]);
+                if (isClockwise(coordinates)) {
+                    // next polygon has started
+                    if (shell != null) {
+                        polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
+                        holes.clear();
+                    }
+                    shell = GEOMETRY_FACTORY.createLinearRing(coordinates);
                 }
                 else {
-                    verify(holes.isEmpty(), "shell is null but holes found");
+                    holes.add(GEOMETRY_FACTORY.createLinearRing(coordinates));
                 }
-                shell = GEOMETRY_FACTORY.createLinearRing(coordinates);
             }
-            else {
-                verify(shell != null, "shell is null but hole found");
-                holes.add(GEOMETRY_FACTORY.createLinearRing(coordinates));
-            }
+            polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
         }
-        polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
+        catch (IllegalArgumentException e) {
+            throw new TopologyException("Error constructing Polygon: " + e.getMessage());
+        }
 
         if (multitype) {
             return GEOMETRY_FACTORY.createMultiPolygon(polygons.toArray(new Polygon[0]));
