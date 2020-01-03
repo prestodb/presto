@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.SqlDate;
@@ -42,6 +43,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -970,6 +972,68 @@ public class TestSelectiveOrcReader
         }
     }
 
+    @Test
+    public void testOutputNotRequired()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR);
+        TempFile tempFile = new TempFile();
+
+        List<String> varcharDirectValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
+        List<List<?>> values = ImmutableList.of(varcharDirectValues, varcharDirectValues);
+
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, CompressionKind.NONE, Optional.empty(), types, values, new OrcWriterStats());
+
+        OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
+        Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), stringIn(true, "A", "B", "C")); //ImmutableMap.of(1, stringIn(true, "10", "11"));
+        Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableMap(Function.identity(), types::get));
+
+        // Do not output column 0 but only column 1
+        List<Integer> outputColumns = ImmutableList.of(1);
+
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(
+                tempFile.getFile(),
+                DWRF.getOrcEncoding(),
+                orcPredicate,
+                types,
+                MAX_BATCH_SIZE,
+                ImmutableMap.of(0, filters),
+                OrcReaderSettings.builder().build().getFilterFunctions(),
+                OrcReaderSettings.builder().build().getFilterFunctionInputMapping(),
+                OrcReaderSettings.builder().build().getRequiredSubfields(),
+                ImmutableMap.of(),
+                includedColumns,
+                outputColumns,
+                false,
+                new TestingHiveOrcAggregatedMemoryContext())) {
+            assertEquals(recordReader.getReaderPosition(), 0);
+            assertEquals(recordReader.getFilePosition(), 0);
+
+            int rowsProcessed = 0;
+            while (true) {
+                Page page = recordReader.getNextPage();
+                if (page == null) {
+                    break;
+                }
+
+                int positionCount = page.getPositionCount();
+                if (positionCount == 0) {
+                    continue;
+                }
+
+                page.getLoadedPage();
+
+                // The output block should be the second block
+                assertBlockPositions(page.getBlock(0), varcharDirectValues.subList(rowsProcessed, rowsProcessed + positionCount));
+
+                rowsProcessed += positionCount;
+            }
+            assertEquals(rowsProcessed, NUM_ROWS);
+        }
+    }
+
     private void testRoundTripNumeric(Iterable<? extends Number> values, TupleDomainFilter filter)
             throws Exception
     {
@@ -1178,5 +1242,13 @@ public class TestSelectiveOrcReader
     private static List<Byte> toByteArray(List<Integer> integers)
     {
         return integers.stream().map((i) -> i == null ? null : i.byteValue()).collect(toList());
+    }
+
+    private static <T> void assertBlockPositions(Block block, List<String> expectedValues)
+    {
+        assertEquals(block.getPositionCount(), expectedValues.size());
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            assertEquals(block.getSlice(position, 0, block.getSliceLength(position)), Slices.wrappedBuffer(expectedValues.get(position).getBytes()));
+        }
     }
 }
