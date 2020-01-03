@@ -417,8 +417,9 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         new PickTableLayout(metadata, sqlParser).rules()),
                 projectionPushDown,
-                new PruneUnreferencedOutputs(),
-                new IterativeOptimizer(
+                new PruneUnreferencedOutputs());
+
+        builder.add(new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -435,15 +436,6 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new ReorderJoins(costComparator))));
 
-        builder.add(new OptimizeMixedDistinctAggregations(metadata));
-        builder.add(new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                estimatedExchangesCostCalculator,
-                ImmutableSet.of(
-                        new CreatePartialTopN(),
-                        new PushTopNThroughUnion())));
-
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
         builder.add(new IterativeOptimizer(
@@ -456,6 +448,15 @@ public class PlanOptimizers
         // TODO: move PushdownSubfields below this rule
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)));
+
+        builder.add(new OptimizeMixedDistinctAggregations(metadata));
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(
+                        new CreatePartialTopN(),
+                        new PushTopNThroughUnion())));
 
         builder.add(new IterativeOptimizer(
                 ruleStats,
