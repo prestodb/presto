@@ -263,7 +263,9 @@ public class TestDataVerification
                         "COLUMN MISMATCH\n" +
                         "Control 1 rows, Test 1 rows\n" +
                         "Mismatched Columns:\n" +
-                        "  _col0 \\(array\\(row\\(integer, varchar\\(1\\)\\)\\)\\): control\\(checksum: 71 b5 2f 7f 1e 9b a6 a4\\) test\\(checksum: b4 3c 7d 02 2b 14 77 12\\)\n"));
+                        "  _col0 \\(array\\(row\\(integer, varchar\\(1\\)\\)\\)\\):" +
+                        " control\\(checksum: 71 b5 2f 7f 1e 9b a6 a4, cardinality_sum: 2\\)" +
+                        " test\\(checksum: b4 3c 7d 02 2b 14 77 12, cardinality_sum: 2\\)\n"));
 
         List<DeterminismAnalysisRun> runs = event.get().getDeterminismAnalysisDetails().getRuns();
         assertEquals(runs.size(), 2);

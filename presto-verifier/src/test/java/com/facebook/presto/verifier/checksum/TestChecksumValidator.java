@@ -111,8 +111,11 @@ public class TestChecksumValidator
                         ", \"count\"(\"real\") FILTER (WHERE (\"real\" = \"infinity\"())) \"real_pos_inf_count\"\n" +
                         ", \"count\"(\"real\") FILTER (WHERE (\"real\" = -\"infinity\"())) \"real_neg_inf_count\"\n" +
                         ", \"checksum\"(\"array_sort\"(\"int_array\")) int_array_checksum\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"int_array\")), 0) \"int_array_cardinality_sum\"" +
                         ", COALESCE(\"checksum\"(TRY(\"array_sort\"(\"row_array\"))), \"checksum\"(\"row_array\")) \"row_array_checksum\"" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"row_array\")), 0) \"row_array_cardinality_sum\"" +
                         ", \"checksum\"(\"map_array\") \"map_array_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"map_array\")), 0) \"map_array_cardinality_sum\"" +
                         "FROM\n" +
                         "  test:di",
                 PARSING_OPTIONS);
@@ -285,24 +288,44 @@ public class TestChecksumValidator
                 5,
                 ImmutableMap.<String, Object>builder()
                         .put("int_array_checksum", new SqlVarbinary(new byte[] {0xa}))
+                        .put("int_array_cardinality_sum", 3L)
                         .put("map_array_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("map_array_cardinality_sum", 7L)
                         .build());
 
         // Matched
         assertTrue(checksumValidator.getMismatchedColumns(columns, controlChecksum, controlChecksum).isEmpty());
 
-        // Mismatched
+        // Mismatched different elements
         ChecksumResult testChecksum = new ChecksumResult(
                 5,
                 ImmutableMap.<String, Object>builder()
                         .put("int_array_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .put("int_array_cardinality_sum", 3L)
                         .put("map_array_checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .put("map_array_cardinality_sum", 7L)
                         .build());
         assertEquals(
                 checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum),
                 ImmutableMap.builder()
-                        .put(INT_ARRAY_COLUMN, new ColumnMatchResult(false, "control(checksum: 0a) test(checksum: 1a)"))
-                        .put(MAP_ARRAY_COLUMN, new ColumnMatchResult(false, "control(checksum: 0b) test(checksum: 1b)"))
+                        .put(INT_ARRAY_COLUMN, new ColumnMatchResult(false, "control(checksum: 0a, cardinality_sum: 3) test(checksum: 1a, cardinality_sum: 3)"))
+                        .put(MAP_ARRAY_COLUMN, new ColumnMatchResult(false, "control(checksum: 0b, cardinality_sum: 7) test(checksum: 1b, cardinality_sum: 7)"))
+                        .build());
+
+        // Mismatched different cardinality sum
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("int_array_checksum", new SqlVarbinary(new byte[] {0x1a}))
+                        .put("int_array_cardinality_sum", 2L)
+                        .put("map_array_checksum", new SqlVarbinary(new byte[] {0x1b}))
+                        .put("map_array_cardinality_sum", 5L)
+                        .build());
+        assertEquals(
+                checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum),
+                ImmutableMap.builder()
+                        .put(INT_ARRAY_COLUMN, new ColumnMatchResult(false, "control(checksum: 0a, cardinality_sum: 3) test(checksum: 1a, cardinality_sum: 2)"))
+                        .put(MAP_ARRAY_COLUMN, new ColumnMatchResult(false, "control(checksum: 0b, cardinality_sum: 7) test(checksum: 1b, cardinality_sum: 5)"))
                         .build());
     }
 }

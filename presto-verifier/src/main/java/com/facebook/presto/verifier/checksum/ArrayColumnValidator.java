@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.TryExpression;
@@ -67,7 +68,15 @@ public class ArrayColumnValidator
             checksum = new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column.getIdentifier()));
         }
 
-        return ImmutableList.of(new SingleColumn(checksum, Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))));
+        Expression arrayCardinalitySum = new CoalesceExpression(
+                new FunctionCall(
+                        QualifiedName.of("sum"),
+                        ImmutableList.of(new FunctionCall(QualifiedName.of("cardinality"), ImmutableList.of(column.getIdentifier())))),
+                new LongLiteral("0"));
+
+        return ImmutableList.of(
+                new SingleColumn(checksum, Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))),
+                new SingleColumn(arrayCardinalitySum, Optional.of(delimitedIdentifier(getCardinalitySumColumnAlias(column)))));
     }
 
     @Override
@@ -76,13 +85,28 @@ public class ArrayColumnValidator
         String checksumColumnAlias = getChecksumColumnAlias(column);
         Object controlChecksum = controlResult.getChecksum(checksumColumnAlias);
         Object testChecksum = testResult.getChecksum(checksumColumnAlias);
+
+        String cardinalitySumColumnAlias = getCardinalitySumColumnAlias(column);
+        Object controlCardinalitySum = controlResult.getChecksum(cardinalitySumColumnAlias);
+        Object testCardinalitySum = testResult.getChecksum(cardinalitySumColumnAlias);
+
         return new ColumnMatchResult(
-                Objects.equals(controlChecksum, testChecksum),
-                format("control(checksum: %s) test(checksum: %s)", controlChecksum, testChecksum));
+                Objects.equals(controlChecksum, testChecksum) && Objects.equals(controlCardinalitySum, testCardinalitySum),
+                format(
+                        "control(checksum: %s, cardinality_sum: %s) test(checksum: %s, cardinality_sum: %s)",
+                        controlChecksum,
+                        controlCardinalitySum,
+                        testChecksum,
+                        testCardinalitySum));
     }
 
     private static String getChecksumColumnAlias(Column column)
     {
         return column.getName() + "_checksum";
+    }
+
+    private static String getCardinalitySumColumnAlias(Column column)
+    {
+        return column.getName() + "_cardinality_sum";
     }
 }
