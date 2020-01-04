@@ -137,7 +137,7 @@ public class DbResourceGroupConfigurationManager
     public void start()
     {
         if (started.compareAndSet(false, true)) {
-            configExecutor.scheduleWithFixedDelay(this::load, 1, 1, TimeUnit.SECONDS);
+            configExecutor.scheduleWithFixedDelay(this::load, 10, 10, TimeUnit.SECONDS);
         }
     }
 
