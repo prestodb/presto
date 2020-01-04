@@ -137,6 +137,12 @@ public final class CachingFileSystem
         return dataTier.getFileStatus(path);
     }
 
+    @Override
+    public void setVerifyChecksum(boolean verifyChecksum)
+    {
+        dataTier.setVerifyChecksum(verifyChecksum);
+    }
+
     public FileSystem getDataTier()
     {
         return dataTier;

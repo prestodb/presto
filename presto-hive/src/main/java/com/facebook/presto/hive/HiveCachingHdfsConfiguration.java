@@ -18,8 +18,6 @@ import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CachingFileSystem;
 import com.facebook.presto.cache.ForCachingFileSystem;
 import com.facebook.presto.hadoop.FileSystemFactory;
-import com.facebook.presto.hadoop.HadoopFileSystemCache;
-import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
@@ -31,7 +29,6 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.Map;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -40,10 +37,6 @@ import static java.util.Objects.requireNonNull;
 public class HiveCachingHdfsConfiguration
         implements HdfsConfiguration
 {
-    static {
-        HadoopNative.requireHadoopNative();
-        HadoopFileSystemCache.initialize();
-    }
 
     private final HdfsConfiguration hiveHdfsConfiguration;
     private final CacheManager cacheManager;
@@ -63,8 +56,7 @@ public class HiveCachingHdfsConfiguration
     @Override
     public Configuration getConfiguration(HdfsContext context, URI uri)
     {
-        @SuppressWarnings("resource")
-        Configuration config = new CachingJobConf((factoryConfig, factoryUri) -> {
+        return new CachingJobConf((factoryConfig, factoryUri) -> {
             try {
                 return new CachingFileSystem(
                         factoryUri,
@@ -77,17 +69,6 @@ public class HiveCachingHdfsConfiguration
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create caching file system", e);
             }
         });
-        Configuration defaultConfig = hiveHdfsConfiguration.getConfiguration(context, uri);
-
-        copy(defaultConfig, config);
-        return config;
-    }
-
-    private static void copy(Configuration from, Configuration to)
-    {
-        for (Map.Entry<String, String> entry : from) {
-            to.set(entry.getKey(), entry.getValue());
-        }
     }
 
     private static class CachingJobConf
