@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.geospatial.serde;
 
+import com.facebook.presto.geospatial.GeometryType;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
@@ -33,6 +34,7 @@ import org.locationtech.jts.geom.TopologyException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.geospatial.GeometryType.getForJtsGeometryType;
 import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
 import static com.facebook.presto.geospatial.GeometryUtils.translateToAVNaN;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -84,7 +86,7 @@ public class JtsGeometrySerde
             case ENVELOPE:
                 return readEnvelope(input);
             default:
-                throw new UnsupportedOperationException("Unexpected type: " + type);
+                throw new IllegalArgumentException("Unsupported geometry type: " + type);
         }
     }
 
@@ -281,32 +283,31 @@ public class JtsGeometrySerde
 
     private static void writeGeometry(Geometry geometry, DynamicSliceOutput output)
     {
-        switch (geometry.getGeometryType()) {
-            case "Point":
+        GeometryType type = getForJtsGeometryType(geometry.getGeometryType());
+        switch (type) {
+            case POINT:
                 writePoint((Point) geometry, output);
                 break;
-            case "MultiPoint":
+            case MULTI_POINT:
                 writeMultiPoint((MultiPoint) geometry, output);
                 break;
-            case "LineString":
-            case "LinearRing":
-                // LinearRings are a subclass of LineString
+            case LINE_STRING:
                 writePolyline(geometry, output, false);
                 break;
-            case "MultiLineString":
+            case MULTI_LINE_STRING:
                 writePolyline(geometry, output, true);
                 break;
-            case "Polygon":
+            case POLYGON:
                 writePolygon(geometry, output, false);
                 break;
-            case "MultiPolygon":
+            case MULTI_POLYGON:
                 writePolygon(geometry, output, true);
                 break;
-            case "GeometryCollection":
+            case GEOMETRY_COLLECTION:
                 writeGeometryCollection(geometry, output);
                 break;
             default:
-                throw new IllegalArgumentException("Unsupported geometry type : " + geometry.getGeometryType());
+                throw new IllegalArgumentException("Unsupported geometry type: " + type);
         }
     }
 
@@ -328,9 +329,7 @@ public class JtsGeometrySerde
         output.writeInt(EsriShapeType.MULTI_POINT.code);
         writeEnvelope(geometry, output);
         output.writeInt(geometry.getNumPoints());
-        for (Coordinate coordinate : geometry.getCoordinates()) {
-            writeCoordinate(coordinate, output);
-        }
+        writeCoordinates(geometry.getCoordinates(), output);
     }
 
     private static void writePolyline(Geometry geometry, SliceOutput output, boolean multitype)

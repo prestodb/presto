@@ -103,13 +103,12 @@ public class EsriGeometrySerde
             case MULTI_POLYGON:
                 writeSimpleGeometry(output, GeometrySerializationType.MULTI_POLYGON, geometry);
                 break;
-            case GEOMETRY_COLLECTION: {
+            case GEOMETRY_COLLECTION:
                 verify(geometry instanceof OGCConcreteGeometryCollection);
                 writeGeometryCollection(output, (OGCConcreteGeometryCollection) geometry);
                 break;
-            }
             default:
-                throw new IllegalArgumentException("Unexpected type: " + type);
+                throw new IllegalArgumentException("Unsupported geometry type: " + type);
         }
     }
 
@@ -198,7 +197,7 @@ public class EsriGeometrySerde
             case ENVELOPE:
                 return createFromEsriGeometry(readEnvelope(input), false);
             default:
-                throw new IllegalArgumentException("Unexpected type: " + type);
+                throw new IllegalArgumentException("Unsupported geometry type: " + type);
         }
     }
 
