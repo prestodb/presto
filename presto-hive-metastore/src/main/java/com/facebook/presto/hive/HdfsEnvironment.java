@@ -44,7 +44,7 @@ public class HdfsEnvironment
 
     @Inject
     public HdfsEnvironment(
-            HdfsConfiguration hdfsConfiguration,
+            @ForMetastoreHdfsEnvironment HdfsConfiguration hdfsConfiguration,
             MetastoreClientConfig config,
             HdfsAuthentication hdfsAuthentication)
     {

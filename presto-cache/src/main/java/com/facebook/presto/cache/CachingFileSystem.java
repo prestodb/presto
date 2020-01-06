@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cache;
 
+import com.facebook.airlift.log.Logger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -30,22 +31,21 @@ import static java.util.Objects.requireNonNull;
 public final class CachingFileSystem
         extends FileSystem
 {
-    private final URI workingDirectory;
+    private static final Logger log = Logger.get(CachingFileSystem.class);
+    private final URI uri;
     private final CacheManager cacheManager;
     private final FileSystem dataTier;
     private final boolean cacheValidationEnabled;
 
     public CachingFileSystem(
-            URI workingDirectory,
+            URI uri,
             Configuration configuration,
             CacheManager cacheManager,
             FileSystem dataTier,
             boolean cacheValidationEnabled)
     {
-        requireNonNull(workingDirectory, "uri is null");
         requireNonNull(configuration, "configuration is null");
-
-        this.workingDirectory = URI.create(workingDirectory.getScheme() + "://" + workingDirectory.getAuthority());
+        this.uri = requireNonNull(uri, "uri is null");
         this.cacheManager = requireNonNull(cacheManager, "cacheManager is null");
         this.dataTier = requireNonNull(dataTier, "dataTier is null");
         this.cacheValidationEnabled = cacheValidationEnabled;
@@ -53,7 +53,7 @@ public final class CachingFileSystem
         setConf(configuration);
 
         //noinspection AssignmentToSuperclassField
-        statistics = getStatistics(workingDirectory.getScheme(), getClass());
+        statistics = getStatistics(this.uri.getScheme(), getClass());
     }
 
     @Override
@@ -66,7 +66,7 @@ public final class CachingFileSystem
     @Override
     public URI getUri()
     {
-        return workingDirectory;
+        return uri;
     }
 
     @Override
@@ -135,5 +135,21 @@ public final class CachingFileSystem
             throws IOException
     {
         return dataTier.getFileStatus(path);
+    }
+
+    @Override
+    public String getScheme()
+    {
+        return dataTier.getScheme();
+    }
+
+    public FileSystem getDataTier()
+    {
+        return dataTier;
+    }
+
+    public boolean isCacheValidationEnabled()
+    {
+        return cacheValidationEnabled;
     }
 }
