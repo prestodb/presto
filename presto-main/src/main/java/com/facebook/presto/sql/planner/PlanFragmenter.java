@@ -834,12 +834,19 @@ public class PlanFragmenter
                 return this;
             }
 
+            boolean forceSingleNodePlan = SystemSessionProperties.isForceSingleNodePlan(session);
+
             // If already system SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
-            if (currentPartitioning.isSingleNode()) {
+            if (forceSingleNodePlan && currentPartitioning.isCoordinatorOnly() || !forceSingleNodePlan && currentPartitioning.isSingleNode()) {
                 return this;
             }
 
             if (currentPartitioning.equals(distribution)) {
+                return this;
+            }
+
+            if (forceSingleNodePlan && currentPartitioning.isSingleNode() && distribution.isSingleNode()) {
+                partitioningHandle = Optional.of(distribution);
                 return this;
             }
 

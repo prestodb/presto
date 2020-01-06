@@ -138,6 +138,7 @@ public class FeaturesConfig
     private boolean optimizedRepartitioningEnabled;
 
     private boolean pushdownSubfieldsEnabled;
+    private boolean forceSingleNodePlan;
 
     private boolean tableWriterMergeOperatorEnabled = true;
 
@@ -1113,6 +1114,18 @@ public class FeaturesConfig
     public FeaturesConfig setListNonBuiltInFunctions(boolean listNonBuiltInFunctions)
     {
         this.listNonBuiltInFunctions = listNonBuiltInFunctions;
+        return this;
+    }
+
+    public boolean isForceSingleNodePlan()
+    {
+        return forceSingleNodePlan;
+    }
+
+    @Config("optimizer.force-single-node-plan")
+    public FeaturesConfig setForceSingleNodePlan(boolean forceSingleNodePlan)
+    {
+        this.forceSingleNodePlan = forceSingleNodePlan;
         return this;
     }
 }

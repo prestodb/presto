@@ -122,7 +122,8 @@ public class TestFeaturesConfig
                 .setOptimizeFullOuterJoinWithCoalesce(true)
                 .setIndexLoaderTimeout(new Duration(20, SECONDS))
                 .setOptimizedRepartitioningEnabled(false)
-                .setListNonBuiltInFunctions(false));
+                .setListNonBuiltInFunctions(false)
+                .setForceSingleNodePlan(false));
     }
 
     @Test
@@ -204,6 +205,7 @@ public class TestFeaturesConfig
                 .put("index-loader-timeout", "10s")
                 .put("experimental.optimized-repartitioning", "true")
                 .put("list-non-built-in-functions", "true")
+                .put("optimizer.force-single-node-plan", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -281,7 +283,8 @@ public class TestFeaturesConfig
                 .setOptimizeFullOuterJoinWithCoalesce(false)
                 .setIndexLoaderTimeout(new Duration(10, SECONDS))
                 .setOptimizedRepartitioningEnabled(true)
-                .setListNonBuiltInFunctions(true);
+                .setListNonBuiltInFunctions(true)
+                .setForceSingleNodePlan(true);
         assertFullMapping(properties, expected);
     }
 

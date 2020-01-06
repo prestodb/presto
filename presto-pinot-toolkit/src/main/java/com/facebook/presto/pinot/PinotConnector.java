@@ -55,15 +55,16 @@ public class PinotConnector
             PinotPageSourceProvider pageSourceProvider,
             PinotNodePartitioningProvider partitioningProvider,
             PinotSessionProperties pinotSessionProperties,
-            PinotConnectorPlanOptimizer planOptimizer)
+            PinotConnectorPlanOptimizer planOptimizer,
+            PinotConfig pinotConfig)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(pinotSessionProperties, "sessionProperties is null").getSessionProperties());
         this.planOptimizer = requireNonNull(planOptimizer, "plan optimizer is null");
+        this.partitioningProvider = pinotConfig.isForceSingleNodePlan() ? requireNonNull(partitioningProvider, "partitioningProvider is null") : null;
     }
 
     @Override
@@ -93,7 +94,12 @@ public class PinotConnector
     @Override
     public ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
-        return partitioningProvider;
+        if (partitioningProvider != null) {
+            return partitioningProvider;
+        }
+        else {
+            throw new UnsupportedOperationException("Don't have a valid node partitioning provider");
+        }
     }
 
     @Override
