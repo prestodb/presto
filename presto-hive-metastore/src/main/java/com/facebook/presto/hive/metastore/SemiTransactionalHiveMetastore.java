@@ -1040,7 +1040,9 @@ public class SemiTransactionalHiveMetastore
             // The next section will deal with "dropping table/partition". Commit may still fail in
             // this section. Even if commit fails, cleanups, instead of rollbacks, will be executed.
 
-            committer.executeIrreversibleMetastoreOperations();
+            if (!committer.metastoreDeleteOperations.isEmpty()) {
+                committer.executeMetastoreDeleteOperations();
+            }
 
             // If control flow reached this point, this commit is considered successful no matter
             // what happens later. The only kind of operations that haven't been carried out yet
@@ -1480,18 +1482,22 @@ public class SemiTransactionalHiveMetastore
             }
         }
 
-        private void executeIrreversibleMetastoreOperations()
+        private void executeMetastoreDeleteOperations()
         {
-            List<String> failedIrreversibleOperationDescriptions = new ArrayList<>();
+            List<String> failedDeletionDescriptions = new ArrayList<>();
             List<Throwable> suppressedExceptions = new ArrayList<>();
             boolean anySucceeded = false;
-            for (IrreversibleMetastoreOperation irreversibleMetastoreOperation : metastoreDeleteOperations) {
+            for (IrreversibleMetastoreOperation deleteOperation : metastoreDeleteOperations) {
                 try {
-                    irreversibleMetastoreOperation.run();
+                    deleteOperation.run();
                     anySucceeded = true;
                 }
                 catch (Throwable t) {
-                    failedIrreversibleOperationDescriptions.add(irreversibleMetastoreOperation.getDescription());
+                    if (metastoreDeleteOperations.size() == 1 && t instanceof TableNotFoundException) {
+                        throw new PrestoException(HIVE_TABLE_DROPPED_DURING_QUERY,
+                                "The metastore delete operation failed: " + deleteOperation.getDescription());
+                    }
+                    failedDeletionDescriptions.add(deleteOperation.getDescription());
                     // A limit is needed to avoid having a huge exception object. 5 was chosen arbitrarily.
                     if (suppressedExceptions.size() < 5) {
                         suppressedExceptions.add(t);
@@ -1506,7 +1512,7 @@ public class SemiTransactionalHiveMetastore
                 else {
                     message.append("The transaction didn't commit cleanly. All operations other than the following delete operations were completed: ");
                 }
-                Joiner.on("; ").appendTo(message, failedIrreversibleOperationDescriptions);
+                Joiner.on("; ").appendTo(message, failedDeletionDescriptions);
 
                 PrestoException prestoException = new PrestoException(HIVE_METASTORE_ERROR, message.toString());
                 suppressedExceptions.forEach(prestoException::addSuppressed);
