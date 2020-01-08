@@ -20,6 +20,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.InternalCommunicationConfig;
+import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.facebook.presto.spi.QueryId;
 
 import javax.inject.Inject;
@@ -34,17 +35,19 @@ public class HttpLocationFactory
 {
     private final InternalNodeManager nodeManager;
     private final URI baseUri;
+    private final CommunicationProtocol taskCommunicationProtocol;
 
     @Inject
     public HttpLocationFactory(InternalNodeManager nodeManager, HttpServerInfo httpServerInfo, InternalCommunicationConfig config)
     {
-        this(nodeManager, config.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri());
+        this(nodeManager, config.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri(), config.getTaskCommunicationProtocol());
     }
 
-    public HttpLocationFactory(InternalNodeManager nodeManager, URI baseUri)
+    public HttpLocationFactory(InternalNodeManager nodeManager, URI baseUri, CommunicationProtocol taskCommunicationProtocol)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.baseUri = requireNonNull(baseUri, "baseUri is null");
+        this.taskCommunicationProtocol = requireNonNull(taskCommunicationProtocol, "taskCommunicationProtocol is null");
     }
 
     @Override

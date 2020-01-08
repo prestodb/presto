@@ -36,6 +36,7 @@ public class InternalCommunicationConfig
     private boolean kerberosUseCanonicalHostname = true;
     private boolean binaryTransportEnabled;
     private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
+    private CommunicationProtocol taskCommunicationProtocol = CommunicationProtocol.HTTP;
 
     public boolean isHttpsRequired()
     {
@@ -157,6 +158,25 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setMaxTaskUpdateSize(DataSize maxTaskUpdateSize)
     {
         this.maxTaskUpdateSize = maxTaskUpdateSize;
+        return this;
+    }
+
+    public enum CommunicationProtocol
+    {
+        HTTP,
+        THRIFT
+    }
+
+    public CommunicationProtocol getTaskCommunicationProtocol()
+    {
+        return taskCommunicationProtocol;
+    }
+
+    @Config("internal-communication.task-communication-protocol")
+    @ConfigDescription("Set task communication protocol")
+    public InternalCommunicationConfig setTaskCommunicationProtocol(CommunicationProtocol taskCommunicationProtocol)
+    {
+        this.taskCommunicationProtocol = taskCommunicationProtocol;
         return this;
     }
 }
