@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -248,6 +251,7 @@ public final class OutputBuffers
                 partition);
     }
 
+    @ThriftStruct
     public static class OutputBufferId
     {
         // this is needed by JAX-RS
@@ -258,6 +262,7 @@ public final class OutputBuffers
 
         private final int id;
 
+        @ThriftConstructor
         @JsonCreator
         public OutputBufferId(int id)
         {
@@ -278,6 +283,7 @@ public final class OutputBuffers
             return id == that.id;
         }
 
+        @ThriftField(1)
         @JsonValue
         public int getId()
         {

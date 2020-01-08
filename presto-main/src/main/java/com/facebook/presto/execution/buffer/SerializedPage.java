@@ -13,15 +13,21 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.execution.buffer.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class SerializedPage
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SerializedPage.class).instanceSize();
@@ -34,6 +40,7 @@ public class SerializedPage
     public SerializedPage(Slice slice, byte pageCodecMarkers, int positionCount, int uncompressedSizeInBytes)
     {
         this.slice = requireNonNull(slice, "slice is null");
+        checkArgument(slice.getBase() == null || slice.getBase() instanceof byte[], "serialization type only supports byte[]");
         this.positionCount = positionCount;
         checkArgument(uncompressedSizeInBytes >= 0, "uncompressedSizeInBytes is negative");
         this.uncompressedSizeInBytes = uncompressedSizeInBytes;
@@ -49,14 +56,46 @@ public class SerializedPage
         }
     }
 
-    public int getSizeInBytes()
+    @ThriftConstructor
+    public SerializedPage(byte[] data, byte pageCodecMarkers, int positionCount, int uncompressedSizeInBytes)
     {
-        return slice.length();
+        this(Slices.wrappedBuffer(data), pageCodecMarkers, positionCount, uncompressedSizeInBytes);
     }
 
+    @ThriftField(1)
+    public byte[] getData()
+    {
+        if (slice.isCompact()) {
+            Object base = slice.getBase();
+            checkState(base instanceof byte[], "unexpected serialization type %s", base.getClass());
+            return (byte[]) base;
+        }
+
+        // do a copy
+        return slice.getBytes();
+    }
+
+    @ThriftField(2)
+    public byte getPageCodecMarkers()
+    {
+        return pageCodecMarkers;
+    }
+
+    @ThriftField(3)
+    public int getPositionCount()
+    {
+        return positionCount;
+    }
+
+    @ThriftField(4)
     public int getUncompressedSizeInBytes()
     {
         return uncompressedSizeInBytes;
+    }
+
+    public int getSizeInBytes()
+    {
+        return slice.length();
     }
 
     public long getRetainedSizeInBytes()
@@ -64,19 +103,9 @@ public class SerializedPage
         return INSTANCE_SIZE + slice.getRetainedSize();
     }
 
-    public int getPositionCount()
-    {
-        return positionCount;
-    }
-
     public Slice getSlice()
     {
         return slice;
-    }
-
-    public byte getPageCodecMarkers()
-    {
-        return pageCodecMarkers;
     }
 
     @Override

@@ -90,6 +90,7 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
+import com.facebook.presto.server.thrift.ThriftTaskService;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -492,7 +493,7 @@ public class ServerMainModule
 
         // Thrift RPC
         binder.install(new DriftNettyServerModule());
-        driftServerBinder(binder);
+        driftServerBinder(binder).bindService(ThriftTaskService.class);
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
@@ -508,7 +509,7 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    @ForAsyncHttp
+    @ForAsyncRpc
     public static ExecutorService createAsyncHttpResponseCoreExecutor()
     {
         return newCachedThreadPool(daemonThreadsNamed("async-http-response-%s"));
@@ -516,15 +517,15 @@ public class ServerMainModule
 
     @Provides
     @Singleton
-    @ForAsyncHttp
-    public static BoundedExecutor createAsyncHttpResponseExecutor(@ForAsyncHttp ExecutorService coreExecutor, TaskManagerConfig config)
+    @ForAsyncRpc
+    public static BoundedExecutor createAsyncHttpResponseExecutor(@ForAsyncRpc ExecutorService coreExecutor, TaskManagerConfig config)
     {
         return new BoundedExecutor(coreExecutor, config.getHttpResponseThreads());
     }
 
     @Provides
     @Singleton
-    @ForAsyncHttp
+    @ForAsyncRpc
     public static ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
     {
         return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("async-http-timeout-%s"));
@@ -537,8 +538,8 @@ public class ServerMainModule
         @Inject
         public ExecutorCleanup(
                 @ForExchange ScheduledExecutorService exchangeExecutor,
-                @ForAsyncHttp ExecutorService httpResponseExecutor,
-                @ForAsyncHttp ScheduledExecutorService httpTimeoutExecutor)
+                @ForAsyncRpc ExecutorService httpResponseExecutor,
+                @ForAsyncRpc ScheduledExecutorService httpTimeoutExecutor)
         {
             executors = ImmutableList.of(
                     exchangeExecutor,
