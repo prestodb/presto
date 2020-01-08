@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -25,6 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TaskId
 {
     private final StageExecutionId stageExecutionId;
@@ -42,6 +46,7 @@ public class TaskId
         this(new StageExecutionId(new StageId(new QueryId(queryId), stageId), stageExecutionId), id);
     }
 
+    @ThriftConstructor
     public TaskId(StageExecutionId stageExecutionId, int id)
     {
         this.stageExecutionId = requireNonNull(stageExecutionId, "stageExecutionId");
@@ -49,11 +54,13 @@ public class TaskId
         this.id = id;
     }
 
+    @ThriftField(1)
     public StageExecutionId getStageExecutionId()
     {
         return stageExecutionId;
     }
 
+    @ThriftField(2)
     public int getId()
     {
         return id;

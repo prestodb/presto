@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -23,6 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class BufferResult
 {
     public static BufferResult emptyResults(String taskInstanceId, long token, boolean bufferComplete)
@@ -36,6 +40,7 @@ public class BufferResult
     private final boolean bufferComplete;
     private final List<SerializedPage> serializedPages;
 
+    @ThriftConstructor
     public BufferResult(String taskInstanceId, long token, long nextToken, boolean bufferComplete, List<SerializedPage> serializedPages)
     {
         checkArgument(!isNullOrEmpty(taskInstanceId), "taskInstanceId is null");
@@ -47,21 +52,31 @@ public class BufferResult
         this.serializedPages = ImmutableList.copyOf(requireNonNull(serializedPages, "serializedPages is null"));
     }
 
+    @ThriftField(1)
+    public String getTaskInstanceId()
+    {
+        return taskInstanceId;
+    }
+
+    @ThriftField(2)
     public long getToken()
     {
         return token;
     }
 
+    @ThriftField(3)
     public long getNextToken()
     {
         return nextToken;
     }
 
+    @ThriftField(4)
     public boolean isBufferComplete()
     {
         return bufferComplete;
     }
 
+    @ThriftField(5)
     public List<SerializedPage> getSerializedPages()
     {
         return serializedPages;
@@ -75,11 +90,6 @@ public class BufferResult
     public boolean isEmpty()
     {
         return serializedPages.isEmpty();
-    }
-
-    public String getTaskInstanceId()
-    {
-        return taskInstanceId;
     }
 
     @Override

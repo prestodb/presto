@@ -31,7 +31,7 @@ public class AsyncHttpExecutionMBean
     private final ThreadPoolExecutorMBean timeoutExecutor;
 
     @Inject
-    public AsyncHttpExecutionMBean(@ForAsyncHttp ExecutorService responseExecutor, @ForAsyncHttp ScheduledExecutorService timeoutExecutor)
+    public AsyncHttpExecutionMBean(@ForAsyncRpc ExecutorService responseExecutor, @ForAsyncRpc ScheduledExecutorService timeoutExecutor)
     {
         requireNonNull(responseExecutor, "responseExecutor is null");
         requireNonNull(timeoutExecutor, "timeoutExecutor is null");
