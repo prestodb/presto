@@ -14,12 +14,14 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.PageCodecMarker;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.PageBufferClient.ClientCallback;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
+import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -85,6 +87,7 @@ public class ExchangeClient
     private final Duration maxErrorDuration;
     private final boolean acknowledgePages;
     private final HttpClient httpClient;
+    private final DriftClient<ThriftTaskClient> driftClient;
     private final ScheduledExecutorService scheduler;
 
     @GuardedBy("this")
@@ -129,6 +132,7 @@ public class ExchangeClient
             boolean acknowledgePages,
             double responseSizeExponentialMovingAverageDecayingAlpha,
             HttpClient httpClient,
+            DriftClient<ThriftTaskClient> driftClient,
             ScheduledExecutorService scheduler,
             LocalMemoryContext systemMemoryContext,
             Executor pageBufferClientCallbackExecutor)
@@ -140,6 +144,7 @@ public class ExchangeClient
         this.maxErrorDuration = maxErrorDuration;
         this.acknowledgePages = acknowledgePages;
         this.httpClient = httpClient;
+        this.driftClient = driftClient;
         this.scheduler = scheduler;
         this.systemMemoryContext = systemMemoryContext;
         this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
@@ -189,12 +194,16 @@ public class ExchangeClient
         checkState(!noMoreLocations, "No more locations already set");
 
         RpcShuffleClient resultClient;
-        if (location.getScheme().toLowerCase(Locale.ENGLISH).startsWith("http")) {
-            resultClient = new HttpRpcShuffleClient(httpClient, location);
-        }
-        else {
-            // TODO: create thrift client based on scheme
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "unsupported task result client scheme " + location.getScheme());
+        switch (location.getScheme().toLowerCase(Locale.ENGLISH)) {
+            case "http":
+            case "https":
+                resultClient = new HttpRpcShuffleClient(httpClient, location);
+                break;
+            case "thrift":
+                resultClient = new ThriftRpcShuffleClient(driftClient, location, pageBufferClientCallbackExecutor);
+                break;
+            default:
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "unsupported task result client scheme " + location.getScheme());
         }
 
         PageBufferClient client = new PageBufferClient(

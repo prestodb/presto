@@ -15,7 +15,9 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.server.thrift.ThriftTaskClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -41,6 +43,7 @@ public class ExchangeClientFactory
     private final int concurrentRequestMultiplier;
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
+    private final DriftClient<ThriftTaskClient> driftClient;
     private final DataSize maxResponseSize;
     private final boolean acknowledgePages;
     private final double responseSizeExponentialMovingAverageDecayingAlpha;
@@ -52,6 +55,7 @@ public class ExchangeClientFactory
     public ExchangeClientFactory(
             ExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
+            @ForExchange DriftClient<ThriftTaskClient> driftClient,
             @ForExchange ScheduledExecutorService scheduler)
     {
         this(
@@ -63,6 +67,7 @@ public class ExchangeClientFactory
                 config.getPageBufferClientMaxCallbackThreads(),
                 config.getResponseSizeExponentialMovingAverageDecayingAlpha(),
                 httpClient,
+                driftClient,
                 scheduler);
     }
 
@@ -75,6 +80,7 @@ public class ExchangeClientFactory
             int pageBufferClientMaxCallbackThreads,
             double responseSizeExponentialMovingAverageDecayingAlpha,
             HttpClient httpClient,
+            DriftClient<ThriftTaskClient> driftClient,
             ScheduledExecutorService scheduler)
     {
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
@@ -82,6 +88,7 @@ public class ExchangeClientFactory
         this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         this.acknowledgePages = acknowledgePages;
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.driftClient = requireNonNull(driftClient, "driftClient is null");
 
         // Use only 0.75 of the maxResponseSize to leave room for additional bytes from the encoding
         // TODO figure out a better way to compute the size of data that will be transferred over the network
@@ -126,6 +133,7 @@ public class ExchangeClientFactory
                 acknowledgePages,
                 responseSizeExponentialMovingAverageDecayingAlpha,
                 httpClient,
+                driftClient,
                 scheduler,
                 systemMemoryContext,
                 pageBufferClientCallbackExecutor);
