@@ -45,6 +45,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -124,9 +125,10 @@ public final class DiscoveryNodeManager
     {
         for (ServiceDescriptor service : allServices) {
             URI uri = getHttpUri(service, httpsRequired);
+            OptionalInt thriftPort = getThriftServerPort(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, isCoordinator(service));
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, isCoordinator(service));
 
                 if (node.getNodeIdentifier().equals(currentNodeId)) {
                     checkState(
@@ -213,10 +215,11 @@ public final class DiscoveryNodeManager
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
+            OptionalInt thriftPort = getThriftServerPort(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             boolean coordinator = isCoordinator(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, nodeVersion, coordinator);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator);
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -379,6 +382,19 @@ public final class DiscoveryNodeManager
             }
         }
         return null;
+    }
+
+    private static OptionalInt getThriftServerPort(ServiceDescriptor descriptor)
+    {
+        String port = descriptor.getProperties().get("thriftServerPort");
+        if (port != null) {
+            try {
+                return OptionalInt.of(Integer.parseInt(port));
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+        return OptionalInt.empty();
     }
 
     private static NodeVersion getNodeVersion(ServiceDescriptor descriptor)
