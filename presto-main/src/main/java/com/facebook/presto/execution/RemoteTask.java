@@ -20,6 +20,8 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.net.URI;
+
 public interface RemoteTask
 {
     TaskId getTaskId();
@@ -29,6 +31,11 @@ public interface RemoteTask
     TaskInfo getTaskInfo();
 
     TaskStatus getTaskStatus();
+
+    /**
+     * TODO: this should be merged into getTaskStatus once full thrift support is in-place for v1/task
+     */
+    URI getRemoteTaskLocation();
 
     void start();
 

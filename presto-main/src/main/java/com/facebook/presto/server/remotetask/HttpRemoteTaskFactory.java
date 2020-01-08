@@ -156,6 +156,7 @@ public class HttpRemoteTaskFactory
                 session,
                 taskId,
                 node.getNodeIdentifier(),
+                locationFactory.createLegacyTaskLocation(node, taskId),
                 locationFactory.createTaskLocation(node, taskId),
                 fragment,
                 initialSplits,

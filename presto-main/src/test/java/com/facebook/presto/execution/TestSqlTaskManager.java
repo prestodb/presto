@@ -314,9 +314,15 @@ public class TestSqlTaskManager
         }
 
         @Override
-        public URI createTaskLocation(InternalNode node, TaskId taskId)
+        public URI createLegacyTaskLocation(InternalNode node, TaskId taskId)
         {
             return URI.create("http://fake.invalid/task/" + node.getNodeIdentifier() + "/" + taskId);
+        }
+
+        @Override
+        public URI createTaskLocation(InternalNode node, TaskId taskId)
+        {
+            return createLegacyTaskLocation(node, taskId);
         }
 
         @Override

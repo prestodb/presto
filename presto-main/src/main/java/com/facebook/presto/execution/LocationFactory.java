@@ -26,6 +26,16 @@ public interface LocationFactory
 
     URI createLocalTaskLocation(TaskId taskId);
 
+    /**
+     * TODO: this method is required since not not all RPC call is supported by thrift.
+     *     It should be merged into {@code createTaskLocation} once full thrift support is in-place for v1/task
+     */
+    @Deprecated
+    URI createLegacyTaskLocation(InternalNode node, TaskId taskId);
+
+    /**
+     * TODO: implement full thrift support for v1/task
+     */
     URI createTaskLocation(InternalNode node, TaskId taskId);
 
     URI createMemoryInfoLocation(InternalNode node);
