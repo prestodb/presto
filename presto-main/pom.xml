@@ -208,6 +208,11 @@
 
         <dependency>
             <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-transport-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
 

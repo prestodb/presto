@@ -36,4 +36,9 @@ public interface RpcShuffleClient
      * Close remote buffer
      */
     ListenableFuture<?> abortResults();
+
+    /**
+     * Rewrite network related exception to Presto exception
+     */
+    Throwable rewriteException(Throwable throwable);
 }
