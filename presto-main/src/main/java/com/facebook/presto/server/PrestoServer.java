@@ -28,6 +28,8 @@ import com.facebook.airlift.log.LogJmxModule;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
+import com.facebook.drift.server.DriftServer;
+import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -52,6 +54,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -138,6 +141,11 @@ public class PrestoServer
                     injector.getInstance(ServerConfig.class),
                     injector.getInstance(NodeSchedulerConfig.class));
 
+            // TODO: thrift server port should be announced by discovery server similar to http/https ports
+            updateThriftServerPort(
+                    injector.getInstance(Announcer.class),
+                    injector.getInstance(DriftServer.class));
+
             injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -201,6 +209,24 @@ public class PrestoServer
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());
         announcer.addServiceAnnouncement(builder.build());
+    }
+
+    private static void updateThriftServerPort(Announcer announcer, DriftServer driftServer)
+    {
+        // get existing announcement
+        ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
+
+        // drift server::start can be called multiple times
+        driftServer.start();
+
+        // update announcement and thrift port property
+        int thriftPort = ((DriftNettyServerTransport) driftServer.getServerTransport()).getPort();
+        Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
+        properties.put("thriftServerPort", String.valueOf(thriftPort));
+        announcer.removeServiceAnnouncement(announcement.getId());
+        announcer.addServiceAnnouncement(serviceAnnouncement(announcement.getType()).addProperties(properties).build());
+
+        announcer.forceAnnounce();
     }
 
     private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
