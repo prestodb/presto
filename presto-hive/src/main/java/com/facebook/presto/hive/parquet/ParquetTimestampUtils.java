@@ -16,7 +16,7 @@ package com.facebook.presto.hive.parquet;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
-import parquet.io.api.Binary;
+import org.apache.parquet.io.api.Binary;
 
 import java.util.concurrent.TimeUnit;
 

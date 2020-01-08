@@ -146,9 +146,9 @@ public class TestThriftHiveMetastoreUtil
     {
         DecimalColumnStatsData decimalColumnStatsData = new DecimalColumnStatsData();
         BigDecimal low = new BigDecimal("0");
-        decimalColumnStatsData.setLowValue(new Decimal(ByteBuffer.wrap(low.unscaledValue().toByteArray()), (short) low.scale()));
+        decimalColumnStatsData.setLowValue(new Decimal((short) low.scale(), ByteBuffer.wrap(low.unscaledValue().toByteArray())));
         BigDecimal high = new BigDecimal("100");
-        decimalColumnStatsData.setHighValue(new Decimal(ByteBuffer.wrap(high.unscaledValue().toByteArray()), (short) high.scale()));
+        decimalColumnStatsData.setHighValue(new Decimal((short) high.scale(), ByteBuffer.wrap(high.unscaledValue().toByteArray())));
         decimalColumnStatsData.setNumNulls(1);
         decimalColumnStatsData.setNumDVs(20);
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DECIMAL_TYPE_NAME, decimalStats(decimalColumnStatsData));

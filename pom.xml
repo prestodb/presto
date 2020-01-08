@@ -484,13 +484,13 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
-                <version>2.7.4-5</version>
+                <version>3.2.0-1</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>1.2.2-2</version>
+                <version>3.0.0-2</version>
             </dependency>
 
             <dependency>
@@ -894,7 +894,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.9.1</version>
+                <version>0.9.3</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.commons</groupId>
