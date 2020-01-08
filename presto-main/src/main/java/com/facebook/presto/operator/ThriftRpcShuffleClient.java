@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.drift.client.DriftClient;
+import com.facebook.drift.transport.client.MessageTooLargeException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
@@ -91,5 +92,14 @@ public final class ThriftRpcShuffleClient
     public ListenableFuture<?> abortResults()
     {
         return thriftClient.abortResults(taskId, outputBufferId);
+    }
+
+    @Override
+    public Throwable rewriteException(Throwable throwable)
+    {
+        if (throwable instanceof MessageTooLargeException) {
+            return new PageTooLargeException(throwable);
+        }
+        return throwable;
     }
 }

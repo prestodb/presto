@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.http.client.HttpUriBuilder;
-import com.facebook.airlift.http.client.ResponseTooLargeException;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.server.remotetask.Backoff;
@@ -342,7 +341,7 @@ public final class PageBufferClient
                 log.debug("Request to %s failed %s", uri, t);
                 checkNotHoldsLock(this);
 
-                t = rewriteException(t);
+                t = resultClient.rewriteException(t);
                 if (!(t instanceof PrestoException) && backoff.failure()) {
                     String message = format("%s (%s - %s failures, failure duration %s, total failed request time %s)",
                             WORKER_NODE_ERROR,
@@ -468,14 +467,6 @@ public final class PageBufferClient
                 .add("location", location)
                 .addValue(state)
                 .toString();
-    }
-
-    private static Throwable rewriteException(Throwable t)
-    {
-        if (t instanceof ResponseTooLargeException) {
-            return new PageTooLargeException();
-        }
-        return t;
     }
 
     public static class PagesResponse

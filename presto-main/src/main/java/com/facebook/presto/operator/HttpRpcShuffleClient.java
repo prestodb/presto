@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
+import com.facebook.airlift.http.client.ResponseTooLargeException;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.operator.PageBufferClient.PagesResponse;
@@ -110,6 +111,15 @@ public final class HttpRpcShuffleClient
     public ListenableFuture<?> abortResults()
     {
         return httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+    }
+
+    @Override
+    public Throwable rewriteException(Throwable throwable)
+    {
+        if (throwable instanceof ResponseTooLargeException) {
+            return new PageTooLargeException(throwable);
+        }
+        return throwable;
     }
 
     public static class PageResponseHandler
