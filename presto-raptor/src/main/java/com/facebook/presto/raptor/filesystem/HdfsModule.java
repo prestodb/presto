@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheStats;
@@ -24,6 +23,7 @@ import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.storage.StorageService;
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import org.apache.hadoop.fs.Path;
@@ -36,25 +36,20 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HdfsModule
-        extends AbstractConfigurationAwareModule
+        implements Module
 {
     @Override
-    public void setup(Binder binder)
+    public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(StorageManagerConfig.class);
         configBinder(binder).bindConfig(RaptorHdfsConfig.class);
 
-        CacheConfig cacheConfig = buildConfigObject(CacheConfig.class);
-        if (cacheConfig.getBaseDirectory() != null) {
-            binder.bind(CacheStats.class).in(Scopes.SINGLETON);
-            newExporter(binder).export(CacheStats.class).withGeneratedName();
+        configBinder(binder).bindConfig(CacheConfig.class);
+        binder.bind(CacheStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(CacheStats.class).withGeneratedName();
 
-            binder.bind(RaptorHdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(RaptorHiveHdfsConfiguration.class).in(Scopes.SINGLETON);
-            binder.bind(RaptorHdfsConfiguration.class).to(RaptorCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
-        }
-        else {
-            binder.bind(RaptorHdfsConfiguration.class).to(RaptorHiveHdfsConfiguration.class).in(Scopes.SINGLETON);
-        }
+        binder.bind(RaptorHdfsConfiguration.class).annotatedWith(ForCachingFileSystem.class).to(RaptorHiveHdfsConfiguration.class).in(Scopes.SINGLETON);
+        binder.bind(RaptorHdfsConfiguration.class).to(RaptorCachingHdfsConfiguration.class).in(Scopes.SINGLETON);
 
         binder.bind(StorageService.class).to(HdfsStorageService.class).in(Scopes.SINGLETON);
         binder.bind(OrcDataEnvironment.class).to(HdfsOrcDataEnvironment.class).in(Scopes.SINGLETON);
