@@ -83,7 +83,7 @@ public class TestMergeOperator
 
         taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
-        exchangeClientFactory = new ExchangeClientFactory(new ExchangeClientConfig(), httpClient, executor);
+        exchangeClientFactory = new ExchangeClientFactory(new ExchangeClientConfig(), httpClient, new TestingDriftClient<>(), executor);
         orderingCompiler = new OrderingCompiler();
     }
 
