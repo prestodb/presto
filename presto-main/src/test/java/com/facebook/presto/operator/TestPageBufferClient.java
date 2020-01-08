@@ -101,7 +101,8 @@ public class TestPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        PageBufferClient client = new PageBufferClient(new TestingHttpClient(processor, scheduler),
+        PageBufferClient client = new PageBufferClient(
+                new HttpRpcShuffleClient(new TestingHttpClient(processor, scheduler), location),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -186,7 +187,8 @@ public class TestPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        PageBufferClient client = new PageBufferClient(new TestingHttpClient(processor, scheduler),
+        PageBufferClient client = new PageBufferClient(
+                new HttpRpcShuffleClient(new TestingHttpClient(processor, scheduler), location),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -198,7 +200,7 @@ public class TestPageBufferClient
 
         client.scheduleRequest(expectedMaxSize);
         beforeRequest.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "running", 0, 1, 0, 0, "PROCESSING_REQUEST");
+        assertStatus(client, location, "running", 0, 1, 0, 0, "processing request");
         assertEquals(client.isRunning(), true);
         afterRequest.await(10, TimeUnit.SECONDS);
 
@@ -207,7 +209,7 @@ public class TestPageBufferClient
 
         client.close();
         beforeRequest.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "closed", 0, 1, 1, 1, "PROCESSING_REQUEST");
+        assertStatus(client, location, "closed", 0, 1, 1, 1, "processing request");
         afterRequest.await(10, TimeUnit.SECONDS);
         requestComplete.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "closed", 0, 1, 2, 1, "not scheduled");
@@ -226,7 +228,8 @@ public class TestPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        PageBufferClient client = new PageBufferClient(new TestingHttpClient(processor, scheduler),
+        PageBufferClient client = new PageBufferClient(
+                new HttpRpcShuffleClient(new TestingHttpClient(processor, scheduler), location),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -294,7 +297,8 @@ public class TestPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        PageBufferClient client = new PageBufferClient(new TestingHttpClient(processor, scheduler),
+        PageBufferClient client = new PageBufferClient(
+                new HttpRpcShuffleClient(new TestingHttpClient(processor, scheduler), location),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -307,7 +311,7 @@ public class TestPageBufferClient
         // send request
         client.scheduleRequest(expectedMaxSize);
         beforeRequest.await(10, TimeUnit.SECONDS);
-        assertStatus(client, location, "running", 0, 1, 0, 0, "PROCESSING_REQUEST");
+        assertStatus(client, location, "running", 0, 1, 0, 0, "processing request");
         assertEquals(client.isRunning(), true);
         // request is pending, now close it
         client.close();
@@ -348,7 +352,8 @@ public class TestPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        PageBufferClient client = new PageBufferClient(new TestingHttpClient(processor, scheduler),
+        PageBufferClient client = new PageBufferClient(
+                new HttpRpcShuffleClient(new TestingHttpClient(processor, scheduler), location),
                 new Duration(30, TimeUnit.SECONDS),
                 true,
                 location,
