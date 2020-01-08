@@ -124,6 +124,7 @@ public final class HttpRemoteTask
 
     private final TaskId taskId;
     private final URI taskLocation;
+    private final URI remoteTaskLocation;
 
     private final Session session;
     private final String nodeId;
@@ -190,6 +191,7 @@ public final class HttpRemoteTask
             TaskId taskId,
             String nodeId,
             URI location,
+            URI remoteLocation,
             PlanFragment planFragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
@@ -215,6 +217,7 @@ public final class HttpRemoteTask
         requireNonNull(taskId, "taskId is null");
         requireNonNull(nodeId, "nodeId is null");
         requireNonNull(location, "location is null");
+        requireNonNull(remoteLocation, "remoteLocation is null");
         requireNonNull(planFragment, "planFragment is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
         requireNonNull(httpClient, "httpClient is null");
@@ -231,6 +234,7 @@ public final class HttpRemoteTask
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
             this.taskLocation = location;
+            this.remoteTaskLocation = remoteLocation;
             this.session = session;
             this.nodeId = nodeId;
             this.planFragment = planFragment;
@@ -335,6 +339,12 @@ public final class HttpRemoteTask
     public TaskStatus getTaskStatus()
     {
         return taskStatusFetcher.getTaskStatus();
+    }
+
+    @Override
+    public URI getRemoteTaskLocation()
+    {
+        return remoteTaskLocation;
     }
 
     @Override

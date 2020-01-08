@@ -271,6 +271,12 @@ public class MockRemoteTaskFactory
         }
 
         @Override
+        public URI getRemoteTaskLocation()
+        {
+            return location;
+        }
+
+        @Override
         public TaskStatus getTaskStatus()
         {
             TaskStats stats = taskContext.getTaskStats();
