@@ -93,6 +93,7 @@ import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
+import com.facebook.presto.server.thrift.ThriftServerInfoService;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -503,6 +504,7 @@ public class ServerMainModule
         // Thrift RPC
         binder.install(new DriftNettyServerModule());
         driftServerBinder(binder).bindService(ThriftTaskService.class);
+        driftServerBinder(binder).bindService(ThriftServerInfoService.class);
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
