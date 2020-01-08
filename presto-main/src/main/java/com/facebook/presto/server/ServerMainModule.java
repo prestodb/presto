@@ -93,6 +93,7 @@ import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
+import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.server.thrift.ThriftServerInfoService;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
@@ -264,6 +265,9 @@ public class ServerMainModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
+        driftClientBinder(binder).bindDriftClient(ThriftServerInfoClient.class, ForNodeManager.class)
+                .withAddressSelector(((addressSelectorBinder, annotation, prefix) ->
+                        addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(FixedAddressSelector.class)));
 
         // node scheduler
         // TODO: remove from NodePartitioningManager and move to CoordinatorModule
