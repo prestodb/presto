@@ -28,7 +28,9 @@ public class TestHiveDistributedQueriesWithThriftRpc
     {
         super(() -> createQueryRunner(
                 getTables(),
-                ImmutableMap.of("internal-communication.task-communication-protocol", "THRIFT"),
+                ImmutableMap.of(
+                        "internal-communication.task-communication-protocol", "THRIFT",
+                        "internal-communication.server-info-communication-protocol", "THRIFT"),
                 ImmutableMap.of(),
                 Optional.empty()));
     }

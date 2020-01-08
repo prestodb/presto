@@ -41,7 +41,8 @@ public class TestInternalCommunicationConfig
                 .setKerberosUseCanonicalHostname(true)
                 .setBinaryTransportEnabled(false)
                 .setMaxTaskUpdateSize(new DataSize(16, MEGABYTE))
-                .setTaskCommunicationProtocol(CommunicationProtocol.HTTP));
+                .setTaskCommunicationProtocol(CommunicationProtocol.HTTP)
+                .setServerInfoCommunicationProtocol(CommunicationProtocol.HTTP));
     }
 
     @Test
@@ -59,6 +60,7 @@ public class TestInternalCommunicationConfig
                 .put("experimental.internal-communication.binary-transport-enabled", "true")
                 .put("experimental.internal-communication.max-task-update-size", "512MB")
                 .put("internal-communication.task-communication-protocol", "THRIFT")
+                .put("internal-communication.server-info-communication-protocol", "THRIFT")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
@@ -72,7 +74,8 @@ public class TestInternalCommunicationConfig
                 .setKerberosUseCanonicalHostname(false)
                 .setBinaryTransportEnabled(true)
                 .setMaxTaskUpdateSize(new DataSize(512, MEGABYTE))
-                .setTaskCommunicationProtocol(CommunicationProtocol.THRIFT);
+                .setTaskCommunicationProtocol(CommunicationProtocol.THRIFT)
+                .setServerInfoCommunicationProtocol(CommunicationProtocol.THRIFT);
 
         assertFullMapping(properties, expected);
     }
