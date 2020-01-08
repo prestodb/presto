@@ -67,8 +67,8 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readSerializedPages;
-import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
-import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
+import static com.facebook.presto.operator.PageBufferClient.PagesResponse.createEmptyPagesResponse;
+import static com.facebook.presto.operator.PageBufferClient.PagesResponse.createPagesResponse;
 import static com.facebook.presto.spi.HostAddress.fromUri;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_BUFFER_CLOSE_FAILED;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
@@ -85,10 +85,10 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
-public final class HttpPageBufferClient
+public final class PageBufferClient
         implements Closeable
 {
-    private static final Logger log = Logger.get(HttpPageBufferClient.class);
+    private static final Logger log = Logger.get(PageBufferClient.class);
 
     /**
      * For each request, the addPage method will be called zero or more times,
@@ -100,13 +100,13 @@ public final class HttpPageBufferClient
      */
     public interface ClientCallback
     {
-        boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages);
+        boolean addPages(PageBufferClient client, List<SerializedPage> pages);
 
-        void requestComplete(HttpPageBufferClient client);
+        void requestComplete(PageBufferClient client);
 
-        void clientFinished(HttpPageBufferClient client);
+        void clientFinished(PageBufferClient client);
 
-        void clientFailed(HttpPageBufferClient client, Throwable cause);
+        void clientFailed(PageBufferClient client, Throwable cause);
     }
 
     private final HttpClient httpClient;
@@ -143,7 +143,7 @@ public final class HttpPageBufferClient
 
     private final Executor pageBufferClientCallbackExecutor;
 
-    public HttpPageBufferClient(
+    public PageBufferClient(
             HttpClient httpClient,
             Duration maxErrorDuration,
             boolean acknowledgePages,
@@ -155,7 +155,7 @@ public final class HttpPageBufferClient
         this(httpClient, maxErrorDuration, acknowledgePages, location, clientCallback, scheduler, Ticker.systemTicker(), pageBufferClientCallbackExecutor);
     }
 
-    public HttpPageBufferClient(
+    public PageBufferClient(
             HttpClient httpClient,
             Duration maxErrorDuration,
             boolean acknowledgePages,
@@ -265,7 +265,7 @@ public final class HttpPageBufferClient
             }
             catch (Throwable t) {
                 // should not happen, but be safe and fail the operator
-                clientCallback.clientFailed(HttpPageBufferClient.this, t);
+                clientCallback.clientFailed(PageBufferClient.this, t);
             }
         }, delayNanos, NANOSECONDS);
 
@@ -312,7 +312,7 @@ public final class HttpPageBufferClient
                 List<SerializedPage> pages;
                 try {
                     boolean shouldAcknowledge = false;
-                    synchronized (HttpPageBufferClient.this) {
+                    synchronized (PageBufferClient.this) {
                         if (taskInstanceId == null) {
                             taskInstanceId = result.getTaskInstanceId();
                         }
@@ -367,7 +367,7 @@ public final class HttpPageBufferClient
                 // clientCallback can keep stats of requests and responses. For example, it may
                 // keep track of how often a client returns empty response and adjust request
                 // frequency or buffer size.
-                if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
+                if (clientCallback.addPages(PageBufferClient.this, pages)) {
                     pagesReceived.addAndGet(pages.size());
                     rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
                 }
@@ -376,7 +376,7 @@ public final class HttpPageBufferClient
                     rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
                 }
 
-                synchronized (HttpPageBufferClient.this) {
+                synchronized (PageBufferClient.this) {
                     // client is complete, acknowledge it by sending it a delete in the next request
                     if (result.isClientComplete()) {
                         completed = true;
@@ -387,7 +387,7 @@ public final class HttpPageBufferClient
                     lastUpdate = DateTime.now();
                 }
                 requestsCompleted.incrementAndGet();
-                clientCallback.requestComplete(HttpPageBufferClient.this);
+                clientCallback.requestComplete(PageBufferClient.this);
             }
 
             @Override
@@ -422,7 +422,7 @@ public final class HttpPageBufferClient
             {
                 checkNotHoldsLock(this);
                 backoff.success();
-                synchronized (HttpPageBufferClient.this) {
+                synchronized (PageBufferClient.this) {
                     closed = true;
                     if (future == resultFuture) {
                         future = null;
@@ -430,7 +430,7 @@ public final class HttpPageBufferClient
                     lastUpdate = DateTime.now();
                 }
                 requestsCompleted.incrementAndGet();
-                clientCallback.clientFinished(HttpPageBufferClient.this);
+                clientCallback.clientFinished(PageBufferClient.this);
             }
 
             @Override
@@ -466,16 +466,16 @@ public final class HttpPageBufferClient
         requestsCompleted.incrementAndGet();
 
         if (t instanceof PrestoException) {
-            clientCallback.clientFailed(HttpPageBufferClient.this, t);
+            clientCallback.clientFailed(PageBufferClient.this, t);
         }
 
-        synchronized (HttpPageBufferClient.this) {
+        synchronized (PageBufferClient.this) {
             if (future == expectedFuture) {
                 future = null;
             }
             lastUpdate = DateTime.now();
         }
-        clientCallback.requestComplete(HttpPageBufferClient.this);
+        clientCallback.requestComplete(PageBufferClient.this);
     }
 
     @Override
@@ -488,7 +488,7 @@ public final class HttpPageBufferClient
             return false;
         }
 
-        HttpPageBufferClient that = (HttpPageBufferClient) o;
+        PageBufferClient that = (PageBufferClient) o;
 
         if (!location.equals(that.location)) {
             return false;

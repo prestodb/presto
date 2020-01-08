@@ -21,7 +21,7 @@ import com.facebook.airlift.http.client.testing.TestingResponse;
 import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.SerializedPage;
-import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.operator.PageBufferClient.ClientCallback;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableListMultimap;
@@ -60,7 +60,7 @@ import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 
-public class TestHttpPageBufferClient
+public class TestPageBufferClient
 {
     private ScheduledExecutorService scheduler;
     private ExecutorService pageBufferClientCallbackExecutor;
@@ -101,7 +101,7 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
+        PageBufferClient client = new PageBufferClient(new TestingHttpClient(processor, scheduler),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -186,7 +186,7 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
+        PageBufferClient client = new PageBufferClient(new TestingHttpClient(processor, scheduler),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -226,7 +226,7 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
+        PageBufferClient client = new PageBufferClient(new TestingHttpClient(processor, scheduler),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -294,7 +294,7 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
+        PageBufferClient client = new PageBufferClient(new TestingHttpClient(processor, scheduler),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
@@ -348,7 +348,7 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
 
         URI location = URI.create("http://localhost:8080");
-        HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, scheduler),
+        PageBufferClient client = new PageBufferClient(new TestingHttpClient(processor, scheduler),
                 new Duration(30, TimeUnit.SECONDS),
                 true,
                 location,
@@ -405,7 +405,7 @@ public class TestHttpPageBufferClient
     }
 
     private static void assertStatus(
-            HttpPageBufferClient client,
+            PageBufferClient client,
             URI location, String status,
             int pagesReceived,
             int requestsScheduled,
@@ -472,28 +472,28 @@ public class TestHttpPageBufferClient
         }
 
         @Override
-        public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
+        public boolean addPages(PageBufferClient client, List<SerializedPage> pages)
         {
             this.pages.addAll(pages);
             return true;
         }
 
         @Override
-        public void requestComplete(HttpPageBufferClient client)
+        public void requestComplete(PageBufferClient client)
         {
             completedRequests.getAndIncrement();
             awaitDone();
         }
 
         @Override
-        public void clientFinished(HttpPageBufferClient client)
+        public void clientFinished(PageBufferClient client)
         {
             finishedBuffers.getAndIncrement();
             awaitDone();
         }
 
         @Override
-        public void clientFailed(HttpPageBufferClient client, Throwable cause)
+        public void clientFailed(PageBufferClient client, Throwable cause)
         {
             failedBuffers.getAndIncrement();
             failure.compareAndSet(null, cause);
