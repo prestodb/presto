@@ -91,11 +91,11 @@ public class JtsGeometrySerde
 
     private static Point readPoint(SliceInput input)
     {
-        Coordinate coordinates = readCoordinate(input);
-        if (isNaN(coordinates.x) || isNaN(coordinates.y)) {
+        Coordinate coordinate = readCoordinate(input);
+        if (isNaN(coordinate.x) || isNaN(coordinate.y)) {
             return GEOMETRY_FACTORY.createPoint();
         }
-        return GEOMETRY_FACTORY.createPoint(coordinates);
+        return GEOMETRY_FACTORY.createPoint(coordinate);
     }
 
     private static Geometry readMultiPoint(SliceInput input)
@@ -103,11 +103,7 @@ public class JtsGeometrySerde
         skipEsriType(input);
         skipEnvelope(input);
         int pointCount = input.readInt();
-        Point[] points = new Point[pointCount];
-        for (int i = 0; i < pointCount; i++) {
-            points[i] = readPoint(input);
-        }
-        return GEOMETRY_FACTORY.createMultiPoint(points);
+        return GEOMETRY_FACTORY.createMultiPointFromCoords(readCoordinates(input, pointCount));
     }
 
     private static Geometry readPolyline(SliceInput input, boolean multitype)
@@ -260,8 +256,6 @@ public class JtsGeometrySerde
 
     private static Coordinate[] readCoordinates(SliceInput input, int count)
     {
-        requireNonNull(input, "input is null");
-        verify(count > 0);
         Coordinate[] coordinates = new Coordinate[count];
         for (int i = 0; i < count; i++) {
             coordinates[i] = readCoordinate(input);
