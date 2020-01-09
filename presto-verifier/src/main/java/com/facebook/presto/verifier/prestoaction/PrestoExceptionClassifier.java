@@ -23,6 +23,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import java.io.EOFException;
 import java.io.UncheckedIOException;
@@ -57,6 +58,7 @@ import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.google.common.base.Functions.identity;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Arrays.asList;
 
@@ -118,6 +120,8 @@ public class PrestoExceptionClassifier
 
     public static PrestoExceptionClassifier create(Set<ErrorCodeSupplier> recognizedErrors, Set<ErrorCodeSupplier> retryableErrors)
     {
+        Set<ErrorCodeSupplier> unrecognized = Sets.difference(retryableErrors, recognizedErrors);
+        checkArgument(unrecognized.isEmpty(), "Retryable errors not recognized: %s", unrecognized);
         return new PrestoExceptionClassifier(recognizedErrors, retryableErrors);
     }
 
