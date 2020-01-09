@@ -58,7 +58,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.getMaxFailedTaskPercentage;
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
@@ -542,8 +541,8 @@ public final class SqlStageExecution
     private static Split createRemoteSplitFor(TaskId taskId, URI remoteSourceTaskLocation, TaskId remoteSourceTaskId)
     {
         // Fetch the results from the buffer assigned to the task based on id
-        URI splitLocation = uriBuilderFrom(remoteSourceTaskLocation).appendPath("results").appendPath(String.valueOf(taskId.getId())).build();
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(splitLocation, remoteSourceTaskId));
+        String splitLocation = remoteSourceTaskLocation.toASCIIString() + "/results/" + taskId.getId();
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(new Location(splitLocation), remoteSourceTaskId));
     }
 
     private void updateTaskStatus(TaskStatus taskStatus)
