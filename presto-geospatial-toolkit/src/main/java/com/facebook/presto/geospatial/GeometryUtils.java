@@ -69,16 +69,6 @@ public final class GeometryUtils
         return n < -1.0E38D ? (0.0D / 0.0) : n;
     }
 
-    /**
-     * Copy of com.esri.core.geometry.Interop.translateToAVNaN
-     * <p>
-     * JtsGeometrySerde#serialize must serialize NaN's the same way ESRI library does to achieve binary compatibility
-     */
-    public static double translateToAVNaN(double n)
-    {
-        return (Double.isNaN(n)) ? -Double.MAX_VALUE : n;
-    }
-
     public static boolean isEsriNaN(double d)
     {
         return Double.isNaN(d) || Double.isNaN(translateFromAVNaN(d));
