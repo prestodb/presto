@@ -31,7 +31,6 @@ import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -203,7 +202,7 @@ public class TestQueryRewriter
         return new QueryRewriter(
                 sqlParser,
                 new JdbcPrestoAction(
-                        new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
+                        PrestoExceptionClassifier.createDefault(),
                         CONFIGURATION,
                         new VerificationContext(),
                         new PrestoClusterConfig()

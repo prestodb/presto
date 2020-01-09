@@ -63,7 +63,7 @@ import static java.util.Arrays.asList;
 public class PrestoExceptionClassifier
         implements SqlExceptionClassifier
 {
-    private static final Set<ErrorCodeSupplier> DEFAULT_ERRORS = ImmutableSet.<ErrorCodeSupplier>builder()
+    public static final Set<ErrorCodeSupplier> DEFAULT_ERRORS = ImmutableSet.<ErrorCodeSupplier>builder()
             .addAll(asList(StandardErrorCode.values()))
             .addAll(asList(MetastoreErrorCode.values()))
             .addAll(asList(HiveErrorCode.values()))
@@ -71,7 +71,7 @@ public class PrestoExceptionClassifier
             .addAll(asList(ThriftErrorCode.values()))
             .build();
 
-    private static final Set<ErrorCodeSupplier> DEFAULT_RETRYABLE_ERRORS = ImmutableSet.of(
+    public static final Set<ErrorCodeSupplier> DEFAULT_RETRYABLE_ERRORS = ImmutableSet.of(
             // From StandardErrorCode
             NO_NODES_AVAILABLE,
             REMOTE_TASK_ERROR,
@@ -104,20 +104,21 @@ public class PrestoExceptionClassifier
     private final Map<Integer, ErrorCodeSupplier> errorByCode;
     private final Set<ErrorCodeSupplier> retryableErrors;
 
-    public PrestoExceptionClassifier(
-            Set<ErrorCodeSupplier> additionalErrors,
-            Set<ErrorCodeSupplier> additionalRetryableErrors)
+    private PrestoExceptionClassifier(Set<ErrorCodeSupplier> recognizedErrors, Set<ErrorCodeSupplier> retryableErrors)
     {
-        this.errorByCode = ImmutableSet.<ErrorCodeSupplier>builder()
-                .addAll(DEFAULT_ERRORS)
-                .addAll(additionalErrors)
-                .build()
-                .stream()
+        this.errorByCode = recognizedErrors.stream()
                 .collect(toImmutableMap(errorCode -> errorCode.toErrorCode().getCode(), identity()));
-        this.retryableErrors = ImmutableSet.<ErrorCodeSupplier>builder()
-                .addAll(DEFAULT_RETRYABLE_ERRORS)
-                .addAll(additionalRetryableErrors)
-                .build();
+        this.retryableErrors = ImmutableSet.copyOf(retryableErrors);
+    }
+
+    public static PrestoExceptionClassifier createDefault()
+    {
+        return create(DEFAULT_ERRORS, DEFAULT_RETRYABLE_ERRORS);
+    }
+
+    public static PrestoExceptionClassifier create(Set<ErrorCodeSupplier> recognizedErrors, Set<ErrorCodeSupplier> retryableErrors)
+    {
+        return new PrestoExceptionClassifier(recognizedErrors, retryableErrors);
     }
 
     public QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause)
