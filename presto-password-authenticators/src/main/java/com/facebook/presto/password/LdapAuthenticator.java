@@ -28,6 +28,8 @@ import javax.inject.Inject;
 import javax.naming.AuthenticationException;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
+import javax.naming.directory.Attribute;
+import javax.naming.directory.Attributes;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
@@ -46,6 +48,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static javax.naming.Context.INITIAL_CONTEXT_FACTORY;
 import static javax.naming.Context.PROVIDER_URL;
+import static javax.naming.Context.REFERRAL;
 import static javax.naming.Context.SECURITY_AUTHENTICATION;
 import static javax.naming.Context.SECURITY_CREDENTIALS;
 import static javax.naming.Context.SECURITY_PRINCIPAL;
@@ -55,6 +58,10 @@ public class LdapAuthenticator
 {
     private static final Logger log = Logger.get(LdapAuthenticator.class);
 
+    private final Optional<String> bindUserDN;
+    private final Optional<String> bindPassword;
+    private final Optional<String> userLoginAttribute;
+    private final Optional<String> userAttributeSearchFilter;
     private final String userBindSearchPattern;
     private final Optional<String> groupAuthorizationSearchPattern;
     private final Optional<String> userBaseDistinguishedName;
@@ -65,11 +72,21 @@ public class LdapAuthenticator
     public LdapAuthenticator(LdapConfig serverConfig)
     {
         String ldapUrl = requireNonNull(serverConfig.getLdapUrl(), "ldapUrl is null");
+        this.bindUserDN = Optional.ofNullable(serverConfig.getBindUserDN());
+        this.bindPassword = Optional.ofNullable(serverConfig.getBindPassword());
+        this.userLoginAttribute = Optional.ofNullable(serverConfig.getUserLoginAttribute());
+        this.userAttributeSearchFilter = Optional.ofNullable(serverConfig.getUserAttributeSearchFilter());
         this.userBindSearchPattern = requireNonNull(serverConfig.getUserBindSearchPattern(), "userBindSearchPattern is null");
         this.groupAuthorizationSearchPattern = Optional.ofNullable(serverConfig.getGroupAuthorizationSearchPattern());
         this.userBaseDistinguishedName = Optional.ofNullable(serverConfig.getUserBaseDistinguishedName());
         if (groupAuthorizationSearchPattern.isPresent()) {
             checkState(userBaseDistinguishedName.isPresent(), "Base distinguished name (DN) for user is null");
+        }
+        if (bindUserDN.isPresent()) {
+            checkState(bindPassword.isPresent(), "Ldap bind-user password is null");
+            checkState(userBaseDistinguishedName.isPresent(), "Base distinguished name (DN) for user is null");
+            checkState(userLoginAttribute.isPresent(), "User login attribute to execute authentication is null");
+            checkState(userAttributeSearchFilter.isPresent(), "User's attribute for comparison is null");
         }
 
         Map<String, String> environment = ImmutableMap.<String, String>builder()
@@ -100,15 +117,72 @@ public class LdapAuthenticator
         return authenticate(credentials.getUser(), credentials.getPassword());
     }
 
-    private Principal authenticate(String user, String password)
+    private String getLdapUserName(String defaultUserName)
+            throws AuthenticationException
     {
-        Map<String, String> environment = createEnvironment(user, password);
+        if (!bindUserDN.isPresent()) {
+            return defaultUserName;
+        }
         DirContext context = null;
+        String ldapBindUser = bindUserDN.orElseThrow(VerifyException::new);
+        String ldapBindPassword = bindPassword.orElseThrow(VerifyException::new);
+        String userBase = userBaseDistinguishedName.orElseThrow(VerifyException::new);
+        String loginAttribute = userLoginAttribute.orElseThrow(VerifyException::new);
+        String userSearchFilter = userAttributeSearchFilter.orElseThrow(VerifyException::new);
+
+        Map<String, String> environment = createEnvironment(ldapBindUser, ldapBindPassword);
+
         try {
             context = createDirContext(environment);
-            checkForGroupMembership(user, context);
+            SearchControls searchControls = getSearchControl();
+            searchControls.setReturningAttributes(new String[] {loginAttribute});
+            String searchFilter = userSearchFilter + "=" + defaultUserName; //TODO: Escape special characters. Make sure there is no inejction
+            NamingEnumeration<SearchResult> search = context.search(userBase, searchFilter, searchControls);
+            SearchResult result = getUniqueUser(search);
+            Attributes attributes = result.getAttributes();
+            Attribute userPrincipalName = attributes.get(loginAttribute);
+            search.close();
+            Object attributeValue = userPrincipalName.get();
+            checkState(attributeValue instanceof String);
+            return (String) attributeValue;
+        }
+        catch (AuthenticationException e) {
+            log.debug("Authentication failed for bind user [%s]: %s", ldapBindUser, e.getMessage());
+            throw new AuthenticationException("Invalid credentials or User not found");
+        }
+        catch (NamingException e) {
+            log.debug(e, "Authentication error for user [%s]", ldapBindUser);
+            throw new AuthenticationException("Authentication error");
+        }
+        finally {
+            if (context != null) {
+                closeContext(context);
+            }
+        }
+    }
 
-            log.debug("Authentication successful for user [%s]", user);
+    private SearchResult getUniqueUser(NamingEnumeration<SearchResult> search)
+            throws NamingException
+    {
+        if (!search.hasMoreElements()) {
+            throw new NonUniqueResultException("User not found matching the search filter");
+        }
+        SearchResult result = search.next(); // TODO: Test if this works in case no, 1 and more than 1 users are returned
+        if (search.hasMoreElements()) {
+            throw new NonUniqueResultException("More than one User found matching the search filter");
+        }
+        return result;
+    }
+
+    private Principal authenticate(String user, String password)
+    {
+        DirContext context = null;
+        try {
+            String ldapUserName = getLdapUserName(user);
+            Map<String, String> environment = createEnvironment(ldapUserName, password);
+            context = createDirContext(environment);
+            checkForGroupMembership(user, context);
+            log.debug("Authentication successful for user [%s]", ldapUserName);
             return new BasicPrincipal(user);
         }
         catch (AuthenticationException e) {
@@ -126,6 +200,15 @@ public class LdapAuthenticator
         }
     }
 
+    private static class NonUniqueResultException
+            extends RuntimeException
+    {
+        public NonUniqueResultException(String message)
+        {
+            super(message);
+        }
+    }
+
     private Map<String, String> createEnvironment(String user, String password)
     {
         return ImmutableMap.<String, String>builder()
@@ -133,6 +216,7 @@ public class LdapAuthenticator
                 .put(SECURITY_AUTHENTICATION, "simple")
                 .put(SECURITY_PRINCIPAL, createPrincipal(user))
                 .put(SECURITY_CREDENTIALS, password)
+                .put(REFERRAL, "follow")
                 .build();
     }
 
@@ -149,8 +233,7 @@ public class LdapAuthenticator
 
         String userBase = userBaseDistinguishedName.orElseThrow(VerifyException::new);
         String searchFilter = replaceUser(groupAuthorizationSearchPattern.get(), user);
-        SearchControls searchControls = new SearchControls();
-        searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+        SearchControls searchControls = getSearchControl();
 
         boolean authorized;
         try {
@@ -168,6 +251,13 @@ public class LdapAuthenticator
             log.debug(message);
             throw new AccessDeniedException(message);
         }
+    }
+
+    private SearchControls getSearchControl()
+    {
+        SearchControls searchControls = new SearchControls();
+        searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+        return searchControls;
     }
 
     private static String replaceUser(String pattern, String user)
