@@ -131,18 +131,22 @@ public class TupleDomainFilterUtils
             }
         }
 
-        return MultiRange.of(rangeFilters, nullAllowed, isNanAllowed(ranges));
+        if (firstRangeFilter instanceof DoubleRange || firstRangeFilter instanceof FloatRange) {
+            // != and NOT IN filters should return true when applied to NaN
+            // E.g. NaN != 1.0 as well as NaN NOT IN (1.0, 2.5, 3.6) should return true; otherwise false.
+            boolean nanAllowed = isNotIn(ranges);
+            return MultiRange.of(rangeFilters, nullAllowed, nanAllowed);
+        }
+
+        return MultiRange.of(rangeFilters, nullAllowed, false);
     }
 
     /**
-     * Returns true is ranges represent != or NOT IN filter. These types of filters should
-     * return true when applied to NaN.
-     *
-     * E.g. NaN != 1.0 as well as NaN NOT IN (1.0, 2.5, 3.6) should return true; otherwise false.
+     * Returns true is ranges represent != or NOT IN filter for double or float.
      *
      * The logic is to return true if ranges are next to each other, but don't include the touch value.
      */
-    private static boolean isNanAllowed(List<Range> ranges)
+    private static boolean isNotIn(List<Range> ranges)
     {
         if (ranges.size() <= 1) {
             return false;
