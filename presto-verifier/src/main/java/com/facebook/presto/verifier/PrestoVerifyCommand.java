@@ -69,7 +69,7 @@ public class PrestoVerifyCommand
     @Override
     public SqlExceptionClassifier getSqlExceptionClassifier()
     {
-        return new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of());
+        return PrestoExceptionClassifier.createDefault();
     }
 
     @Override

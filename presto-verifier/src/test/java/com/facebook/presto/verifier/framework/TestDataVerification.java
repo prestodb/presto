@@ -35,7 +35,6 @@ import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -97,7 +96,7 @@ public class TestDataVerification
         VerificationContext verificationContext = new VerificationContext();
         RetryConfig retryConfig = new RetryConfig();
         PrestoAction prestoAction = new JdbcPrestoAction(
-                new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of()),
+                PrestoExceptionClassifier.createDefault(),
                 configuration,
                 verificationContext,
                 new PrestoClusterConfig()

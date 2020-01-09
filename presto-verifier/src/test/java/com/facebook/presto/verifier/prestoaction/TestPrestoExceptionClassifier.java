@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.io.EOFException;
@@ -47,7 +46,7 @@ public class TestPrestoExceptionClassifier
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
     private static final QueryStats QUERY_STATS = new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, Optional.empty());
 
-    private final SqlExceptionClassifier classifier = new PrestoExceptionClassifier(ImmutableSet.of(), ImmutableSet.of());
+    private final SqlExceptionClassifier classifier = PrestoExceptionClassifier.createDefault();
 
     @Test
     public void testNetworkException()
