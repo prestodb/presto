@@ -16,7 +16,6 @@ package com.facebook.presto.hive.util;
 import com.facebook.presto.hadoop.FileSystemFactory;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
@@ -26,8 +25,8 @@ import java.util.Map;
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.HIVE_ORC_DEFAULT_COMPRESS;
 import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
+import static org.apache.orc.OrcConf.COMPRESS;
 
 public final class ConfigurationUtils
 {
@@ -99,10 +98,12 @@ public final class ConfigurationUtils
         config.setBoolean("mapred.output.compress", compressed);
         config.setBoolean(FileOutputFormat.COMPRESS, compressed);
         // For DWRF
-        config.set(HIVE_ORC_DEFAULT_COMPRESS.varname, compression.getOrcCompressionKind().name());
+        //config.set(HIVE_ORC_DEFAULT_COMPRESS.varname, compression.getOrcCompressionKind().name());
+        config.set(COMPRESS.getHiveConfName(), compression.getOrcCompressionKind().name());
         config.set(HIVE_ORC_COMPRESSION.varname, compression.getOrcCompressionKind().name());
         // For ORC
-        config.set(OrcFile.OrcTableProperties.COMPRESSION.getPropName(), compression.getOrcCompressionKind().name());
+        //config.set(OrcFile.OrcTableProperties.COMPRESSION.getPropName(), compression.getOrcCompressionKind().name());
+        config.set(COMPRESS.getAttribute(), compression.getOrcCompressionKind().name());
         // For RCFile and Text
         if (compression.getCodec().isPresent()) {
             config.set("mapred.output.compression.codec", compression.getCodec().get().getName());
