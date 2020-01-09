@@ -36,7 +36,6 @@ import java.util.List;
 
 import static com.facebook.presto.geospatial.GeometryType.getForJtsGeometryType;
 import static com.facebook.presto.geospatial.GeometryUtils.isEsriNaN;
-import static com.facebook.presto.geospatial.GeometryUtils.translateToAVNaN;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -442,8 +441,8 @@ public class JtsGeometrySerde
 
     private static void writeCoordinate(Coordinate coordinate, SliceOutput output)
     {
-        output.writeDouble(translateToAVNaN(coordinate.x));
-        output.writeDouble(translateToAVNaN(coordinate.y));
+        output.writeDouble(coordinate.x);
+        output.writeDouble(coordinate.y);
     }
 
     private static void writeCoordinates(Coordinate[] coordinates, SliceOutput output)
