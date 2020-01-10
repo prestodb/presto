@@ -1,0 +1,35 @@
+# Missing Release Notes
+## user1
+- [ ] https://github.com/prestodb/presto/pull/7 missing section header 2 (Merged by: user1)
+- [ ] https://github.com/prestodb/presto/pull/8 missing section header 3 (Merged by: user1)
+
+## user2
+- [ ] https://github.com/prestodb/presto/pull/6 missing section header 1 (Merged by: user1)
+
+## user3
+- [ ] https://github.com/prestodb/presto/pull/5 missing release note (Merged by: user2)
+- [ ] https://github.com/prestodb/presto/pull/9 missing asterisk (Merged by: user2)
+- [ ] aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa13 disassociated commit - commit #1
+
+# Extracted Release Notes
+- #1 (Author: user1): release notes 1
+  - Change `storage.data-directory` from path to URI. For existing deployment on local flash, a scheme header "file://" should be added to the original config value.
+  - Change error code name `RAPTOR_LOCAL_FILE_SYSTEM_ERROR` to `RAPTOR_FILE_SYSTEM_ERROR`.
+- #2 (Author: user2): release notes 2
+  - Add table_supports_delta_delete property in Raptor to allow deletion happening in background. DELETE queries in Raptor can now delete data logically but relying on compactors to delete physical data.
+  - Change ``ConnectorMetadata#commitPartition`` into async operation, and rename it to ``ConnectorMetadata#commitPartitionAsync``.
+
+# All Commits
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa01 release notes 1 - commit #1 (user1)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa02 release notes 2 - commit #1 (user2)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa03 release notes 2 - commit #2 (user2)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa04 no release note - commit #1 (user3)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa05 no release notes - commit #1 (user1)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa06 no release notes - commit #2 (user1)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa07 missing release note - commit #1 (user3)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa08 missing release note - commit #2 (user3)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa09 missing section header 1 - commit #1 (user2)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa10 missing section header 2 - commit #1 (user1)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa11 missing section header 3 - commit #1 (user1)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa12 missing asterisk - commit #1 (user3)
+- aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa13 disassociated commit - commit #1 (user3)

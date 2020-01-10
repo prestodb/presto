@@ -1,0 +1,8 @@
+Some PR description.
+
+== RELEASE NOTES ==
+
+Cache Changes
+* Introduced new cache module to allow using local disk for to cache files from remote file systems.
+
+* Allow Raptor to read data from HDFS while caching the files on local disks.
