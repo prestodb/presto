@@ -62,7 +62,6 @@ import javax.inject.Inject;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -366,7 +365,6 @@ public class SqlTaskManager
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            OptionalInt totalPartitions,
             Optional<TableWriteInfo> tableWriteInfo)
     {
         requireNonNull(session, "session is null");
@@ -382,7 +380,7 @@ public class SqlTaskManager
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, fragment, sources, outputBuffers, totalPartitions, tableWriteInfo);
+        return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo);
     }
 
     @Override

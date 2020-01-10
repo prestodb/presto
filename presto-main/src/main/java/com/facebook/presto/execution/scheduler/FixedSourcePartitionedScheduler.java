@@ -171,10 +171,9 @@ public class FixedSourcePartitionedScheduler
         // schedule a task on every node in the distribution
         List<RemoteTask> newTasks = ImmutableList.of();
         if (!scheduledTasks) {
-            OptionalInt totalPartitions = OptionalInt.of(nodes.size());
             newTasks = Streams.mapWithIndex(
                     nodes.stream(),
-                    (node, id) -> stage.scheduleTask(node, toIntExact(id), totalPartitions))
+                    (node, id) -> stage.scheduleTask(node, toIntExact(id)))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .collect(toImmutableList());

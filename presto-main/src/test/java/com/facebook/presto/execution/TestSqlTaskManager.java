@@ -44,7 +44,6 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -262,7 +261,6 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
-                OptionalInt.empty(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
     }
 
@@ -274,7 +272,6 @@ public class TestSqlTaskManager
                         testSessionBuilder().build(),
                         false,
                         false,
-                        OptionalInt.empty(),
                         false);
         return sqlTaskManager.updateTask(
                 TEST_SESSION,
@@ -282,7 +279,6 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 outputBuffers,
-                OptionalInt.empty(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
     }
 

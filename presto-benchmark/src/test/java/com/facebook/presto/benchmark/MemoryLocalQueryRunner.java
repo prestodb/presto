@@ -41,7 +41,6 @@ import org.intellij.lang.annotations.Language;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -92,7 +91,6 @@ public class MemoryLocalQueryRunner
                         localQueryRunner.getDefaultSession(),
                         false,
                         false,
-                        OptionalInt.empty(),
                         false);
 
         // Use NullOutputFactory to avoid coping out results to avoid affecting benchmark results

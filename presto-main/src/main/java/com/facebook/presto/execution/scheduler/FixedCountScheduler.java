@@ -20,7 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -31,7 +30,7 @@ public class FixedCountScheduler
 {
     public interface TaskScheduler
     {
-        Optional<RemoteTask> scheduleTask(InternalNode node, int partition, OptionalInt totalPartitions);
+        Optional<RemoteTask> scheduleTask(InternalNode node, int partition);
     }
 
     private final TaskScheduler taskScheduler;
@@ -54,9 +53,8 @@ public class FixedCountScheduler
     @Override
     public ScheduleResult schedule()
     {
-        OptionalInt totalPartitions = OptionalInt.of(partitionToNode.size());
         List<RemoteTask> newTasks = IntStream.range(0, partitionToNode.size())
-                .mapToObj(partition -> taskScheduler.scheduleTask(partitionToNode.get(partition), partition, totalPartitions))
+                .mapToObj(partition -> taskScheduler.scheduleTask(partitionToNode.get(partition), partition))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toImmutableList());

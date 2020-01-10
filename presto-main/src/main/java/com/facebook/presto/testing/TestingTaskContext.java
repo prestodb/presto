@@ -26,7 +26,6 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import io.airlift.units.DataSize;
 
-import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -71,7 +70,6 @@ public final class TestingTaskContext
                 session,
                 true,
                 true,
-                OptionalInt.empty(),
                 false);
     }
 

@@ -47,7 +47,6 @@ import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -378,7 +377,6 @@ public class SqlTask
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            OptionalInt totalPartitions,
             Optional<TableWriteInfo> tableWriteInfo)
     {
         try {
@@ -407,7 +405,6 @@ public class SqlTask
                             taskExchangeClientManager,
                             fragment.get(),
                             sources,
-                            totalPartitions,
                             tableWriteInfo.get());
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);

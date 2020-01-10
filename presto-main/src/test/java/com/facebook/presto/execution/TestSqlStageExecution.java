@@ -39,7 +39,6 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -129,7 +128,7 @@ public class TestSqlStageExecution
                             URI.create("http://10.0.0." + (i / 10_000) + ":" + (i % 10_000)),
                             NodeVersion.UNKNOWN,
                             false);
-                    stage.scheduleTask(node, i, OptionalInt.empty());
+                    stage.scheduleTask(node, i);
                     latch.countDown();
                 }
             }

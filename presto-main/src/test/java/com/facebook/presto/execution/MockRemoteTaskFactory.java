@@ -68,7 +68,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -137,7 +136,6 @@ public class MockRemoteTaskFactory
                 newNode,
                 testFragment,
                 initialSplits.build(),
-                OptionalInt.empty(),
                 createInitialEmptyOutputBuffers(BROADCAST),
                 partitionedSplitCountTracker,
                 true,
@@ -151,13 +149,12 @@ public class MockRemoteTaskFactory
             InternalNode node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
-            OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
-        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, totalPartitions, partitionedSplitCountTracker);
+        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, partitionedSplitCountTracker);
     }
 
     public static final class MockRemoteTask
@@ -193,7 +190,6 @@ public class MockRemoteTaskFactory
                 Executor executor,
                 ScheduledExecutorService scheduledExecutor,
                 Multimap<PlanNodeId, Split> initialSplits,
-                OptionalInt totalPartitions,
                 PartitionedSplitCountTracker partitionedSplitCountTracker)
         {
             this.taskStateMachine = new TaskStateMachine(requireNonNull(taskId, "taskId is null"), requireNonNull(executor, "executor is null"));
@@ -209,7 +205,7 @@ public class MockRemoteTaskFactory
                     scheduledExecutor,
                     new DataSize(1, MEGABYTE),
                     spillSpaceTracker);
-            this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true, totalPartitions, false);
+            this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true, false);
 
             this.location = URI.create("fake://task/" + taskId);
 
