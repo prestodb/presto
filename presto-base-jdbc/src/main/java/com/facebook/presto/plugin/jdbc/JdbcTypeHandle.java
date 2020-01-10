@@ -25,14 +25,17 @@ public final class JdbcTypeHandle
     private final int jdbcType;
     private final int columnSize;
     private final int decimalDigits;
+    private final boolean unsigned;
 
     @JsonCreator
     public JdbcTypeHandle(
             @JsonProperty("jdbcType") int jdbcType,
+            @JsonProperty("unsigned") boolean unsigned,
             @JsonProperty("columnSize") int columnSize,
             @JsonProperty("decimalDigits") int decimalDigits)
     {
         this.jdbcType = jdbcType;
+        this.unsigned = unsigned;
         this.columnSize = columnSize;
         this.decimalDigits = decimalDigits;
     }
@@ -41,6 +44,12 @@ public final class JdbcTypeHandle
     public int getJdbcType()
     {
         return jdbcType;
+    }
+
+    @JsonProperty
+    public boolean isUnsigned()
+    {
+        return unsigned;
     }
 
     @JsonProperty
@@ -73,7 +82,8 @@ public final class JdbcTypeHandle
         JdbcTypeHandle that = (JdbcTypeHandle) o;
         return jdbcType == that.jdbcType &&
                 columnSize == that.columnSize &&
-                decimalDigits == that.decimalDigits;
+                decimalDigits == that.decimalDigits &&
+                unsigned == that.unsigned;
     }
 
     @Override
@@ -81,6 +91,7 @@ public final class JdbcTypeHandle
     {
         return toStringHelper(this)
                 .add("jdbcType", jdbcType)
+                .add("unsigned", unsigned)
                 .add("columnSize", columnSize)
                 .add("decimalDigits", decimalDigits)
                 .toString();
