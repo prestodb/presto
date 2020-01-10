@@ -1,0 +1,8 @@
+== RELEASE NOTES ==
+
+Raptor Changes
+--------------
+* Add table_supports_delta_delete property in Raptor to allow deletion happening in background. DELETE queries in Raptor can now delete data logically but relying on compactors to delete physical data.
+SPI Changes
+-----------
+* Change ``ConnectorMetadata#commitPartition`` into async operation, and rename it to ``ConnectorMetadata#commitPartitionAsync``
