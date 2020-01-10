@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
 
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.execution.SqlTaskExecution.createSqlTaskExecution;
@@ -80,7 +79,6 @@ public class SqlTaskExecutionFactory
             TaskExchangeClientManager taskExchangeClientManager,
             PlanFragment fragment,
             List<TaskSource> sources,
-            OptionalInt totalPartitions,
             TableWriteInfo tableWriteInfo)
     {
         TaskContext taskContext = queryContext.addTaskContext(
@@ -88,7 +86,6 @@ public class SqlTaskExecutionFactory
                 session,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
-                totalPartitions,
                 legacyLifespanCompletionCondition);
 
         LocalExecutionPlan localExecutionPlan;

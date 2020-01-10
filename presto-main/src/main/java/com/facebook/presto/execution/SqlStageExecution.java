@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -433,7 +432,7 @@ public final class SqlStageExecution
         getOnlyElement(allTasks).removeRemoteSource(remoteSourceTaskId);
     }
 
-    public synchronized Optional<RemoteTask> scheduleTask(InternalNode node, int partition, OptionalInt totalPartitions)
+    public synchronized Optional<RemoteTask> scheduleTask(InternalNode node, int partition)
     {
         requireNonNull(node, "node is null");
 
@@ -441,7 +440,7 @@ public final class SqlStageExecution
             return Optional.empty();
         }
         checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
-        return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageExecutionId(), partition), ImmutableMultimap.of(), totalPartitions));
+        return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageExecutionId(), partition), ImmutableMultimap.of()));
     }
 
     public synchronized Set<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
@@ -463,7 +462,7 @@ public final class SqlStageExecution
             // The output buffer depends on the task id starting from 0 and being sequential, since each
             // task is assigned a private buffer based on task id.
             TaskId taskId = new TaskId(stateMachine.getStageExecutionId(), nextTaskId.getAndIncrement());
-            task = scheduleTask(node, taskId, splits, OptionalInt.empty());
+            task = scheduleTask(node, taskId, splits);
             newTasks.add(task);
         }
         else {
@@ -482,7 +481,7 @@ public final class SqlStageExecution
         return newTasks.build();
     }
 
-    private synchronized RemoteTask scheduleTask(InternalNode node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits, OptionalInt totalPartitions)
+    private synchronized RemoteTask scheduleTask(InternalNode node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits)
     {
         checkArgument(!allTasks.contains(taskId), "A task with id %s already exists", taskId);
 
@@ -505,7 +504,6 @@ public final class SqlStageExecution
                 node,
                 planFragment,
                 initialSplits.build(),
-                totalPartitions,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
                 summarizeTaskInfo,

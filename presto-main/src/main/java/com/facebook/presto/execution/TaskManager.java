@@ -26,7 +26,6 @@ import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 public interface TaskManager
 {
@@ -90,7 +89,6 @@ public interface TaskManager
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            OptionalInt totalPartitions,
             Optional<TableWriteInfo> tableWriteInfo);
 
     /**

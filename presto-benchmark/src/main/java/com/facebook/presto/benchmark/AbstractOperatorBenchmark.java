@@ -62,7 +62,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.stats.CpuTimer.CpuDuration;
@@ -284,7 +283,6 @@ public abstract class AbstractOperatorBenchmark
                         session,
                         false,
                         false,
-                        OptionalInt.empty(),
                         false);
 
         CpuTimer cpuTimer = new CpuTimer();

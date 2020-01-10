@@ -38,7 +38,6 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -90,8 +89,6 @@ public class TaskContext
     private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
 
-    private final OptionalInt totalPartitions;
-
     private final boolean legacyLifespanCompletionCondition;
 
     private final Object cumulativeMemoryLock = new Object();
@@ -116,7 +113,6 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
-            OptionalInt totalPartitions,
             boolean legacyLifespanCompletionCondition)
     {
         TaskContext taskContext = new TaskContext(
@@ -129,7 +125,6 @@ public class TaskContext
                 taskMemoryContext,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
-                totalPartitions,
                 legacyLifespanCompletionCondition);
         taskContext.initialize();
         return taskContext;
@@ -144,7 +139,6 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
-            OptionalInt totalPartitions,
             boolean legacyLifespanCompletionCondition)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
@@ -158,7 +152,6 @@ public class TaskContext
         taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
-        this.totalPartitions = requireNonNull(totalPartitions, "totalPartitions is null");
         this.legacyLifespanCompletionCondition = legacyLifespanCompletionCondition;
     }
 
@@ -173,11 +166,6 @@ public class TaskContext
     public TaskId getTaskId()
     {
         return taskStateMachine.getTaskId();
-    }
-
-    public OptionalInt getTotalPartitions()
-    {
-        return totalPartitions;
     }
 
     public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline, boolean partitioned)

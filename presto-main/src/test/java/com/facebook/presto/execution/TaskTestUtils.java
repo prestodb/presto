@@ -67,7 +67,6 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -163,7 +162,7 @@ public final class TaskTestUtils
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), taskSources, outputBuffers, OptionalInt.empty(), Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+        return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), taskSources, outputBuffers, Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
     }
 
     public static SplitMonitor createTestSplitMonitor()

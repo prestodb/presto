@@ -24,8 +24,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
 
-import java.util.OptionalInt;
-
 import static com.facebook.presto.execution.TaskState.PLANNED;
 import static com.facebook.presto.execution.TaskState.RUNNING;
 import static java.util.Objects.requireNonNull;
@@ -48,7 +46,6 @@ public class TrackingRemoteTaskFactory
             InternalNode node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
-            OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
@@ -59,7 +56,6 @@ public class TrackingRemoteTaskFactory
                 node,
                 fragment,
                 initialSplits,
-                totalPartitions,
                 outputBuffers,
                 partitionedSplitCountTracker,
                 summarizeTaskInfo,

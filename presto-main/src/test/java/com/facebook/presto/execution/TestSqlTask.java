@@ -42,7 +42,6 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -120,7 +119,6 @@ public class TestSqlTask
                 ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds(),
-                OptionalInt.empty(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
@@ -132,7 +130,6 @@ public class TestSqlTask
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds(),
-                OptionalInt.empty(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
@@ -150,7 +147,6 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                OptionalInt.empty(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
@@ -189,7 +185,6 @@ public class TestSqlTask
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds(),
-                OptionalInt.empty(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
@@ -217,7 +212,6 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                OptionalInt.empty(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
@@ -323,7 +317,7 @@ public class TestSqlTask
                 new DataSize(1, MEGABYTE),
                 new SpillSpaceTracker(new DataSize(1, GIGABYTE)));
 
-        queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), false, false, OptionalInt.empty(), false);
+        queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), false, false, false);
 
         return createSqlTask(
                 taskId,

@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -38,7 +37,6 @@ public class TaskUpdateRequest
     private final Optional<PlanFragment> fragment;
     private final List<TaskSource> sources;
     private final OutputBuffers outputIds;
-    private final OptionalInt totalPartitions;
     private final Optional<TableWriteInfo> tableWriteInfo;
 
     @JsonCreator
@@ -48,7 +46,6 @@ public class TaskUpdateRequest
             @JsonProperty("fragment") Optional<PlanFragment> fragment,
             @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("outputIds") OutputBuffers outputIds,
-            @JsonProperty("totalPartitions") OptionalInt totalPartitions,
             @JsonProperty("tableWriteInfo") Optional<TableWriteInfo> tableWriteInfo)
     {
         requireNonNull(session, "session is null");
@@ -56,7 +53,6 @@ public class TaskUpdateRequest
         requireNonNull(fragment, "fragment is null");
         requireNonNull(sources, "sources is null");
         requireNonNull(outputIds, "outputIds is null");
-        requireNonNull(totalPartitions, "totalPartitions is null");
         requireNonNull(tableWriteInfo, "tableWriteInfo is null");
 
         this.session = session;
@@ -64,7 +60,6 @@ public class TaskUpdateRequest
         this.fragment = fragment;
         this.sources = ImmutableList.copyOf(sources);
         this.outputIds = outputIds;
-        this.totalPartitions = totalPartitions;
         this.tableWriteInfo = tableWriteInfo;
     }
 
@@ -99,12 +94,6 @@ public class TaskUpdateRequest
     }
 
     @JsonProperty
-    public OptionalInt getTotalPartitions()
-    {
-        return totalPartitions;
-    }
-
-    @JsonProperty
     public Optional<TableWriteInfo> getTableWriteInfo()
     {
         return tableWriteInfo;
@@ -119,7 +108,6 @@ public class TaskUpdateRequest
                 .add("fragment", fragment)
                 .add("sources", sources)
                 .add("outputIds", outputIds)
-                .add("totalPartitions", totalPartitions)
                 .toString();
     }
 }

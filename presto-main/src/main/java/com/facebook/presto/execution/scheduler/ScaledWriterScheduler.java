@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -120,7 +119,7 @@ public class ScaledWriterScheduler
 
         ImmutableList.Builder<RemoteTask> tasks = ImmutableList.builder();
         for (InternalNode node : nodes) {
-            Optional<RemoteTask> remoteTask = stage.scheduleTask(node, scheduledNodes.size(), OptionalInt.empty());
+            Optional<RemoteTask> remoteTask = stage.scheduleTask(node, scheduledNodes.size());
             remoteTask.ifPresent(task -> {
                 tasks.add(task);
                 scheduledNodes.add(node);
