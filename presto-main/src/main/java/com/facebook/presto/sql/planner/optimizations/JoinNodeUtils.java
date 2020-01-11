@@ -13,16 +13,22 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableList;
 
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 
 public final class JoinNodeUtils
@@ -32,6 +38,15 @@ public final class JoinNodeUtils
     public static ComparisonExpression toExpression(EquiJoinClause clause)
     {
         return new ComparisonExpression(EQUAL, new SymbolReference(clause.getLeft().getName()), new SymbolReference(clause.getRight().getName()));
+    }
+
+    public static RowExpression toRowExpression(EquiJoinClause clause, FunctionResolution functionResolution)
+    {
+        return call(
+                OperatorType.EQUAL.name(),
+                functionResolution.comparisonFunction(OperatorType.EQUAL, clause.getLeft().getType(), clause.getRight().getType()),
+                BOOLEAN,
+                ImmutableList.of(clause.getLeft(), clause.getRight()));
     }
 
     public static JoinNode.Type typeConvert(Join.Type joinType)

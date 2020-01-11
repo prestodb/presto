@@ -424,17 +424,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new PushdownSubfields(metadata),
-
-                // Because ReorderJoins runs only once,
-                // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
-                // need to run beforehand in order to produce an optimal join order
-                // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new ReorderJoins(costComparator))));
+                new PushdownSubfields(metadata));
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -448,6 +438,16 @@ public class PlanOptimizers
         // TODO: move PushdownSubfields below this rule
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)));
+
+        builder.add(new IterativeOptimizer(
+                // Because ReorderJoins runs only once,
+                // PredicatePushDown, PruneUnreferenedOutputpus and RemoveRedundantIdentityProjections
+                // need to run beforehand in order to produce an optimal join order
+                // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(new ReorderJoins(costComparator, metadata))));
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(
