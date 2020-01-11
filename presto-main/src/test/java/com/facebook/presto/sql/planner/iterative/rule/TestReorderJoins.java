@@ -16,19 +16,17 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.VariableStatsEstimate;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -42,7 +40,10 @@ import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -51,16 +52,17 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.variable;
 
 public class TestReorderJoins
 {
     private RuleTester tester;
+    private FunctionResolution functionResolution;
 
     // TWO_ROWS are used to prevent node from being scalar
     private static final ImmutableList<List<RowExpression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(), ImmutableList.of());
+    private static final QualifiedName RANDOM = QualifiedName.of("random");
 
     @BeforeClass
     public void setUp()
@@ -71,6 +73,7 @@ public class TestReorderJoins
                         JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name(),
                         JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name()),
                 Optional.of(4));
+        this.functionResolution = new FunctionResolution(tester.getMetadata().getFunctionManager());
     }
 
     @AfterClass(alwaysRun = true)
@@ -95,12 +98,12 @@ public class TestReorderJoins
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(5000)
                         .addVariableStatistics(ImmutableMap.of(
-                                new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100),
-                                new VariableReferenceExpression("A2", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100)))
+                                variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100),
+                                variable("A2", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .matches(join(
                         INNER,
@@ -126,11 +129,11 @@ public class TestReorderJoins
                                 Optional.empty()))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .matches(join(
                         INNER,
@@ -156,11 +159,11 @@ public class TestReorderJoins
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 6400, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .matches(join(
                         INNER,
@@ -185,11 +188,11 @@ public class TestReorderJoins
                                 Optional.empty()))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .matches(join(
                         INNER,
@@ -216,11 +219,11 @@ public class TestReorderJoins
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .matches(join(
                         INNER,
@@ -244,11 +247,11 @@ public class TestReorderJoins
 
         PlanNodeStatsEstimate valuesA = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10000)
-                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                 .build();
         PlanNodeStatsEstimate valuesB = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10000)
-                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                 .build();
 
         assertReorderJoins()
@@ -294,11 +297,11 @@ public class TestReorderJoins
                                 Optional.empty()))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .doesNotFire();
     }
@@ -330,7 +333,11 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesB"), p.variable("B1")),
                                 ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
                                 ImmutableList.of(p.variable("A1"), p.variable("B1")),
-                                Optional.of(castToRowExpression(new ComparisonExpression(LESS_THAN, new SymbolReference("A1"), new FunctionCall(QualifiedName.of("random"), ImmutableList.of()))))))
+                                Optional.of(comparisonRowExpression(LESS_THAN, variable("A1", BIGINT), call(
+                                        RANDOM.toString(),
+                                        tester.getMetadata().getFunctionManager().resolveFunction(Optional.empty(), RANDOM, ImmutableList.of()),
+                                        BIGINT,
+                                        ImmutableList.of())))))
                 .doesNotFire();
     }
 
@@ -352,20 +359,20 @@ public class TestReorderJoins
                                 ImmutableList.of(
                                         new EquiJoinClause(p.variable("B2"), p.variable("C1"))),
                                 ImmutableList.of(p.variable("A1")),
-                                Optional.of(castToRowExpression(new ComparisonExpression(EQUAL, new SymbolReference("A1"), new SymbolReference("B1"))))))
+                                Optional.of(comparisonRowExpression(EQUAL, variable("A1", BIGINT), variable("B1", BIGINT)))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 10)))
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 10)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(5)
                         .addVariableStatistics(ImmutableMap.of(
-                                new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 5),
-                                new VariableReferenceExpression("B2", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 5)))
+                                variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 5),
+                                variable("B2", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 5)))
                         .build())
                 .overrideStats("valuesC", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("C1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("C1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .matches(
                         join(
@@ -397,20 +404,20 @@ public class TestReorderJoins
                                 ImmutableList.of(
                                         new EquiJoinClause(p.variable("B2"), p.variable("C1"))),
                                 ImmutableList.of(p.variable("A1")),
-                                Optional.of(castToRowExpression(new ComparisonExpression(EQUAL, new SymbolReference("A1"), new SymbolReference("B1"))))))
+                                Optional.of(comparisonRowExpression(EQUAL, variable("A1", BIGINT), variable("B1", BIGINT)))))
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(40)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 10)))
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 10)))
                         .build())
                 .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addVariableStatistics(ImmutableMap.of(
-                                new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 10),
-                                new VariableReferenceExpression("B2", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 10)))
+                                variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 10),
+                                variable("B2", BIGINT), new VariableStatsEstimate(0, 100, 0, 100, 10)))
                         .build())
                 .overrideStats("valuesC", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("C1", BIGINT), new VariableStatsEstimate(99, 199, 0, 100, 100)))
+                        .addVariableStatistics(ImmutableMap.of(variable("C1", BIGINT), new VariableStatsEstimate(99, 199, 0, 100, 100)))
                         .build())
                 .matches(
                         join(
@@ -432,11 +439,11 @@ public class TestReorderJoins
 
         PlanNodeStatsEstimate probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
-                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 10)))
+                .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
         PlanNodeStatsEstimate buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
-                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 10)))
+                .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
         // B table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
@@ -463,11 +470,11 @@ public class TestReorderJoins
 
         probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
-                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
         buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
-                .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
 
         // B table exceeds AUTOMATIC_RESTRICTED limit therefore it is partitioned
@@ -495,6 +502,11 @@ public class TestReorderJoins
 
     private RuleAssert assertReorderJoins()
     {
-        return tester.assertThat(new ReorderJoins(new CostComparator(1, 1, 1)));
+        return tester.assertThat(new ReorderJoins(new CostComparator(1, 1, 1), tester.getMetadata()));
+    }
+
+    private RowExpression comparisonRowExpression(OperatorType type, RowExpression left, RowExpression right)
+    {
+        return call(type.name(), functionResolution.comparisonFunction(type, left.getType(), right.getType()), BOOLEAN, left, right);
     }
 }
