@@ -137,6 +137,7 @@ public final class SystemSessionProperties
     public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
     public static final String AGGREGATION_PARTITIONING_MERGING_STRATEGY = "aggregation_partitioning_merging_strategy";
+    public static final String LIST_BUILT_IN_FUNCTIONS_ONLY = "list_built_in_functions_only";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -678,7 +679,12 @@ public final class SystemSessionProperties
                         featuresConfig.getAggregationPartitioningMergingStrategy(),
                         false,
                         value -> AggregationPartitioningMergingStrategy.valueOf(((String) value).toUpperCase()),
-                        AggregationPartitioningMergingStrategy::name));
+                        AggregationPartitioningMergingStrategy::name),
+                booleanProperty(
+                        LIST_BUILT_IN_FUNCTIONS_ONLY,
+                        "Only List built-in functions in SHOW FUNCTIONS",
+                        featuresConfig.isListBuiltInFunctionsOnly(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1152,5 +1158,10 @@ public final class SystemSessionProperties
     public static AggregationPartitioningMergingStrategy getAggregationPartitioningMergingStrategy(Session session)
     {
         return session.getSystemProperty(AGGREGATION_PARTITIONING_MERGING_STRATEGY, AggregationPartitioningMergingStrategy.class);
+    }
+
+    public static boolean isListBuiltInFunctionsOnly(Session session)
+    {
+        return session.getSystemProperty(LIST_BUILT_IN_FUNCTIONS_ONLY, Boolean.class);
     }
 }

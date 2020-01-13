@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
@@ -61,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
@@ -99,8 +101,6 @@ public class FunctionManager
     private final Map<CatalogSchemaPrefix, String> functionNamespaces = new ConcurrentHashMap<>();
     private final Map<String, FunctionNamespaceManager<?>> functionNamespaceManagers = new ConcurrentHashMap<>();
 
-    private final boolean listNonBuiltInFunctions;
-
     @Inject
     public FunctionManager(
             TypeManager typeManager,
@@ -121,7 +121,6 @@ public class FunctionManager
         }
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
         transactionManager.registerFunctionNamespaceManager(BuiltInFunctionNamespaceManager.ID, builtInFunctionNamespaceManager);
-        this.listNonBuiltInFunctions = featuresConfig.isListNonBuiltInFunctions();
     }
 
     @VisibleForTesting
@@ -171,11 +170,11 @@ public class FunctionManager
         builtInFunctionNamespaceManager.registerBuiltInFunctions(functions);
     }
 
-    public List<SqlFunction> listFunctions()
+    public List<SqlFunction> listFunctions(Session session)
     {
-        Collection<FunctionNamespaceManager<?>> managers = listNonBuiltInFunctions ?
-                functionNamespaceManagers.values() :
-                ImmutableSet.of(builtInFunctionNamespaceManager);
+        Collection<FunctionNamespaceManager<?>> managers = isListBuiltInFunctionsOnly(session) ?
+                ImmutableSet.of(builtInFunctionNamespaceManager) :
+                functionNamespaceManagers.values();
 
         return managers.stream()
                 .flatMap(manager -> manager.listFunctions().stream())

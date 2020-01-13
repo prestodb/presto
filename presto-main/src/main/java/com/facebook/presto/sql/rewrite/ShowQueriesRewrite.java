@@ -524,7 +524,7 @@ final class ShowQueriesRewrite
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            for (SqlFunction function : metadata.listFunctions()) {
+            for (SqlFunction function : metadata.listFunctions(session)) {
                 rows.add(row(
                         function.getSignature().getName().getFunctionNamespace().equals(DEFAULT_NAMESPACE) ?
                                 new StringLiteral(function.getSignature().getNameSuffix()) :

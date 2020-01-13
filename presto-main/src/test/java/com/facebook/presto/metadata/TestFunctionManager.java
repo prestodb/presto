@@ -148,7 +148,7 @@ public class TestFunctionManager
     {
         TypeRegistry typeManager = new TypeRegistry();
         FunctionManager functionManager = createFunctionManager(typeManager);
-        List<SqlFunction> functions = functionManager.listFunctions();
+        List<SqlFunction> functions = functionManager.listFunctions(TEST_SESSION);
         List<String> names = transform(functions, input -> input.getSignature().getNameSuffix());
 
         assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");

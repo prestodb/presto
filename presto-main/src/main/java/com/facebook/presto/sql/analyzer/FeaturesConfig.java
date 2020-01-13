@@ -145,7 +145,7 @@ public class FeaturesConfig
 
     private Duration indexLoaderTimeout = new Duration(20, SECONDS);
 
-    private boolean listNonBuiltInFunctions;
+    private boolean listBuiltInFunctionsOnly = true;
 
     public enum JoinReorderingStrategy
     {
@@ -1135,15 +1135,15 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isListNonBuiltInFunctions()
+    public boolean isListBuiltInFunctionsOnly()
     {
-        return listNonBuiltInFunctions;
+        return listBuiltInFunctionsOnly;
     }
 
-    @Config("list-non-built-in-functions")
-    public FeaturesConfig setListNonBuiltInFunctions(boolean listNonBuiltInFunctions)
+    @Config("list-built-in-functions-only")
+    public FeaturesConfig setListBuiltInFunctionsOnly(boolean listBuiltInFunctionsOnly)
     {
-        this.listNonBuiltInFunctions = listNonBuiltInFunctions;
+        this.listBuiltInFunctionsOnly = listBuiltInFunctionsOnly;
         return this;
     }
 }

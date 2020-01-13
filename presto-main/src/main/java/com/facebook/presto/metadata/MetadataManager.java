@@ -266,10 +266,10 @@ public class MetadataManager
         return typeManager.getType(signature);
     }
 
-    public List<SqlFunction> listFunctions()
+    public List<SqlFunction> listFunctions(Session session)
     {
         // TODO: transactional when FunctionManager is made transactional
-        return functions.listFunctions();
+        return functions.listFunctions(session);
     }
 
     @Override
