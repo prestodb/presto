@@ -23,8 +23,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
@@ -43,7 +41,7 @@ public class SqlInvokedFunctionTestUtils
             ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
             parseTypeSignature(DOUBLE),
             "power tower",
-            new RoutineCharacteristics(SQL, DETERMINISTIC, CALLED_ON_NULL_INPUT),
+            RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
             "pow(x, x)",
             Optional.empty());
 
@@ -52,7 +50,7 @@ public class SqlInvokedFunctionTestUtils
             ImmutableList.of(new SqlParameter("x", parseTypeSignature(DOUBLE))),
             parseTypeSignature(DOUBLE),
             "power tower",
-            new RoutineCharacteristics(SQL, DETERMINISTIC, RETURNS_NULL_ON_NULL_INPUT),
+            RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
             "pow(x, x)",
             Optional.empty());
 
@@ -61,7 +59,7 @@ public class SqlInvokedFunctionTestUtils
             ImmutableList.of(new SqlParameter("x", parseTypeSignature(INTEGER))),
             parseTypeSignature(INTEGER),
             "power tower",
-            new RoutineCharacteristics(SQL, DETERMINISTIC, RETURNS_NULL_ON_NULL_INPUT),
+            RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
             "pow(x, x)",
             Optional.empty());
 }
