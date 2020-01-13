@@ -79,10 +79,11 @@ public class CreateFunctionTask
                 .collect(toImmutableList());
         TypeSignature returnType = parseTypeSignature(statement.getReturnType());
         String description = statement.getComment().orElse("");
-        RoutineCharacteristics routineCharacteristics = new RoutineCharacteristics(
-                RoutineCharacteristics.Language.valueOf(statement.getCharacteristics().getLanguage().name()),
-                RoutineCharacteristics.Determinism.valueOf(statement.getCharacteristics().getDeterminism().name()),
-                RoutineCharacteristics.NullCallClause.valueOf(statement.getCharacteristics().getNullCallClause().name()));
+        RoutineCharacteristics routineCharacteristics = RoutineCharacteristics.builder()
+                .setLanguage(RoutineCharacteristics.Language.valueOf(statement.getCharacteristics().getLanguage().name()))
+                .setDeterminism(RoutineCharacteristics.Determinism.valueOf(statement.getCharacteristics().getDeterminism().name()))
+                .setNullCallClause(RoutineCharacteristics.NullCallClause.valueOf(statement.getCharacteristics().getNullCallClause().name()))
+                .build();
         String body = formatSql(statement.getBody(), Optional.empty());
 
         return new SqlInvokedFunction(

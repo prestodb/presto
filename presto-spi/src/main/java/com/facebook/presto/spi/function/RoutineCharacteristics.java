@@ -16,6 +16,8 @@ package com.facebook.presto.spi.function;
 import java.util.Objects;
 
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -43,7 +45,7 @@ public class RoutineCharacteristics
     private final Determinism determinism;
     private final NullCallClause nullCallClause;
 
-    public RoutineCharacteristics(
+    private RoutineCharacteristics(
             Language language,
             Determinism determinism,
             NullCallClause nullCallClause)
@@ -58,6 +60,16 @@ public class RoutineCharacteristics
         return language;
     }
 
+    public Determinism getDeterminism()
+    {
+        return determinism;
+    }
+
+    public NullCallClause getNullCallClause()
+    {
+        return nullCallClause;
+    }
+
     public boolean isDeterministic()
     {
         return determinism == DETERMINISTIC;
@@ -66,6 +78,16 @@ public class RoutineCharacteristics
     public boolean isCalledOnNullInput()
     {
         return nullCallClause == CALLED_ON_NULL_INPUT;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static Builder builder(RoutineCharacteristics routineCharacteristics)
+    {
+        return new Builder(routineCharacteristics);
     }
 
     @Override
@@ -93,5 +115,44 @@ public class RoutineCharacteristics
     public String toString()
     {
         return format("(%s, %s, %s)", language, determinism, nullCallClause);
+    }
+
+    public static class Builder
+    {
+        private Language language = SQL;
+        private Determinism determinism = NOT_DETERMINISTIC;
+        private NullCallClause nullCallClause = CALLED_ON_NULL_INPUT;
+
+        private Builder() {}
+
+        private Builder(RoutineCharacteristics routineCharacteristics)
+        {
+            this.language = routineCharacteristics.getLanguage();
+            this.determinism = routineCharacteristics.getDeterminism();
+            this.nullCallClause = routineCharacteristics.getNullCallClause();
+        }
+
+        public Builder setLanguage(Language language)
+        {
+            this.language = requireNonNull(language, "language is null");
+            return this;
+        }
+
+        public Builder setDeterminism(Determinism determinism)
+        {
+            this.determinism = requireNonNull(determinism, "determinism is null");
+            return this;
+        }
+
+        public Builder setNullCallClause(NullCallClause nullCallClause)
+        {
+            this.nullCallClause = requireNonNull(nullCallClause, "nullCallClause is null");
+            return this;
+        }
+
+        public RoutineCharacteristics build()
+        {
+            return new RoutineCharacteristics(language, determinism, nullCallClause);
+        }
     }
 }
