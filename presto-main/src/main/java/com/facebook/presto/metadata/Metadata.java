@@ -59,7 +59,7 @@ public interface Metadata
 
     Type getType(TypeSignature signature);
 
-    List<SqlFunction> listFunctions();
+    List<SqlFunction> listFunctions(Session session);
 
     void registerBuiltInFunctions(List<? extends BuiltInFunction> functions);
 
