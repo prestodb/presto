@@ -72,7 +72,7 @@ public class StorageManagerConfig
     private int oneSplitPerBucketThreshold;
     private String shardDayBoundaryTimeZone = TimeZoneKey.UTC_KEY.getId();
     private int maxAllowedFilesPerWriter = Integer.MAX_VALUE;
-    private boolean zstdJniDecompressionEnabled;
+    private boolean zstdJniDecompressionEnabled = true;
 
     @NotNull
     public URI getDataDirectory()
