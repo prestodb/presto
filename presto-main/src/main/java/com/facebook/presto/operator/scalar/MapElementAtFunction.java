@@ -23,6 +23,7 @@ import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAU
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -64,9 +66,9 @@ public class MapElementAtFunction
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return false;
+        return PUBLIC;
     }
 
     @Override

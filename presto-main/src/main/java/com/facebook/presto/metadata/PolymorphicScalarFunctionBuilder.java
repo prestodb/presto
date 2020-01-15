@@ -18,6 +18,7 @@ import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.A
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +33,8 @@ import java.util.function.Function;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -45,7 +48,7 @@ public final class PolymorphicScalarFunctionBuilder
     private final Optional<OperatorType> operatorType;
     private Signature signature;
     private String description;
-    private Optional<Boolean> hidden = Optional.empty();
+    private Optional<SqlFunctionVisibility> visibility = Optional.empty();
     private Boolean deterministic;
     private Boolean calledOnNullInput;
     private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
@@ -65,7 +68,7 @@ public final class PolymorphicScalarFunctionBuilder
     public PolymorphicScalarFunctionBuilder signature(Signature signature)
     {
         this.signature = requireNonNull(signature, "signature is null");
-        this.hidden = Optional.of(hidden.orElse(isOperator(signature)));
+        this.visibility = Optional.of(visibility.orElse(isOperator(signature) ? HIDDEN : PUBLIC));
         return this;
     }
 
@@ -75,9 +78,9 @@ public final class PolymorphicScalarFunctionBuilder
         return this;
     }
 
-    public PolymorphicScalarFunctionBuilder hidden(boolean hidden)
+    public PolymorphicScalarFunctionBuilder visibility(SqlFunctionVisibility visibility)
     {
-        this.hidden = Optional.of(hidden);
+        this.visibility = Optional.of(visibility);
         return this;
     }
 
@@ -109,7 +112,7 @@ public final class PolymorphicScalarFunctionBuilder
         return new PolymorphicScalarFunction(
                 signature,
                 description,
-                hidden.orElse(false),
+                visibility.orElse(PUBLIC),
                 deterministic,
                 operatorType.map(OperatorType::isCalledOnNullInput).orElse(calledOnNullInput),
                 choices);

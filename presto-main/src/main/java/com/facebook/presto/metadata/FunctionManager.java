@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
@@ -71,6 +72,8 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
@@ -179,7 +182,8 @@ public class FunctionManager
 
         return managers.stream()
                 .flatMap(manager -> manager.listFunctions().stream())
-                .filter(function -> !function.isHidden())
+                .filter(function -> function.getVisibility() == PUBLIC ||
+                        (function.getVisibility() == EXPERIMENTAL && SystemSessionProperties.isExperimentalFunctionsEnabled(session)))
                 .collect(toImmutableList());
     }
 

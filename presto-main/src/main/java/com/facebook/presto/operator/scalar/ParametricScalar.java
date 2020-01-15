@@ -20,6 +20,7 @@ import com.facebook.presto.operator.ParametricImplementationsGroup;
 import com.facebook.presto.operator.scalar.annotations.ParametricScalarImplementation;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -50,9 +51,9 @@ public class ParametricScalar
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return details.isHidden();
+        return details.getVisibility();
     }
 
     @Override

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -39,6 +40,7 @@ import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplement
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
@@ -66,9 +68,9 @@ public final class MapZipWithFunction
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return false;
+        return PUBLIC;
     }
 
     @Override

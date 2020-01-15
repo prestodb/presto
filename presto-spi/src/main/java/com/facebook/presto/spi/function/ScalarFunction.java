@@ -16,6 +16,7 @@ package com.facebook.presto.spi.function;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -28,7 +29,7 @@ public @interface ScalarFunction
 
     String[] alias() default {};
 
-    boolean hidden() default false;
+    SqlFunctionVisibility visibility() default PUBLIC;
 
     boolean deterministic() default true;
 

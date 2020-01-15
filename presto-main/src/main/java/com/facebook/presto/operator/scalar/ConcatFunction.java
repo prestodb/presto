@@ -29,6 +29,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
@@ -89,9 +90,9 @@ public final class ConcatFunction
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return false;
+        return SqlFunctionVisibility.PUBLIC;
     }
 
     @Override

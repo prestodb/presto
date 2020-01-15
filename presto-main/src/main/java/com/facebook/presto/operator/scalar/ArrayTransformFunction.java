@@ -31,6 +31,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -86,9 +87,9 @@ public final class ArrayTransformFunction
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return false;
+        return SqlFunctionVisibility.PUBLIC;
     }
 
     @Override

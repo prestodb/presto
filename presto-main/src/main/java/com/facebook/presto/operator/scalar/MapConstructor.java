@@ -28,6 +28,7 @@ import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -45,6 +46,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
@@ -86,9 +88,9 @@ public final class MapConstructor
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return false;
+        return PUBLIC;
     }
 
     @Override

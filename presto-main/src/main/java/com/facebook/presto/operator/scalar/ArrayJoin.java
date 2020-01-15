@@ -28,6 +28,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -52,6 +53,7 @@ import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplement
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -129,9 +131,9 @@ public final class ArrayJoin
         }
 
         @Override
-        public boolean isHidden()
+        public SqlFunctionVisibility getVisibility()
         {
-            return false;
+            return PUBLIC;
         }
 
         @Override
@@ -177,9 +179,9 @@ public final class ArrayJoin
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return false;
+        return PUBLIC;
     }
 
     @Override

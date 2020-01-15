@@ -47,7 +47,6 @@ import static com.facebook.presto.operator.scalar.QuantileDigestFunctions.verify
 import static com.facebook.presto.operator.scalar.QuantileDigestFunctions.verifyWeight;
 import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;

@@ -28,7 +28,9 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.StandardTypes;
 
-@AggregationFunction(value = SumDataSizeForStats.NAME, hidden = true)
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
+
+@AggregationFunction(value = SumDataSizeForStats.NAME, visibility = HIDDEN)
 public final class SumDataSizeForStats
 {
     public static final String NAME = "$internal$sum_data_size_for_stats";

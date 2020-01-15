@@ -32,6 +32,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
@@ -92,9 +93,9 @@ public final class MapFilterFunction
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return false;
+        return SqlFunctionVisibility.PUBLIC;
     }
 
     @Override

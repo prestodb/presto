@@ -50,6 +50,9 @@ import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplement
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -89,7 +92,7 @@ public class TestAnnotationEngineForScalars
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
         assertEquals(scalar.getDescription(), "Simple scalar with single implementation based on class");
 
         assertImplementationCount(scalar, 1, 0, 0);
@@ -100,9 +103,20 @@ public class TestAnnotationEngineForScalars
         assertEquals(specialized.getArgumentProperty(0).getNullConvention(), RETURN_NULL_ON_NULL);
     }
 
-    @ScalarFunction(value = "hidden_scalar_function", hidden = true)
-    @Description("Simple scalar with hidden property set")
+    @ScalarFunction(value = "hidden_scalar_function", visibility = HIDDEN)
+    @Description("Simple scalar with visibility set to hidden")
     public static class HiddenScalarFunction
+    {
+        @SqlType(StandardTypes.DOUBLE)
+        public static double fun(@SqlType(StandardTypes.DOUBLE) double v)
+        {
+            return v;
+        }
+    }
+
+    @ScalarFunction(value = "beta_scalar_function", visibility = EXPERIMENTAL)
+    @Description("Simple scalar with visibility set to beta")
+    public static class BetaScalarFunction
     {
         @SqlType(StandardTypes.DOUBLE)
         public static double fun(@SqlType(StandardTypes.DOUBLE) double v)
@@ -119,7 +133,18 @@ public class TestAnnotationEngineForScalars
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
 
         assertTrue(scalar.isDeterministic());
-        assertTrue(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), HIDDEN);
+    }
+
+    @Test
+    public void testBetaScalarParse()
+    {
+        List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(BetaScalarFunction.class);
+        assertEquals(functions.size(), 1);
+        ParametricScalar scalar = (ParametricScalar) functions.get(0);
+
+        assertTrue(scalar.isDeterministic());
+        assertEquals(scalar.getVisibility(), EXPERIMENTAL);
     }
 
     @ScalarFunction(value = "non_deterministic_scalar_function", deterministic = false)
@@ -141,7 +166,7 @@ public class TestAnnotationEngineForScalars
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
 
         assertFalse(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
     }
 
     @ScalarFunction(value = "scalar_with_nullable", calledOnNullInput = true)
@@ -173,7 +198,7 @@ public class TestAnnotationEngineForScalars
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
         assertEquals(scalar.getDescription(), "Simple scalar with nullable primitive");
 
         BuiltInScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, new TypeRegistry(), null);
@@ -211,7 +236,7 @@ public class TestAnnotationEngineForScalars
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
         assertEquals(scalar.getDescription(), "Simple scalar with nullable complex type");
 
         BuiltInScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, new TypeRegistry(), null);
@@ -247,7 +272,7 @@ public class TestAnnotationEngineForScalars
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
         assertEquals(scalar.getDescription(), "Simple scalar with single implementation based on method");
     }
 
@@ -261,10 +286,18 @@ public class TestAnnotationEngineForScalars
             return v;
         }
 
-        @ScalarFunction(value = "static_method_scalar_2", hidden = true, deterministic = false)
+        @ScalarFunction(value = "static_method_scalar_2", visibility = HIDDEN, deterministic = false)
         @Description("Simple scalar with single implementation based on method 2")
         @SqlType(StandardTypes.BIGINT)
         public static long fun2(@SqlType(StandardTypes.BIGINT) long v)
+        {
+            return v;
+        }
+
+        @ScalarFunction(value = "static_method_scalar_3", visibility = EXPERIMENTAL, deterministic = false)
+        @Description("Simple scalar with single implementation based on method 3")
+        @SqlType(StandardTypes.BIGINT)
+        public static long fun3(@SqlType(StandardTypes.BIGINT) long v)
         {
             return v;
         }
@@ -285,23 +318,35 @@ public class TestAnnotationEngineForScalars
                 BIGINT.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature()));
 
+        Signature expectedSignature3 = new Signature(
+                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "static_method_scalar_3"),
+                FunctionKind.SCALAR,
+                BIGINT.getTypeSignature(),
+                ImmutableList.of(BIGINT.getTypeSignature()));
+
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinitions(MultiScalarFunction.class);
-        assertEquals(functions.size(), 2);
+        assertEquals(functions.size(), 3);
         ParametricScalar scalar1 = (ParametricScalar) functions.stream().filter(signature -> signature.getSignature().equals(expectedSignature1)).collect(toImmutableList()).get(0);
         ParametricScalar scalar2 = (ParametricScalar) functions.stream().filter(signature -> signature.getSignature().equals(expectedSignature2)).collect(toImmutableList()).get(0);
+        ParametricScalar scalar3 = (ParametricScalar) functions.stream().filter(signature -> signature.getSignature().equals(expectedSignature3)).collect(toImmutableList()).get(0);
 
         assertImplementationCount(scalar1, 1, 0, 0);
         assertImplementationCount(scalar2, 1, 0, 0);
 
         assertEquals(scalar1.getSignature(), expectedSignature1);
         assertTrue(scalar1.isDeterministic());
-        assertFalse(scalar1.isHidden());
+        assertEquals(scalar1.getVisibility(), PUBLIC);
         assertEquals(scalar1.getDescription(), "Simple scalar with single implementation based on method 1");
 
         assertEquals(scalar2.getSignature(), expectedSignature2);
         assertFalse(scalar2.isDeterministic());
-        assertTrue(scalar2.isHidden());
+        assertEquals(scalar2.getVisibility(), HIDDEN);
         assertEquals(scalar2.getDescription(), "Simple scalar with single implementation based on method 2");
+
+        assertEquals(scalar3.getSignature(), expectedSignature3);
+        assertFalse(scalar3.isDeterministic());
+        assertEquals(scalar3.getVisibility(), EXPERIMENTAL);
+        assertEquals(scalar3.getDescription(), "Simple scalar with single implementation based on method 3");
     }
 
     @ScalarFunction("parametric_scalar")
@@ -342,7 +387,7 @@ public class TestAnnotationEngineForScalars
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
         assertEquals(scalar.getDescription(), "Parametric scalar description");
     }
 
@@ -393,7 +438,7 @@ public class TestAnnotationEngineForScalars
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
         assertEquals(scalar.getDescription(), "Parametric scalar with exact and generic implementations");
     }
 
@@ -435,7 +480,7 @@ public class TestAnnotationEngineForScalars
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
         assertEquals(scalar.getDescription(), "Parametric scalar with literal injected");
     }
 
@@ -497,7 +542,7 @@ public class TestAnnotationEngineForScalars
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
         assertEquals(scalar.getDescription(), "Parametric scalar with type injected though constructor");
     }
 
@@ -533,7 +578,7 @@ public class TestAnnotationEngineForScalars
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
         assertEquals(scalar.getDescription(), "Parametric scalar that uses TypeParameter with fixed type");
     }
 
@@ -575,7 +620,7 @@ public class TestAnnotationEngineForScalars
 
         assertEquals(scalar.getSignature(), expectedSignature);
         assertTrue(scalar.isDeterministic());
-        assertFalse(scalar.isHidden());
+        assertEquals(scalar.getVisibility(), PUBLIC);
         assertEquals(scalar.getDescription(), "Parametric scalar that uses TypeParameter with partially fixed type");
     }
 }

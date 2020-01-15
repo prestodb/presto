@@ -22,6 +22,7 @@ import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.N
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.util.Reflection;
@@ -45,7 +46,7 @@ class PolymorphicScalarFunction
         extends SqlScalarFunction
 {
     private final String description;
-    private final boolean hidden;
+    private final SqlFunctionVisibility visibility;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
     private final List<PolymorphicScalarFunctionChoice> choices;
@@ -53,7 +54,7 @@ class PolymorphicScalarFunction
     PolymorphicScalarFunction(
             Signature signature,
             String description,
-            boolean hidden,
+            SqlFunctionVisibility visibility,
             boolean deterministic,
             boolean calledOnNullInput,
             List<PolymorphicScalarFunctionChoice> choices)
@@ -61,16 +62,16 @@ class PolymorphicScalarFunction
         super(signature);
 
         this.description = description;
-        this.hidden = hidden;
+        this.visibility = visibility;
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
         this.choices = requireNonNull(choices, "choices is null");
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return hidden;
+        return visibility;
     }
 
     @Override

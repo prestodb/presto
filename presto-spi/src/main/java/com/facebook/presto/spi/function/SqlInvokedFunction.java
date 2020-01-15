@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
@@ -85,9 +86,9 @@ public class SqlInvokedFunction
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return false;
+        return PUBLIC;
     }
 
     @Override

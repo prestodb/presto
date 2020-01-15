@@ -146,6 +146,7 @@ public class FeaturesConfig
     private Duration indexLoaderTimeout = new Duration(20, SECONDS);
 
     private boolean listBuiltInFunctionsOnly = true;
+    private boolean experimentalFunctionsEnabled;
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
@@ -1167,6 +1168,18 @@ public class FeaturesConfig
     public FeaturesConfig setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy partitioningPrecisionStrategy)
     {
         this.partitioningPrecisionStrategy = partitioningPrecisionStrategy;
+        return this;
+    }
+
+    public boolean isExperimentalFunctionsEnabled()
+    {
+        return experimentalFunctionsEnabled;
+    }
+
+    @Config("experimental-functions-enabled")
+    public FeaturesConfig setExperimentalFunctionsEnabled(boolean experimentalFunctionsEnabled)
+    {
+        this.experimentalFunctionsEnabled = experimentalFunctionsEnabled;
         return this;
     }
 }
