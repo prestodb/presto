@@ -64,6 +64,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.kudu.KuduUtil.reTryKerberos;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -75,16 +76,19 @@ public class KuduClientSession
     private final KuduConnectorId connectorId;
     private final KuduClient client;
     private final SchemaEmulation schemaEmulation;
+    private final boolean kerberosAuthEnabled;
 
-    public KuduClientSession(KuduConnectorId connectorId, KuduClient client, SchemaEmulation schemaEmulation)
+    public KuduClientSession(KuduConnectorId connectorId, KuduClient client, SchemaEmulation schemaEmulation, boolean kerberosAuthEnabled)
     {
         this.connectorId = connectorId;
         this.client = client;
         this.schemaEmulation = schemaEmulation;
+        this.kerberosAuthEnabled = kerberosAuthEnabled;
     }
 
     public List<String> listSchemaNames()
     {
+        reTryKerberos(kerberosAuthEnabled);
         return schemaEmulation.listSchemaNames(client);
     }
 
@@ -105,6 +109,7 @@ public class KuduClientSession
 
     public List<SchemaTableName> listTables(Optional<String> optSchemaName)
     {
+        reTryKerberos(kerberosAuthEnabled);
         if (optSchemaName.isPresent()) {
             return listTablesSingleSchema(optSchemaName.get());
         }
@@ -130,18 +135,21 @@ public class KuduClientSession
 
     public Schema getTableSchema(KuduTableHandle tableHandle)
     {
+        reTryKerberos(kerberosAuthEnabled);
         KuduTable table = tableHandle.getTable(this);
         return table.getSchema();
     }
 
     public Map<String, Object> getTableProperties(KuduTableHandle tableHandle)
     {
+        reTryKerberos(kerberosAuthEnabled);
         KuduTable table = tableHandle.getTable(this);
         return KuduTableProperties.toMap(table);
     }
 
     public List<KuduSplit> buildKuduSplits(KuduTableLayoutHandle layoutHandle)
     {
+        reTryKerberos(kerberosAuthEnabled);
         KuduTableHandle tableHandle = layoutHandle.getTableHandle();
         KuduTable table = tableHandle.getTable(this);
         final int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
@@ -185,6 +193,7 @@ public class KuduClientSession
 
     public KuduScanner createScanner(KuduSplit kuduSplit)
     {
+        reTryKerberos(kerberosAuthEnabled);
         try {
             return KuduScanToken.deserializeIntoScanner(kuduSplit.getSerializedScanToken(), client);
         }
@@ -195,6 +204,7 @@ public class KuduClientSession
 
     public KuduTable openTable(SchemaTableName schemaTableName)
     {
+        reTryKerberos(kerberosAuthEnabled);
         String rawName = schemaEmulation.toRawName(schemaTableName);
         try {
             return client.openTable(rawName);
@@ -210,21 +220,25 @@ public class KuduClientSession
 
     public KuduSession newSession()
     {
+        reTryKerberos(kerberosAuthEnabled);
         return client.newSession();
     }
 
     public void createSchema(String schemaName)
     {
+        reTryKerberos(kerberosAuthEnabled);
         schemaEmulation.createSchema(client, schemaName);
     }
 
     public void dropSchema(String schemaName)
     {
+        reTryKerberos(kerberosAuthEnabled);
         schemaEmulation.dropSchema(client, schemaName);
     }
 
     public void dropTable(SchemaTableName schemaTableName)
     {
+        reTryKerberos(kerberosAuthEnabled);
         try {
             String rawName = schemaEmulation.toRawName(schemaTableName);
             client.deleteTable(rawName);
@@ -236,6 +250,7 @@ public class KuduClientSession
 
     public void renameTable(SchemaTableName schemaTableName, SchemaTableName newSchemaTableName)
     {
+        reTryKerberos(kerberosAuthEnabled);
         try {
             String rawName = schemaEmulation.toRawName(schemaTableName);
             String newRawName = schemaEmulation.toRawName(newSchemaTableName);
@@ -250,6 +265,7 @@ public class KuduClientSession
 
     public KuduTable createTable(ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
+        reTryKerberos(kerberosAuthEnabled);
         try {
             String rawName = schemaEmulation.toRawName(tableMetadata.getTable());
             if (ignoreExisting) {
@@ -276,6 +292,7 @@ public class KuduClientSession
 
     public void addColumn(SchemaTableName schemaTableName, ColumnMetadata column)
     {
+        reTryKerberos(kerberosAuthEnabled);
         try {
             String rawName = schemaEmulation.toRawName(schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
@@ -290,6 +307,7 @@ public class KuduClientSession
 
     public void dropColumn(SchemaTableName schemaTableName, String name)
     {
+        reTryKerberos(kerberosAuthEnabled);
         try {
             String rawName = schemaEmulation.toRawName(schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
@@ -303,6 +321,7 @@ public class KuduClientSession
 
     public void renameColumn(SchemaTableName schemaTableName, String oldName, String newName)
     {
+        reTryKerberos(kerberosAuthEnabled);
         try {
             String rawName = schemaEmulation.toRawName(schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
@@ -316,11 +335,13 @@ public class KuduClientSession
 
     public void addRangePartition(SchemaTableName schemaTableName, RangePartition rangePartition)
     {
+        reTryKerberos(kerberosAuthEnabled);
         changeRangePartition(schemaTableName, rangePartition, RangePartitionChange.ADD);
     }
 
     public void dropRangePartition(SchemaTableName schemaTableName, RangePartition rangePartition)
     {
+        reTryKerberos(kerberosAuthEnabled);
         changeRangePartition(schemaTableName, rangePartition, RangePartitionChange.DROP);
     }
 
