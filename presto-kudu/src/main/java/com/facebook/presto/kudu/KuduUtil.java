@@ -56,7 +56,7 @@ public class KuduUtil
     {
         KuduClient client = null;
         try {
-            reTryKerberos();
+            reTryKerberos(true);
             client = UserGroupInformation.getLoginUser().doAs(
                     (PrivilegedExceptionAction<KuduClient>) () -> getKuduClient(config));
         }
@@ -78,20 +78,22 @@ public class KuduUtil
         return builder.build();
     }
 
-    static void reTryKerberos()
+    static void reTryKerberos(boolean enabled)
     {
-        log.warn("Try relogin kerberos at first!");
-        try {
-            if (UserGroupInformation.isLoginKeytabBased()) {
-                UserGroupInformation.getLoginUser().reloginFromKeytab();
+        if (enabled) {
+            log.warn("Try relogin kerberos at first!");
+            try {
+                if (UserGroupInformation.isLoginKeytabBased()) {
+                    UserGroupInformation.getLoginUser().reloginFromKeytab();
+                }
+                else if (UserGroupInformation.isLoginTicketBased()) {
+                    UserGroupInformation.getLoginUser().reloginFromTicketCache();
+                }
             }
-            else if (UserGroupInformation.isLoginTicketBased()) {
-                UserGroupInformation.getLoginUser().reloginFromTicketCache();
+            catch (IOException e) {
+                log.error("Try relogin kerberos failed!");
+                log.error(e.getMessage());
             }
-        }
-        catch (IOException e) {
-            log.error("Try relogin kerberos failed!");
-            log.error(e.getMessage());
         }
     }
 }
