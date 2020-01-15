@@ -82,6 +82,7 @@ public final class HiveSessionProperties
     public static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
+    private static final String SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE = "shuffle_partitioned_columns_for_table_write";
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
     private static final String TEMPORARY_TABLE_SCHEMA = "temporary_table_schema";
@@ -410,7 +411,12 @@ public final class HiveSessionProperties
                         ORC_ZSTD_JNI_DECOMPRESSION_ENABLED,
                         "use JNI based zstd decompression for reading ORC files",
                         hiveClientConfig.isZstdJniDecompressionEnabled(),
-                        true));
+                        true),
+                booleanProperty(
+                        SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE,
+                        "Shuffle the data on partitioned columns",
+                        false,
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -697,6 +703,11 @@ public final class HiveSessionProperties
     public static boolean isOfflineDataDebugModeEnabled(ConnectorSession session)
     {
         return session.getProperty(OFFLINE_DATA_DEBUG_MODE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isShufflePartitionedColumnsForTableWriteEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

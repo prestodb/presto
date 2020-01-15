@@ -171,6 +171,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStat
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
+import static com.facebook.presto.hive.HiveSessionProperties.isShufflePartitionedColumnsForTableWriteEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
@@ -277,6 +278,8 @@ public class HiveMetadata
 
     private static final String PARTITIONS_TABLE_SUFFIX = "$partitions";
     private static final String PRESTO_TEMPORARY_TABLE_NAME_PREFIX = "__presto_temporary_table_";
+
+    private static final int SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE = 1009;
 
     private final boolean allowCorruptWritesForTesting;
     private final SemiTransactionalHiveMetastore metastore;
@@ -2369,9 +2372,26 @@ public class HiveMetadata
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
+
         if (!hiveBucketHandle.isPresent()) {
+            if (isShufflePartitionedColumnsForTableWriteEnabled(session) && !table.getPartitionColumns().isEmpty()) {
+                // TODO: the shuffle partitioning doesnt't have to be the same as Hive bucket partitioning
+                HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                        SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE,
+                        table.getPartitionColumns().stream()
+                                .map(Column::getType)
+                                .collect(Collectors.toList()),
+                        OptionalInt.empty());
+                List<String> partitionedBy = table.getPartitionColumns().stream()
+                        .map(Column::getName)
+                        .collect(Collectors.toList());
+
+                return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionedBy));
+            }
+
             return Optional.empty();
         }
+
         HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty()
                 .orElseThrow(() -> new NoSuchElementException("Bucket property should be set"));
         if (!bucketProperty.getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
@@ -2396,9 +2416,31 @@ public class HiveMetadata
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+
         if (!bucketProperty.isPresent()) {
+            List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+            if (isShufflePartitionedColumnsForTableWriteEnabled(session) && !partitionedBy.isEmpty()) {
+                List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+                Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
+                List<Column> partitionColumns = partitionedBy.stream()
+                        .map(columnHandlesByName::get)
+                        .map(column -> new Column(column.getName(), column.getHiveType(), column.getComment()))
+                        .collect(toList());
+
+                // TODO: the shuffle partitioning doesnt't have to be the same as Hive bucket partitioning
+                HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                        SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE,
+                        partitionColumns.stream()
+                                .map(Column::getType)
+                                .collect(Collectors.toList()),
+                        OptionalInt.empty());
+
+                return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionedBy));
+            }
+
             return Optional.empty();
         }
+
         if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
