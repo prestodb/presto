@@ -141,6 +141,7 @@ public final class SystemSessionProperties
     public static final String AGGREGATION_PARTITIONING_MERGING_STRATEGY = "aggregation_partitioning_merging_strategy";
     public static final String LIST_BUILT_IN_FUNCTIONS_ONLY = "list_built_in_functions_only";
     public static final String PARTITIONING_PRECISION_STRATEGY = "partitioning_precision_strategy";
+    public static final String EXPERIMENTAL_FUNCTIONS_ENABLED = "experimental_functions_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -704,7 +705,12 @@ public final class SystemSessionProperties
                         featuresConfig.getPartitioningPrecisionStrategy(),
                         false,
                         value -> PartitioningPrecisionStrategy.valueOf(((String) value).toUpperCase()),
-                        PartitioningPrecisionStrategy::name));
+                        PartitioningPrecisionStrategy::name),
+                booleanProperty(
+                        EXPERIMENTAL_FUNCTIONS_ENABLED,
+                        "Enable listing of functions marked as experimental",
+                        featuresConfig.isExperimentalFunctionsEnabled(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1194,5 +1200,10 @@ public final class SystemSessionProperties
     {
         return session.getSystemProperty(PARTITIONING_PRECISION_STRATEGY, PartitioningPrecisionStrategy.class)
                 == PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING;
+    }
+
+    public static boolean isExperimentalFunctionsEnabled(Session session)
+    {
+        return session.getSystemProperty(EXPERIMENTAL_FUNCTIONS_ENABLED, Boolean.class);
     }
 }

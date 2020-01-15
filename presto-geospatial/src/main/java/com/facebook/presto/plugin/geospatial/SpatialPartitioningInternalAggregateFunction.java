@@ -35,11 +35,12 @@ import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 
-@AggregationFunction(value = NAME, decomposable = false, hidden = true)
+@AggregationFunction(value = NAME, decomposable = false, visibility = HIDDEN)
 public class SpatialPartitioningInternalAggregateFunction
 {
     private static final int MAX_SAMPLE_COUNT = 1_000_000;

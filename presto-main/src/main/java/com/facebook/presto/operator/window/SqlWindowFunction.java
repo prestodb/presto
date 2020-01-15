@@ -17,8 +17,10 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.type.TypeManager;
 
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.util.Objects.requireNonNull;
 
 public class SqlWindowFunction
@@ -38,9 +40,9 @@ public class SqlWindowFunction
     }
 
     @Override
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return false;
+        return PUBLIC;
     }
 
     @Override

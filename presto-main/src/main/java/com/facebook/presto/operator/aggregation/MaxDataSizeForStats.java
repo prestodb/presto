@@ -28,9 +28,10 @@ import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.StandardTypes;
 
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static java.lang.Math.max;
 
-@AggregationFunction(value = MaxDataSizeForStats.NAME, hidden = true)
+@AggregationFunction(value = MaxDataSizeForStats.NAME, visibility = HIDDEN)
 public final class MaxDataSizeForStats
 {
     public static final String NAME = "$internal$max_data_size_for_stats";

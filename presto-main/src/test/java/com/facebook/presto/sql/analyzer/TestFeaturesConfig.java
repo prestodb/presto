@@ -127,7 +127,8 @@ public class TestFeaturesConfig
                 .setIndexLoaderTimeout(new Duration(20, SECONDS))
                 .setOptimizedRepartitioningEnabled(false)
                 .setListBuiltInFunctionsOnly(true)
-                .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.AUTOMATIC));
+                .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.AUTOMATIC)
+                .setExperimentalFunctionsEnabled(false));
     }
 
     @Test
@@ -211,6 +212,7 @@ public class TestFeaturesConfig
                 .put("experimental.optimized-repartitioning", "true")
                 .put("list-built-in-functions-only", "false")
                 .put("partitioning-precision-strategy", "PREFER_EXACT_PARTITIONING")
+                .put("experimental-functions-enabled", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -290,7 +292,8 @@ public class TestFeaturesConfig
                 .setIndexLoaderTimeout(new Duration(10, SECONDS))
                 .setOptimizedRepartitioningEnabled(true)
                 .setListBuiltInFunctionsOnly(false)
-                .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING);
+                .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING)
+                .setExperimentalFunctionsEnabled(true);
         assertFullMapping(properties, expected);
     }
 

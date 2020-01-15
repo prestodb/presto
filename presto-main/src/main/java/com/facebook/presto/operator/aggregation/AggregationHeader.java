@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
+
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -23,15 +25,15 @@ public class AggregationHeader
     private final Optional<String> description;
     private final boolean decomposable;
     private final boolean orderSensitive;
-    private final boolean hidden;
+    private final SqlFunctionVisibility visibility;
 
-    public AggregationHeader(String name, Optional<String> description, boolean decomposable, boolean orderSensitive, boolean hidden)
+    public AggregationHeader(String name, Optional<String> description, boolean decomposable, boolean orderSensitive, SqlFunctionVisibility visibility)
     {
         this.name = requireNonNull(name, "name cannot be null");
         this.description = requireNonNull(description, "description cannot be null");
         this.decomposable = decomposable;
         this.orderSensitive = orderSensitive;
-        this.hidden = hidden;
+        this.visibility = visibility;
     }
 
     public String getName()
@@ -54,8 +56,8 @@ public class AggregationHeader
         return orderSensitive;
     }
 
-    public boolean isHidden()
+    public SqlFunctionVisibility getVisibility()
     {
-        return hidden;
+        return visibility;
     }
 }

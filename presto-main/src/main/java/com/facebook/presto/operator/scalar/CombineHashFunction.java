@@ -17,11 +17,13 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
+
 public final class CombineHashFunction
 {
     private CombineHashFunction() {}
 
-    @ScalarFunction(value = "combine_hash", hidden = true)
+    @ScalarFunction(value = "combine_hash", visibility = HIDDEN)
     @SqlType(StandardTypes.BIGINT)
     public static long getHash(@SqlType(StandardTypes.BIGINT) long previousHashValue, @SqlType(StandardTypes.BIGINT) long value)
     {

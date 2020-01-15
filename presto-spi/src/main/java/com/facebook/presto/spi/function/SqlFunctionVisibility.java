@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.spi.function;
 
-public interface SqlFunction
+public enum SqlFunctionVisibility
 {
-    Signature getSignature();
-
-    SqlFunctionVisibility getVisibility();
-
-    boolean isDeterministic();
-
-    boolean isCalledOnNullInput();
-
-    String getDescription();
+    PUBLIC,
+    HIDDEN,
+    /**
+     * Marked to indicate that the function is experimental and may change in the future.  They have the same visibility as HIDDEN by default, but
+     * can be toggled via session property or system property.
+     *
+     * @see SystemSessionProperties#isExperimentalFunctionsEnabled session property
+     * @see FeaturesConfig#isExperimentalFunctionsEnabled system property
+     */
+    EXPERIMENTAL,
 }
