@@ -44,15 +44,18 @@ public class PrestoSparkSessionContext
     private final Map<String, Map<String, String>> catalogSessionProperties;
     private final Optional<String> traceToken;
 
-    public static PrestoSparkSessionContext createFromSessionInfo(PrestoSparkSession prestoSparkSession)
+    public static PrestoSparkSessionContext createFromSessionInfo(PrestoSparkSession prestoSparkSession, Set<PrestoSparkCredentialsProvider> credentialsProviders)
     {
+        ImmutableMap.Builder<String, String> extraCredentials = ImmutableMap.builder();
+        extraCredentials.putAll(prestoSparkSession.getExtraCredentials());
+        credentialsProviders.forEach(provider -> extraCredentials.putAll(provider.getCredentials()));
+
         return new PrestoSparkSessionContext(
                 new Identity(
                         prestoSparkSession.getUser(),
                         prestoSparkSession.getPrincipal(),
-                        // presto on spark does not support role management
-                        ImmutableMap.of(),
-                        prestoSparkSession.getExtraCredentials()),
+                        ImmutableMap.of(),  // presto on spark does not support role management
+                        extraCredentials.build()),
                 prestoSparkSession.getCatalog().orElse(null),
                 prestoSparkSession.getSchema().orElse(null),
                 prestoSparkSession.getSource().orElse(null),

@@ -20,9 +20,11 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
+import com.google.inject.Module;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
 
 import static com.facebook.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 
@@ -45,11 +47,16 @@ public class PrestoSparkServiceFactory
         properties.put("plugin.dir", configuration.getPluginsDirectoryPath());
         properties.put("plugin.config-dir", configuration.getPluginsConfigDirectoryPath());
 
-        PrestoSparkInjectorFactory prestoSparkInjectorFactory = new PrestoSparkInjectorFactory(properties.build(), ImmutableList.of());
+        PrestoSparkInjectorFactory prestoSparkInjectorFactory = new PrestoSparkInjectorFactory(properties.build(), getAdditionalModules());
 
         Injector injector = prestoSparkInjectorFactory.create();
         PrestoSparkService prestoSparkService = injector.getInstance(PrestoSparkService.class);
         log.info("Initialized");
         return prestoSparkService;
+    }
+
+    protected List<Module> getAdditionalModules()
+    {
+        return ImmutableList.of();
     }
 }

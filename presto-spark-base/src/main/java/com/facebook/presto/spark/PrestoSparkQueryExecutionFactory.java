@@ -57,6 +57,7 @@ import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -69,6 +70,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
@@ -99,6 +101,7 @@ public class PrestoSparkQueryExecutionFactory
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
+    private final Set<PrestoSparkCredentialsProvider> credentialsProviders;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -115,7 +118,8 @@ public class PrestoSparkQueryExecutionFactory
             JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
             TransactionManager transactionManager,
             AccessControl accessControl,
-            Metadata metadata)
+            Metadata metadata,
+            Set<PrestoSparkCredentialsProvider> credentialsProviders)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -131,6 +135,7 @@ public class PrestoSparkQueryExecutionFactory
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.credentialsProviders = ImmutableSet.copyOf(requireNonNull(credentialsProviders, "credentialsProviders is null"));
     }
 
     @Override
@@ -141,7 +146,7 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider)
     {
         QueryId queryId = queryIdGenerator.createNextQueryId();
-        SessionContext sessionContext = PrestoSparkSessionContext.createFromSessionInfo(prestoSparkSession);
+        SessionContext sessionContext = PrestoSparkSessionContext.createFromSessionInfo(prestoSparkSession, credentialsProviders);
         TransactionId transactionId = transactionManager.beginTransaction(true);
         Session session = sessionSupplier.createSession(queryId, sessionContext)
                 .beginTransactionId(transactionId, transactionManager, accessControl);
