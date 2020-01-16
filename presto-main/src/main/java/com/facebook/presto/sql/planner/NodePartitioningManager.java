@@ -184,7 +184,7 @@ public class NodePartitioningManager
 
         ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
                 partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
+                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                 partitioningHandle.getConnectorHandle());
 
         checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
