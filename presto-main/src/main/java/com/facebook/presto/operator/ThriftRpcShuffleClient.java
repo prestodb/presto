@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.drift.transport.client.MessageTooLargeException;
 import com.facebook.presto.execution.TaskId;
@@ -29,7 +28,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.Optional;
-import java.util.concurrent.Executor;
 
 import static com.facebook.presto.operator.PageBufferClient.PagesResponse.createPagesResponse;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -39,19 +37,15 @@ import static java.util.Objects.requireNonNull;
 public final class ThriftRpcShuffleClient
         implements RpcShuffleClient
 {
-    private static final Logger log = Logger.get(ThriftRpcShuffleClient.class);
-
     private final ThriftTaskClient thriftClient;
-    private final Executor executor;
     private final TaskId taskId;
     private final OutputBufferId outputBufferId;
 
-    public ThriftRpcShuffleClient(DriftClient<ThriftTaskClient> driftClient, URI location, Executor executor)
+    public ThriftRpcShuffleClient(DriftClient<ThriftTaskClient> driftClient, URI location)
     {
         requireNonNull(location, "location is null");
 
         this.thriftClient = requireNonNull(driftClient, "thriftClient is null").get(Optional.of(location.getAuthority()));
-        this.executor = requireNonNull(executor, "executor is null");
 
         // TODO: refactor the entire LocationFactory interfaces to completely replace URI with more efficient/expressive data structures
         // location format: thrift://{ipAddress}:{thriftPort}/v1/task/{taskId}/results/{bufferId}/
@@ -78,14 +72,8 @@ public final class ThriftRpcShuffleClient
     @Override
     public void acknowledgeResultsAsync(long nextToken)
     {
-        executor.execute(() -> {
-            try {
-                thriftClient.acknowledgeResults(taskId, outputBufferId, nextToken);
-            }
-            catch (Exception exception) {
-                log.debug(exception, "Acknowledge request failed: %s/%s/%s", taskId, outputBufferId, nextToken);
-            }
-        });
+        // no need to handle the future
+        thriftClient.acknowledgeResults(taskId, outputBufferId, nextToken);
     }
 
     @Override
