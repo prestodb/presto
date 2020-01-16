@@ -28,7 +28,7 @@ public interface ThriftTaskClient
     ListenableFuture<BufferResult> getResults(TaskId taskId, OutputBufferId bufferId, long token, long maxSizeInBytes);
 
     @ThriftMethod
-    void acknowledgeResults(TaskId taskId, OutputBufferId bufferId, long token);
+    ListenableFuture<Void> acknowledgeResults(TaskId taskId, OutputBufferId bufferId, long token);
 
     @ThriftMethod
     ListenableFuture<Void> abortResults(TaskId taskId, OutputBufferId bufferId);

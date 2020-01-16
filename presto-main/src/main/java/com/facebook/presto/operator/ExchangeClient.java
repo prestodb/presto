@@ -200,7 +200,7 @@ public class ExchangeClient
                 resultClient = new HttpRpcShuffleClient(httpClient, location);
                 break;
             case "thrift":
-                resultClient = new ThriftRpcShuffleClient(driftClient, location, pageBufferClientCallbackExecutor);
+                resultClient = new ThriftRpcShuffleClient(driftClient, location);
                 break;
             default:
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "unsupported task result client scheme " + location.getScheme());

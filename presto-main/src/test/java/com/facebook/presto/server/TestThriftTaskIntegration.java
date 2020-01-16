@@ -121,7 +121,8 @@ public class TestThriftTaskIntegration
             assertEquals(result.get().getTaskInstanceId(), "test");
 
             // ack buffer result
-            client.acknowledgeResults(TaskId.valueOf("queryid.0.0.0"), new OutputBufferId(1), 42);
+            client.acknowledgeResults(TaskId.valueOf("queryid.0.0.0"), new OutputBufferId(1), 42).get();    // sync
+            client.acknowledgeResults(TaskId.valueOf("queryid.0.0.0"), new OutputBufferId(1), 42);          // fire and forget
 
             // abort buffer result
             client.abortResults(TaskId.valueOf("queryid.0.0.0"), new OutputBufferId(1)).get();

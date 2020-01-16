@@ -65,12 +65,13 @@ public class ThriftTaskService
     }
 
     @ThriftMethod
-    public void acknowledgeResults(TaskId taskId, OutputBufferId bufferId, long token)
+    public ListenableFuture<Void> acknowledgeResults(TaskId taskId, OutputBufferId bufferId, long token)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
+        return Futures.immediateFuture(null);
     }
 
     @ThriftMethod
