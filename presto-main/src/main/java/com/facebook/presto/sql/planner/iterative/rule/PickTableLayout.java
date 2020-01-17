@@ -69,6 +69,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.isNewOptimizerEnabled;
+import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.matching.Capture.newCapture;
@@ -323,17 +324,17 @@ public class PickTableLayout
             expression = predicate;
         }
 
-        // optimize rowExpression and return ValuesNode if false. e.g. 0=1 => false, 1>2 => false, (a = 1 and a = 2) => false
-        DomainTranslator.ExtractionResult<VariableReferenceExpression> translatedExpression = translator.fromPredicate(session.toConnectorSession(), expression, BASIC_COLUMN_EXTRACTOR);
-        if (translatedExpression.getTupleDomain().isNone()) {
-            return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
-        }
-
         BiMap<VariableReferenceExpression, VariableReferenceExpression> symbolToColumnMapping = node.getAssignments().entrySet().stream()
                 .collect(toImmutableBiMap(
                         Map.Entry::getKey,
                         entry -> new VariableReferenceExpression(getColumnName(session, metadata, node.getTable(), entry.getValue()), entry.getKey().getType())));
-        PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, node.getTable(), replaceExpression(expression, symbolToColumnMapping));
+
+        RowExpression replacedExpression = replaceExpression(expression, symbolToColumnMapping);
+        // replaceExpression() may further optimize the expression; if the resulting expression is always false, then return empty Values node
+        if (FALSE_CONSTANT.equals(replacedExpression)) {
+            return new ValuesNode(idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of());
+        }
+        PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, node.getTable(), replacedExpression);
 
         TableLayout layout = pushdownFilterResult.getLayout();
         if (layout.getPredicate().isNone()) {

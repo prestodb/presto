@@ -140,6 +140,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
@@ -277,6 +278,7 @@ public class HiveMetadata
 
     private static final String PARTITIONS_TABLE_SUFFIX = "$partitions";
     private static final String PRESTO_TEMPORARY_TABLE_NAME_PREFIX = "__presto_temporary_table_";
+    private static final ConnectorTableLayout EMPTY_TABLE_LAYOUT = new ConnectorTableLayout(new ConnectorTableLayoutHandle() {}) {};
 
     private final boolean allowCorruptWritesForTesting;
     private final SemiTransactionalHiveMetastore metastore;
@@ -1874,6 +1876,17 @@ public class HiveMetadata
             decomposedFilter = intersectExtractionResult(decomposedFilter, new ExtractionResult(currentHiveLayout.getDomainPredicate(), currentHiveLayout.getRemainingPredicate()));
         }
 
+        if (decomposedFilter.getTupleDomain().isNone()) {
+            return new ConnectorPushdownFilterResult(EMPTY_TABLE_LAYOUT, FALSE_CONSTANT);
+        }
+
+        RowExpression optimizedRemainingExpression = rowExpressionService.getExpressionOptimizer().optimize(decomposedFilter.getRemainingExpression(), OPTIMIZED, session);
+        if (optimizedRemainingExpression instanceof ConstantExpression) {
+            ConstantExpression constantExpression = (ConstantExpression) optimizedRemainingExpression;
+            if (FALSE_CONSTANT.equals(constantExpression) || constantExpression.getValue() == null) {
+                return new ConnectorPushdownFilterResult(EMPTY_TABLE_LAYOUT, FALSE_CONSTANT);
+            }
+        }
         Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tableHandle);
         TupleDomain<ColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
                 .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
@@ -1911,7 +1924,9 @@ public class HiveMetadata
         domainPredicate.getDomains().get().keySet().stream()
                 .map(Subfield::getRootName)
                 .forEach(predicateColumnNames::add);
-        extractAll(decomposedFilter.getRemainingExpression()).stream()
+        // Include only columns referenced in the optimized expression. Although the expression is sent to the worker node
+        // unoptimized, the worker is expected to optimize the expression before executing.
+        extractAll(optimizedRemainingExpression).stream()
                 .map(VariableReferenceExpression::getName)
                 .forEach(predicateColumnNames::add);
 
